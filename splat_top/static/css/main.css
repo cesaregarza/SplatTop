@@ -10299,6 +10299,9 @@ html, body {
   padding: 20px;
   margin-bottom: 20px;
 }
+.content .box strong, .content .box h1, .content .box h2, .content .box h3, .content .box h4, .content .box h5, .content .box h6 {
+  color: #c183e1;
+}
 .content strong, .content h1, .content h2, .content h3, .content h4, .content h5, .content h6 {
   color: #ad5ad7;
 }

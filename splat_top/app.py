@@ -72,7 +72,7 @@ def player_detail(player_id):
         if alias[0] != f"{player.name}#{player.name_id}"
     ]
     peak_data = []
-    rank_data = []
+
     modes_data = {}
     for mode in MODES:
         m_data = (
@@ -83,16 +83,11 @@ def player_detail(player_id):
         modes_data[mode] = [(x[0].isoformat(), x[1]) for x in m_data]
 
         # Get latest rank
-        rank_data.append(
-            {
-                "rank": (
-                    session.query(Player.rank)
-                    .filter_by(id=player_id, mode=mode)
-                    .order_by(Player.timestamp.desc())
-                    .first()[0]
-                ),
-                "mode": mode,
-            }
+        current_rank = (
+            session.query(Player.rank)
+            .filter_by(id=player_id, mode=mode)
+            .order_by(Player.timestamp.desc())
+            .first()[0]
         )
 
         # Peak xpower
@@ -107,23 +102,33 @@ def player_detail(player_id):
         peak_rank = (
             session.query(Player.rank, Player.timestamp)
             .filter_by(id=player_id, mode=mode)
-            .order_by(Player.rank.desc())
+            .order_by(Player.rank.asc(), Player.timestamp.asc())
             .first()
         )
 
         # Time since they reached current xpower
-        last_played_time = (
-            session.query(Player.timestamp)
-            .filter_by(id=player_id, mode=mode, x_power=player.x_power)
+        current_xpower = (
+            session.query(Player.x_power)
+            .filter_by(id=player_id, mode=mode)
             .order_by(Player.timestamp.desc())
-            .first()
+            .first()[0]
         )
 
         peak_data.append(
             {
-                "peak_xpower": peak_xpower,
-                "peak_rank": peak_rank,
-                "last_played_time": last_played_time,
+                "peak_xpower": {
+                    "x_power": peak_xpower[0],
+                    "timestamp": peak_xpower[1].strftime("%Y-%m-%d"),
+                },
+                "peak_rank": {
+                    "rank": peak_rank[0],
+                    "timestamp": peak_rank[1].strftime("%Y-%m-%d"),
+                },
+                "mode": mode,
+                "current": {
+                    "x_power": current_xpower,
+                    "rank": current_rank,
+                },
             }
         )
 
@@ -134,8 +139,7 @@ def player_detail(player_id):
         player=player,
         modes_data=modes_data,
         aliases=aliases_data,
-        peak_data=peak_data,
-        ranks=rank_data,
+        peaks=peak_data,
     )
 
 

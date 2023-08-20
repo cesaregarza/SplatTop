@@ -5,7 +5,7 @@
     <meta charset="UTF-8">
     <meta http-equiv="X-UA-Compatible" content="IE=edge">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title> {{ player.name }} Details</title>
+    <title> splat.top: {{ player.name }}</title>
     <script src="https://code.highcharts.com/highcharts.js"></script>
     <script src="https://code.highcharts.com/stock/modules/stock.js"></script>
     <script src="{{ url_for('static', filename='js/highcharts_config.js') }}"></script>
@@ -17,18 +17,10 @@
             <!-- Player General Information -->
             <div class="column is-one-fifth-desktop">
                 <div class="box">
-                    <h3 class="title is-4">Player Information</h3>
+                    <h3 class="title is-4">splat.top Player Data</h3>
                     <p><strong>Name:</strong> {{ player.name }}#{{player.name_id}}</p>
                     <p><strong>Weapon:</strong> {{ player.weapon }}</p>
-                    
-                    <!-- Player Rank Section -->
-                    <h3 class="title is-5">Ranks</h3>
-                    <ul>
-                    {% for rank in ranks %}
-                        <li><strong>{{ rank.mode }}</strong>: {{ rank.rank }}</li>
-                    {% endfor %}
-                    </ul>
-            
+
                     <!-- Player Aliases Section -->
                     {% if aliases %}
                         <h3 class="title is-5">Aliases</h3>
@@ -38,6 +30,43 @@
                         {% endfor %}
                         </ul>
                     {% endif %}
+
+                    <!-- Peak Data -->
+                    <table class="table is-bordered is-striped">
+                        <thead>
+                            <tr>
+                                <th>Mode</th>
+                                <th>Measure</th>
+                                <th>Value</th>
+                                <th>Time Achieved</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for peak in peaks %}
+                                <tr>
+                                    <td rowspan="4">{{ peak.mode }}</td>
+                                    <td>Current Rank</td>
+                                    <td>{{ peak.current.rank }}</td>
+                                    <td> - </td>
+                                </tr>
+                                <tr>
+                                    <td>Current XPower</td>
+                                    <td>{{ peak.current.x_power }}</td>
+                                    <td> - </td>
+                                </tr>
+                                <tr>
+                                    <td>Peak Rank</td>
+                                    <td>{{ peak.peak_rank.rank }}</td>
+                                    <td>{{ peak.peak_rank.timestamp }}</td>
+                                </tr>
+                                <tr>
+                                    <td>Peak XPower</td>
+                                    <td>{{ peak.peak_xpower.x_power }}</td>
+                                    <td>{{ peak.peak_xpower.timestamp }}</td>
+                                </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
                 </div>
             </div>
         
