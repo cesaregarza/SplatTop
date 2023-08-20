@@ -1,0 +1,108 @@
+<!-- charts.html -->
+<div class="columns is-multiline">
+    <div class="column is-half">
+        <div id="mode1"></div>
+    </div>
+    <div class="column is-half">
+        <div id="mode2"></div>
+    </div>
+    <div class="column is-half">
+        <div id="mode3"></div>
+    </div>
+    <div class="column is-half">
+        <div id="mode4"></div>
+    </div>
+</div>
+
+
+
+
+<script>
+    var modes_data = {{ modes_data|tojson|safe }};
+    var modeNames = Object.keys(modes_data);
+
+    var oneHourInMilliseconds = 3600000; // 1 hour = 60 minutes * 60 seconds * 1000 milliseconds
+
+    mode_order = {
+        "Splat Zones": 0,
+        "Tower Control": 1,
+        "Rainmaker": 2,
+        "Clam Blitz": 3
+    }
+
+    modeNames.sort(function(a, b) {
+        return mode_order[a] - mode_order[b];
+    });
+
+    modeNames.forEach(function(mode, index) {
+        var mode_data = modes_data[mode].map(function(tuple) {
+            return [Date.parse(tuple[0]), tuple[1]]; // Parse the date-time string
+          });
+        
+        // Assuming mode_data is an array of [x, y] pairs, sort by timestamp
+        mode_data.sort(function(a, b) {
+            return a[0] - b[0];
+          });
+        
+        var breaks = [];
+        for (var i = 1; i < mode_data.length; i++) {
+            if (Math.abs(mode_data[i][0] - mode_data[i - 1][0]) > oneHourInMilliseconds) {
+                breaks.push({
+                from: mode_data[i - 1][0],
+                to: mode_data[i][0]
+                });
+            }
+        }
+
+        Highcharts.chart('mode' + (index + 1), {
+            rangeSelector: {
+                buttons: [{
+                    type: 'day',
+                    count: 1,
+                    text: '1D'
+                }, {
+                    type: 'week',
+                    count: 1,
+                    text: '1W'
+                }, {
+                    type: 'month',
+                    count: 1,
+                    text: '1M'
+                }, {
+                    type: 'month',
+                    count: 3,
+                    text: '3M'
+                }, {
+                    type: 'year',
+                    count: 1,
+                    text: '1Y'
+                }, {
+                    type: 'all',
+                    text: 'All'
+                }],
+                selected: 5
+            },
+            title: {
+            text: mode
+            },
+            xAxis: {
+            type: 'datetime',
+            breaks: breaks
+            },
+            yAxis: {
+            title: {
+                text: 'X Power'
+            }
+            },
+            series: [{
+            name: mode,
+            data: mode_data,
+            marker: {
+                enabled: true,
+                radius: 3
+            }
+            }]
+        });
+    });
+
+</script>
