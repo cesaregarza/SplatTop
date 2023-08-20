@@ -65,6 +65,34 @@ html, body {
     font-family: 'Splatfont2', sans-serif;
 }
 
-// body header.content:first-child {
-//     margin-bottom: 0.75rem;
-// }
+.content {
+  .box {
+    background-color: lighten($body-background-color, 10%);
+    border-radius: 5px;
+    padding: 20px;
+    margin-bottom: 20px;
+  }
+
+  strong, h1, h2, h3, h4, h5, h6 {
+      color: $accent-color;
+  }
+  
+  p, li {
+      color: $body-color;
+  }
+
+  .content-block > *:not(:last-child) {
+      margin-bottom: $content-block-margin-bottom;
+  }
+
+  table {
+      thead th {
+          color: $accent-color;
+          background-color: $navbar-background-color;
+      }
+
+      th {
+          color: $accent-lighter;
+      }
+  }
+}

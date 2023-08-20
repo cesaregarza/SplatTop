@@ -10293,10 +10293,27 @@ html, body {
   font-family: "Splatfont2", sans-serif;
 }
 
-.chart-grid {
-  display: grid;
-  grid-template-columns: repeat(2, 1fr);
-  grid-gap: 20px;
+.content .box {
+  background-color: #505050;
+  border-radius: 5px;
+  padding: 20px;
+  margin-bottom: 20px;
+}
+.content strong, .content h1, .content h2, .content h3, .content h4, .content h5, .content h6 {
+  color: #ad5ad7;
+}
+.content p, .content li {
+  color: #d6d6d6;
+}
+.content .content-block > *:not(:last-child) {
+  margin-bottom: 1em;
+}
+.content table thead th {
+  color: #ad5ad7;
+  background-color: #272727;
+}
+.content table th {
+  color: #d6aceb;
 }
 
 /*# sourceMappingURL=main.css.map */

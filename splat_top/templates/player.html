@@ -5,16 +5,65 @@
     <meta charset="UTF-8">
     <meta http-equiv="X-UA-Compatible" content="IE=edge">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Player Details</title>
+    <title> {{ player.name }} Details</title>
     <script src="https://code.highcharts.com/highcharts.js"></script>
     <script src="https://code.highcharts.com/stock/modules/stock.js"></script>
     <script src="{{ url_for('static', filename='js/highcharts_config.js') }}"></script>
     <link rel="stylesheet" href="{{ url_for('static', filename='css/main.css') }}">
 </head>
 <body>
-    <h1>Player Details</h1>
+    <div class="content">
+        <div class="columns is-desktop">
+            <!-- Player General Information -->
+            <div class="column is-one-fifth-desktop">
+                <div class="box">
+                    <h3 class="title is-4">Player Information</h3>
+                    <p><strong>Name:</strong> {{ player.name }}#{{player.name_id}}</p>
+                    <p><strong>Weapon:</strong> {{ player.weapon }}</p>
+                    
+                    <!-- Player Rank Section -->
+                    <h3 class="title is-5">Ranks</h3>
+                    <ul>
+                    {% for rank in ranks %}
+                        <li><strong>{{ rank.mode }}</strong>: {{ rank.rank }}</li>
+                    {% endfor %}
+                    </ul>
+            
+                    <!-- Player Aliases Section -->
+                    {% if aliases %}
+                        <h3 class="title is-5">Aliases</h3>
+                        <ul>
+                        {% for alias in aliases %}
+                            <li>{{ alias.alias }} (Last seen: {{ alias.last_seen }})</li>
+                        {% endfor %}
+                        </ul>
+                    {% endif %}
+                </div>
+            </div>
+        
+            <!-- Charts Section -->
+            <div class="column">
+            <!-- Your existing 2x2 or 4x1 grid for charts -->
+            <div class="columns is-multiline">
+                <div class="column is-half-desktop">
+                    <div id="mode1"></div>
+                </div>
+                <div class="column is-half-desktop">
+                    <div id="mode2"></div>
+                </div>
+                <div class="column is-half-desktop">
+                    <div id="mode3"></div>
+                </div>
+                <div class="column is-half-desktop">
+                    <div id="mode4"></div>
+                </div>
+            </div>
+            </div>
+        </div>
 
-    {% include 'charts.html' %}
+            {% include 'charts.html' %}
+        </div>
+    </div>
 
 </body>
 </html>
