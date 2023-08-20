@@ -6,7 +6,8 @@ $accent-light: lighten($accent-color, 10%);
 $accent-lighter: lighten($accent-color, 20%);
 $white-color: #d6d6d6;
 $whiter-color: lighten($white-color, 10%);
-$black-color: #363636;
+// $black-color: #363636;
+$black-color: #111111;
 
 $scrollbar-color: $accent-darker;
 $scrollbar-hover-color: $accent-dark;
@@ -22,7 +23,8 @@ $link-color: $white-color;
 $link-hover-color: lighten($link-color, 10%);
 $content-heading-color: $body-color;
 
-$navbar-background-color: #272727;
+// $navbar-background-color: #272727;
+$navbar-background-color: darken($body-background-color, 6%);
 $navbar-item-color: $white-color;
 $navbar-item-hover-background-color: lighten($navbar-background-color, 10%);
 $navbar-item-hover-color: $navbar-item-color;
@@ -44,9 +46,9 @@ $table-background-color: lighten($navbar-background-color, 3%);
 $table-border-color: $accent-color;
 $table-head-cell-color: $accent-color;
 $table-cell-heading-color: $accent-color;
-$table-striped-row-even-background-color: lighten($navbar-background-color, 7%);
-$table-striped-row-even-hover-background-color: lighten($navbar-background-color, 12%);
-$table-row-hover-background-color: lighten($navbar-background-color, 12%);
+$table-striped-row-even-background-color: lighten($navbar-background-color, 12%);
+$table-striped-row-even-hover-background-color: lighten($navbar-background-color, 20%);
+$table-row-hover-background-color: lighten($navbar-background-color, 18%);
 $table-row-active-background-color: $accent-darker;
 $table-row-active-color: $whiter-color;
 
@@ -74,17 +76,17 @@ html, body {
     margin-bottom: 20px;
 
     strong, h1, h2, h3, h4, h5, h6 {
-      color: $accent-light;
+      color: $accent-color;
     }
 
   }
-  
+
   a {
-    color: $accent-color;
+    color: $accent-dark;
   }
 
   strong, h1, h2, h3, h4, h5, h6 {
-      color: $accent-color;
+      color: $accent-dark;
   }
   
   p, li {
@@ -97,7 +99,7 @@ html, body {
 
   table {
       thead th {
-          color: $accent-color;
+          color: $accent-dark;
           background-color: $navbar-background-color;
       }
 
@@ -105,4 +107,21 @@ html, body {
           color: $accent-lighter;
       }
   }
+}
+
+.chart-container {
+  position: relative;
+}
+
+.no-data-overlay {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  display: none;
+  background: rgba($navbar-background-color, 0.8);
+  text-align: center;
+  line-height: 200px;
+  font-size: 20px;
 }

@@ -44,7 +44,12 @@ def leaderboard():
 
     session.close()
     return render_template(
-        "leaderboard.html", players=players, modes=MODES, regions=REGIONS, mode=mode, region=region
+        "leaderboard.html",
+        players=players,
+        modes=MODES,
+        regions=REGIONS,
+        mode=mode,
+        region=region,
     )
 
 
@@ -54,6 +59,7 @@ def player_detail(player_id):
     session = Session()
 
     player = session.query(Player).filter_by(id=player_id).first()
+    print(vars(player))
     aliases = (
         session.query(
             func.concat(Player.name, "#", Player.name_id).label("alias"),
@@ -87,8 +93,11 @@ def player_detail(player_id):
             session.query(Player.rank)
             .filter_by(id=player_id, mode=mode)
             .order_by(Player.timestamp.desc())
-            .first()[0]
+            .first()
         )
+        if current_rank is None:
+            continue
+        current_rank = current_rank[0]
 
         # Peak xpower
         peak_xpower = (

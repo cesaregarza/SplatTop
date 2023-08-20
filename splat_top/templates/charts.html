@@ -20,6 +20,10 @@
             return [Date.parse(tuple[0]), tuple[1]]; // Parse the date-time string
           });
         
+        if (mode_data.length == 0) {
+            document.querySelector(".no-data-overlay.chart" + (index + 1)).style.display = "block";
+        }
+        
         // Assuming mode_data is an array of [x, y] pairs, sort by timestamp
         mode_data.sort(function(a, b) {
             return a[0] - b[0];
