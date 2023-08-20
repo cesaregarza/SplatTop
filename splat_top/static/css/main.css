@@ -2370,10 +2370,10 @@ div.icon-text {
   width: 100%;
 }
 .table.is-hoverable tbody tr:not(.is-selected):hover {
-  background-color: hsl(0, 0%, 98%);
+  background-color: #464646;
 }
 .table.is-hoverable.is-striped tbody tr:not(.is-selected):hover {
-  background-color: hsl(0, 0%, 98%);
+  background-color: #464646;
 }
 .table.is-hoverable.is-striped tbody tr:not(.is-selected):hover:nth-child(even) {
   background-color: #464646;
@@ -10301,6 +10301,9 @@ html, body {
 }
 .content .box strong, .content .box h1, .content .box h2, .content .box h3, .content .box h4, .content .box h5, .content .box h6 {
   color: #c183e1;
+}
+.content a {
+  color: #ad5ad7;
 }
 .content strong, .content h1, .content h2, .content h3, .content h4, .content h5, .content h6 {
   color: #ad5ad7;

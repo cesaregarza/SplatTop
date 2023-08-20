@@ -1,52 +1,69 @@
 <!DOCTYPE html>
 <html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta http-equiv="X-UA-Compatible" content="IE=edge">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <link rel="stylesheet" href="{{ url_for('static', filename='css/main.css') }}">
-    <title>Leaderboard</title>
-</head>
-<body>
-    <h1>Leaderboard</h1>
-    <div>
-        <strong>Modes:</strong>
+  <head>
+    <meta charset="UTF-8" />
+    <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <link
+      rel="stylesheet"
+      href="{{ url_for('static', filename='css/main.css') }}"
+    />
+    <title>splat.top</title>
+  </head>
+  <body>
+    <div class="content">
+      <h1>Top 500 {{ region }} - {{ mode }}</h1>
+      <div class="field is-grouped is-grouped-multiline">
         {% for mode in modes %}
-            <a href="{{ url_for('leaderboard', mode=mode) }}" class="btn">{{ mode }}</a>
+        <div class="control">
+          <a
+            href="{{ url_for('leaderboard', mode=mode, region=region) }}"
+            class="button is-primary"
+            >{{ mode }}</a
+          >
+        </div>
         {% endfor %}
-    </div>
-    
-    <div>
-        <strong>Regions:</strong>
+      </div>
+
+      <div class="field is-grouped is-grouped-multiline">
         {% for region in regions %}
-            <a href="{{ url_for('leaderboard', region=region) }}" class="btn">{{ region }}</a>
+        <div class="control">
+          <a
+            href="{{ url_for('leaderboard', mode=mode, region=region) }}"
+            class="button is-primary"
+            >{{ region }}</a
+          >
+        </div>
         {% endfor %}
-    </div>
-    <table>
-        <thead>
+      </div>
+      <div class="container">
+        <table class="table is-bordered is-striped is-hoverable">
+          <thead>
             <tr>
-                <th>Mode</th>
-                <th>Region</th>
-                <th>Name</th>
-                <th>X Power</th>
-                <th>Rank</th>
-                <th>Weapon</th>
-                <th>Details</th>
+              <th>Name</th>
+              <th>X Power</th>
+              <th>Rank</th>
+              <th>Weapon</th>
+              <th>Details</th>
             </tr>
-        </thead>
-        <tbody>
+          </thead>
+          <tbody>
             {% for player in players %}
             <tr>
-                <td>{{ player.mode }}</td>
-                <td>{{ player.region }}</td>
-                <td>{{ player.name }}</td>
-                <td>{{ player.x_power }}</td>
-                <td>{{ player.rank }}</td>
-                <td>{{ player.weapon }}</td>
-                <td><a href="{{ url_for('player_detail', player_id=player.id) }}">View Details</a></td>
+              <td>{{ player.name }}#{{ player.name_id }}</td>
+              <td>{{ player.x_power }}</td>
+              <td>{{ player.rank }}</td>
+              <td>{{ player.weapon }}</td>
+              <td>
+                <a href="{{ url_for('player_detail', player_id=player.id) }}"
+                  >View Details</a
+                >
+              </td>
             </tr>
             {% endfor %}
-        </tbody>
-    </table>
-</body>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </body>
 </html>

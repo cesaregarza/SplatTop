@@ -44,7 +44,7 @@ def leaderboard():
 
     session.close()
     return render_template(
-        "leaderboard.html", players=players, modes=MODES, regions=REGIONS
+        "leaderboard.html", players=players, modes=MODES, regions=REGIONS, mode=mode, region=region
     )
 
 

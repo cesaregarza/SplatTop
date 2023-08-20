@@ -46,6 +46,7 @@ $table-head-cell-color: $accent-color;
 $table-cell-heading-color: $accent-color;
 $table-striped-row-even-background-color: lighten($navbar-background-color, 7%);
 $table-striped-row-even-hover-background-color: lighten($navbar-background-color, 12%);
+$table-row-hover-background-color: lighten($navbar-background-color, 12%);
 $table-row-active-background-color: $accent-darker;
 $table-row-active-color: $whiter-color;
 
@@ -75,6 +76,11 @@ html, body {
     strong, h1, h2, h3, h4, h5, h6 {
       color: $accent-light;
     }
+
+  }
+  
+  a {
+    color: $accent-color;
   }
 
   strong, h1, h2, h3, h4, h5, h6 {
