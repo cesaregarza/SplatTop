@@ -6,7 +6,6 @@ $accent-light: lighten($accent-color, 10%);
 $accent-lighter: lighten($accent-color, 20%);
 $white-color: #d6d6d6;
 $whiter-color: lighten($white-color, 10%);
-// $black-color: #363636;
 $black-color: #111111;
 
 $scrollbar-color: $accent-darker;
@@ -23,7 +22,6 @@ $link-color: $white-color;
 $link-hover-color: lighten($link-color, 10%);
 $content-heading-color: $body-color;
 
-// $navbar-background-color: #272727;
 $navbar-background-color: darken($body-background-color, 6%);
 $navbar-item-color: $white-color;
 $navbar-item-hover-background-color: lighten($navbar-background-color, 10%);
@@ -52,6 +50,11 @@ $table-row-hover-background-color: lighten($navbar-background-color, 18%);
 $table-row-active-background-color: $accent-darker;
 $table-row-active-color: $whiter-color;
 
+$tabs-toggle-link-hover-background-color: $accent-darker;
+$tabs-toggle-link-active-color: $white-color;
+$tabs-toggle-link-active-background-color: $accent-color;
+$tabs-toggle-link-active-border-color: $accent-darker;
+
 // Import the rest of Bulma
 @import "../bulma/bulma";
 
@@ -68,12 +71,19 @@ html, body {
     font-family: 'Splatfont2', sans-serif;
 }
 
+$player-max-height: 85vh;
 .content {
   .box {
     background-color: lighten($body-background-color, 10%);
     border-radius: 5px;
     padding: 20px;
     margin-bottom: 20px;
+
+    @include desktop {
+      max-height: $player-max-height;
+      overflow-y: auto;
+      overflow-x: hidden;
+    }
 
     strong, h1, h2, h3, h4, h5, h6 {
       color: $accent-color;
@@ -109,8 +119,28 @@ html, body {
   }
 }
 
+.player-table {
+  width: 100%;
+  overflow-x: auto;
+  overflow-y: hidden;
+}
+
 .chart-container {
   position: relative;
+  .highcharts-tooltip {
+    table, tr, td {
+      border: none;
+      border-collapse: collapse;
+      border-spacing: 0;
+    }
+  }
+}
+
+.chart-column {
+
+  @include desktop {
+    max-height: $player-max-height;
+  }
 }
 
 .no-data-overlay {
@@ -120,8 +150,10 @@ html, body {
   width: 100%;
   height: 100%;
   display: none;
+  align-items: center;
+  justify-content: center;
   background: rgba($navbar-background-color, 0.8);
   text-align: center;
-  line-height: 200px;
+  line-height: 1.2;
   font-size: 20px;
 }

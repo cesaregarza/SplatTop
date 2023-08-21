@@ -1,0 +1,91 @@
+{% extends 'base.html' %} {% block posthead %}
+<title>splat.top: FAQ</title>
+{% endblock %} {% block content %}
+<section class="section">
+  <div class="container">
+    <h1 class="title">Frequently Asked Questions</h1>
+
+    <div class="card">
+      <header class="card-header">
+        <p class="card-header-title">What is this?</p>
+      </header>
+      <div class="card-content">
+        <div class="content">
+          splat.top is a website that collects and displays Top 500 data from
+          the game Splatoon 3. It adds a time dimension to the rankings
+          available on SplatNet 3, and allows you to see how players have
+          progressed over time. Additionally, it provides a centralized location
+          to view all of a player's Top 500 data for each mode, as well as their
+          weapons, peak data, and aliases they've used in the past.
+        </div>
+      </div>
+    </div>
+    <div class="card">
+      <header class="card-header">
+        <p class="card-header-title">How often is it updated?</p>
+      </header>
+      <div class="card-content">
+        <div class="content">
+          My scraper runs every 15 minutes, and will update the database
+          automatically. It runs on the following schedule: XX:06, XX:21, XX:36,
+          XX:51.
+        </div>
+      </div>
+    </div>
+    <div class="card">
+      <header class="card-header">
+        <p class="card-header-title">How do you get the data?</p>
+      </header>
+      <div class="card-content">
+        <div class="content">
+          I use a scraper that I wrote to get the data from SplatNet 3. It's
+          written in Python and is available on pypi as splatnet3_scraper. It's
+          open source.
+        </div>
+      </div>
+    </div>
+    <div class="card">
+      <header class="card-header">
+        <p class="card-header-title">Why is it so ugly?</p>
+      </header>
+      <div class="card-content">
+        <div class="content">
+          I'm a data scientist, not a web developer. I'm not very good at
+          frontend stuff. If you want to help me make it look better, please
+          feel free to open a pull request on GitHub.
+        </div>
+      </div>
+    </div>
+    <div class="card">
+      <header class="card-header">
+        <p class="card-header-title">
+          What's the weird number in my profile URL?
+        </p>
+      </header>
+      <div class="card-content">
+        <div class="content">
+          That's your internal SplatNet 3 ID. It is persistent across name
+          changes, and is used to identify you in the database. It's also used
+          to generate your profile URL. If you change your name, your profile
+          URL will not change.
+        </div>
+      </div>
+    </div>
+    <div class="card">
+      <header class="card-header">
+        <p class="card-header-title">
+          I think there's an error in the data. What do I do?
+        </p>
+      </header>
+      <div class="card-content">
+        <div class="content">
+          You can either open an issue on GitHub, or you can DM me on Twitter.
+          My DMs are open @JoyTheDataNerd. You can also add me on Discord
+          at pyproject.toml (with the period). I'm also in Sendou.ink's Discord
+          server.
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+{% endblock %}

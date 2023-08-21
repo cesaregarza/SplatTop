@@ -1,11 +1,11 @@
 import sqlalchemy as db
 from flask import Flask, render_template, request
-from sqlalchemy import func
+from sqlalchemy import func, and_
 from sqlalchemy.orm import sessionmaker
 
 from splat_top.constants import MODES, REGIONS
 from splat_top.db import create_uri
-from splat_top.sql_types import Player
+from splat_top.sql_types import Player, Schedule
 
 app = Flask(__name__)
 engine = db.create_engine(create_uri())
@@ -58,8 +58,12 @@ def player_detail(player_id):
     Session = sessionmaker(bind=engine)
     session = Session()
 
-    player = session.query(Player).filter_by(id=player_id).first()
-    print(vars(player))
+    player = (
+        session.query(Player)
+        .filter_by(id=player_id)
+        .order_by(Player.timestamp.desc())
+        .first()
+    )
     aliases = (
         session.query(
             func.concat(Player.name, "#", Player.name_id).label("alias"),
@@ -81,23 +85,48 @@ def player_detail(player_id):
 
     modes_data = {}
     for mode in MODES:
+        print("MODE", mode)
         m_data = (
-            session.query(Player.timestamp, Player.x_power)
-            .filter_by(id=player_id, mode=mode)
+            session.query(
+                Player.timestamp,
+                Player.x_power,
+                Schedule.stage_1_name,
+                Schedule.stage_2_name,
+                Player.weapon,
+            )
+            .join(
+                Schedule,
+                Schedule.start_time == Player.rotation_start,
+                isouter=True,
+            )
+            .filter(Player.id == player_id, Player.mode == mode)
             .all()
         )
-        modes_data[mode] = [(x[0].isoformat(), x[1]) for x in m_data]
+        modes_data[mode] = [
+            {
+                "timestamp": x[0].isoformat(),
+                "x_power": x[1],
+                "stage_1": x[2]
+                if x[2] is not None
+                else "Missing Schedule Data",
+                "stage_2": x[3]
+                if x[3] is not None
+                else "Missing Schedule Data",
+                "weapon": x[4],
+            }
+            for x in m_data
+        ]
 
         # Get latest rank
         current_rank = (
-            session.query(Player.rank)
+            session.query(Player.rank, Player.weapon)
             .filter_by(id=player_id, mode=mode)
             .order_by(Player.timestamp.desc())
             .first()
         )
         if current_rank is None:
             continue
-        current_rank = current_rank[0]
+        current_rank, current_weapon = current_rank
 
         # Peak xpower
         peak_xpower = (
@@ -137,6 +166,7 @@ def player_detail(player_id):
                 "current": {
                     "x_power": current_xpower,
                     "rank": current_rank,
+                    "weapon": current_weapon,
                 },
             }
         )
@@ -150,6 +180,10 @@ def player_detail(player_id):
         aliases=aliases_data,
         peaks=peak_data,
     )
+
+@app.route("/faq")
+def faq():
+    return render_template("faq.html")
 
 
 if __name__ == "__main__":

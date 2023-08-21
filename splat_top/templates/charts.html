@@ -1,93 +1,122 @@
 <script>
-    var modes_data = {{ modes_data|tojson|safe }};
-    var modeNames = Object.keys(modes_data);
+  var modes_data = {{ modes_data|tojson|safe }};
+  var modeNames = Object.keys(modes_data);
 
-    var oneHourInMilliseconds = 3600000; // 1 hour = 60 minutes * 60 seconds * 1000 milliseconds
+  var oneHourInMilliseconds = 3600000;
 
-    mode_order = {
-        "Splat Zones": 0,
-        "Tower Control": 1,
-        "Rainmaker": 2,
-        "Clam Blitz": 3
-    }
+  mode_order = {
+      "Splat Zones": 0,
+      "Tower Control": 1,
+      "Rainmaker": 2,
+      "Clam Blitz": 3
+  }
 
-    modeNames.sort(function(a, b) {
-        return mode_order[a] - mode_order[b];
-    });
+  modeNames.sort(function(a, b) {
+      return mode_order[a] - mode_order[b];
+  });
 
-    modeNames.forEach(function(mode, index) {
-        var mode_data = modes_data[mode].map(function(tuple) {
-            return [Date.parse(tuple[0]), tuple[1]]; // Parse the date-time string
-          });
-        
-        if (mode_data.length == 0) {
-            document.querySelector(".no-data-overlay.chart" + (index + 1)).style.display = "block";
-        }
-        
-        // Assuming mode_data is an array of [x, y] pairs, sort by timestamp
-        mode_data.sort(function(a, b) {
-            return a[0] - b[0];
-          });
-        
-        var breaks = [];
-        for (var i = 1; i < mode_data.length; i++) {
-            if (Math.abs(mode_data[i][0] - mode_data[i - 1][0]) > oneHourInMilliseconds) {
-                breaks.push({
-                from: mode_data[i - 1][0],
-                to: mode_data[i][0]
-                });
+  modeNames.forEach(function(mode, index) {
+
+      var mode_data = modes_data[mode].map(function(item) {
+            return {
+                x: Date.parse(item.timestamp),
+                y: item.x_power,
+                stage_1: item.stage_1,
+                stage_2: item.stage_2,
+                weapon: item.weapon,
             }
-        }
+      });
 
-        Highcharts.chart('mode' + (index + 1), {
-            rangeSelector: {
-                buttons: [{
-                    type: 'day',
-                    count: 1,
-                    text: '1D'
-                }, {
-                    type: 'week',
-                    count: 1,
-                    text: '1W'
-                }, {
-                    type: 'month',
-                    count: 1,
-                    text: '1M'
-                }, {
-                    type: 'month',
-                    count: 3,
-                    text: '3M'
-                }, {
-                    type: 'year',
-                    count: 1,
-                    text: '1Y'
-                }, {
-                    type: 'all',
-                    text: 'All'
-                }],
-                selected: 5
-            },
-            title: {
-            text: mode
-            },
-            xAxis: {
-            type: 'datetime',
-            breaks: breaks
-            },
-            yAxis: {
-            title: {
-                text: 'X Power'
-            }
-            },
-            series: [{
-            name: mode,
-            data: mode_data,
-            marker: {
-                enabled: true,
-                radius: 3
-            }
-            }]
+      if (mode_data.length == 0) {
+          document.querySelector(".no-data-overlay.chart" + (index + 1)).style.display = "flex";
+      }
+
+      // Assuming mode_data is an array of [x, y] pairs, sort by timestamp
+      mode_data.sort(function(a, b) {
+          return a.x - b.x;
         });
-    });
 
+      var breaks = [];
+      for (var i = 1; i < mode_data.length; i++) {
+          if (Math.abs(mode_data[i].x - mode_data[i - 1].x) > oneHourInMilliseconds) {
+              breaks.push({
+              from: mode_data[i - 1].x,
+              to: mode_data[i].x
+              });
+          }
+      }
+
+      Highcharts.chart('mode' + (index + 1), {
+          chart: {
+            height: "54%"
+          },
+          rangeSelector: {
+              buttons: [{
+                  type: 'day',
+                  count: 1,
+                  text: '1D'
+              }, {
+                  type: 'week',
+                  count: 1,
+                  text: '1W'
+              }, {
+                  type: 'month',
+                  count: 1,
+                  text: '1M'
+              }, {
+                  type: 'month',
+                  count: 3,
+                  text: '3M'
+              }, {
+                  type: 'year',
+                  count: 1,
+                  text: '1Y'
+              }, {
+                  type: 'all',
+                  text: 'All'
+              }],
+              selected: 5
+          },
+          title: {
+          text: mode
+          },
+          xAxis: {
+          type: 'datetime',
+          breaks: breaks
+          },
+          yAxis: {
+          title: {
+              text: 'X Power'
+          }
+          },
+          series: [{
+          name: mode,
+          data: mode_data,
+          xKey: 'timestamp',
+          yKey: 'x_power',
+          marker: {
+              enabled: true,
+              radius: 3
+          }
+          }],
+           tooltip: {
+                useHTML: true,
+                formatter: function() {
+                    return '<table>' +
+                        '<tr><td><strong>Date:</strong></td><td>' + Highcharts.dateFormat('%A, %b %e, %Y %H:%M', this.x) + 'GMT</td></tr>' +
+                        '<tr><td><strong>X Power:</strong></td><td>' + this.y + '</td></tr>' +
+                        '<tr><td><strong>Stage 1:</strong></td><td>' + this.point.stage_1 + '</td></tr>' +
+                        '<tr><td><strong>Stage 2:</strong></td><td>' + this.point.stage_2 + '</td></tr>' +
+                        '<tr><td><strong>Fav Weapon:</strong></td><td>' + this.point.weapon + '</td></tr>' +
+                        '</table>';
+                },
+                valueDecimals: 1,
+                backgroundColor: '#111111',
+                borderColor: '#d6d6d6',
+                style: {
+                    color: '#d6d6d6'
+                }
+           }
+      });
+  });
 </script>

@@ -1,69 +1,60 @@
-<!DOCTYPE html>
-<html lang="en">
-  <head>
-    <meta charset="UTF-8" />
-    <meta http-equiv="X-UA-Compatible" content="IE=edge" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <link
-      rel="stylesheet"
-      href="{{ url_for('static', filename='css/main.css') }}"
-    />
-    <title>splat.top</title>
-  </head>
-  <body>
-    <div class="content">
-      <h1>Top 500 {{ region }} - {{ mode }}</h1>
-      <div class="field is-grouped is-grouped-multiline">
-        {% for mode in modes %}
-        <div class="control">
-          <a
-            href="{{ url_for('leaderboard', mode=mode, region=region) }}"
-            class="button is-primary"
-            >{{ mode }}</a
-          >
-        </div>
+{% extends 'base.html' %} {% block posthead %}
+<title>splat.top</title>
+{% endblock %} {% block content %}
+<div class="content">
+  <div class="container">
+    <h1>Top 500 {{ region }} - {{ mode }}</h1>
+    <div class="tabs is-toggle">
+      <ul>
+        {% for selected_mode in modes %}
+        <li class="{{ 'is-active' if selected_mode == mode else ''}}">
+          <a href="{{ url_for('leaderboard', mode=selected_mode, region=region) }}">
+            {{ selected_mode }}
+          </a>
+        </li>
         {% endfor %}
-      </div>
-
-      <div class="field is-grouped is-grouped-multiline">
-        {% for region in regions %}
-        <div class="control">
-          <a
-            href="{{ url_for('leaderboard', mode=mode, region=region) }}"
-            class="button is-primary"
-            >{{ region }}</a
-          >
-        </div>
-        {% endfor %}
-      </div>
-      <div class="container">
-        <table class="table is-bordered is-striped is-hoverable">
-          <thead>
-            <tr>
-              <th>Name</th>
-              <th>X Power</th>
-              <th>Rank</th>
-              <th>Weapon</th>
-              <th>Details</th>
-            </tr>
-          </thead>
-          <tbody>
-            {% for player in players %}
-            <tr>
-              <td>{{ player.name }}#{{ player.name_id }}</td>
-              <td>{{ player.x_power }}</td>
-              <td>{{ player.rank }}</td>
-              <td>{{ player.weapon }}</td>
-              <td>
-                <a href="{{ url_for('player_detail', player_id=player.id) }}"
-                  >View Details</a
-                >
-              </td>
-            </tr>
-            {% endfor %}
-          </tbody>
-        </table>
-      </div>
+      </ul>
     </div>
-  </body>
-</html>
+
+    <div class="tabs is-toggle">
+      <ul>
+        {% for selected_region in regions %}
+        <li class="{{ 'is-active' if region == selected_region else ''}}">
+          <a href="{{ url_for('leaderboard', mode=mode, region=selected_region) }}">
+            {{ selected_region }}
+          </a>
+        </li>
+        {% endfor %}
+      </ul>
+    </div>
+    <div class="container">
+      <table class="table is-bordered is-striped is-hoverable">
+        <thead>
+          <tr>
+            <th>Name</th>
+            <th>X Power</th>
+            <th>Rank</th>
+            <th>Weapon</th>
+            <th>Details</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for player in players %}
+          <tr>
+            <td>{{ player.name }}#{{ player.name_id }}</td>
+            <td>{{ player.x_power }}</td>
+            <td>{{ player.rank }}</td>
+            <td>{{ player.weapon }}</td>
+            <td>
+              <a href="{{ url_for('player_detail', player_id=player.id) }}"
+                >View Details</a
+              >
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+{% endblock %}
