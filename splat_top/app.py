@@ -88,7 +88,6 @@ def player_detail(player_id):
 
     modes_data = {}
     for mode in MODES:
-        print("MODE", mode)
         m_data = (
             session.query(
                 Player.timestamp,
