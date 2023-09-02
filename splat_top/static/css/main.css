@@ -10342,6 +10342,11 @@ html, body {
   border: none;
   border-collapse: collapse;
   border-spacing: 0;
+  font-size: 12px;
+  line-height: 0.3em;
+}
+.chart-container .highcharts-label text {
+  color: #ad5ad7;
 }
 
 @media screen and (min-width: 1024px) {

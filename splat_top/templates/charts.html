@@ -1,5 +1,6 @@
 <script>
   var modes_data = {{ modes_data|tojson|safe }};
+  var seasons = {{ seasons|tojson|safe }};
   var modeNames = Object.keys(modes_data);
 
   var oneHourInMilliseconds = 3600000;
@@ -15,6 +16,42 @@
       return mode_order[a] - mode_order[b];
   });
 
+  // Initialize plotBandsArray and plotLinesArray
+  var plotBandsArray = [];
+  var plotLinesArray = [];
+
+  // Create plotBands and plotLines using the seasons data
+  seasons.forEach(function(season) {
+    var seasonDate = Date.parse(season[0]);
+    var seasonName = season[1];
+
+    // Create a plot band object
+    var plotBand = {
+      color: '#222222',  // Set the color to be compatible with your dark theme
+      from: seasonDate,
+      to: seasonDate + 90 * 24 * 3600000  // 90 days in milliseconds
+    };
+
+        // Create a plot line object
+    var plotLine = {
+      color: '#FFFFFF',
+      width: 2,
+      value: seasonDate,
+      zIndex: 5,
+      label: {
+        text: 'Season Start: ' + seasonName,
+        align: 'left',
+        style: {
+          color: '#FFFFFF'
+        }
+      }
+    };
+
+    // Add these to their respective arrays
+    plotBandsArray.push(plotBand);
+    plotLinesArray.push(plotLine);
+  });
+
   modeNames.forEach(function(mode, index) {
 
       var mode_data = modes_data[mode].map(function(item) {
@@ -24,6 +61,7 @@
                 stage_1: item.stage_1,
                 stage_2: item.stage_2,
                 weapon: item.weapon,
+                rank: item.rank,
             }
       });
 
@@ -46,11 +84,13 @@
           }
       }
 
-      Highcharts.chart('mode' + (index + 1), {
+      Highcharts.stockChart('mode' + (index + 1), {
           chart: {
-            height: "54%"
+            height: "54%",
           },
           rangeSelector: {
+              enabled: true,
+              inputEnabled: false,
               buttons: [{
                   type: 'day',
                   count: 1,
@@ -82,7 +122,9 @@
           },
           xAxis: {
           type: 'datetime',
-          breaks: breaks
+          breaks: breaks,
+          plotBands: plotBandsArray,
+          plotLines: plotLinesArray,
           },
           yAxis: {
           title: {
@@ -92,8 +134,8 @@
           series: [{
           name: mode,
           data: mode_data,
-          xKey: 'timestamp',
-          yKey: 'x_power',
+          xKey: 'x',
+          yKey: 'y',
           marker: {
               enabled: true,
               radius: 3
@@ -105,6 +147,7 @@
                     return '<table>' +
                         '<tr><td><strong>Date:</strong></td><td>' + Highcharts.dateFormat('%A, %b %e, %Y %H:%M', this.x) + 'GMT</td></tr>' +
                         '<tr><td><strong>X Power:</strong></td><td>' + this.y + '</td></tr>' +
+                        '<tr><td><strong>Rank:</strong></td><td>' + this.point.rank + '</td></tr>' +
                         '<tr><td><strong>Stage 1:</strong></td><td>' + this.point.stage_1 + '</td></tr>' +
                         '<tr><td><strong>Stage 2:</strong></td><td>' + this.point.stage_2 + '</td></tr>' +
                         '<tr><td><strong>Fav Weapon:</strong></td><td>' + this.point.weapon + '</td></tr>' +
@@ -116,7 +159,41 @@
                 style: {
                     color: '#d6d6d6'
                 }
-           }
+           },
+          responsive: {
+            rules: [{
+              condition: {
+                maxWidth: 500
+              },
+              chartOptions: {
+                chart: {
+                  height: "100%"
+                },
+                rangeSelector: {
+                  inputEnabled: false,
+                },
+                navigator: {
+                  enabled: false
+                }
+              }
+            },
+            {
+              condition: {
+                minWidth: 1000
+              },
+              chartOptions: {
+                chart: {
+                  height: "54%"
+                },
+                rangeSelector: {
+                  inputEnabled: true,
+                },
+                navigator: {
+                  enabled: true
+                }
+              }
+            }],
+        }
       });
   });
 </script>

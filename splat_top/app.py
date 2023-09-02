@@ -1,11 +1,14 @@
+import datetime as dt
+
 import sqlalchemy as db
 from flask import Flask, render_template, request
-from sqlalchemy import func, and_
+from sqlalchemy import and_, func
 from sqlalchemy.orm import sessionmaker
 
 from splat_top.constants import MODES, REGIONS
 from splat_top.db import create_uri
 from splat_top.sql_types import Player, Schedule
+from splat_top.utils import get_seasons
 
 app = Flask(__name__)
 engine = db.create_engine(create_uri())
@@ -93,6 +96,7 @@ def player_detail(player_id):
                 Schedule.stage_1_name,
                 Schedule.stage_2_name,
                 Player.weapon,
+                Player.rank,
             )
             .join(
                 Schedule,
@@ -113,6 +117,7 @@ def player_detail(player_id):
                 if x[3] is not None
                 else "Missing Schedule Data",
                 "weapon": x[4],
+                "rank": x[5],
             }
             for x in m_data
         ]
@@ -171,6 +176,14 @@ def player_detail(player_id):
             }
         )
 
+        latest_timestamp = max(
+            max(x["timestamp"] for x in mode_data)
+            for mode_data in modes_data.values()
+        )
+        now_date = dt.datetime.fromisoformat(latest_timestamp)
+
+        seasons = get_seasons(now_date)
+
     session.close()
 
     return render_template(
@@ -179,7 +192,9 @@ def player_detail(player_id):
         modes_data=modes_data,
         aliases=aliases_data,
         peaks=peak_data,
+        seasons=seasons,
     )
+
 
 @app.route("/faq")
 def faq():

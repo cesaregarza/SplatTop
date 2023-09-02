@@ -65,5 +65,41 @@ Highcharts.setOptions({
             },
             color: '#ad5ad7',
         }
+    },
+    rangeSelector: {
+        buttonTheme: {
+            fill: '#5b1e7b',
+            stroke: '#000',
+            style: {
+                color: '#fff'
+            },
+            states: {
+                hover: {
+                    fill: '#c68be3',
+                },
+                select: {
+                    fill: '#a141d1',
+                    style: {
+                        color: 'white'
+                    }
+                },
+                disabled: {
+                    fill: '#555',
+                    style: {
+                        color: '#aaa'
+                    }
+                },
+            }
+        },
+        inputBoxBorderColor: 'gray',
+        inputBoxWidth: 100,
+        inputStyle: {
+            color: '#ad5ad7',
+            fontWeight: 'bold'
+        },
+        labelStyle: {
+            color: '#ad5ad7',
+            fontWeight: 'bold'
+        }
     }
 });
