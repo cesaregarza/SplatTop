@@ -26,8 +26,10 @@
     var seasonName = season[1];
 
     // Create a plot band object
+    // #222222 if "Drizzle" or "Fresh" season, #000000 otherwise
+    color = seasonName.includes("Drizzle") || seasonName.includes("Fresh") ? '#222222' : '#000000';
     var plotBand = {
-      color: '#222222',  // Set the color to be compatible with your dark theme
+      color: color,
       from: seasonDate,
       to: seasonDate + 90 * 24 * 3600000  // 90 days in milliseconds
     };
@@ -39,7 +41,7 @@
       value: seasonDate,
       zIndex: 5,
       label: {
-        text: 'Season Start: ' + seasonName,
+        text: seasonName,
         align: 'left',
         style: {
           color: '#FFFFFF'
