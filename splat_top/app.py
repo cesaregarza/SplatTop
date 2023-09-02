@@ -174,12 +174,14 @@ def player_detail(player_id):
                 },
             }
         )
-
-        latest_timestamp = max(
-            max(x["timestamp"] for x in mode_data)
-            for mode_data in modes_data.values()
-        )
-        now_date = dt.datetime.fromisoformat(latest_timestamp)
+        try:
+            latest_timestamp = max(
+                max(x["timestamp"] for x in mode_data)
+                for mode_data in modes_data.values()
+            )
+            now_date = dt.datetime.fromisoformat(latest_timestamp)
+        except ValueError:
+            now_date = dt.datetime.now()
 
         seasons = get_seasons(now_date)
 
