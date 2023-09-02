@@ -80,8 +80,8 @@
       for (var i = 1; i < mode_data.length; i++) {
           if (Math.abs(mode_data[i].x - mode_data[i - 1].x) > oneHourInMilliseconds) {
               breaks.push({
-              from: mode_data[i - 1].x,
-              to: mode_data[i].x + 1,
+              from: mode_data[i - 1].x + 1000,
+              to: mode_data[i].x - 1000,
               });
           }
       }
