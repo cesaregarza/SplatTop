@@ -81,7 +81,7 @@
           if (Math.abs(mode_data[i].x - mode_data[i - 1].x) > oneHourInMilliseconds) {
               breaks.push({
               from: mode_data[i - 1].x,
-              to: mode_data[i].x
+              to: mode_data[i].x + 1,
               });
           }
       }
@@ -89,26 +89,27 @@
       Highcharts.stockChart('mode' + (index + 1), {
           chart: {
             height: "54%",
+            pinchType: 'x',
           },
           rangeSelector: {
               enabled: true,
               inputEnabled: false,
               buttons: [{
                   type: 'day',
-                  count: 1,
-                  text: '1D'
+                  count: 3,
+                  text: '3D'
               }, {
                   type: 'week',
-                  count: 1,
-                  text: '1W'
+                  count: 2,
+                  text: '2W'
               }, {
                   type: 'month',
-                  count: 1,
-                  text: '1M'
+                  count: 2,
+                  text: '2M'
               }, {
                   type: 'month',
-                  count: 3,
-                  text: '3M'
+                  count: 6,
+                  text: '6M'
               }, {
                   type: 'year',
                   count: 1,
@@ -117,7 +118,14 @@
                   type: 'all',
                   text: 'All'
               }],
-              selected: 2
+              selected: 2,
+          },
+          navigator: {
+              enabled: true,
+              handles: {
+                  height: 20,
+                  width: 20,
+              }
           },
           title: {
           text: mode
@@ -169,7 +177,12 @@
               },
               chartOptions: {
                 chart: {
-                  height: "100%"
+                  height: "100%",
+                  series: {
+                    marker: {
+                        radius: 1,
+                    },
+                  },
                 },
                 rangeSelector: {
                   inputEnabled: false,
