@@ -89,9 +89,11 @@
       Highcharts.stockChart('mode' + (index + 1), {
           chart: {
             height: "54%",
-            pinchType: 'x',
-            zoomType: 'x',
-            panning: true,
+            zoomType: null,
+            panning: {
+              enabled: true,
+              type: 'x',
+            }
           },
           rangeSelector: {
               enabled: true,
@@ -189,9 +191,25 @@
                 rangeSelector: {
                   inputEnabled: false,
                 },
-                navigator: {
-                  enabled: false
-                }
+              }
+            },
+            {
+              condition: {
+                minWidth: 500,
+                maxWidth: 1000
+              },
+              chartOptions: {
+                chart: {
+                  height: "54%"
+                },
+                rangeSelector: {
+                  inputEnabled: true,
+                },
+                series: {
+                    marker: {
+                        radius: 3,
+                    },
+                },
               }
             },
             {
@@ -205,9 +223,6 @@
                 rangeSelector: {
                   inputEnabled: true,
                 },
-                navigator: {
-                  enabled: true
-                }
               }
             }],
         }
