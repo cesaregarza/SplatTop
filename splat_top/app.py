@@ -4,7 +4,7 @@ import sqlalchemy as db
 from flask import Flask, jsonify, render_template, request
 from flask_caching import Cache
 from sqlalchemy import and_, desc, func, or_
-from sqlalchemy.orm import sessionmaker
+from sqlalchemy.orm import sessionmaker, scoped_session
 
 from splat_top.constants import MODES, REGIONS
 from splat_top.db import create_uri
@@ -13,7 +13,9 @@ from splat_top.utils import get_seasons
 
 app = Flask(__name__)
 engine = db.create_engine(create_uri())
+Session = scoped_session(sessionmaker(bind=engine))
 cache = Cache(app, config={"CACHE_TYPE": "simple"})
+
 
 def cache_key():
     return f"{request.path}?{request.args}"
@@ -22,7 +24,6 @@ def cache_key():
 @app.route("/")
 @cache.cached(timeout=60, key_prefix=cache_key)
 def leaderboard():
-    Session = sessionmaker(bind=engine)
     session = Session()
 
     mode = request.args.get("mode", "Splat Zones")
@@ -51,7 +52,7 @@ def leaderboard():
         .all()
     )
 
-    session.close()
+    Session.remove()
     return render_template(
         "leaderboard.html",
         players=players,
@@ -64,7 +65,6 @@ def leaderboard():
 
 @app.route("/player/<string:player_id>")
 def player_detail(player_id):
-    Session = sessionmaker(bind=engine)
     session = Session()
 
     player = (
@@ -191,7 +191,7 @@ def player_detail(player_id):
 
         seasons = get_seasons(now_date)
 
-    session.close()
+    Session.remove()
 
     return render_template(
         "player.html",
@@ -215,7 +215,6 @@ def search_page():
 
 @app.route("/search_players", methods=["GET"])
 def search_players():
-    Session = sessionmaker(bind=engine)
     session = Session()
     query = request.args.get("q", "")
     page = int(request.args.get("page", 1))
@@ -228,11 +227,7 @@ def search_players():
     raw_results = (
         session.query(Player)
         .filter(
-            or_(
-                Player.name.ilike(f"%{query}%"),
-                Player.name_id.ilike(f"%{query}%"),
-                Player.weapon.ilike(f"%{query}%"),
-            )
+            Player.search_text.ilike(f"%{query}%"),
         )
         .order_by(desc(Player.timestamp))
         .offset(offset)
@@ -256,7 +251,7 @@ def search_players():
                 "matched_alias": matched_alias,
             }
 
-    session.close()
+    Session.remove()
 
     return jsonify(
         [

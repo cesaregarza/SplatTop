@@ -14,7 +14,7 @@ Base = declarative_base()
 
 
 class Schedule(Base):
-    __tablename__ = "schedule"
+    __tablename__ = "x_schedule"
 
     id = Column(Integer, primary_key=True)
     start_time = Column(DateTime(timezone=True), index=True)
@@ -30,7 +30,7 @@ class Schedule(Base):
         UniqueConstraint(
             "start_time",
             "end_time",
-            name="start_time_end_time_unique",
+            name="start_time_end_time_unique_x",
         ),
     )
 
@@ -54,6 +54,7 @@ class Player(Base):
     mode = Column(String, index=True)
     region = Column(String, index=True)
     rotation_start = Column(DateTime(timezone=True), index=True)
+    search_text = Column(String)
 
     __table_args__ = (
         UniqueConstraint(
@@ -61,6 +62,12 @@ class Player(Base):
             "id",
             "mode",
             name="timestamp_id_mode_unique",
+        ),
+        Index(
+            "idx_search_text_trgm",
+            search_text,
+            postgresql_using="gin",
+            postgresql_ops={"search_text": "gin_trgm_ops"},
         ),
     )
 

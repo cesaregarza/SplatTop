@@ -22,6 +22,12 @@
                 .then(response => response.json())
                 .then(data => {
                     let table = $('#resultTable').DataTable();
+
+                    if (data.length === 0) {
+                        document.getElementById('noResultsMessage').style.display = 'block';
+                    } else {
+                        document.getElementById('noResultsMessage').style.display = 'none';
+                    }
     
                     data.forEach(player => {
                         let a = document.createElement('a');
@@ -72,6 +78,7 @@
 {% block content %}
 <div style="text-align: center;">
     <input type="text" id="searchInput" placeholder="Search for players..." />
+    <div id="noResultsMessage" style="display: none;">No results found.</div>
     <table id="resultTable" class="display">
       <thead>
         <tr>
