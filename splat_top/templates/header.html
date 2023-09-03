@@ -1,9 +1,36 @@
 <header class="content">
     <nav class="navbar is-fixed-top" role="navigation" aria-label="main navigation">
-        <div class="navbar-start">
+        <div class="navbar-brand">
             <a href="/" class="navbar-item">splat.top Top 500</a>
-            <a href="/faq" class="navbar-item">FAQ</a>
-            <a href="/search" class="navbar-item">Search</a>
+            <a role="button" class="navbar-burger" aria-label="menu" aria-expanded="false" data-target="navbarMenu">
+                <span aria-hidden="true"></span>
+                <span aria-hidden="true"></span>
+                <span aria-hidden="true"></span>
+            </a>
+        </div>
+        <div id="navbarMenu" class="navbar-menu">
+            <div class="navbar-start">
+                <a href="/faq" class="navbar-item">FAQ</a>
+                <a href="/search" class="navbar-item">Search</a>
+            </div>
         </div>
     </nav>
 </header>
+
+<script>
+    document.addEventListener('DOMContentLoaded', () => {
+        const $navbarBurgers = Array.prototype.slice.call(document.querySelectorAll('.navbar-burger'), 0);
+      
+        if ($navbarBurgers.length > 0) {
+            $navbarBurgers.forEach(el => {
+                el.addEventListener('click', () => {
+                    const target = el.dataset.target;
+                    const $target = document.getElementById(target);
+      
+                    el.classList.toggle('is-active');
+                    $target.classList.toggle('is-active');
+                });
+            });
+        }
+    });
+</script>

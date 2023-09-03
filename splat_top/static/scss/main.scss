@@ -95,6 +95,13 @@ $player-max-height: 85vh;
     color: $accent-dark;
   }
 
+  .tabs {
+    ul {
+      margin-left: 2em;
+      margin-right: 2em;
+    }
+  }
+
   strong, h1, h2, h3, h4, h5, h6 {
       color: $accent-dark;
   }
@@ -122,7 +129,7 @@ $player-max-height: 85vh;
 .player-table {
   width: 100%;
   overflow-x: auto;
-  overflow-y: hidden;
+  overflow-y: auto;
 }
 
 .chart-container {
@@ -163,4 +170,49 @@ $player-max-height: 85vh;
   text-align: center;
   line-height: 1.2;
   font-size: 20px;
+}
+
+.leaderboard {
+  width: 100vw;
+  overflow-x: auto;
+  overflow-y: auto;
+}
+
+.leaderboard-cell {
+  max-width: 20%;
+  overflow-x: auto;
+  overflow-y: hidden;
+  white-space: nowrap;
+}
+
+.scrollable-table {
+  max-width: 80vw;
+  overflow-x: auto;
+  overflow-y: hidden;
+  white-space: nowrap;
+}
+
+@media screen and (max-width: 768px)  {
+  .tabs.is-toggle ul {
+    flex-direction: column;
+    li {
+      width: 100%;
+      &:not(:last-child) a {
+        border-bottom-color: transparent;
+      }
+      &:first-child a {
+        border-radius: 4px 4px 0 0;
+      }
+      &:last-child a {
+        border-radius: 0 0 4px 4px;
+      }
+    }
+  }
+}
+
+.player-columns {
+  .columns {
+    margin-left: 0;
+    margin-right: 0;
+  }
 }

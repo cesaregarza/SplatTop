@@ -1,10 +1,10 @@
 {% extends 'base.html' %} {% block posthead %}
 <title>splat.top</title>
 {% endblock %} {% block content %}
-<div class="content">
+<div class="content leaderboard">
   <div class="container">
     <h1>Top 500 {{ region }} - {{ mode }}</h1>
-    <div class="tabs is-toggle">
+    <div class="tabs is-toggle is-fullwidth">
       <ul>
         {% for selected_mode in modes %}
         <li class="{{ 'is-active' if selected_mode == mode else ''}}">
@@ -27,25 +27,25 @@
         {% endfor %}
       </ul>
     </div>
-    <div class="container">
+    <div class="container scrollable-table">
       <table class="table is-bordered is-striped is-hoverable">
         <thead>
           <tr>
-            <th>Name</th>
-            <th>X Power</th>
-            <th>Rank</th>
-            <th>Weapon</th>
-            <th>Details</th>
+            <th class="leaderboard-cell">Name</th>
+            <th class="leaderboard-cell">X Power</th>
+            <th class="leaderboard-cell">Rank</th>
+            <th class="leaderboard-cell">Weapon</th>
+            <th class="leaderboard-cell">Details</th>
           </tr>
         </thead>
         <tbody>
           {% for player in players %}
           <tr>
-            <td>{{ player.name }}#{{ player.name_id }}</td>
-            <td>{{ player.x_power }}</td>
-            <td>{{ player.rank }}</td>
-            <td>{{ player.weapon }}</td>
-            <td>
+            <td class="leaderboard-cell">{{ player.name }}#{{ player.name_id }}</td>
+            <td class="leaderboard-cell">{{ player.x_power }}</td>
+            <td class="leaderboard-cell">{{ player.rank }}</td>
+            <td class="leaderboard-cell">{{ player.weapon }}</td>
+            <td class="leaderboard-cell">
               <a href="{{ url_for('player_detail', player_id=player.id) }}"
                 >View Details</a
               >

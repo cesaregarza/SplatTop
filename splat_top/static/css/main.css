@@ -10312,6 +10312,10 @@ html, body {
 .content a {
   color: #9832cc;
 }
+.content .tabs ul {
+  margin-left: 2em;
+  margin-right: 2em;
+}
 .content strong, .content h1, .content h2, .content h3, .content h4, .content h5, .content h6 {
   color: #9832cc;
 }
@@ -10332,7 +10336,7 @@ html, body {
 .player-table {
   width: 100%;
   overflow-x: auto;
-  overflow-y: hidden;
+  overflow-y: auto;
 }
 
 .chart-container {
@@ -10368,6 +10372,48 @@ html, body {
   text-align: center;
   line-height: 1.2;
   font-size: 20px;
+}
+
+.leaderboard {
+  width: 100vw;
+  overflow-x: auto;
+  overflow-y: auto;
+}
+
+.leaderboard-cell {
+  max-width: 20%;
+  overflow-x: auto;
+  overflow-y: hidden;
+  white-space: nowrap;
+}
+
+.scrollable-table {
+  max-width: 80vw;
+  overflow-x: auto;
+  overflow-y: hidden;
+  white-space: nowrap;
+}
+
+@media screen and (max-width: 768px) {
+  .tabs.is-toggle ul {
+    flex-direction: column;
+  }
+  .tabs.is-toggle ul li {
+    width: 100%;
+  }
+  .tabs.is-toggle ul li:not(:last-child) a {
+    border-bottom-color: transparent;
+  }
+  .tabs.is-toggle ul li:first-child a {
+    border-radius: 4px 4px 0 0;
+  }
+  .tabs.is-toggle ul li:last-child a {
+    border-radius: 0 0 4px 4px;
+  }
+}
+.player-columns .columns {
+  margin-left: 0;
+  margin-right: 0;
 }
 
 /*# sourceMappingURL=main.css.map */
