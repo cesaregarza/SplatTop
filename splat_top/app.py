@@ -15,9 +15,12 @@ app = Flask(__name__)
 engine = db.create_engine(create_uri())
 cache = Cache(app, config={"CACHE_TYPE": "simple"})
 
+def cache_key():
+    return f"{request.path}?{request.args}"
+
 
 @app.route("/")
-@cache.cached(timeout=60)
+@cache.cached(timeout=60, key_prefix=cache_key)
 def leaderboard():
     Session = sessionmaker(bind=engine)
     session = Session()
