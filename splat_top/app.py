@@ -240,6 +240,8 @@ def search_players():
                 "player": player,
                 "matched_alias": matched_alias
             }
+    
+    session.close()
 
     return jsonify([
         {
