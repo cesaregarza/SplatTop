@@ -90,6 +90,9 @@ def player_detail(player_id):
         for alias in aliases
         if alias[0] != f"{player.name}#{player.name_id}"
     ]
+    # If no player found, return 404
+    if player is None:
+        return render_template("player_404.html"), 404
     peak_data = []
 
     modes_data = {}
