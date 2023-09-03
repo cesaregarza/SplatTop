@@ -1,8 +1,9 @@
 import datetime as dt
 
 import sqlalchemy as db
-from flask import Flask, render_template, request, jsonify
-from sqlalchemy import and_, func, or_, desc
+from flask import Flask, jsonify, render_template, request
+from flask_caching import Cache
+from sqlalchemy import and_, desc, func, or_
 from sqlalchemy.orm import sessionmaker
 
 from splat_top.constants import MODES, REGIONS
@@ -12,9 +13,11 @@ from splat_top.utils import get_seasons
 
 app = Flask(__name__)
 engine = db.create_engine(create_uri())
+cache = Cache(app, config={"CACHE_TYPE": "simple"})
 
 
 @app.route("/")
+@cache.cached(timeout=60)
 def leaderboard():
     Session = sessionmaker(bind=engine)
     session = Session()
@@ -201,29 +204,38 @@ def player_detail(player_id):
 def faq():
     return render_template("faq.html")
 
-@app.route('/search')
-def search_page():
-    return render_template('search.html')
 
-@app.route('/search_players', methods=['GET'])
+@app.route("/search")
+def search_page():
+    return render_template("search.html")
+
+
+@app.route("/search_players", methods=["GET"])
 def search_players():
     Session = sessionmaker(bind=engine)
     session = Session()
-    query = request.args.get('q', '')
-    page = int(request.args.get('page', 1))
-    per_page = int(request.args.get('per_page', 50))
+    query = request.args.get("q", "")
+    page = int(request.args.get("page", 1))
+    per_page = int(request.args.get("per_page", 50))
     if not query or len(query) < 3:
         return jsonify([])
-    
+
     offset = (page - 1) * per_page
 
-    raw_results = session.query(Player).filter(
-        or_(
-            Player.name.ilike(f"%{query}%"),
-            Player.name_id.ilike(f"%{query}%"),
-            Player.weapon.ilike(f"%{query}%")
+    raw_results = (
+        session.query(Player)
+        .filter(
+            or_(
+                Player.name.ilike(f"%{query}%"),
+                Player.name_id.ilike(f"%{query}%"),
+                Player.weapon.ilike(f"%{query}%"),
+            )
         )
-    ).order_by(desc(Player.timestamp)).offset(offset).limit(per_page).all()
+        .order_by(desc(Player.timestamp))
+        .offset(offset)
+        .limit(per_page)
+        .all()
+    )
 
     grouped_results = {}
     for player in raw_results:
@@ -235,28 +247,29 @@ def search_players():
                 matched_alias = player.name_id
             elif query.lower() in player.weapon.lower():
                 matched_alias = player.weapon
-            
+
             grouped_results[player.id] = {
                 "player": player,
-                "matched_alias": matched_alias
+                "matched_alias": matched_alias,
             }
-    
+
     session.close()
 
-    return jsonify([
-        {
-            "id": details["player"].id,
-            "name": details["player"].name,
-            "name_id": details["player"].name_id,
-            "weapon": details["player"].weapon,
-            "x_power": details["player"].x_power,
-            "mode": details["player"].mode,
-            "rank": details["player"].rank,
-            "matched_alias": details["matched_alias"]
-        }
-        for details in grouped_results.values()
-    ])
-
+    return jsonify(
+        [
+            {
+                "id": details["player"].id,
+                "name": details["player"].name,
+                "name_id": details["player"].name_id,
+                "weapon": details["player"].weapon,
+                "x_power": details["player"].x_power,
+                "mode": details["player"].mode,
+                "rank": details["player"].rank,
+                "matched_alias": details["matched_alias"],
+            }
+            for details in grouped_results.values()
+        ]
+    )
 
 
 if __name__ == "__main__":
