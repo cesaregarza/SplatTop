@@ -1,8 +1,8 @@
 import datetime as dt
 
 import sqlalchemy as db
-from flask import Flask, render_template, request
-from sqlalchemy import and_, func
+from flask import Flask, render_template, request, jsonify
+from sqlalchemy import and_, func, or_, desc
 from sqlalchemy.orm import sessionmaker
 
 from splat_top.constants import MODES, REGIONS
@@ -200,6 +200,61 @@ def player_detail(player_id):
 @app.route("/faq")
 def faq():
     return render_template("faq.html")
+
+@app.route('/search')
+def search_page():
+    return render_template('search.html')
+
+@app.route('/search_players', methods=['GET'])
+def search_players():
+    Session = sessionmaker(bind=engine)
+    session = Session()
+    query = request.args.get('q', '')
+    page = int(request.args.get('page', 1))
+    per_page = int(request.args.get('per_page', 50))
+    if not query or len(query) < 3:
+        return jsonify([])
+    
+    offset = (page - 1) * per_page
+
+    raw_results = session.query(Player).filter(
+        or_(
+            Player.name.ilike(f"%{query}%"),
+            Player.name_id.ilike(f"%{query}%"),
+            Player.weapon.ilike(f"%{query}%")
+        )
+    ).order_by(desc(Player.timestamp)).offset(offset).limit(per_page).all()
+
+    grouped_results = {}
+    for player in raw_results:
+        if player.id not in grouped_results:
+            matched_alias = None
+            if query.lower() in player.name.lower():
+                matched_alias = player.name
+            elif query.lower() in player.name_id.lower():
+                matched_alias = player.name_id
+            elif query.lower() in player.weapon.lower():
+                matched_alias = player.weapon
+            
+            grouped_results[player.id] = {
+                "player": player,
+                "matched_alias": matched_alias
+            }
+
+    return jsonify([
+        {
+            "id": details["player"].id,
+            "name": details["player"].name,
+            "name_id": details["player"].name_id,
+            "weapon": details["player"].weapon,
+            "x_power": details["player"].x_power,
+            "mode": details["player"].mode,
+            "rank": details["player"].rank,
+            "matched_alias": details["matched_alias"]
+        }
+        for details in grouped_results.values()
+    ])
+
 
 
 if __name__ == "__main__":
