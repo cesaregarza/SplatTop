@@ -9,12 +9,13 @@ from sqlalchemy.orm import scoped_session, sessionmaker
 from splat_top.constants import MODES, REGIONS
 from splat_top.db import create_uri
 from splat_top.sql_types import Player, Schedule
-from splat_top.utils import get_seasons
+from splat_top.utils import calculate_cache_refresh, get_seasons
 
 app = Flask(__name__)
 engine = db.create_engine(create_uri())
 Session = scoped_session(sessionmaker(bind=engine))
 cache = Cache(app, config={"CACHE_TYPE": "simple"})
+jackpot_cache: tuple[dt.datetime, dict] = (dt.datetime(2023, 1, 1), {})
 
 
 def cache_key():
@@ -269,8 +270,20 @@ def search_players():
 
 
 @app.route("/jackpot")
-@cache.cached(timeout=600)  # Cache for 10 minutes (600 seconds)
 def jackpot():
+    now = dt.datetime.now()
+    refresh_minutes = [6, 21, 36, 51]
+    offset = 2
+    jackpot_cache_time = jackpot_cache[0]
+    stale = calculate_cache_refresh(
+        reference_time=jackpot_cache_time,
+        target_time=now,
+        barriers=[x + offset for x in refresh_minutes],
+        max_cache_time=60 * 15,
+    )
+    if not stale:
+        return jsonify(jackpot_cache[1])
+
     session = Session()
 
     # Specify the player IDs you want to include in the jackpot
@@ -313,6 +326,8 @@ def jackpot():
             for player in players
         ]
     }
+
+    jackpot_cache = (now, endpoint_data)
 
     return jsonify(endpoint_data)
 
