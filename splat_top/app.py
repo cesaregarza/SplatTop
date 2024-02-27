@@ -4,7 +4,7 @@ import sqlalchemy as db
 from flask import Flask, jsonify, render_template, request
 from flask_caching import Cache
 from sqlalchemy import and_, desc, func, or_
-from sqlalchemy.orm import sessionmaker, scoped_session
+from sqlalchemy.orm import scoped_session, sessionmaker
 
 from splat_top.constants import MODES, REGIONS
 from splat_top.db import create_uri
@@ -42,7 +42,9 @@ def leaderboard():
         "AND p.region = :region "
         "ORDER BY p.rank ASC;"
     )
-    players = session.execute(query, {"mode": mode, "region": region}).fetchall()
+    players = session.execute(
+        query, {"mode": mode, "region": region}
+    ).fetchall()
     players = [Player(**player._asdict()) for player in players]
 
     Session.remove()
@@ -267,6 +269,7 @@ def search_players():
 
 
 @app.route("/jackpot")
+@cache.cached(timeout=600)  # Cache for 10 minutes (600 seconds)
 def jackpot():
     session = Session()
 
