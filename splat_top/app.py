@@ -271,6 +271,7 @@ def search_players():
 
 @app.route("/jackpot")
 def jackpot():
+    global jackpot_cache
     now = dt.datetime.now()
     refresh_minutes = [6, 21, 36, 51]
     offset = 2
