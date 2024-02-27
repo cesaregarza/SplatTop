@@ -304,7 +304,7 @@ def jackpot():
 
     query = db.text(
         "SELECT * FROM x_scraper.players "
-        "WHERE id in :player_ids "
+        "WHERE id = ANY(:player_ids) "
         "AND (mode, timestamp) IN "
         "(SELECT mode, MAX(timestamp) FROM x_scraper.players GROUP BY mode)"
     )
