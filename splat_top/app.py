@@ -64,7 +64,7 @@ def leaderboard():
         "ORDER BY p.rank ASC;"
     )
     players = session.execute(query, {"mode": mode, "region": region}).fetchall()
-    players = [Player(**player) for player in players]
+    players = [Player(**player._asdict()) for player in players]
 
     Session.remove()
     return render_template(
@@ -311,7 +311,7 @@ def jackpot():
 
     # Fetch the players from the database
     players = session.execute(query, {"player_ids": player_ids}).fetchall()
-    players = [Player(**player) for player in players]
+    players = [Player(**player._asdict()) for player in players]
 
     Session.remove()
 
