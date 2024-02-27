@@ -60,7 +60,6 @@
       var mode_data = modes_data[mode].map(function(item) {
             var timestamp = Date.parse(item.timestamp);
             var compositeKey = timestamp + "_" + mode;
-            console.log("compositeKey stored: " + compositeKey)
             additionalDataMap[compositeKey] = {
                 stage_1: item.stage_1,
                 stage_2: item.stage_2,
@@ -166,19 +165,17 @@
                 useHTML: true,
                 formatter: function() {
                     var compositeKey = this.x + "_" + mode;
-                    console.log("compositeKey retrieved: " + compositeKey)
                     var nearestKey = Object.keys(additionalDataMap).reduce(function(prev, curr) {
                         return (Math.abs(curr - this.x) < Math.abs(prev - this.x) ? curr : prev);
                     });
-                    console.log("nearestKey: " + nearestKey)
                     var additionalData = additionalDataMap[compositeKey];
                     return '<table>' +
                         '<tr><td><strong>Date:</strong></td><td>' + Highcharts.dateFormat('%A, %b %e, %Y %H:%M', this.x) + 'GMT</td></tr>' +
                         '<tr><td><strong>X Power:</strong></td><td>' + this.y + '</td></tr>' +
                         '<tr><td><strong>Rank:</strong></td><td>' + additionalData.rank + '</td></tr>' +
-                        '<tr><td><strong>Stage 1:</strong></td><td>' + additionalData.stage1 + '</td></tr>' +
-                        '<tr><td><strong>Stage 2:</strong></td><td>' + additionalData.stage2 + '</td></tr>' +
-                        '<tr><td><strong>Fav Weapon:</strong></td><td>' + additionalData.favWeapon + '</td></tr>' +
+                        '<tr><td><strong>Stage 1:</strong></td><td>' + additionalData.stage_1 + '</td></tr>' +
+                        '<tr><td><strong>Stage 2:</strong></td><td>' + additionalData.stage_2 + '</td></tr>' +
+                        '<tr><td><strong>Fav Weapon:</strong></td><td>' + additionalData.weapon + '</td></tr>' +
                         '</table>';
                 },
                 valueDecimals: 1,
