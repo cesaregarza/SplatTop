@@ -157,7 +157,7 @@
                 useHTML: true,
                 formatter: function() {
                     var pointData = this.point.options;
-                    console.log(pointData);
+                    console.log(this.point);
                     return '<table>' +
                         '<tr><td><strong>Date:</strong></td><td>' + Highcharts.dateFormat('%A, %b %e, %Y %H:%M', this.x) + 'GMT</td></tr>' +
                         '<tr><td><strong>X Power:</strong></td><td>' + this.y + '</td></tr>' +
