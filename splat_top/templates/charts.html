@@ -57,14 +57,14 @@
   modeNames.forEach(function(mode, index) {
 
       var mode_data = modes_data[mode].map(function(item) {
-            return {
-                x: Date.parse(item.timestamp),
-                y: item.x_power,
-                stage_1: item.stage_1,
-                stage_2: item.stage_2,
-                weapon: item.weapon,
-                rank: item.rank,
-            }
+            return [
+                Date.parse(item.timestamp),
+                item.x_power,
+                item.stage_1,
+                item.stage_2,
+                item.weapon,
+                item.rank,
+            ];
       });
 
       if (mode_data.length == 0) {
@@ -73,16 +73,16 @@
 
       // Assuming mode_data is an array of [x, y] pairs, sort by timestamp
       mode_data.sort(function(a, b) {
-          return a.x - b.x;
+          return a[0] - b[0];
         });
 
       var breaks = [];
       for (var i = 1; i < mode_data.length; i++) {
-          if (Math.abs(mode_data[i].x - mode_data[i - 1].x) > oneHourInMilliseconds) {
-              breaks.push({
-              from: mode_data[i - 1].x + 1000,
-              to: mode_data[i].x - 1000,
-              });
+          if (Math.abs(mode_data[i][0] - mode_data[i - 1][0]) > oneHourInMilliseconds) {
+              breaks.push([
+              mode_data[i - 1][0] + 1000,
+              mode_data[i][0] - 1000,
+              ]);
           }
       }
 
@@ -148,8 +148,6 @@
           series: [{
           name: mode,
           data: mode_data,
-          xKey: 'x',
-          yKey: 'y',
           marker: {
               enabled: true,
               radius: 3
@@ -161,10 +159,10 @@
                     return '<table>' +
                         '<tr><td><strong>Date:</strong></td><td>' + Highcharts.dateFormat('%A, %b %e, %Y %H:%M', this.x) + 'GMT</td></tr>' +
                         '<tr><td><strong>X Power:</strong></td><td>' + this.y + '</td></tr>' +
-                        '<tr><td><strong>Rank:</strong></td><td>' + this.point.rank + '</td></tr>' +
-                        '<tr><td><strong>Stage 1:</strong></td><td>' + this.point.stage_1 + '</td></tr>' +
-                        '<tr><td><strong>Stage 2:</strong></td><td>' + this.point.stage_2 + '</td></tr>' +
-                        '<tr><td><strong>Fav Weapon:</strong></td><td>' + this.point.weapon + '</td></tr>' +
+                        '<tr><td><strong>Rank:</strong></td><td>' + this.point[5] + '</td></tr>' +
+                        '<tr><td><strong>Stage 1:</strong></td><td>' + this.point[2] + '</td></tr>' +
+                        '<tr><td><strong>Stage 2:</strong></td><td>' + this.point[3] + '</td></tr>' +
+                        '<tr><td><strong>Fav Weapon:</strong></td><td>' + this.point[4] + '</td></tr>' +
                         '</table>';
                 },
                 valueDecimals: 1,

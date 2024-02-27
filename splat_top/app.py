@@ -273,5 +273,53 @@ def search_players():
     )
 
 
+@app.route("/jackpot")
+def jackpot():
+    session = Session()
+
+    # Specify the player IDs you want to include in the jackpot
+    player_map_id = {
+        "Jared": "u-qlgolvdhwcwivrjbdnmm",
+        "Leafi": "u-awyrn3umrfntlnxvlnmm",
+        ".q": "u-qtpmoyyieljlmisvlnmm",
+        "Madness": "u-ayz3jnyghvzbaaivlnmm",
+    }
+    reverse_player_map_id = {v: k for k, v in player_map_id.items()}
+
+    player_ids = list(player_map_id.values())
+
+    query = db.text(
+        "SELECT * FROM players "
+        "WHERE id in :player_ids "
+        "AND (mode, timestamp) IN "
+        "(SELECT mode, MAX(timestamp) FROM PLAYERS GROUP BY mode)"
+    )
+
+    # Fetch the players from the database
+    players = session.execute(query, {"player_ids": player_ids}).fetchall()
+    players = [Player(**player) for player in players]
+
+    Session.remove()
+
+    # Prepare the data for the endpoint
+    endpoint_data = {
+        "players": [
+            {
+                "true_name": reverse_player_map_id[player.id],
+                "id": player.id,
+                "name": player.name,
+                "name_id": player.name_id,
+                "weapon": player.weapon,
+                "x_power": player.x_power,
+                "mode": player.mode,
+                "rank": player.rank,
+            }
+            for player in players
+        ]
+    }
+
+    return render_template("jackpot.html", endpoint_data=endpoint_data)
+
+
 if __name__ == "__main__":
     app.run(debug=True)
