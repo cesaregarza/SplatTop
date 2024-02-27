@@ -28,28 +28,7 @@ def leaderboard():
 
     mode = request.args.get("mode", "Splat Zones")
     region = request.args.get("region", "Tentatek")
-    # subquery = (
-    #     session.query(
-    #         Player.mode, func.max(Player.timestamp).label("latest_timestamp")
-    #     )
-    #     .group_by(Player.mode)
-    #     .subquery()
-    # )
 
-    # players = (
-    #     session.query(Player)
-    #     .join(
-    #         subquery,
-    #         (subquery.c.latest_timestamp == Player.timestamp)
-    #         & (subquery.c.mode == Player.mode),
-    #     )
-    #     .filter(Player.mode == mode)
-    #     .filter(Player.region == region)
-    #     .order_by(Player.mode.asc())
-    #     .order_by(Player.region.asc())
-    #     .order_by(Player.rank.asc())
-    #     .all()
-    # )
     query = db.text(
         "SELECT p.* "
         "FROM xscraper.players p "
