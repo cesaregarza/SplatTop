@@ -311,7 +311,7 @@ def jackpot():
         ]
     }
 
-    return render_template("jackpot.html", endpoint_data=endpoint_data)
+    return jsonify(endpoint_data)
 
 
 if __name__ == "__main__":
