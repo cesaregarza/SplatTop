@@ -156,13 +156,14 @@
            tooltip: {
                 useHTML: true,
                 formatter: function() {
+                    var pointData = this.point.options;
                     return '<table>' +
                         '<tr><td><strong>Date:</strong></td><td>' + Highcharts.dateFormat('%A, %b %e, %Y %H:%M', this.x) + 'GMT</td></tr>' +
                         '<tr><td><strong>X Power:</strong></td><td>' + this.y + '</td></tr>' +
-                        '<tr><td><strong>Rank:</strong></td><td>' + this.point[5] + '</td></tr>' +
-                        '<tr><td><strong>Stage 1:</strong></td><td>' + this.point[2] + '</td></tr>' +
-                        '<tr><td><strong>Stage 2:</strong></td><td>' + this.point[3] + '</td></tr>' +
-                        '<tr><td><strong>Fav Weapon:</strong></td><td>' + this.point[4] + '</td></tr>' +
+                        '<tr><td><strong>Rank:</strong></td><td>' + pointData[5] + '</td></tr>' +
+                        '<tr><td><strong>Stage 1:</strong></td><td>' + pointData[2] + '</td></tr>' +
+                        '<tr><td><strong>Stage 2:</strong></td><td>' + pointData[3] + '</td></tr>' +
+                        '<tr><td><strong>Fav Weapon:</strong></td><td>' + pointData[4] + '</td></tr>' +
                         '</table>';
                 },
                 valueDecimals: 1,
