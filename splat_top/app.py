@@ -52,7 +52,7 @@ def leaderboard():
     # )
     query = db.text(
         "SELECT p.* "
-        "FROM xscraper.players p"
+        "FROM xscraper.players p "
         "INNER JOIN ("
         "SELECT mode, MAX(timestamp) AS latest_timestamp "
         "FROM xscraper.players "
