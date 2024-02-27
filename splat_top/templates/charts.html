@@ -60,6 +60,7 @@
       var mode_data = modes_data[mode].map(function(item) {
             var timestamp = Date.parse(item.timestamp);
             var compositeKey = timestamp + "_" + mode;
+            console.log("compositeKey stored: " + compositeKey)
             additionalDataMap[compositeKey] = {
                 stage_1: item.stage_1,
                 stage_2: item.stage_2,
@@ -162,6 +163,7 @@
                 useHTML: true,
                 formatter: function() {
                     var compositeKey = this.x + "_" + mode;
+                    console.log("compositeKey retrieved: " + compositeKey)
                     var additionalData = additionalDataMap[compositeKey];
                     return '<table>' +
                         '<tr><td><strong>Date:</strong></td><td>' + Highcharts.dateFormat('%A, %b %e, %Y %H:%M', this.x) + 'GMT</td></tr>' +
