@@ -164,6 +164,10 @@
                 formatter: function() {
                     var compositeKey = this.x + "_" + mode;
                     console.log("compositeKey retrieved: " + compositeKey)
+                    var nearestKey = Object.keys(additionalDataMap).reduce(function(prev, curr) {
+                        return (Math.abs(curr - this.x) < Math.abs(prev - this.x) ? curr : prev);
+                    });
+                    console.log("nearestKey: " + nearestKey)
                     var additionalData = additionalDataMap[compositeKey];
                     return '<table>' +
                         '<tr><td><strong>Date:</strong></td><td>' + Highcharts.dateFormat('%A, %b %e, %Y %H:%M', this.x) + 'GMT</td></tr>' +
