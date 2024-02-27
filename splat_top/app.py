@@ -303,10 +303,10 @@ def jackpot():
     player_ids = list(player_map_id.values())
 
     query = db.text(
-        "SELECT * FROM x_scraper.players "
+        "SELECT * FROM xscraper.players "
         "WHERE id = ANY(:player_ids) "
         "AND (mode, timestamp) IN "
-        "(SELECT mode, MAX(timestamp) FROM x_scraper.players GROUP BY mode)"
+        "(SELECT mode, MAX(timestamp) FROM xscraper.players GROUP BY mode)"
     )
 
     # Fetch the players from the database
