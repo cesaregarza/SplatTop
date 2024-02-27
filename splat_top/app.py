@@ -28,29 +28,43 @@ def leaderboard():
 
     mode = request.args.get("mode", "Splat Zones")
     region = request.args.get("region", "Tentatek")
+    # subquery = (
+    #     session.query(
+    #         Player.mode, func.max(Player.timestamp).label("latest_timestamp")
+    #     )
+    #     .group_by(Player.mode)
+    #     .subquery()
+    # )
 
-    subquery = (
-        session.query(
-            Player.mode, func.max(Player.timestamp).label("latest_timestamp")
-        )
-        .group_by(Player.mode)
-        .subquery()
+    # players = (
+    #     session.query(Player)
+    #     .join(
+    #         subquery,
+    #         (subquery.c.latest_timestamp == Player.timestamp)
+    #         & (subquery.c.mode == Player.mode),
+    #     )
+    #     .filter(Player.mode == mode)
+    #     .filter(Player.region == region)
+    #     .order_by(Player.mode.asc())
+    #     .order_by(Player.region.asc())
+    #     .order_by(Player.rank.asc())
+    #     .all()
+    # )
+    query = db.text(
+        "SELECT p.* "
+        "FROM xscraper.players p"
+        "INNER JOIN ("
+        "SELECT mode, MAX(timestamp) AS latest_timestamp "
+        "FROM xscraper.players "
+        "GROUP BY mode"
+        ") AS latest ON p.mode = latest.mode "
+        "AND p.timestamp = latest.latest_timestamp "
+        "WHERE p.mode = :mode "
+        "AND p.region = :region "
+        "ORDER BY p.rank ASC;"
     )
-
-    players = (
-        session.query(Player)
-        .join(
-            subquery,
-            (subquery.c.latest_timestamp == Player.timestamp)
-            & (subquery.c.mode == Player.mode),
-        )
-        .filter(Player.mode == mode)
-        .filter(Player.region == region)
-        .order_by(Player.mode.asc())
-        .order_by(Player.region.asc())
-        .order_by(Player.rank.asc())
-        .all()
-    )
+    players = session.execute(query, {"mode": mode, "region": region}).fetchall()
+    players = [Player(**player) for player in players]
 
     Session.remove()
     return render_template(
@@ -289,10 +303,10 @@ def jackpot():
     player_ids = list(player_map_id.values())
 
     query = db.text(
-        "SELECT * FROM players "
+        "SELECT * FROM x_scraper.players "
         "WHERE id in :player_ids "
         "AND (mode, timestamp) IN "
-        "(SELECT mode, MAX(timestamp) FROM PLAYERS GROUP BY mode)"
+        "(SELECT mode, MAX(timestamp) FROM x_scraper.players GROUP BY mode)"
     )
 
     # Fetch the players from the database
