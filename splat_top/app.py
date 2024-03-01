@@ -151,16 +151,11 @@ def player_detail(player_id):
         ]
 
         try:
-            max_timestamp = max(
-                (x["timestamp"] for x in modes_data[mode])
-            )
+            max_timestamp = max((x["timestamp"] for x in modes_data[mode]))
         except ValueError:
             continue
         peak_xpower = max(
-            (
-                (x["x_power"], x["timestamp_raw"])
-                for x in modes_data[mode]
-            ),
+            ((x["x_power"], x["timestamp_raw"]) for x in modes_data[mode]),
             key=lambda x: x[0],
         )
         current_rank, current_weapon, current_xpower = next(
@@ -173,10 +168,7 @@ def player_detail(player_id):
             if x["timestamp"] == max_timestamp
         )
         peak_rank = min(
-            (
-                (x["rank"], x["timestamp_raw"])
-                for x in modes_data[mode]
-            ),
+            ((x["rank"], x["timestamp_raw"]) for x in modes_data[mode]),
             key=lambda x: x[0],
         )
 
@@ -314,10 +306,63 @@ def jackpot():
         "Madness": "u-ayz3jnyghvzbaaivlnmm",
     }
     reverse_player_map_id = {v: k for k, v in player_map_id.items()}
+    player_extra_data = {
+        "Jared": {
+            "byname": "Stubborn Content Creator",
+            "badges": [
+                "QmFkZ2UtMTA1MDMwMQ==",
+                "QmFkZ2UtMTA1MDEwMQ==",
+                "QmFkZ2UtMTA1MDMxMQ==",
+            ],
+            "background_text_color": {"a": 1, "b": 0, "g": 0, "r": 0},
+            "background_image": "TmFtZXBsYXRlQmFja2dyb3VuZC0xNTAzMg==",
+        },
+        "Leafi": {
+            "byname": "Legendary Zipcaster User",
+            "badges": [
+                "QmFkZ2UtMTA4MDAwMQ==",
+                "QmFkZ2UtMzAwMDEwMQ==",
+                "QmFkZ2UtNTIyMDAwMg==",
+            ],
+            "background_text_color": {
+                "a": 1,
+                "b": 0.0235294104,
+                "g": 0.0235294104,
+                "r": 0.0352941193,
+            },
+            "background_image": "TmFtZXBsYXRlQmFja2dyb3VuZC04NjE=",
+        },
+        ".q": {
+            "byname": "Classic Capriccioso",
+            "badges": [
+                "QmFkZ2UtNDEwMDExMA==",
+                "QmFkZ2UtNDEwMDEyMA==",
+                "QmFkZ2UtNDEwMDEwMA==",
+            ],
+            "background_text_color": {"a": 1, "b": 1, "g": 1, "r": 1},
+            "background_image": "TmFtZXBsYXRlQmFja2dyb3VuZC0xNzAwMQ==",
+        },
+        "Madness": {
+            "byname": "Assertive Stand-Up Comic",
+            "badges": [
+                "QmFkZ2UtNTAwMDAyMw==",
+                "QmFkZ2UtNTIyMDAwMg==",
+                "QmFkZ2UtMTA3MDEwMA==",
+            ],
+            "background_text_color": {
+                "a": 1,
+                "b": 0.321568608,
+                "g": 0.129411802,
+                "r": 0.0470588207,
+            },
+            "background_image": "TmFtZXBsYXRlQmFja2dyb3VuZC05MjQ=",
+        },
+    }
 
     player_ids = list(player_map_id.values())
 
-    query = db.text("""
+    query = db.text(
+        """
         (
             SELECT p.*
             FROM xscraper.players p
@@ -373,7 +418,8 @@ def jackpot():
             AND p.timestamp = LatestTimestamp.max_timestamp
             WHERE p.id = 'u-ayz3jnyghvzbaaivlnmm'
         );
-    """)
+    """
+    )
 
     # Fetch the players from the database
     players = session.execute(query, {"player_ids": player_ids}).fetchall()
@@ -393,6 +439,18 @@ def jackpot():
                 "x_power": player.x_power,
                 "mode": player.mode,
                 "rank": player.rank,
+                "byname": player_extra_data[reverse_player_map_id[player.id]][
+                    "byname"
+                ],
+                "badges": player_extra_data[reverse_player_map_id[player.id]][
+                    "badges"
+                ],
+                "background_text_color": player_extra_data[
+                    reverse_player_map_id[player.id]
+                ]["background_text_color"],
+                "background_image": player_extra_data[
+                    reverse_player_map_id[player.id]
+                ]["background_image"],
             }
             for player in players
         ]
