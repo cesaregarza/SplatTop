@@ -31,17 +31,21 @@ def leaderboard():
     region = request.args.get("region", "Tentatek")
 
     query = db.text(
-        "SELECT p.* "
-        "FROM xscraper.players p "
-        "INNER JOIN ("
-        "SELECT mode, MAX(timestamp) AS latest_timestamp "
+        "WITH MaxTimestamp AS ("
+        "SELECT MAX(timestamp) AS max_timestamp "
         "FROM xscraper.players "
-        "GROUP BY mode"
-        ") AS latest ON p.mode = latest.mode "
-        "AND p.timestamp = latest.latest_timestamp "
-        "WHERE p.mode = :mode "
-        "AND p.region = :region "
-        "ORDER BY p.rank ASC;"
+        "WHERE mode = :mode "
+        "), "
+        "FilteredByTimestamp AS ("
+        "SELECT * "
+        "FROM xscraper.players "
+        "WHERE timestamp = (SELECT max_timestamp FROM MaxTimestamp) "
+        ") "
+        "SELECT * "
+        "FROM FilteredByTimestamp "
+        "WHERE mode = :mode "
+        "AND region = :region "
+        "ORDER BY rank ASC;"
     )
     players = session.execute(
         query, {"mode": mode, "region": region}
