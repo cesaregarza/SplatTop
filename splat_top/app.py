@@ -317,12 +317,63 @@ def jackpot():
 
     player_ids = list(player_map_id.values())
 
-    query = db.text(
-        "SELECT * FROM xscraper.players "
-        "WHERE id = ANY(:player_ids) "
-        "AND (mode, timestamp) IN "
-        "(SELECT mode, MAX(timestamp) FROM xscraper.players GROUP BY mode)"
-    )
+    query = db.text("""
+        (
+            SELECT p.*
+            FROM xscraper.players p
+            INNER JOIN (
+                SELECT mode, MAX(timestamp) AS max_timestamp
+                FROM xscraper.players
+                WHERE id = 'u-qlgolvdhwcwivrjbdnmm'
+                GROUP BY mode
+            ) AS LatestTimestamp
+            ON p.mode = LatestTimestamp.mode
+            AND p.timestamp = LatestTimestamp.max_timestamp
+            WHERE p.id = 'u-qlgolvdhwcwivrjbdnmm'
+        )
+        UNION ALL
+        (
+            SELECT p.*
+            FROM xscraper.players p
+            INNER JOIN (
+                SELECT mode, MAX(timestamp) AS max_timestamp
+                FROM xscraper.players
+                WHERE id = 'u-awyrn3umrfntlnxvlnmm'
+                GROUP BY mode
+            ) AS LatestTimestamp
+            ON p.mode = LatestTimestamp.mode
+            AND p.timestamp = LatestTimestamp.max_timestamp
+            WHERE p.id = 'u-awyrn3umrfntlnxvlnmm'
+        )
+        UNION ALL
+        (
+            SELECT p.*
+            FROM xscraper.players p
+            INNER JOIN (
+                SELECT mode, MAX(timestamp) AS max_timestamp
+                FROM xscraper.players
+                WHERE id = 'u-qtpmoyyieljlmisvlnmm'
+                GROUP BY mode
+            ) AS LatestTimestamp
+            ON p.mode = LatestTimestamp.mode
+            AND p.timestamp = LatestTimestamp.max_timestamp
+            WHERE p.id = 'u-qtpmoyyieljlmisvlnmm'
+        )
+        UNION ALL
+        (
+            SELECT p.*
+            FROM xscraper.players p
+            INNER JOIN (
+                SELECT mode, MAX(timestamp) AS max_timestamp
+                FROM xscraper.players
+                WHERE id = 'u-ayz3jnyghvzbaaivlnmm'
+                GROUP BY mode
+            ) AS LatestTimestamp
+            ON p.mode = LatestTimestamp.mode
+            AND p.timestamp = LatestTimestamp.max_timestamp
+            WHERE p.id = 'u-ayz3jnyghvzbaaivlnmm'
+        );
+    """)
 
     # Fetch the players from the database
     players = session.execute(query, {"player_ids": player_ids}).fetchall()
