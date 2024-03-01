@@ -75,94 +75,109 @@ def player_detail(player_id):
     )
     aliases = (
         session.query(
-            func.concat(Player.name, "#", Player.name_id).label("alias"),
+            Player.name,
+            Player.name_id,
             func.max(Player.timestamp).label("last_seen"),
         )
-        .filter(Player.id == player_id)
-        .group_by("alias")
+        .filter(
+            Player.id == player_id,
+        )
+        .group_by(Player.name, Player.name_id)
+        .order_by(
+            func.max(Player.timestamp).desc(),
+        )
         .all()
     )
     aliases_data = [
         {
-            "alias": alias[0],
-            "last_seen": alias[1].strftime("%Y-%m-%d"),
+            "alias": f"{alias[0]}#{alias[1]}",
+            "last_seen": alias[2].strftime("%Y-%m-%d"),
         }
         for alias in aliases
-        if alias[0] != f"{player.name}#{player.name_id}"
+        if alias[0] != player.name
     ]
     # If no player found, return 404
     if player is None:
         return render_template("player_404.html"), 404
     peak_data = []
 
+    all_modes_data = (
+        session.query(
+            Player.timestamp,
+            Player.x_power,
+            Schedule.stage_1_name,
+            Schedule.stage_2_name,
+            Player.weapon,
+            Player.rank,
+            Player.mode,
+        )
+        .join(
+            Schedule,
+            Schedule.start_time == Player.rotation_start,
+            isouter=True,
+        )
+        .filter(Player.id == player_id)
+        .all()
+    )
+    name_index_map = {
+        "timestamp": 0,
+        "x_power": 1,
+        "stage_1": 2,
+        "stage_2": 3,
+        "weapon": 4,
+        "rank": 5,
+        "mode": 6,
+    }
     modes_data = {}
     for mode in MODES:
-        m_data = (
-            session.query(
-                Player.timestamp,
-                Player.x_power,
-                Schedule.stage_1_name,
-                Schedule.stage_2_name,
-                Player.weapon,
-                Player.rank,
-            )
-            .join(
-                Schedule,
-                Schedule.start_time == Player.rotation_start,
-                isouter=True,
-            )
-            .filter(Player.id == player_id, Player.mode == mode)
-            .all()
-        )
+        m_data = [
+            x for x in all_modes_data if x[name_index_map["mode"]] == mode
+        ]
         modes_data[mode] = [
             {
-                "timestamp": x[0].isoformat(),
-                "x_power": x[1],
-                "stage_1": x[2]
-                if x[2] is not None
+                "timestamp": x[name_index_map["timestamp"]].isoformat(),
+                "x_power": x[name_index_map["x_power"]],
+                "stage_1": x[name_index_map["stage_1"]]
+                if x[name_index_map["stage_1"]] is not None
                 else "Missing Schedule Data",
-                "stage_2": x[3]
-                if x[3] is not None
+                "stage_2": x[name_index_map["stage_2"]]
+                if x[name_index_map["stage_2"]] is not None
                 else "Missing Schedule Data",
-                "weapon": x[4],
-                "rank": x[5],
+                "weapon": x[name_index_map["weapon"]],
+                "rank": x[name_index_map["rank"]],
+                "timestamp_raw": x[name_index_map["timestamp"]],
             }
             for x in m_data
         ]
 
-        # Get latest rank
-        current_rank = (
-            session.query(Player.rank, Player.weapon)
-            .filter_by(id=player_id, mode=mode)
-            .order_by(Player.timestamp.desc())
-            .first()
-        )
-        if current_rank is None:
+        try:
+            max_timestamp = max(
+                (x["timestamp"] for x in modes_data[mode])
+            )
+        except ValueError:
             continue
-        current_rank, current_weapon = current_rank
-
-        # Peak xpower
-        peak_xpower = (
-            session.query(Player.x_power, Player.timestamp)
-            .filter_by(id=player_id, mode=mode)
-            .order_by(Player.x_power.desc())
-            .first()
+        peak_xpower = max(
+            (
+                (x["x_power"], x["timestamp_raw"])
+                for x in modes_data[mode]
+            ),
+            key=lambda x: x[0],
         )
-
-        # Peak rank
-        peak_rank = (
-            session.query(Player.rank, Player.timestamp)
-            .filter_by(id=player_id, mode=mode)
-            .order_by(Player.rank.asc(), Player.timestamp.asc())
-            .first()
+        current_rank, current_weapon, current_xpower = next(
+            (
+                x["rank"],
+                x["weapon"],
+                x["x_power"],
+            )
+            for x in modes_data[mode]
+            if x["timestamp"] == max_timestamp
         )
-
-        # Time since they reached current xpower
-        current_xpower = (
-            session.query(Player.x_power)
-            .filter_by(id=player_id, mode=mode)
-            .order_by(Player.timestamp.desc())
-            .first()[0]
+        peak_rank = min(
+            (
+                (x["rank"], x["timestamp_raw"])
+                for x in modes_data[mode]
+            ),
+            key=lambda x: x[0],
         )
 
         peak_data.append(
