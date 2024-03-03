@@ -282,7 +282,12 @@ def search_players():
 
 
 @app.route("/jackpot")
-@cross_origin(origins="https://jackpot.splat.top")
+@cross_origin(
+    origins=[
+        "https://jackpot.splat.top",
+        "https://jackpot-xrank-tracker.pages.dev/",
+    ]
+)
 def jackpot():
     global jackpot_cache
     now = dt.datetime.now()
