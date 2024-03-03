@@ -436,6 +436,7 @@ def jackpot():
                 "name": player.name,
                 "name_id": player.name_id,
                 "weapon": player.weapon,
+                "weapon_id": player.weapon_id,
                 "x_power": player.x_power,
                 "mode": player.mode,
                 "rank": player.rank,
@@ -455,10 +456,16 @@ def jackpot():
             for player in players
         ]
     }
+    # Reformat the data from `players` to `mode`
+    out = {}
+    for player in endpoint_data["players"]:
+        mode = player["mode"]
+        if mode not in out:
+            out[mode] = []
+        out[mode].append(player)
 
-    jackpot_cache = (now, endpoint_data)
-
-    return jsonify(endpoint_data)
+    jackpot_cache = (now, out)
+    return jsonify(out)
 
 
 if __name__ == "__main__":
