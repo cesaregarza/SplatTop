@@ -3,6 +3,7 @@ import datetime as dt
 import sqlalchemy as db
 from flask import Flask, jsonify, render_template, request
 from flask_caching import Cache
+from flask_cors import cross_origin
 from sqlalchemy import and_, desc, func, or_
 from sqlalchemy.orm import scoped_session, sessionmaker
 
@@ -281,6 +282,7 @@ def search_players():
 
 
 @app.route("/jackpot")
+@cross_origin(origins="https://jackpot.splat.top")
 def jackpot():
     global jackpot_cache
     now = dt.datetime.now()

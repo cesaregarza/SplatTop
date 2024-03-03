@@ -137,6 +137,21 @@ cachelib = ">=0.9.0,<0.10.0"
 Flask = "<3"
 
 [[package]]
+name = "flask-cors"
+version = "4.0.0"
+description = "A Flask extension adding a decorator for CORS support"
+category = "main"
+optional = false
+python-versions = "*"
+files = [
+    {file = "Flask-Cors-4.0.0.tar.gz", hash = "sha256:f268522fcb2f73e2ecdde1ef45e2fd5c71cc48fe03cffb4b441c6d1b40684eb0"},
+    {file = "Flask_Cors-4.0.0-py2.py3-none-any.whl", hash = "sha256:bc3492bfd6368d27cfe79c7821df5a8a319e1a6d5eab277a3794be19bdc51783"},
+]
+
+[package.dependencies]
+Flask = ">=0.9"
+
+[[package]]
 name = "flask-sqlalchemy"
 version = "3.0.5"
 description = "Add SQLAlchemy support to your Flask application."
@@ -595,4 +610,4 @@ watchdog = ["watchdog (>=2.3)"]
 [metadata]
 lock-version = "2.0"
 python-versions = "^3.10"
-content-hash = "3a83fa123952277cedbeff735020710bd1bcc46042574d57d3f511009fdaeaa4"
+content-hash = "d241393a57e42a6d44e03242f26f190f48ab142ab181d9368b7796d43348885d"
