@@ -285,6 +285,7 @@ def search_players():
 @cross_origin(
     origins=[
         "https://jackpot.splat.top",
+        "https://jackpot-xrank-tracker.pages.dev",
         "https://jackpot-xrank-tracker.pages.dev/",
     ],
     methods=["GET"],
