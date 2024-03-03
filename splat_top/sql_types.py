@@ -31,7 +31,7 @@ class Schedule(Base):
             "start_time",
             "end_time",
             name="start_time_end_time_unique_x",
-        )
+        ),
     )
 
 
