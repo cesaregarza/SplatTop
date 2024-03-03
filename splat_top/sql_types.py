@@ -31,7 +31,7 @@ class Schedule(Base):
             "start_time",
             "end_time",
             name="start_time_end_time_unique_x",
-        ),
+        )
     )
 
 
@@ -55,6 +55,7 @@ class Player(Base):
     region = Column(String, index=True)
     rotation_start = Column(DateTime(timezone=True), index=True)
     search_text = Column(String)
+    season_number = Column(Integer)
 
     __table_args__ = (
         UniqueConstraint(
@@ -68,7 +69,7 @@ class Player(Base):
             search_text,
             postgresql_using="gin",
             postgresql_ops={"search_text": "gin_trgm_ops"},
-        ),
+        )
     )
 
     name_name_id_idx = Index("name_name_id_idx", name, name_id)
