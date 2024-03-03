@@ -459,7 +459,7 @@ def jackpot():
     # Reformat the data from `players` to `mode`
     out = {}
     for player in endpoint_data["players"]:
-        mode = player["mode"]
+        mode = player.pop("mode")
         if mode not in out:
             out[mode] = []
         out[mode].append(player)
