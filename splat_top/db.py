@@ -13,7 +13,12 @@ def create_uri() -> str:
     user = os.getenv("DB_USER")
     password = os.getenv("DB_PASSWORD")
     db_name = os.getenv("DB_NAME")
-    return f"postgresql+psycopg2://{user}:{password}@{host}:{port}/{db_name}"
+    dev_mode = os.getenv("DEV_MODE")
+    ssl_string = "" if dev_mode is None else "?sslmode=disable"
+    return (
+        f"postgresql+psycopg2://{user}:{password}@{host}:{port}/"
+        f"{db_name}{ssl_string}"
+    )
 
 
 def get_db() -> db.engine.Engine:
