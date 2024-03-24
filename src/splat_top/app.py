@@ -19,51 +19,6 @@ cache = Cache(app, config={"CACHE_TYPE": "simple"})
 jackpot_cache: tuple[dt.datetime, dict] = (dt.datetime(2023, 1, 1), {})
 
 
-def cache_key():
-    return f"{request.path}?{request.args}"
-
-
-@app.route("/")
-@cache.cached(timeout=60, key_prefix=cache_key)
-def leaderboard():
-    session = Session()
-
-    mode = request.args.get("mode", "Splat Zones")
-    region = request.args.get("region", "Tentatek")
-
-    query = db.text(
-        "WITH MaxTimestamp AS ("
-        "SELECT MAX(timestamp) AS max_timestamp "
-        "FROM xscraper.players "
-        "WHERE mode = :mode "
-        "), "
-        "FilteredByTimestamp AS ("
-        "SELECT * "
-        "FROM xscraper.players "
-        "WHERE timestamp = (SELECT max_timestamp FROM MaxTimestamp) "
-        ") "
-        "SELECT * "
-        "FROM FilteredByTimestamp "
-        "WHERE mode = :mode "
-        "AND region = :region "
-        "ORDER BY rank ASC;"
-    )
-    players = session.execute(
-        query, {"mode": mode, "region": region}
-    ).fetchall()
-    players = [Player(**player._asdict()) for player in players]
-
-    Session.remove()
-    return render_template(
-        "leaderboard.html",
-        players=players,
-        modes=MODES,
-        regions=REGIONS,
-        mode=mode,
-        region=region,
-    )
-
-
 @app.route("/player/<string:player_id>")
 def player_detail(player_id):
     session = Session()

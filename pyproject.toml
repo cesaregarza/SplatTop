@@ -1,9 +1,12 @@
 [tool.poetry]
-name = "splattop"
+name = "splat_top"
 version = "0.1.0"
 description = ""
 authors = ["Cesar E Garza <cesar@cegarza.com>"]
 readme = "README.md"
+packages = [
+    { include = "splat_top", from = "src" },
+]
 
 [tool.poetry.dependencies]
 python = "^3.10"
