@@ -1,10 +1,14 @@
+import datetime as dt
+
 from flask import render_template
-from sqlalchemy import func, and_
+from sqlalchemy import and_, func
 from sqlalchemy.orm import Session
 
-from splat_top.app import app, Session as ScopedSession, get_seasons
+from splat_top.app import Session as ScopedSession
+from splat_top.app import app, get_seasons
 from splat_top.constants import MODES
 from splat_top.sql_types import Player, Schedule
+
 
 @app.route("/player/<string:player_id>")
 def player_detail(player_id):

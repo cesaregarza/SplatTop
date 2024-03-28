@@ -1,9 +1,9 @@
 from flask import render_template, request
 from sqlalchemy import text
 
+from splat_top.app import Session, app, cache
 from splat_top.constants import MODES, REGIONS
 from splat_top.sql_types import Player
-from splat_top.app import app, Session, cache
 
 
 def cache_key():
@@ -13,9 +13,8 @@ def cache_key():
 @app.route("/")
 @cache.cached(timeout=60, key_prefix=cache_key)
 def leaderboard():
-
     mode = request.args.get("mode", "Splat Zones")
-    region = request.args.get("region", "Tentatek") 
+    region = request.args.get("region", "Tentatek")
 
     query = text(
         "WITH MaxTimestamp AS ("
@@ -49,4 +48,3 @@ def leaderboard():
         mode=mode,
         region=region,
     )
-

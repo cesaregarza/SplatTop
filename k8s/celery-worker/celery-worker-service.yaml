@@ -1,0 +1,10 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: celery-worker-service
+spec:
+  selector:
+    app: celery-worker
+  ports:
+  - port: 80
+    targetPort: 8000
