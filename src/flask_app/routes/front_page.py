@@ -20,7 +20,7 @@ def create_front_page_bp(cache: Cache) -> Blueprint:
     def leaderboard():
         mode = request.args.get("mode", "Splat Zones")
         region = request.args.get("region", "Tentatek")
-        region_bool = (region == "Takoroka")
+        region_bool = region == "Takoroka"
 
         query = text(LEADERBOARD_MAIN_QUERY)
 

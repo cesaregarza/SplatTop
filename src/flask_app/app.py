@@ -2,9 +2,8 @@ from celery import Celery
 from flask import Flask
 from flask_caching import Cache
 
-from flask_app.database import Session
+from flask_app.database import Session  # Not used, necessary for Session setup
 from flask_app.routes import create_front_page_bp
-from shared_lib.db import create_uri
 
 app = Flask(__name__)
 cache = Cache(app, config={"CACHE_TYPE": "simple"})

@@ -6,6 +6,9 @@ build:
 	kind load docker-image flask-app:latest
 	kind load docker-image celery-worker:latest
 
+port-forward:
+	kubectl port-forward service/flask-app-service 5000:80
+
 deploy:
 	kubectl apply -f k8s/secrets.yaml
 	kubectl apply -f k8s/redis/redis-deployment.yaml
@@ -25,3 +28,6 @@ undeploy:
 	kubectl delete -f k8s/celery-worker/celery-worker-deployment-dev.yaml
 
 redeploy: undeploy deploy
+
+compile-sass:
+	sass src/flask_app/static/scss/main.scss src/flask_app/static/css/main.css
