@@ -5,7 +5,11 @@ from sqlalchemy import text
 from flask_app.database import Session
 from shared_lib.constants import MODES, REGIONS
 from shared_lib.models import Player, PlayerLatest
-from shared_lib.queries import PLAYER_ALIAS_QUERY, PLAYER_LATEST_QUERY
+from shared_lib.queries import (
+    PLAYER_ALIAS_QUERY,
+    PLAYER_LATEST_QUERY,
+    PLAYER_MOST_RECENT_ROW_QUERY,
+)
 
 
 def create_player_detail_bp() -> Blueprint:
@@ -26,6 +30,10 @@ def create_player_detail_bp() -> Blueprint:
                 text(PLAYER_ALIAS_QUERY), {"player_id": player_id}
             ).fetchall()
 
+            player = session.execute(
+                text(PLAYER_MOST_RECENT_ROW_QUERY), {"player_id": player_id}
+            ).fetchone()
+
         latest_data = [PlayerLatest(**player._asdict()) for player in result]
         aliases_data = [
             {
@@ -36,3 +44,13 @@ def create_player_detail_bp() -> Blueprint:
         ]
         # Sort the aliases so the most recent is first
         aliases_data.sort(key=lambda x: x["last_updated"], reverse=True)
+
+        return render_template(
+            "player_dev.html",
+            player_details=player,
+            data={},
+            aliases=aliases_data,
+            modes=MODES,
+        )
+    
+    return player_detail_bp

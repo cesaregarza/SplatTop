@@ -3,7 +3,7 @@ from flask import Flask
 from flask_caching import Cache
 
 from flask_app.database import Session  # Not used, necessary for Session setup
-from flask_app.routes import create_front_page_bp
+from flask_app.routes import create_front_page_bp, create_player_detail_bp
 
 app = Flask(__name__)
 cache = Cache(app, config={"CACHE_TYPE": "simple"})
@@ -13,6 +13,9 @@ celery = Celery(
 
 front_page_bp = create_front_page_bp(cache)
 app.register_blueprint(front_page_bp)
+
+player_detail_bp = create_player_detail_bp()
+app.register_blueprint(player_detail_bp)
 
 
 def run_dev():

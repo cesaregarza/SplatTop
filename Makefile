@@ -31,3 +31,7 @@ redeploy: undeploy deploy
 
 compile-sass:
 	sass src/flask_app/static/scss/main.scss src/flask_app/static/css/main.css
+
+update: undeploy build deploy
+
+full-update: undeploy compile-sass build deploy

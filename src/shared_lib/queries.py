@@ -32,3 +32,23 @@ FROM (
 ) AS filtered
 GROUP BY splashtag;
 """
+
+PLAYER_MOST_RECENT_ROW_QUERY = """
+WITH LatestMode AS (
+    SELECT mode
+    FROM xscraper.player_latest
+    WHERE player_id = :player_id
+    ORDER BY last_updated DESC
+    LIMIT 1
+),
+MostRecentRow AS (
+    SELECT *
+    FROM xscraper.players
+    WHERE player_id = :player_id
+      AND mode = (SELECT mode FROM LatestMode)
+    ORDER BY timestamp DESC
+    LIMIT 1
+)
+SELECT *
+FROM MostRecentRow;
+"""
