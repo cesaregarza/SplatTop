@@ -165,3 +165,6 @@ tokens.ini
 # Data Zipcaster files
 config.ini
 *.txt
+
+# Kubernetes
+k8s/secrets.yaml

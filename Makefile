@@ -1,4 +1,4 @@
-.PHONY: build deploy undeploy
+.PHONY: build deploy undeploy redeploy
 
 build:
 	docker build -t flask-app:latest -f dockerfiles/dockerfile.flask .
@@ -7,16 +7,21 @@ build:
 	kind load docker-image celery-worker:latest
 
 deploy:
+	kubectl apply -f k8s/secrets.yaml
 	kubectl apply -f k8s/redis/redis-deployment.yaml
 	kubectl apply -f k8s/redis/redis-service.yaml
 	kubectl apply -f k8s/flask/flask-deployment-dev.yaml
 	kubectl apply -f k8s/flask/flask-service-dev.yaml
 	kubectl apply -f k8s/celery-worker/celery-worker-deployment-dev.yaml
+	sleep 5
 	kubectl port-forward service/flask-app-service 5000:80
 
 undeploy:
+	kubectl delete -f k8s/secrets.yaml
 	kubectl delete -f k8s/redis/redis-deployment.yaml
 	kubectl delete -f k8s/redis/redis-service.yaml
 	kubectl delete -f k8s/flask/flask-deployment-dev.yaml
 	kubectl delete -f k8s/flask/flask-service-dev.yaml
 	kubectl delete -f k8s/celery-worker/celery-worker-deployment-dev.yaml
+
+redeploy: undeploy deploy

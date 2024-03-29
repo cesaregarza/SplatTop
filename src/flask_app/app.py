@@ -1,16 +1,19 @@
 from celery import Celery
 from flask import Flask
+from flask_caching import Cache
+
+from flask_app.database import Session
+from flask_app.routes import create_front_page_bp
+from shared_lib.db import create_uri
 
 app = Flask(__name__)
+cache = Cache(app, config={"CACHE_TYPE": "simple"})
 celery = Celery(
     "tasks", broker="redis://redis:6379", backend="redis://redis:6379"
 )
 
-
-@app.route("/")
-def hello():
-    result = celery.send_task("tasks.hello")
-    return f"Hello, World! Celery task result: {result.get()}"
+front_page_bp = create_front_page_bp(cache)
+app.register_blueprint(front_page_bp)
 
 
 def run_dev():
