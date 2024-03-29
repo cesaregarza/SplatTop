@@ -72,7 +72,7 @@ class Player(Base):
     updated = Column(Boolean)
 
     __table_args__ = (
-        Index("idx_players_splashtag", "splashtag"),
+        Index("idx_players_splashtag_gin", "splashtag"),
         Index("idx_players_timestamp", "timestamp"),
         Index("idx_players_mode", "mode"),
         Index("idx_players_region", "region"),
@@ -84,5 +84,33 @@ class Player(Base):
             "timestamp",
             "season_number",
         ),
+        Index(
+            "idx_players_player_id_splashtag",
+            "player_id",
+            "splashtag",
+        ),
+        {"schema": "xscraper"},
+    )
+
+
+class PlayerLatest(Base):
+    __tablename__ = "player_latest"
+
+    player_id = Column(String, primary_key=True)
+    mode = Column(
+        ENUM(
+            "Splat Zones",
+            "Clam Blitz",
+            "Rainmaker",
+            "Tower Control",
+            name="mode_name",
+        ),
+        primary_key=True,
+    )
+    timestamp = Column(DateTime(timezone=True))
+    last_updated = Column(DateTime(timezone=True))
+
+    __table_args__ = (
+        Index("idx_player_latest_player_id_mode", "player_id", "mode"),
         {"schema": "xscraper"},
     )
