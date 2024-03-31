@@ -299,6 +299,21 @@ files = [
 Flask = ">=0.9"
 
 [[package]]
+name = "flask-htmx"
+version = "0.3.2"
+description = "A Flask extension to work with HTMX."
+category = "main"
+optional = false
+python-versions = ">=3.8,<4.0"
+files = [
+    {file = "flask_htmx-0.3.2-py3-none-any.whl", hash = "sha256:a1e0071216349197d6669662c2c35a1ab849b6fca28c89dc90932761f7e73c05"},
+    {file = "flask_htmx-0.3.2.tar.gz", hash = "sha256:8def77bb292369ff77513ff7b76d27b06f83e1d8c21165b6714c06c1cc2b9275"},
+]
+
+[package.dependencies]
+Flask = ">=2.0.2,<4.0.0"
+
+[[package]]
 name = "flask-sqlalchemy"
 version = "3.0.5"
 description = "Add SQLAlchemy support to your Flask application."
@@ -887,4 +902,4 @@ watchdog = ["watchdog (>=2.3)"]
 [metadata]
 lock-version = "2.0"
 python-versions = "^3.10"
-content-hash = "297b204ecee1f1e083487061bcd99f5ef4a80bca88b3141cb2fd05ec7e02a5ab"
+content-hash = "8967210ceae4c753367656205a2cf59bd7abc2561aa24e84f8d4cbbbee21b044"

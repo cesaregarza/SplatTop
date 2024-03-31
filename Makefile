@@ -1,6 +1,8 @@
 .PHONY: build deploy undeploy redeploy
 
 build:
+	docker rmi flask-app:latest || true
+	docker rmi celery-worker:latest || true
 	docker build -t flask-app:latest -f dockerfiles/dockerfile.flask .
 	docker build -t celery-worker:latest -f dockerfiles/dockerfile.celery .
 	kind load docker-image flask-app:latest

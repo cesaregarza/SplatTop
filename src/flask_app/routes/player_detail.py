@@ -51,6 +51,16 @@ def create_player_detail_bp() -> Blueprint:
             data={},
             aliases=aliases_data,
             modes=MODES,
+            current_stats = {mode: {} for mode in MODES},
         )
     
     return player_detail_bp
+
+def get_player_stats():
+    pass
+
+def get_player_chart_data():
+    pass
+
+def get_mode_icons():
+    pass

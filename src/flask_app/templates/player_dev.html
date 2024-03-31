@@ -1,5 +1,5 @@
-<!-- player.html -->
-{% extends 'base.html' %} 
+<!-- player_dev.html -->
+{% extends 'base.html' %}
 {% block posthead %}
 <title>splat.top: {{ player_details.name }}</title>
 <script src="https://code.highcharts.com/highcharts.js"></script>
@@ -8,9 +8,9 @@
 {% endblock %}
 
 {% block content %}
-<div class="content full-height-desktop">
+<div class="content full-height-desktop player-columns">
   <div class="container">
-    <h1 class="title">Player Details</h1>
+    <h1 class="title has-background-primary has-text-white p-3">Player Details</h1>
 
     <!-- Player General Information -->
     <section class="section">
@@ -18,8 +18,18 @@
         <div class="column is-one-third">
           <div class="box">
             <h2 class="title is-4">General Information</h2>
-            <p><strong>Name:</strong> {{ player_details.splashtag }}</p>
-            <p><strong>Weapon:</strong> {{ player_details.weapon }}</p>
+            {% if player_details %}
+            <div class="columns is-mobile is-vcentered">
+              <div class="column is-one-third has-text-weight-bold">Name:</div>
+              <div class="column">{{ player_details.name }}#{{ player_details.name_id }}</div>
+            </div>
+            <div class="columns is-mobile is-vcentered">
+              <div class="column is-one-third has-text-weight-bold">Weapon:</div>
+              <div class="column">{{ player_details.weapon }}</div>
+            </div>
+            {% else %}
+            <p class="loading">Loading player information...</p>
+            {% endif %}
           </div>
         </div>
 
@@ -27,14 +37,14 @@
         <div class="column is-one-third">
           <div class="box">
             <h2 class="title is-4">Aliases</h2>
-            {% if aliases_data %}
-            <ul>
-              {% for alias in aliases_data %}
-              <li>{{ alias.alias }} (Last seen: {{ alias.last_updated }})</li>
+            {% if aliases %}
+            <ul class="is-size-7">
+              {% for alias in aliases %}
+              <li>{{ alias.alias }} <span class="has-text-grey">(Last seen: {{ alias.last_updated }})</span></li>
               {% endfor %}
             </ul>
             {% else %}
-            <p>No aliases found.</p>
+            <p class="loading">No aliases found.</p>
             {% endif %}
           </div>
         </div>
@@ -43,11 +53,12 @@
         <div class="column is-one-third">
           <div class="box">
             <h2 class="title is-4">Peak Data</h2>
-            <table class="table is-striped is-fullwidth">
+            {% if peak_data %}
+            <table class="table is-narrow is-fullwidth">
               <thead>
                 <tr>
                   <th>Mode</th>
-                  <th>Peak X Power</th>
+                  <th>Peak Power</th>
                   <th>Peak Rank</th>
                 </tr>
               </thead>
@@ -55,12 +66,15 @@
                 {% for data in peak_data %}
                 <tr>
                   <td>{{ data.mode }}</td>
-                  <td>{{ data.peak_xpower.x_power }} ({{ data.peak_xpower.timestamp }})</td>
-                  <td>{{ data.peak_rank.rank }} ({{ data.peak_rank.timestamp }})</td>
+                  <td>{{ data.peak_power }}</td>
+                  <td>{{ data.peak_rank }}</td>
                 </tr>
                 {% endfor %}
               </tbody>
             </table>
+            {% else %}
+            <p class="loading">Loading peak data...</p>
+            {% endif %}
           </div>
         </div>
       </div>
@@ -69,7 +83,7 @@
     <!-- Player Stats by Mode -->
     <section class="section">
       <h2 class="title is-4">Player Stats by Mode</h2>
-      <div class="tabs">
+      <div class="tabs is-toggle is-fullwidth">
         <ul>
           {% for mode in modes %}
           <li {% if loop.first %}class="is-active"{% endif %}>
@@ -85,15 +99,26 @@
           <div class="column is-one-third">
             <div class="box">
               <h3 class="title is-5">Current Stats</h3>
-              <p><strong>X Power:</strong> {{ player_details[mode].x_power }}</p>
-              <p><strong>Rank:</strong> {{ player_details[mode].rank }}</p>
-              <p><strong>Weapon:</strong> {{ player_details[mode].weapon }}</p>
+              {% if current_stats[mode] %}
+              <div class="columns is-mobile is-vcentered">
+                <div class="column is-one-third has-text-weight-bold">Power:</div>
+                <div class="column">{{ current_stats[mode].power }}</div>
+              </div>
+              <div class="columns is-mobile is-vcentered">
+                <div class="column is-one-third has-text-weight-bold">Rank:</div>
+                <div class="column">{{ current_stats[mode].rank }}</div>
+              </div>
+              {% else %}
+              <p class="loading">Loading current stats...</p>
+              {% endif %}
             </div>
           </div>
           <div class="column is-two-thirds">
             <div class="box">
               <h3 class="title is-5">Historical Data</h3>
-              <div id="chart-{{ mode }}"></div>
+              <div id="chart-{{ mode }}" class="chart-container">
+                <div class="no-data-overlay">No data available</div>
+              </div>
             </div>
           </div>
         </div>
@@ -121,11 +146,56 @@
     });
   });
 
-  // Render historical data charts for each mode
+  // Placeholder for chart rendering
   {% for mode in modes %}
   Highcharts.chart('chart-{{ mode }}', {
-    // Chart configuration for historical data
-    // Use the data from historical_data[mode]
+    chart: {
+      height: 400,
+      backgroundColor: 'rgba(0, 0, 0, 0.8)'
+    },
+    title: {
+      text: '{{ mode }} Historical Data',
+      style: {
+        color: '#fff'
+      }
+    },
+    xAxis: {
+      type: 'datetime',
+      title: {
+        text: 'Date',
+        style: {
+          color: '#fff'
+        }
+      },
+      labels: {
+        style: {
+          color: '#fff'
+        }
+      }
+    },
+    yAxis: {
+      title: {
+        text: 'Power',
+        style: {
+          color: '#fff'
+        }
+      },
+      labels: {
+        style: {
+          color: '#fff'
+        }
+      }
+    },
+    legend: {
+      itemStyle: {
+        color: '#fff'
+      }
+    },
+    series: [{
+      name: 'Power',
+      data: [],
+      color: '#ff4d4d'
+    }]
   });
   {% endfor %}
 </script>

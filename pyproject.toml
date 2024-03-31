@@ -21,6 +21,7 @@ flask-caching = "^2.0.2"
 flask-cors = "^4.0.0"
 celery = "^5.3.6"
 redis = "^5.0.3"
+flask-htmx = "^0.3.2"
 
 
 [tool.poetry.group.dev.dependencies]
