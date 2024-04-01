@@ -28,6 +28,11 @@ flask-htmx = "^0.3.2"
 black = "^23.7.0"
 isort = "^5.12.0"
 
+
+[tool.poetry.group.scripts.dependencies]
+requests = "^2.31.0"
+boto3 = "^1.34.74"
+
 [tool.poetry.scripts]
 run_dev = "flask_app.app:run_dev"
 
