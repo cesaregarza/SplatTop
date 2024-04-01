@@ -1,4 +1,4 @@
-from flask import Blueprint, render_template, request
+from flask import Blueprint, jsonify, render_template, request
 from flask_caching import Cache
 from sqlalchemy import text
 
@@ -15,7 +15,7 @@ def cache_key():
 def create_front_page_bp(cache: Cache) -> Blueprint:
     front_page_bp = Blueprint("front_page", __name__)
 
-    @front_page_bp.route("/")
+    @front_page_bp.route("/api/leaderboard")
     @cache.cached(timeout=60, key_prefix=cache_key)
     def leaderboard():
         mode = request.args.get("mode", "Splat Zones")
@@ -28,15 +28,24 @@ def create_front_page_bp(cache: Cache) -> Blueprint:
             result = session.execute(
                 query, {"mode": mode, "region": region_bool}
             ).fetchall()
-            players = [Player(**player._asdict()) for player in result]
+            # players = [Player(**player._asdict()) for player in result]
+            players = [{**row._asdict()} for row in result]
 
-        return render_template(
-            "leaderboard.html",
-            players=players,
-            modes=MODES,
-            regions=REGIONS,
-            mode=mode,
-            region=region,
+        # return render_template(
+        #     "leaderboard.html",
+        #     players=players,
+        #     modes=MODES,
+        #     regions=REGIONS,
+        #     mode=mode,
+        #     region=region,
+        # )
+        return jsonify(
+            {
+                "players": players,
+                "modes": MODES,
+                "regions": REGIONS,
+                "mode": mode,
+            }
         )
 
     return front_page_bp

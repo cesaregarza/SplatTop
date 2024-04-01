@@ -40,7 +40,11 @@ FROM dependencies AS build
 
 ARG BUILD_VERSION
 
-COPY . /app/
+COPY README.md /app/
+COPY pyproject.toml poetry.lock /app/
+COPY src/flask_app /app/src/flask_app
+COPY src/celery_workers /app/src/celery_workers
+COPY src/shared_lib /app/src/shared_lib
 
 # Build the application
 RUN poetry version $BUILD_VERSION && \

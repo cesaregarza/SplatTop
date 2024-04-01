@@ -5,7 +5,7 @@ description = ""
 authors = ["Cesar E Garza <cesar@cegarza.com>"]
 readme = "README.md"
 packages = [
-    { include = "splat_top", from = "src" },
+    # { include = "splat_top", from = "src" },
     { include = "flask_app", from = "src" },
     { include = "celery_workers", from = "src" },
 ]
