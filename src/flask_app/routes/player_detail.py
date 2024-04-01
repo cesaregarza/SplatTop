@@ -44,6 +44,8 @@ def create_player_detail_bp() -> Blueprint:
         ]
         # Sort the aliases so the most recent is first
         aliases_data.sort(key=lambda x: x["last_updated"], reverse=True)
+        # Remove the most recent alias from the list, as it's already displayed
+        aliases_data = aliases_data[1:]
 
         return render_template(
             "player_dev.html",
