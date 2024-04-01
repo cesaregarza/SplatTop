@@ -1,4 +1,4 @@
-.PHONY: build deploy undeploy redeploy
+.PHONY: build deploy undeploy redeploy port-forward compile-sass update full-update
 
 build:
 	docker rmi flask-app:latest || true
@@ -9,7 +9,7 @@ build:
 	kind load docker-image celery-worker:latest
 
 port-forward:
-	kubectl port-forward service/flask-app-service 5000:80
+	kubectl port-forward service/flask-app-service 8000:80
 
 deploy:
 	kubectl apply -f k8s/secrets.yaml
@@ -19,7 +19,7 @@ deploy:
 	kubectl apply -f k8s/flask/flask-service-dev.yaml
 	kubectl apply -f k8s/celery-worker/celery-worker-deployment-dev.yaml
 	sleep 5
-	kubectl port-forward service/flask-app-service 5000:80
+	kubectl port-forward service/flask-app-service 8000:80
 
 undeploy:
 	kubectl delete -f k8s/secrets.yaml
