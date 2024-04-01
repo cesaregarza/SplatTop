@@ -1,13 +1,10 @@
 <!-- player_dev.html -->
-{% extends 'base.html' %}
-{% block posthead %}
+{% extends 'base.html' %} {% block posthead %}
 <title>splat.top: {{ player_details.name }}</title>
 <script src="https://code.highcharts.com/highcharts.js"></script>
 <script src="https://code.highcharts.com/stock/modules/stock.js"></script>
 <script src="{{ url_for('static', filename='js/highcharts_config.js') }}"></script>
-{% endblock %}
-
-{% block content %}
+{% endblock %} {% block content %}
 <div class="content full-height-desktop player-columns">
   <div class="columns is-desktop">
     <div class="column is-one-half-desktop">
@@ -16,151 +13,208 @@
           {{ player_details.name}}#{{ player_details.name_id }}
         </h1>
       </div>
-      <div class="box alias-box">
+      <div class="box">
         <h2 class="title is-4">Aliases</h2>
         {% if aliases %}
-        <table class="table is-borderless">
-          <thead>
-            <tr>
-              <th>Alias</th>
-              <th class="has-text-grey">Last Updated</th>
-            </tr>
-          </thead>
-          <tbody>
-            {% for alias in aliases %}
-            <tr>
-              <td>{{ alias.alias }}</td>
-              <td class="has-text-grey">{{ alias.last_seen }}</td>
-            </tr>
-            {% endfor %}
-          </tbody>
-        </table>
+        <div class="alias-table">
+          <table class="table is-borderless">
+            <thead>
+              <tr>
+                <th>Alias</th>
+                <th class="has-text-grey">Last Updated</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for alias in aliases %}
+              <tr>
+                <td>{{ alias.alias }}</td>
+                <td class="has-text-grey">{{ alias.last_updated }}</td>
+              </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
         {% else %}
         <p class="loading">No aliases found.</p>
         {% endif %}
       </div>
-      <div class="columns player-mode-stats">
-        <div class="is-2">
-          
+
+      <div class="tile is-ancestor">
+        <div class="tile is-2 is-vertical is-parent">
+          <div class="tile is-child">
+            <!-- Empty just to align later -->
+            <div class="stats-row"></div>
+            {% for mode in modes %}
+            <div class="tile is-child is-borderless stats-row">
+              <figure class="image is-48x48">
+                <img
+                  src="{{ url_for('static', filename='assets/modes/' ~ mode | lower | replace(' ', '_') ~ '.png') }}"
+                  alt="{{ mode }}"
+                />
+              </figure>
+            </div>
+            {% endfor %}
+          </div>
+        </div>
+        <div class="tile is-5 is-vertical is-parent">
+          <div class="tile box is-child">
+            <h2 class="title stats-row">Current Stats</h2>
+            {% for mode in modes %}
+            <div class="stats-row">
+              <div class="level">
+                <div class="level-left">
+                  <div class="level-item">
+                    <span class="has-text-weight-bold"> PLACEHOLDER </span>
+                  </div>
+                </div>
+                <div class="level-right">
+                  <div class="level-item">
+                    <span class="has-text-weight-bold"> PLACEHOLDER </span>
+                  </div>
+                </div>
+              </div>
+            </div>
+            {% endfor %}
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="column is-one-half-desktop">
+      <span>Placeholder</span>
+    </div>
+  </div>
+
+  <!-- Player General Information -->
+  <section class="section">
+    <div class="columns">
+      <div class="column is-one-third">
+        <div class="box">
+          <h2 class="title is-4">General Information</h2>
+          {% if player_details %}
+          <div class="columns is-mobile is-vcentered">
+            <div class="column is-one-third has-text-weight-bold">Name:</div>
+            <div class="column">
+              {{ player_details.name }}#{{ player_details.name_id }}
+            </div>
+          </div>
+          <div class="columns is-mobile is-vcentered">
+            <div class="column is-one-third has-text-weight-bold">Weapon:</div>
+            <div class="column">{{ player_details.weapon }}</div>
+          </div>
+          {% else %}
+          <p class="loading">Loading player information...</p>
+          {% endif %}
         </div>
       </div>
 
+      <!-- Player Aliases -->
+      <div class="column is-one-third">
+        <div class="box">
+          <h2 class="title is-4">Aliases</h2>
+          {% if aliases %}
+          <ul class="is-size-7">
+            {% for alias in aliases %}
+            <li>
+              {{ alias.alias }}
+              <span class="has-text-grey"
+                >(Last seen: {{ alias.last_updated }})</span
+              >
+            </li>
+            {% endfor %}
+          </ul>
+          {% else %}
+          <p class="loading">No aliases found.</p>
+          {% endif %}
+        </div>
+      </div>
+
+      <!-- Peak Data -->
+      <div class="column is-one-third">
+        <div class="box">
+          <h2 class="title is-4">Peak Data</h2>
+          {% if peak_data %}
+          <table class="table is-narrow is-fullwidth">
+            <thead>
+              <tr>
+                <th>Mode</th>
+                <th>Peak Power</th>
+                <th>Peak Rank</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for data in peak_data %}
+              <tr>
+                <td>{{ data.mode }}</td>
+                <td>{{ data.peak_power }}</td>
+                <td>{{ data.peak_rank }}</td>
+              </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+          {% else %}
+          <p class="loading">Loading peak data...</p>
+          {% endif %}
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Player Stats by Mode -->
+  <section class="section">
+    <h2 class="title is-4">Player Stats by Mode</h2>
+    <div class="tabs is-toggle is-fullwidth">
+      <ul>
+        {% for mode in modes %}
+        <li {% if loop.first %}class="is-active" {% endif %}>
+          <a href="#{{ mode }}">{{ mode }}</a>
+        </li>
+        {% endfor %}
+      </ul>
     </div>
 
-    <!-- Player General Information -->
-    <section class="section">
+    {% for mode in modes %}
+    <div
+      id="{{ mode }}"
+      class="tab-content"
+      {%
+      if
+      not
+      loop.first
+      %}style="display: none;"
+      {%
+      endif
+      %}
+    >
       <div class="columns">
         <div class="column is-one-third">
           <div class="box">
-            <h2 class="title is-4">General Information</h2>
-            {% if player_details %}
+            <h3 class="title is-5">Current Stats</h3>
+            {% if current_stats[mode] %}
             <div class="columns is-mobile is-vcentered">
-              <div class="column is-one-third has-text-weight-bold">Name:</div>
-              <div class="column">{{ player_details.name }}#{{ player_details.name_id }}</div>
+              <div class="column is-one-third has-text-weight-bold">Power:</div>
+              <div class="column">{{ current_stats[mode].power }}</div>
             </div>
             <div class="columns is-mobile is-vcentered">
-              <div class="column is-one-third has-text-weight-bold">Weapon:</div>
-              <div class="column">{{ player_details.weapon }}</div>
+              <div class="column is-one-third has-text-weight-bold">Rank:</div>
+              <div class="column">{{ current_stats[mode].rank }}</div>
             </div>
             {% else %}
-            <p class="loading">Loading player information...</p>
+            <p class="loading">Loading current stats...</p>
             {% endif %}
           </div>
         </div>
-
-        <!-- Player Aliases -->
-        <div class="column is-one-third">
+        <div class="column is-two-thirds">
           <div class="box">
-            <h2 class="title is-4">Aliases</h2>
-            {% if aliases %}
-            <ul class="is-size-7">
-              {% for alias in aliases %}
-              <li>{{ alias.alias }} <span class="has-text-grey">(Last seen: {{ alias.last_updated }})</span></li>
-              {% endfor %}
-            </ul>
-            {% else %}
-            <p class="loading">No aliases found.</p>
-            {% endif %}
-          </div>
-        </div>
-
-        <!-- Peak Data -->
-        <div class="column is-one-third">
-          <div class="box">
-            <h2 class="title is-4">Peak Data</h2>
-            {% if peak_data %}
-            <table class="table is-narrow is-fullwidth">
-              <thead>
-                <tr>
-                  <th>Mode</th>
-                  <th>Peak Power</th>
-                  <th>Peak Rank</th>
-                </tr>
-              </thead>
-              <tbody>
-                {% for data in peak_data %}
-                <tr>
-                  <td>{{ data.mode }}</td>
-                  <td>{{ data.peak_power }}</td>
-                  <td>{{ data.peak_rank }}</td>
-                </tr>
-                {% endfor %}
-              </tbody>
-            </table>
-            {% else %}
-            <p class="loading">Loading peak data...</p>
-            {% endif %}
-          </div>
-        </div>
-      </div>
-    </section>
-
-    <!-- Player Stats by Mode -->
-    <section class="section">
-      <h2 class="title is-4">Player Stats by Mode</h2>
-      <div class="tabs is-toggle is-fullwidth">
-        <ul>
-          {% for mode in modes %}
-          <li {% if loop.first %}class="is-active"{% endif %}>
-            <a href="#{{ mode }}">{{ mode }}</a>
-          </li>
-          {% endfor %}
-        </ul>
-      </div>
-
-      {% for mode in modes %}
-      <div id="{{ mode }}" class="tab-content" {% if not loop.first %}style="display: none;"{% endif %}>
-        <div class="columns">
-          <div class="column is-one-third">
-            <div class="box">
-              <h3 class="title is-5">Current Stats</h3>
-              {% if current_stats[mode] %}
-              <div class="columns is-mobile is-vcentered">
-                <div class="column is-one-third has-text-weight-bold">Power:</div>
-                <div class="column">{{ current_stats[mode].power }}</div>
-              </div>
-              <div class="columns is-mobile is-vcentered">
-                <div class="column is-one-third has-text-weight-bold">Rank:</div>
-                <div class="column">{{ current_stats[mode].rank }}</div>
-              </div>
-              {% else %}
-              <p class="loading">Loading current stats...</p>
-              {% endif %}
-            </div>
-          </div>
-          <div class="column is-two-thirds">
-            <div class="box">
-              <h3 class="title is-5">Historical Data</h3>
-              <div id="chart-{{ mode }}" class="chart-container">
-                <div class="no-data-overlay">No data available</div>
-              </div>
+            <h3 class="title is-5">Historical Data</h3>
+            <div id="chart-{{ mode }}" class="chart-container">
+              <div class="no-data-overlay">No data available</div>
             </div>
           </div>
         </div>
       </div>
-      {% endfor %}
-    </section>
-  </div>
+    </div>
+    {% endfor %}
+  </section>
 </div>
 
 <script>

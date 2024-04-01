@@ -215,8 +215,21 @@ $player-max-height: 85vh;
     margin-left: 0;
     margin-right: 0;
   }
-  .alias-box {
-    max-height: 20vh;
+  .alias-table {
+    max-height: 15vh;
     overflow-y: auto;
+  }
+  .box {
+    padding: 0;
+  }
+  h2 {
+    margin-bottom: 0;
+  }
+  .stats-row {
+    max-height: 19%;
+    min-height: 19%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
   }
 }
