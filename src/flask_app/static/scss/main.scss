@@ -210,26 +210,30 @@ $player-max-height: 85vh;
   }
 }
 
+.jcc {
+  justify-content: center !important;
+}
+
 .player-columns {
   .columns {
     margin-left: 0;
     margin-right: 0;
   }
+  #player-stats-left-side {
+    height: 100%;
+  }
   .alias-table {
     max-height: 15vh;
     overflow-y: auto;
   }
-  .box {
-    padding: 0;
-  }
-  h2 {
+  #player-stats-title {
     margin-bottom: 0;
+    justify-content: center;
   }
   .stats-row {
     max-height: 19%;
     min-height: 19%;
     display: flex;
     align-items: center;
-    justify-content: center;
   }
 }

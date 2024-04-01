@@ -10411,26 +10411,30 @@ html, body {
     border-radius: 0 0 4px 4px;
   }
 }
+.jcc {
+  justify-content: center !important;
+}
+
 .player-columns .columns {
   margin-left: 0;
   margin-right: 0;
+}
+.player-columns #player-stats-left-side {
+  height: 100%;
 }
 .player-columns .alias-table {
   max-height: 15vh;
   overflow-y: auto;
 }
-.player-columns .box {
-  padding: 0;
-}
-.player-columns h2 {
+.player-columns #player-stats-title {
   margin-bottom: 0;
+  justify-content: center;
 }
 .player-columns .stats-row {
   max-height: 19%;
   min-height: 19%;
   display: flex;
   align-items: center;
-  justify-content: center;
 }
 
 /*# sourceMappingURL=main.css.map */

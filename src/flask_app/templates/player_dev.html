@@ -7,7 +7,7 @@
 {% endblock %} {% block content %}
 <div class="content full-height-desktop player-columns">
   <div class="columns is-desktop">
-    <div class="column is-one-half-desktop">
+    <div class="column is-one-half-desktop" id="player-stats-left-side">
       <div class="box">
         <h1 class="title has-background-primary has-text-white p-3">
           {{ player_details.name}}#{{ player_details.name_id }}
@@ -45,8 +45,8 @@
             <!-- Empty just to align later -->
             <div class="stats-row"></div>
             {% for mode in modes %}
-            <div class="tile is-child is-borderless stats-row">
-              <figure class="image is-48x48">
+            <div class="tile is-child is-borderless stats-row jcc">
+              <figure class="image is-48x48 m-0">
                 <img
                   src="{{ url_for('static', filename='assets/modes/' ~ mode | lower | replace(' ', '_') ~ '.png') }}"
                   alt="{{ mode }}"
@@ -57,20 +57,45 @@
           </div>
         </div>
         <div class="tile is-5 is-vertical is-parent">
-          <div class="tile box is-child">
-            <h2 class="title stats-row">Current Stats</h2>
+          <div class="tile box is-child py-0">
+            <h4 class="title stats-row" id="player-stats-title">
+              Current Stats
+            </h4>
             {% for mode in modes %}
-            <div class="stats-row">
-              <div class="level">
-                <div class="level-left">
-                  <div class="level-item">
-                    <span class="has-text-weight-bold"> PLACEHOLDER </span>
-                  </div>
+            <div
+              id="{{ mode | lower | replace(' ', '_') }}-current"
+              class="stats-row level mb-0"
+            >
+              <div class="level-left">
+                <div class="level-item">
+                  <span class="has-text-weight-bold"> PLACEHOLDER </span>
                 </div>
-                <div class="level-right">
-                  <div class="level-item">
-                    <span class="has-text-weight-bold"> PLACEHOLDER </span>
-                  </div>
+              </div>
+              <div class="level-right">
+                <div class="level-item">
+                  <span class="has-text-weight-bold"> PLACEHOLDER </span>
+                </div>
+              </div>
+            </div>
+            {% endfor %}
+          </div>
+        </div>
+        <div class="tile is-5 is-vertical is-parent">
+          <div class="tile box is-child py-0">
+            <h4 class="title stats-row" id="player-stats-title">Peak Stats</h4>
+            {% for mode in modes %}
+            <div
+              id="{{ mode | lower | replace(' ', '_') }}-peak"
+              class="stats-row level mb-0"
+            >
+              <div class="level-left">
+                <div class="level-item">
+                  <span class="has-text-weight-bold"> PLACEHOLDER </span>
+                </div>
+              </div>
+              <div class="level-right">
+                <div class="level-item">
+                  <span class="has-text-weight-bold"> PLACEHOLDER </span>
                 </div>
               </div>
             </div>
@@ -84,208 +109,76 @@
     </div>
   </div>
 
-  <!-- Player General Information -->
-  <section class="section">
-    <div class="columns">
-      <div class="column is-one-third">
-        <div class="box">
-          <h2 class="title is-4">General Information</h2>
-          {% if player_details %}
-          <div class="columns is-mobile is-vcentered">
-            <div class="column is-one-third has-text-weight-bold">Name:</div>
-            <div class="column">
-              {{ player_details.name }}#{{ player_details.name_id }}
-            </div>
-          </div>
-          <div class="columns is-mobile is-vcentered">
-            <div class="column is-one-third has-text-weight-bold">Weapon:</div>
-            <div class="column">{{ player_details.weapon }}</div>
-          </div>
-          {% else %}
-          <p class="loading">Loading player information...</p>
-          {% endif %}
-        </div>
-      </div>
+  <script>
+    // JavaScript code to handle tab switching and chart rendering
+    const tabs = document.querySelectorAll('.tabs li');
+    const tabContents = document.querySelectorAll('.tab-content');
 
-      <!-- Player Aliases -->
-      <div class="column is-one-third">
-        <div class="box">
-          <h2 class="title is-4">Aliases</h2>
-          {% if aliases %}
-          <ul class="is-size-7">
-            {% for alias in aliases %}
-            <li>
-              {{ alias.alias }}
-              <span class="has-text-grey"
-                >(Last seen: {{ alias.last_updated }})</span
-              >
-            </li>
-            {% endfor %}
-          </ul>
-          {% else %}
-          <p class="loading">No aliases found.</p>
-          {% endif %}
-        </div>
-      </div>
+    tabs.forEach(tab => {
+      tab.addEventListener('click', () => {
+        const target = tab.querySelector('a').getAttribute('href');
 
-      <!-- Peak Data -->
-      <div class="column is-one-third">
-        <div class="box">
-          <h2 class="title is-4">Peak Data</h2>
-          {% if peak_data %}
-          <table class="table is-narrow is-fullwidth">
-            <thead>
-              <tr>
-                <th>Mode</th>
-                <th>Peak Power</th>
-                <th>Peak Rank</th>
-              </tr>
-            </thead>
-            <tbody>
-              {% for data in peak_data %}
-              <tr>
-                <td>{{ data.mode }}</td>
-                <td>{{ data.peak_power }}</td>
-                <td>{{ data.peak_rank }}</td>
-              </tr>
-              {% endfor %}
-            </tbody>
-          </table>
-          {% else %}
-          <p class="loading">Loading peak data...</p>
-          {% endif %}
-        </div>
-      </div>
-    </div>
-  </section>
+        tabs.forEach(t => t.classList.remove('is-active'));
+        tab.classList.add('is-active');
 
-  <!-- Player Stats by Mode -->
-  <section class="section">
-    <h2 class="title is-4">Player Stats by Mode</h2>
-    <div class="tabs is-toggle is-fullwidth">
-      <ul>
-        {% for mode in modes %}
-        <li {% if loop.first %}class="is-active" {% endif %}>
-          <a href="#{{ mode }}">{{ mode }}</a>
-        </li>
-        {% endfor %}
-      </ul>
-    </div>
-
-    {% for mode in modes %}
-    <div
-      id="{{ mode }}"
-      class="tab-content"
-      {%
-      if
-      not
-      loop.first
-      %}style="display: none;"
-      {%
-      endif
-      %}
-    >
-      <div class="columns">
-        <div class="column is-one-third">
-          <div class="box">
-            <h3 class="title is-5">Current Stats</h3>
-            {% if current_stats[mode] %}
-            <div class="columns is-mobile is-vcentered">
-              <div class="column is-one-third has-text-weight-bold">Power:</div>
-              <div class="column">{{ current_stats[mode].power }}</div>
-            </div>
-            <div class="columns is-mobile is-vcentered">
-              <div class="column is-one-third has-text-weight-bold">Rank:</div>
-              <div class="column">{{ current_stats[mode].rank }}</div>
-            </div>
-            {% else %}
-            <p class="loading">Loading current stats...</p>
-            {% endif %}
-          </div>
-        </div>
-        <div class="column is-two-thirds">
-          <div class="box">
-            <h3 class="title is-5">Historical Data</h3>
-            <div id="chart-{{ mode }}" class="chart-container">
-              <div class="no-data-overlay">No data available</div>
-            </div>
-          </div>
-        </div>
-      </div>
-    </div>
-    {% endfor %}
-  </section>
-</div>
-
-<script>
-  // JavaScript code to handle tab switching and chart rendering
-  const tabs = document.querySelectorAll('.tabs li');
-  const tabContents = document.querySelectorAll('.tab-content');
-
-  tabs.forEach(tab => {
-    tab.addEventListener('click', () => {
-      const target = tab.querySelector('a').getAttribute('href');
-
-      tabs.forEach(t => t.classList.remove('is-active'));
-      tab.classList.add('is-active');
-
-      tabContents.forEach(content => {
-        content.style.display = content.id === target.slice(1) ? 'block' : 'none';
+        tabContents.forEach(content => {
+          content.style.display = content.id === target.slice(1) ? 'block' : 'none';
+        });
       });
     });
-  });
 
-  // Placeholder for chart rendering
-  {% for mode in modes %}
-  Highcharts.chart('chart-{{ mode }}', {
-    chart: {
-      height: 400,
-      backgroundColor: 'rgba(0, 0, 0, 0.8)'
-    },
-    title: {
-      text: '{{ mode }} Historical Data',
-      style: {
-        color: '#fff'
-      }
-    },
-    xAxis: {
-      type: 'datetime',
+    // Placeholder for chart rendering
+    {% for mode in modes %}
+    Highcharts.chart('chart-{{ mode }}', {
+      chart: {
+        height: 400,
+        backgroundColor: 'rgba(0, 0, 0, 0.8)'
+      },
       title: {
-        text: 'Date',
+        text: '{{ mode }} Historical Data',
         style: {
           color: '#fff'
         }
       },
-      labels: {
-        style: {
-          color: '#fff'
+      xAxis: {
+        type: 'datetime',
+        title: {
+          text: 'Date',
+          style: {
+            color: '#fff'
+          }
+        },
+        labels: {
+          style: {
+            color: '#fff'
+          }
         }
-      }
-    },
-    yAxis: {
-      title: {
-        text: 'Power',
-        style: {
+      },
+      yAxis: {
+        title: {
+          text: 'Power',
+          style: {
+            color: '#fff'
+          }
+        },
+        labels: {
+          style: {
+            color: '#fff'
+          }
+        }
+      },
+      legend: {
+        itemStyle: {
           color: '#fff'
         }
       },
-      labels: {
-        style: {
-          color: '#fff'
-        }
-      }
-    },
-    legend: {
-      itemStyle: {
-        color: '#fff'
-      }
-    },
-    series: [{
-      name: 'Power',
-      data: [],
-      color: '#ff4d4d'
-    }]
-  });
-  {% endfor %}
-</script>
-{% endblock %}
+      series: [{
+        name: 'Power',
+        data: [],
+        color: '#ff4d4d'
+      }]
+    });
+    {% endfor %}
+  </script>
+  {% endblock %}
+</div>
