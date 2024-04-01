@@ -215,4 +215,8 @@ $player-max-height: 85vh;
     margin-left: 0;
     margin-right: 0;
   }
+  .alias-box {
+    max-height: 20vh;
+    overflow-y: auto;
+  }
 }

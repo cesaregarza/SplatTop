@@ -9,8 +9,32 @@
 
 {% block content %}
 <div class="content full-height-desktop player-columns">
-  <div class="container">
-    <h1 class="title has-background-primary has-text-white p-3">Player Details</h1>
+  <div class="columns is-desktop">
+    <div class="column is-one-half-desktop">
+      <div class="box">
+        <h1 class="title has-background-primary has-text-white p-3">
+          {{ player_details.name}}#{{ player_details.name_id }}
+        </h1>
+      </div>
+      <div class="box alias-box">
+        <h2 class="title is-4">Aliases</h2>
+        {% if aliases %}
+        <ul>
+          {% for alias in aliases %}
+          <li>{{ alias.alias }} <span class="has-text-grey">(Last seen: {{ alias.last_updated }})</span></li>
+          {% endfor %}
+        </ul>
+        {% else %}
+        <p class="loading">No aliases found.</p>
+        {% endif %}
+      </div>
+      <div class="columns player-mode-stats">
+        <div class="is-2">
+          
+        </div>
+      </div>
+
+    </div>
 
     <!-- Player General Information -->
     <section class="section">
