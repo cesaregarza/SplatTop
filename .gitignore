@@ -168,3 +168,7 @@ config.ini
 
 # Kubernetes
 k8s/secrets.yaml
+
+# React
+!src/react_app/src/mocks/leaderboard_jsons/*.json
+!src/react_app/package.json

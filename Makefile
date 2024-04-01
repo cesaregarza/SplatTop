@@ -82,3 +82,7 @@ celery-logs:
 .PHONY: react-logs
 react-logs:
 	kubectl logs -f `kubectl get pods -l app=react-app -o jsonpath='{.items[0].metadata.name}'`
+
+.PHONY: start-react-app-dev
+start-react-app-dev:
+	cd src/react_app && npm start
