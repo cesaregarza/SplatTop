@@ -21,9 +21,14 @@ const Top500 = () => {
     const cachedData = localStorage.getItem(endpoint);
     if (cachedData) {
       const parsedData = JSON.parse(cachedData);
+      const cacheTimestamp = new Date(parsedData.timestamp);
+      const cacheMinute = cacheTimestamp.getMinutes();
+      const now = new Date();
+      const nowMinute = now.getMinutes();
+      // Check if cache should expire when the minute of the current time modulo 10 equals 5
       if (
         parsedData.timestamp &&
-        Date.now() - parsedData.timestamp < 5 * 60 * 1000
+        !(nowMinute % 10 === 6 && cacheMinute !== nowMinute)
       ) {
         setData(parsedData.data);
         setError(null);
