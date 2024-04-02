@@ -7,7 +7,7 @@ import { BrowserRouter as Router, Route, Routes } from 'react-router-dom';
 const App = () => {
   return (
     <Router>
-      <div>
+      <div className="dark bg-gray-900 text-white min-h-screen">
         <Navbar />
         <Routes>
           <Route exact path="/" element={<Top500 />} />

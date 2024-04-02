@@ -31,14 +31,6 @@ def create_front_page_bp(cache: Cache) -> Blueprint:
             # players = [Player(**player._asdict()) for player in result]
             players = [{**row._asdict()} for row in result]
 
-        # return render_template(
-        #     "leaderboard.html",
-        #     players=players,
-        #     modes=MODES,
-        #     regions=REGIONS,
-        #     mode=mode,
-        #     region=region,
-        # )
         return jsonify(
             {
                 "players": players,
