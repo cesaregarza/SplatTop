@@ -9,25 +9,52 @@ const Top500 = () => {
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 20;
   const [isLoading, setIsLoading] = useState(true);
+  const [selectedRegion, setSelectedRegion] = useState("Tentatek");
+  const [selectedMode, setSelectedMode] = useState("Splat Zones");
 
-  useEffect(() => {
-    const fetchData = async () => {
-      const apiUrl = process.env.REACT_APP_API_URL || "";
-      const endpoint = `${apiUrl}/api/leaderboard`;
-      try {
-        const response = await axios.get(endpoint);
-        setData(response.data);
+  const fetchData = async () => {
+    setIsLoading(true);
+
+    const apiUrl = process.env.REACT_APP_API_URL || "";
+    const endpoint = `${apiUrl}/api/leaderboard?mode=${selectedMode}&region=${selectedRegion}`;
+
+    const cachedData = localStorage.getItem(endpoint);
+    if (cachedData) {
+      const parsedData = JSON.parse(cachedData);
+      if (
+        parsedData.timestamp &&
+        Date.now() - parsedData.timestamp < 5 * 60 * 1000
+      ) {
+        setData(parsedData.data);
         setError(null);
         setIsLoading(false);
-      } catch (error) {
-        console.error("Error fetching leaderboard data:", error);
-        setError(error);
-        setIsLoading(false);
+        return;
       }
-    };
+    }
 
+    try {
+      const response = await axios.get(endpoint);
+      setData(response.data);
+      setError(null);
+      setIsLoading(false);
+
+      localStorage.setItem(
+        endpoint,
+        JSON.stringify({
+          data: response.data,
+          timestamp: Date.now(),
+        })
+      );
+    } catch (error) {
+      console.error("Error fetching leaderboard data:", error);
+      setError(error);
+      setIsLoading(false);
+    }
+  };
+
+  useEffect(() => {
     fetchData();
-  }, []);
+  }, [selectedRegion, selectedMode, currentPage]);
 
   if (isLoading) {
     return <Loading />;
@@ -41,7 +68,7 @@ const Top500 = () => {
     return <div className="text-center py-4">Loading...</div>;
   }
 
-  const { players, modes, regions, mode, region } = data;
+  const { players, modes, regions } = data;
 
   const filteredPlayers = players.filter((player) =>
     player.name.toLowerCase().includes(searchQuery.toLowerCase())
@@ -55,9 +82,43 @@ const Top500 = () => {
 
   return (
     <div className="container mx-auto px-4 py-8 bg-gray-900 text-white min-h-screen">
-      <h1 className="text-3xl font-bold mb-4">
-        Top 500 {region} - {mode}
-      </h1>
+      <h1 className="text-3xl font-bold mb-4">Top 500</h1>
+      <div className="flex mb-4">
+        <div className="mr-4">
+          <h2 className="text-xl font-bold mb-2">Regions</h2>
+          <div className="flex">
+            {regions.map((region) => (
+              <button
+                key={region}
+                onClick={() => setSelectedRegion(region)}
+                className={`mx-1 px-4 py-2 rounded-md ${
+                  selectedRegion === region
+                    ? "bg-purple text-white"
+                    : "bg-gray-700"
+                }`}
+              >
+                {region}
+              </button>
+            ))}
+          </div>
+        </div>
+        <div>
+          <h2 className="text-xl font-bold mb-2">Modes</h2>
+          <div className="flex">
+            {modes.map((mode) => (
+              <button
+                key={mode}
+                onClick={() => setSelectedMode(mode)}
+                className={`mx-1 px-4 py-2 rounded-md ${
+                  selectedMode === mode ? "bg-purple text-white" : "bg-gray-700"
+                }`}
+              >
+                {mode}
+              </button>
+            ))}
+          </div>
+        </div>
+      </div>
       <input
         type="text"
         placeholder="Search"
