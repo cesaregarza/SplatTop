@@ -1,16 +1,36 @@
 import React, { useEffect, useState } from "react";
 import axios from "axios";
 import Loading from "./loading";
+import SplatZonesIcon from "../assets/icons/splat_zones.png";
+import TowerControlIcon from "../assets/icons/tower_control.png";
+import RainmakerIcon from "../assets/icons/rainmaker.png";
+import ClamBlitzIcon from "../assets/icons/clam_blitz.png";
+import TentatekIcon from "../assets/icons/tentatek.png";
+import TakorokaIcon from "../assets/icons/takoroka.png";
 
 const Top500 = () => {
   const [data, setData] = useState(null);
   const [error, setError] = useState(null);
   const [searchQuery, setSearchQuery] = useState("");
   const [currentPage, setCurrentPage] = useState(1);
-  const itemsPerPage = 100; // Set items per page to 100
+  const itemsPerPage = 100;
+  const maxCacheAge = 10;
+  const cacheOffset = 6;
   const [isLoading, setIsLoading] = useState(true);
   const [selectedRegion, setSelectedRegion] = useState("Tentatek");
   const [selectedMode, setSelectedMode] = useState("Splat Zones");
+
+  const modeIcons = {
+    "Splat Zones": SplatZonesIcon,
+    "Tower Control": TowerControlIcon,
+    Rainmaker: RainmakerIcon,
+    "Clam Blitz": ClamBlitzIcon,
+  };
+
+  const regionIcons = {
+    Tentatek: TentatekIcon,
+    Takoroka: TakorokaIcon,
+  };
 
   const fetchData = async () => {
     setIsLoading(true);
@@ -25,10 +45,22 @@ const Top500 = () => {
       const cacheMinute = cacheTimestamp.getMinutes();
       const now = new Date();
       const nowMinute = now.getMinutes();
+      const minutesElapsedSinceCache = (now - cacheTimestamp) / 60000;
+      const cacheMinuteMod = cacheMinute % maxCacheAge;
+      const nowMinuteMod = nowMinute % maxCacheAge;
+      var shouldRegenerateCache = false;
+
       if (
-        parsedData.timestamp &&
-        !(nowMinute % 10 === 6 && cacheMinute !== nowMinute)
+        minutesElapsedSinceCache >= maxCacheAge ||
+        (nowMinuteMod > cacheMinuteMod && nowMinuteMod >= cacheOffset) ||
+        (nowMinuteMod < cacheMinuteMod && nowMinuteMod >= cacheOffset) ||
+        (nowMinuteMod < cacheMinuteMod && cacheMinuteMod < cacheOffset)
       ) {
+        localStorage.removeItem(endpoint);
+        shouldRegenerateCache = true;
+      }
+
+      if (!shouldRegenerateCache) {
         setData(parsedData.data);
         setError(null);
         setIsLoading(false);
@@ -60,19 +92,11 @@ const Top500 = () => {
     fetchData();
   }, [selectedRegion, selectedMode, currentPage]);
 
-  if (isLoading) {
-    return <Loading />;
-  }
-
-  if (error) {
-    return <div className="text-red-500 text-center py-4">{error.message}</div>;
-  }
-
-  if (!data) {
-    return <div className="text-center py-4">Loading...</div>;
-  }
-
-  const { players, modes, regions } = data;
+  const { players, modes, regions } = data || {
+    players: [],
+    modes: [],
+    regions: [],
+  };
 
   const filteredPlayers = players.filter((player) =>
     player.name.toLowerCase().includes(searchQuery.toLowerCase())
@@ -85,8 +109,11 @@ const Top500 = () => {
   const paginate = (pageNumber) => setCurrentPage(pageNumber);
 
   // Determine button size based on the longest string in modes and regions
-  const longestMode = modes.reduce((a, b) => a.length > b.length ? a : b, '');
-  const longestRegion = regions.reduce((a, b) => a.length > b.length ? a : b, '');
+  const longestMode = modes.reduce((a, b) => (a.length > b.length ? a : b), "");
+  const longestRegion = regions.reduce(
+    (a, b) => (a.length > b.length ? a : b),
+    ""
+  );
   const modeButtonSize = longestMode.length > 6 ? "px-2" : "px-4";
   const regionButtonSize = longestRegion.length > 6 ? "px-2" : "px-4";
 
@@ -109,7 +136,11 @@ const Top500 = () => {
                     : "bg-gray-700 hover:bg-purple"
                 }`}
               >
-                {region}
+                <img
+                  src={regionIcons[region]}
+                  alt={region}
+                  className="h-12 w-12 mr-1"
+                />
               </button>
             ))}
           </div>
@@ -127,7 +158,11 @@ const Top500 = () => {
                     : "bg-gray-700 hover:bg-purple"
                 }`}
               >
-                {mode}
+                <img
+                  src={modeIcons[mode]}
+                  alt={mode}
+                  className="h-12 w-12 mr-2"
+                />
               </button>
             ))}
           </div>
@@ -141,35 +176,43 @@ const Top500 = () => {
         className="border border-gray-700 bg-gray-800 rounded-md px-4 py-2 mb-4 w-full focus:outline-none focus:ring-2 focus:ring-purple"
       />
       <div className="overflow-x-auto">
-        <table className="table-auto w-full bg-gray-800">
-          <thead>
-            <tr className="bg-gray-700">
-              <th className="px-4 py-2">Rank</th>
-              <th className="px-4 py-2">Name</th>
-              <th className="px-4 py-2">Splashtag</th>
-              <th className="px-4 py-2">X Power</th>
-              <th className="px-4 py-2">Weapon ID</th>
-              <th className="px-4 py-2">Byname</th>
-              <th className="px-4 py-2">Text Color</th>
-            </tr>
-          </thead>
-          <tbody>
-            {currentItems.map((player) => (
-              <tr
-                key={player.player_id}
-                className="border-b border-gray-700 hover:bg-purpledark"
-              >
-                <td className="px-4 py-2">{player.rank}</td>
-                <td className="px-4 py-2">{player.name}</td>
-                <td className="px-4 py-2">{player.splashtag}</td>
-                <td className="px-4 py-2">{player.x_power.toFixed(1)}</td>
-                <td className="px-4 py-2">{player.weapon_id}</td>
-                <td className="px-4 py-2">{player.byname}</td>
-                <td className="px-4 py-2">{player.text_color}</td>
+        {isLoading ? (
+          <div className="text-center py-4">
+            <Loading />
+          </div>
+        ) : error ? (
+          <div className="text-red-500 text-center py-4">{error.message}</div>
+        ) : (
+          <table className="table-auto w-full bg-gray-800">
+            <thead>
+              <tr className="bg-gray-700">
+                <th className="px-4 py-2">Rank</th>
+                <th className="px-4 py-2">Name</th>
+                <th className="px-4 py-2">Splashtag</th>
+                <th className="px-4 py-2">X Power</th>
+                <th className="px-4 py-2">Weapon ID</th>
+                <th className="px-4 py-2">Byname</th>
+                <th className="px-4 py-2">Text Color</th>
               </tr>
-            ))}
-          </tbody>
-        </table>
+            </thead>
+            <tbody>
+              {currentItems.map((player) => (
+                <tr
+                  key={player.player_id}
+                  className="border-b border-gray-700 hover:bg-purpledark"
+                >
+                  <td className="px-4 py-2">{player.rank}</td>
+                  <td className="px-4 py-2">{player.name}</td>
+                  <td className="px-4 py-2">{player.splashtag}</td>
+                  <td className="px-4 py-2">{player.x_power.toFixed(1)}</td>
+                  <td className="px-4 py-2">{player.weapon_id}</td>
+                  <td className="px-4 py-2">{player.byname}</td>
+                  <td className="px-4 py-2">{player.text_color}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        )}
       </div>
       <div className="flex justify-center mt-4 flex-wrap">
         {Array.from(
