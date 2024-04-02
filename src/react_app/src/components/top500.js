@@ -116,54 +116,67 @@ const Top500 = () => {
   );
   const modeButtonSize = longestMode.length > 6 ? "px-2" : "px-4";
   const regionButtonSize = longestRegion.length > 6 ? "px-2" : "px-4";
+  const modesSplit =
+    [
+      [modes[0], modes[1]],
+      [modes[2], modes[3]],
+    ] || [];
 
   return (
     <div className="container mx-auto px-4 py-8 bg-gray-900 text-white min-h-screen sm:px-2 lg:px-8">
       <h1 className="text-3xl font-bold mb-4 text-center sm:text-2xl">
         Top 500
       </h1>
-      <div className="flex justify-between mb-4">
-        <div className="mb-4">
+      <div className="flex flex-col sm:flex-row justify-between mb-4">
+        <div className="mb-4 w-full sm:w-auto">
           <h2 className="text-xl font-bold mb-2">Regions</h2>
-          <div className="flex">
+          <div className="flex flex-wrap justify-center items-center">
             {regions.map((region) => (
               <button
                 key={region}
                 onClick={() => setSelectedRegion(region)}
-                className={`mx-1 px-4 py-2 rounded-md ${regionButtonSize} ${
+                className={`m-1 px-4 py-2 rounded-md ${regionButtonSize} ${
                   selectedRegion === region
                     ? "bg-purpledark text-white hover:bg-purple"
                     : "bg-gray-700 hover:bg-purple"
-                }`}
+                } flex justify-center items-center`}
               >
                 <img
                   src={regionIcons[region]}
                   alt={region}
-                  className="h-12 w-12 mr-1"
+                  className="h-12 w-12 mr-1 object-cover aspect-square"
                 />
               </button>
             ))}
           </div>
         </div>
-        <div className="mb-4">
+        <div className="mb-4 w-full sm:w-auto">
           <h2 className="text-xl font-bold mb-2">Modes</h2>
-          <div className="flex">
-            {modes.map((mode) => (
-              <button
-                key={mode}
-                onClick={() => setSelectedMode(mode)}
-                className={`mx-1 px-4 py-2 rounded-md ${modeButtonSize} ${
-                  selectedMode === mode
-                    ? "bg-purpledark text-white hover:bg-purple"
-                    : "bg-gray-700 hover:bg-purple"
-                }`}
+          <div className="flex justify-center items-center">
+            {modesSplit.map((modePair, pairIndex) => (
+              <div
+                key={pairIndex}
+                className="grid grid-cols-2 justify-center items-center mb-2"
               >
-                <img
-                  src={modeIcons[mode]}
-                  alt={mode}
-                  className="h-12 w-12 mr-2"
-                />
-              </button>
+                {modePair.map((mode, index) => (
+                  <div key={index} className="flex justify-center">
+                    <button
+                      onClick={() => setSelectedMode(mode)}
+                      className={`m-1 px-4 py-2 rounded-md ${modeButtonSize} ${
+                        selectedMode === mode
+                          ? "bg-purpledark text-white hover:bg-purple"
+                          : "bg-gray-700 hover:bg-purple"
+                      } flex justify-center items-center`}
+                    >
+                      <img
+                        src={modeIcons[mode]}
+                        alt={mode}
+                        className="h-12 w-12 mr-2 object-cover aspect-square"
+                      />
+                    </button>
+                  </div>
+                ))}
+              </div>
             ))}
           </div>
         </div>
