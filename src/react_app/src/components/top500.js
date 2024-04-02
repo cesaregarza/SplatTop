@@ -144,7 +144,7 @@ const Top500 = () => {
                 <img
                   src={regionIcons[region]}
                   alt={region}
-                  className="h-12 w-12 mr-1 object-cover aspect-square"
+                  className="h-12 w-12 object-cover aspect-square"
                 />
               </button>
             ))}
@@ -171,7 +171,7 @@ const Top500 = () => {
                       <img
                         src={modeIcons[mode]}
                         alt={mode}
-                        className="h-12 w-12 mr-2 object-cover aspect-square"
+                        className="h-12 w-12 object-cover aspect-square"
                       />
                     </button>
                   </div>
