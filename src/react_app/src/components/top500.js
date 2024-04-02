@@ -7,7 +7,7 @@ const Top500 = () => {
   const [error, setError] = useState(null);
   const [searchQuery, setSearchQuery] = useState("");
   const [currentPage, setCurrentPage] = useState(1);
-  const itemsPerPage = 20;
+  const itemsPerPage = 100; // Set items per page to 100
   const [isLoading, setIsLoading] = useState(true);
   const [selectedRegion, setSelectedRegion] = useState("Tentatek");
   const [selectedMode, setSelectedMode] = useState("Splat Zones");
@@ -25,7 +25,6 @@ const Top500 = () => {
       const cacheMinute = cacheTimestamp.getMinutes();
       const now = new Date();
       const nowMinute = now.getMinutes();
-      // Check if cache should expire when the minute of the current time modulo 10 equals 5
       if (
         parsedData.timestamp &&
         !(nowMinute % 10 === 6 && cacheMinute !== nowMinute)
@@ -85,21 +84,29 @@ const Top500 = () => {
 
   const paginate = (pageNumber) => setCurrentPage(pageNumber);
 
+  // Determine button size based on the longest string in modes and regions
+  const longestMode = modes.reduce((a, b) => a.length > b.length ? a : b, '');
+  const longestRegion = regions.reduce((a, b) => a.length > b.length ? a : b, '');
+  const modeButtonSize = longestMode.length > 6 ? "px-2" : "px-4";
+  const regionButtonSize = longestRegion.length > 6 ? "px-2" : "px-4";
+
   return (
-    <div className="container mx-auto px-4 py-8 bg-gray-900 text-white min-h-screen">
-      <h1 className="text-3xl font-bold mb-4">Top 500</h1>
-      <div className="flex mb-4">
-        <div className="mr-4">
+    <div className="container mx-auto px-4 py-8 bg-gray-900 text-white min-h-screen sm:px-2 lg:px-8">
+      <h1 className="text-3xl font-bold mb-4 text-center sm:text-2xl">
+        Top 500
+      </h1>
+      <div className="flex justify-between mb-4">
+        <div className="mb-4">
           <h2 className="text-xl font-bold mb-2">Regions</h2>
           <div className="flex">
             {regions.map((region) => (
               <button
                 key={region}
                 onClick={() => setSelectedRegion(region)}
-                className={`mx-1 px-4 py-2 rounded-md ${
+                className={`mx-1 px-4 py-2 rounded-md ${regionButtonSize} ${
                   selectedRegion === region
-                    ? "bg-purple text-white"
-                    : "bg-gray-700"
+                    ? "bg-purpledark text-white hover:bg-purple"
+                    : "bg-gray-700 hover:bg-purple"
                 }`}
               >
                 {region}
@@ -107,15 +114,17 @@ const Top500 = () => {
             ))}
           </div>
         </div>
-        <div>
+        <div className="mb-4">
           <h2 className="text-xl font-bold mb-2">Modes</h2>
           <div className="flex">
             {modes.map((mode) => (
               <button
                 key={mode}
                 onClick={() => setSelectedMode(mode)}
-                className={`mx-1 px-4 py-2 rounded-md ${
-                  selectedMode === mode ? "bg-purple text-white" : "bg-gray-700"
+                className={`mx-1 px-4 py-2 rounded-md ${modeButtonSize} ${
+                  selectedMode === mode
+                    ? "bg-purpledark text-white hover:bg-purple"
+                    : "bg-gray-700 hover:bg-purple"
                 }`}
               >
                 {mode}
@@ -131,33 +140,38 @@ const Top500 = () => {
         onChange={(e) => setSearchQuery(e.target.value)}
         className="border border-gray-700 bg-gray-800 rounded-md px-4 py-2 mb-4 w-full focus:outline-none focus:ring-2 focus:ring-purple"
       />
-      <table className="table-auto w-full bg-gray-800">
-        <thead>
-          <tr className="bg-gray-700">
-            <th className="px-4 py-2">Rank</th>
-            <th className="px-4 py-2">Name</th>
-            <th className="px-4 py-2">Splashtag</th>
-            <th className="px-4 py-2">X Power</th>
-            <th className="px-4 py-2">Weapon ID</th>
-            <th className="px-4 py-2">Byname</th>
-            <th className="px-4 py-2">Text Color</th>
-          </tr>
-        </thead>
-        <tbody>
-          {currentItems.map((player) => (
-            <tr key={player.player_id} className="border-b border-gray-700">
-              <td className="px-4 py-2">{player.rank}</td>
-              <td className="px-4 py-2">{player.name}</td>
-              <td className="px-4 py-2">{player.splashtag}</td>
-              <td className="px-4 py-2">{player.x_power}</td>
-              <td className="px-4 py-2">{player.weapon_id}</td>
-              <td className="px-4 py-2">{player.byname}</td>
-              <td className="px-4 py-2">{player.text_color}</td>
+      <div className="overflow-x-auto">
+        <table className="table-auto w-full bg-gray-800">
+          <thead>
+            <tr className="bg-gray-700">
+              <th className="px-4 py-2">Rank</th>
+              <th className="px-4 py-2">Name</th>
+              <th className="px-4 py-2">Splashtag</th>
+              <th className="px-4 py-2">X Power</th>
+              <th className="px-4 py-2">Weapon ID</th>
+              <th className="px-4 py-2">Byname</th>
+              <th className="px-4 py-2">Text Color</th>
             </tr>
-          ))}
-        </tbody>
-      </table>
-      <div className="flex justify-center mt-4">
+          </thead>
+          <tbody>
+            {currentItems.map((player) => (
+              <tr
+                key={player.player_id}
+                className="border-b border-gray-700 hover:bg-purpledark"
+              >
+                <td className="px-4 py-2">{player.rank}</td>
+                <td className="px-4 py-2">{player.name}</td>
+                <td className="px-4 py-2">{player.splashtag}</td>
+                <td className="px-4 py-2">{player.x_power.toFixed(1)}</td>
+                <td className="px-4 py-2">{player.weapon_id}</td>
+                <td className="px-4 py-2">{player.byname}</td>
+                <td className="px-4 py-2">{player.text_color}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+      <div className="flex justify-center mt-4 flex-wrap">
         {Array.from(
           { length: Math.ceil(filteredPlayers.length / itemsPerPage) },
           (_, i) => (
@@ -165,7 +179,9 @@ const Top500 = () => {
               key={i}
               onClick={() => paginate(i + 1)}
               className={`mx-1 px-4 py-2 rounded-md ${
-                currentPage === i + 1 ? "bg-purple text-white" : "bg-gray-700"
+                currentPage === i + 1
+                  ? "bg-purpledark text-white hover:bg-purple"
+                  : "bg-gray-700 hover:bg-purple"
               }`}
             >
               {i + 1}
