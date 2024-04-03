@@ -105,7 +105,10 @@ def upload_file_to_bucket(client: boto3.client, key: str, data: bytes):
 def update_version_file(client: boto3.client, latest_version: str):
     try:
         client.put_object(
-            Bucket=BUCKET_NAME, Key="latest_stored_version", Body=latest_version
+            Bucket=BUCKET_NAME,
+            Key="latest_stored_version",
+            Body=latest_version,
+            ACL="public-read",
         )
     except ClientError as e:
         print(f"Error updating version file: {e}")
