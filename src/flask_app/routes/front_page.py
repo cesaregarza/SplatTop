@@ -1,10 +1,9 @@
-from flask import Blueprint, jsonify, render_template, request
+from flask import Blueprint, jsonify, request
 from flask_caching import Cache
 from sqlalchemy import text
 
 from flask_app.database import Session
-from shared_lib.constants import MODES, REGIONS
-from shared_lib.models import Player
+from flask_app.utils import get_badge_image, get_banner_image, get_weapon_image
 from shared_lib.queries import LEADERBOARD_MAIN_QUERY
 
 
@@ -31,12 +30,25 @@ def create_front_page_bp(cache: Cache) -> Blueprint:
             # players = [Player(**player._asdict()) for player in result]
             players = [{**row._asdict()} for row in result]
 
+        # Replace weapon_id, badge_id, and banner_id with images
+        for player in players:
+            player["weapon_image"] = get_weapon_image(int(player["weapon_id"]))
+            player["badge_left_image"] = get_badge_image(
+                player["badge_left_id"]
+            )
+            player["badge_center_image"] = get_badge_image(
+                player["badge_center_id"]
+            )
+            player["badge_right_image"] = get_badge_image(
+                player["badge_right_id"]
+            )
+            player["nameplate_image"] = get_banner_image(
+                int(player["nameplate_id"])
+            )
+
         return jsonify(
             {
                 "players": players,
-                "modes": MODES,
-                "regions": REGIONS,
-                "mode": mode,
             }
         )
 
