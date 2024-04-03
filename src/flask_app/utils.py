@@ -46,7 +46,7 @@ def get_banner_name(banner_id: int) -> str:
 
 def get_weapon_image(weapon_id: int) -> str:
     name = get_weapon_name(weapon_id)
-    return f"{BASE_CDN_URL}assets/weapon_flat/{name}.png"
+    return f"{BASE_CDN_URL}assets/weapon_flat/Path_Wst_{name}.png"
 
 
 def get_badge_image(badge_id: int | str | None) -> str:
@@ -55,9 +55,9 @@ def get_badge_image(badge_id: int | str | None) -> str:
     else:
         badge_id = int(badge_id)
     name = get_badge_name(badge_id)
-    return f"{BASE_CDN_URL}assets/badge/{name}.png"
+    return f"{BASE_CDN_URL}assets/badge/Badge_{name}.png"
 
 
 def get_banner_image(banner_id: int) -> str:
     name = get_banner_name(banner_id)
-    return f"{BASE_CDN_URL}assets/npl/{name}.png"
+    return f"{BASE_CDN_URL}assets/npl/Npl_{name}.png"

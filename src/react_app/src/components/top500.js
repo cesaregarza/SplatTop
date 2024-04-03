@@ -19,6 +19,8 @@ const Top500 = () => {
   const [isLoading, setIsLoading] = useState(true);
   const [selectedRegion, setSelectedRegion] = useState("Tentatek");
   const [selectedMode, setSelectedMode] = useState("Splat Zones");
+  const modes = ["Splat Zones", "Tower Control", "Rainmaker", "Clam Blitz"];
+  const regions = ["Tentatek", "Takoroka"];
 
   const modeIcons = {
     "Splat Zones": SplatZonesIcon,
@@ -92,11 +94,7 @@ const Top500 = () => {
     fetchData();
   }, [selectedRegion, selectedMode, currentPage]);
 
-  const { players, modes, regions } = data || {
-    players: [],
-    modes: [],
-    regions: [],
-  };
+  const { players } = data || { players: [] };
 
   const filteredPlayers = players.filter((player) =>
     player.name.toLowerCase().includes(searchQuery.toLowerCase())
@@ -199,13 +197,10 @@ const Top500 = () => {
           <table className="table-auto w-full bg-gray-800">
             <thead>
               <tr className="bg-gray-700">
-                <th className="px-4 py-2">Rank</th>
-                <th className="px-4 py-2">Name</th>
-                <th className="px-4 py-2">Splashtag</th>
-                <th className="px-4 py-2">X Power</th>
-                <th className="px-4 py-2">Weapon ID</th>
-                <th className="px-4 py-2">Byname</th>
-                <th className="px-4 py-2">Text Color</th>
+                <th className="px-4 py-2 text-center">Rank</th>
+                <th className="px-4 py-2 text-center">Weapon</th>
+                <th className="px-4 py-2 text-center">Splashtag</th>
+                <th className="px-4 py-2 text-center">X Power</th>
               </tr>
             </thead>
             <tbody>
@@ -214,13 +209,18 @@ const Top500 = () => {
                   key={player.player_id}
                   className="border-b border-gray-700 hover:bg-purpledark"
                 >
-                  <td className="px-4 py-2">{player.rank}</td>
-                  <td className="px-4 py-2">{player.name}</td>
-                  <td className="px-4 py-2">{player.splashtag}</td>
-                  <td className="px-4 py-2">{player.x_power.toFixed(1)}</td>
-                  <td className="px-4 py-2">{player.weapon_id}</td>
-                  <td className="px-4 py-2">{player.byname}</td>
-                  <td className="px-4 py-2">{player.text_color}</td>
+                  <td className="px-4 py-2 text-center">{player.rank}</td>
+                  <td className="px-4 py-2 text-center">
+                    <div className="bg-black rounded-full flex justify-center items-center h-10 w-10 mx-auto">
+                      <img
+                        src={player.weapon_image}
+                        alt="Weapon name not yet supported"
+                        className="h-10 w-10 object-cover aspect-square"
+                      />
+                    </div>
+                  </td>
+                  <td className="px-4 py-2 text-center">{player.splashtag}</td>
+                  <td className="px-4 py-2 text-center">{player.x_power.toFixed(1)}</td>
                 </tr>
               ))}
             </tbody>
