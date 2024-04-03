@@ -31,7 +31,7 @@ RUN poetry config virtualenvs.create false
 FROM base AS dependencies
 
 COPY pyproject.toml poetry.lock ./
-RUN poetry install --no-root --no-dev
+RUN poetry install --no-root --no-dev --without scripts
 
 # Install Gunicorn
 RUN poetry add gunicorn
@@ -52,7 +52,7 @@ COPY src/shared_lib /app/src/shared_lib
 # Build the application
 RUN poetry version $BUILD_VERSION && \
     poetry build && \
-    poetry install && \
+    poetry install --no-dev --without scripts && \
     poetry update
 
 # Change the CMD to use Gunicorn
