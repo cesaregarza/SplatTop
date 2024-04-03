@@ -17,16 +17,8 @@ code {
 @tailwind utilities;
 
 @font-face {
-  font-family: "Splatfont2";
-  src: url("/src/assets/fonts/Splatfont2.ttf") format("truetype");
-  font-weight: normal;
-  font-style: normal;
-  font-display: swap;
-}
-
-@font-face {
   font-family: "FiraMono";
-  src: url("/src/assets/fonts/FiraMono-Regular.ttf") format("truetype");
+  src: url("/src/assets/fonts/FiraMono-Regular.woff2") format("woff2");
   font-weight: normal;
   font-style: normal;
   font-display: swap;
@@ -34,7 +26,7 @@ code {
 
 @font-face {
   font-family: "FiraMono-Bold";
-  src: url("/src/assets/fonts/FiraMono-Bold.ttf") format("truetype");
+  src: url("/src/assets/fonts/FiraMono-Bold.woff2") format("woff2");
   font-weight: bold;
   font-style: normal;
   font-display: swap;
@@ -42,7 +34,7 @@ code {
 
 @font-face {
   font-family: "FiraMono-Medium";
-  src: url("/src/assets/fonts/FiraMono-Medium.ttf") format("truetype");
+  src: url("/src/assets/fonts/FiraMono-Medium.woff2") format("woff2");
   font-weight: normal;
   font-style: normal;
   font-display: swap;
