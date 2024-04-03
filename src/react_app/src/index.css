@@ -1,14 +1,14 @@
 body {
   margin: 0;
-  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen',
-    'Ubuntu', 'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue',
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Roboto", "Oxygen",
+    "Ubuntu", "Cantarell", "Fira Sans", "Droid Sans", "Helvetica Neue",
     sans-serif;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
 }
 
 code {
-  font-family: source-code-pro, Menlo, Monaco, Consolas, 'Courier New',
+  font-family: source-code-pro, Menlo, Monaco, Consolas, "Courier New",
     monospace;
 }
 
@@ -17,13 +17,38 @@ code {
 @tailwind utilities;
 
 @font-face {
-  font-family: 'Splatfont2';
-  src: url('/src/assets/fonts/Splatfont2.ttf') format('truetype');
+  font-family: "Splatfont2";
+  src: url("/src/assets/fonts/Splatfont2.ttf") format("truetype");
   font-weight: normal;
   font-style: normal;
   font-display: swap;
 }
 
-html, body {
-  font-family: 'Splatfont2', sans-serif;
+@font-face {
+  font-family: "FiraMono";
+  src: url("/src/assets/fonts/FiraMono-Regular.ttf") format("truetype");
+  font-weight: normal;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: "FiraMono-Bold";
+  src: url("/src/assets/fonts/FiraMono-Bold.ttf") format("truetype");
+  font-weight: bold;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: "FiraMono-Medium";
+  src: url("/src/assets/fonts/FiraMono-Medium.ttf") format("truetype");
+  font-weight: normal;
+  font-style: normal;
+  font-display: swap;
+}
+
+html,
+body {
+  font-family: "FiraMono", monospace;
 }

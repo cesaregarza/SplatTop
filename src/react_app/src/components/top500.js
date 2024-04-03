@@ -197,10 +197,10 @@ const Top500 = () => {
           <table className="table-auto w-full bg-gray-800">
             <thead>
               <tr className="bg-gray-700">
-                <th className="px-4 py-2 text-center">Rank</th>
-                <th className="px-4 py-2 text-center">Weapon</th>
-                <th className="px-4 py-2 text-center">Splashtag</th>
-                <th className="px-4 py-2 text-center">X Power</th>
+                <th className="w-20 px-4 py-2 text-center">Rank</th>
+                <th className="w-20 px-4 py-2 text-center">Weapon</th>
+                <th className="flex-grow px-4 py-2 text-center">Splashtag</th>
+                <th className="w-20 px-4 py-2 text-right">X Power</th>
               </tr>
             </thead>
             <tbody>
@@ -209,8 +209,8 @@ const Top500 = () => {
                   key={player.player_id}
                   className="border-b border-gray-700 hover:bg-purpledark"
                 >
-                  <td className="px-4 py-2 text-center">{player.rank}</td>
-                  <td className="px-4 py-2 text-center">
+                  <td className="w-20 px-4 py-2 text-center">{player.rank}</td>
+                  <td className="w-20 px-4 py-2 text-center">
                     <div className="bg-black rounded-full flex justify-center items-center h-10 w-10 mx-auto">
                       <img
                         src={player.weapon_image}
@@ -219,8 +219,11 @@ const Top500 = () => {
                       />
                     </div>
                   </td>
-                  <td className="px-4 py-2 text-center">{player.splashtag}</td>
-                  <td className="px-4 py-2 text-center">{player.x_power.toFixed(1)}</td>
+                  <td className="flex-grow px-4 py-2 text-center">{player.splashtag}</td>
+                  <td className="w-20 px-4 py-2 text-right xpower-text">
+                    <span className="text-purple">{player.x_power.toFixed(1).toString().slice(0, 2)}</span>
+                    {player.x_power.toFixed(1).toString().slice(2)}
+                  </td>
                 </tr>
               ))}
             </tbody>
