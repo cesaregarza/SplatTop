@@ -114,3 +114,22 @@ class PlayerLatest(Base):
         Index("idx_player_latest_player_id_mode", "player_id", "mode"),
         {"schema": "xscraper"},
     )
+
+
+class PlayerSeason(Base):
+    __tablename__ = "player_season"
+
+    player_id = Column(String, primary_key=True)
+    region = Column(Boolean, nullable=False)
+    season_number = Column(Integer, primary_key=True)
+
+    __table_args__ = (
+        Index("idx_player_season_player_id", "player_id"),
+        Index("idx_player_season_season_number", "season_number"),
+        Index(
+            "idx_player_season_player_id_season_number",
+            "player_id",
+            "season_number",
+        ),
+        {"schema": "xscraper"},
+    )

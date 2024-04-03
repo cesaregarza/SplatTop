@@ -200,6 +200,7 @@ const Top500 = () => {
                 <th className="w-20 px-4 py-2 text-center">Rank</th>
                 <th className="w-20 px-4 py-2 text-center">Weapon</th>
                 <th className="flex-grow px-4 py-2 text-center">Splashtag</th>
+                <th className="flex-grow px-4 py-2 text-center">Data</th>
                 <th className="w-20 px-4 py-2 text-right">X Power</th>
               </tr>
             </thead>
@@ -220,6 +221,13 @@ const Top500 = () => {
                     </div>
                   </td>
                   <td className="flex-grow px-4 py-2 text-center">{player.splashtag}</td>
+                  <td className="flex-grow px-4 py-2 text-center">
+                    <img
+                      src={player.prev_season_region ? TakorokaIcon : TentatekIcon}
+                      alt={`Player was in ${player.prev_season_region ? "Takoroka" : "Tentatek"} last season`}
+                      className="h-10 w-10 object-cover aspect-square mx-auto"
+                    />
+                  </td>
                   <td className="w-20 px-4 py-2 text-right xpower-text">
                     <span className="text-purple">{player.x_power.toFixed(1).toString().slice(0, 2)}</span>
                     {player.x_power.toFixed(1).toString().slice(2)}
