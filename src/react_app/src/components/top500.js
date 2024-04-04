@@ -228,9 +228,9 @@ const Top500 = () => {
                       className="h-10 w-10 object-cover aspect-square mx-auto"
                     />
                   </td>
-                  <td className="w-20 px-4 py-2 text-right xpower-text">
-                    <span className="text-purple">{player.x_power.toFixed(1).toString().slice(0, 2)}</span>
-                    {player.x_power.toFixed(1).toString().slice(2)}
+                  <td className="w-20 px-4 py-2 text-right xpower-text font-bold">
+                    <span className="text-purplelight text-lg">{player.x_power.toFixed(1).toString().slice(0, 2)}</span>
+                    <span className="text-sm">{player.x_power.toFixed(1).toString().slice(2)}</span>
                   </td>
                 </tr>
               ))}

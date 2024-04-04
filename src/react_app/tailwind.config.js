@@ -4,8 +4,9 @@ module.exports = {
   theme: {
     extend: {
       colors: {
-        purple: '#ab5ab7', // Add the custom purple color
-        purpledark: '#7b28a4'
+        purple: '#ab5ab7',
+        purpledark: '#7b28a4',
+        purplelight: '#c183e1',
       },
     },
   },
