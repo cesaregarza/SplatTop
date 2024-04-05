@@ -42,6 +42,7 @@ deploy:
 	kubectl apply -f k8s/flask/flask-deployment-dev.yaml
 	kubectl apply -f k8s/flask/flask-service-dev.yaml
 	kubectl apply -f k8s/celery-worker/celery-worker-deployment-dev.yaml
+	kubectl apply -f k8s/celery-beat/celery-beat-deployment-dev.yaml
 	kubectl apply -f k8s/react/react-deployment-dev.yaml
 	kubectl apply -f k8s/react/react-service-dev.yaml
 	sleep 5
@@ -55,6 +56,7 @@ undeploy:
 	kubectl delete -f k8s/flask/flask-deployment-dev.yaml
 	kubectl delete -f k8s/flask/flask-service-dev.yaml
 	kubectl delete -f k8s/celery-worker/celery-worker-deployment-dev.yaml
+	kubectl delete -f k8s/celery-beat/celery-beat-deployment-dev.yaml
 	kubectl delete -f k8s/react/react-deployment-dev.yaml
 	kubectl delete -f k8s/react/react-service-dev.yaml
 
@@ -78,6 +80,10 @@ flask-logs:
 .PHONY: celery-logs
 celery-logs:
 	kubectl logs -f `kubectl get pods -l app=celery-worker -o jsonpath='{.items[0].metadata.name}'`
+
+.PHONY : celery-beat-logs
+celery-beat-logs:
+	kubectl logs -f `kubectl get pods -l app=celery-beat -o jsonpath='{.items[0].metadata.name}'`
 
 .PHONY: react-logs
 react-logs:

@@ -15,4 +15,4 @@ spec:
       containers:
       - name: celery-worker
         image: celery-worker:latest
-        command: ["celery", "-A", "celery_workers.tasks", "worker", "--loglevel=info"]
+        command: ["celery", "-A", "celery_app.tasks", "worker", "--loglevel=info"]

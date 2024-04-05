@@ -7,7 +7,7 @@ readme = "README.md"
 packages = [
     # { include = "splat_top", from = "src" },
     { include = "flask_app", from = "src" },
-    { include = "celery_workers", from = "src" },
+    { include = "celery_app", from = "src" },
 ]
 
 [tool.poetry.dependencies]

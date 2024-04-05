@@ -133,3 +133,52 @@ class PlayerSeason(Base):
         ),
         {"schema": "xscraper"},
     )
+
+
+class SeasonResults(Base):
+    __tablename__ = "season_results"
+
+    player_id = Column(String, primary_key=True)
+    name = Column(String, nullable=False)
+    name_id = Column(String, nullable=False)
+    splashtag = Column(
+        String,
+        unique=True,
+        nullable=False,
+    )
+    rank = Column(Integer, nullable=False)
+    x_power = Column(Float, nullable=False)
+    weapon_id = Column(Integer, nullable=False)
+    nameplate_id = Column(Integer, nullable=False)
+    byname = Column(String)
+    text_color = Column(String)
+    badge_left_id = Column(Integer)
+    badge_center_id = Column(Integer)
+    badge_right_id = Column(Integer)
+    mode = Column(
+        ENUM(
+            "Splat Zones",
+            "Clam Blitz",
+            "Rainmaker",
+            "Tower Control",
+            name="mode_name",
+        )
+    )
+    region = Column(Boolean, nullable=False)
+    season_number = Column(Integer)
+
+    __table_args__ = (
+        Index("idx_season_results_player_id", "player_id"),
+        Index("idx_season_results_splashtag", "splashtag"),
+        Index("idx_season_results_mode", "mode"),
+        Index("idx_season_results_region", "region"),
+        Index("idx_season_results_season_number", "season_number"),
+        Index("idx_season_results_mode_season_number", "mode", "season_number"),
+        Index(
+            "idx_season_results_player_id_mode_season_number",
+            "player_id",
+            "mode",
+            "season_number",
+        ),
+        {"schema": "xscraper"},
+    )

@@ -54,7 +54,9 @@ const Top500 = () => {
 
       if (
         minutesElapsedSinceCache >= maxCacheAge ||
-        (nowMinuteMod > cacheMinuteMod && nowMinuteMod >= cacheOffset) ||
+        (nowMinuteMod > cacheMinuteMod &&
+          nowMinuteMod >= cacheOffset &&
+          cacheMinuteMod < cacheOffset) ||
         (nowMinuteMod < cacheMinuteMod && nowMinuteMod >= cacheOffset) ||
         (nowMinuteMod < cacheMinuteMod && cacheMinuteMod < cacheOffset)
       ) {
@@ -70,24 +72,38 @@ const Top500 = () => {
       }
     }
 
-    try {
-      const response = await axios.get(endpoint);
-      setData(response.data);
-      setError(null);
-      setIsLoading(false);
+    const attemptFetch = async (retryAfter = 2) => {
+      try {
+        const response = await axios.get(endpoint);
+        setData(response.data);
+        setError(null);
+        setIsLoading(false);
 
-      localStorage.setItem(
-        endpoint,
-        JSON.stringify({
-          data: response.data,
-          timestamp: Date.now(),
-        })
-      );
-    } catch (error) {
-      console.error("Error fetching leaderboard data:", error);
-      setError(error);
-      setIsLoading(false);
-    }
+        localStorage.setItem(
+          endpoint,
+          JSON.stringify({
+            data: response.data,
+            timestamp: Date.now(),
+          })
+        );
+      } catch (error) {
+        if (error.response && error.response.status === 503) {
+          console.log(`Received 503 error, retrying after ${retryAfter} minutes.`);
+          setError(`Service temporarily unavailable. Retrying in ${retryAfter} minutes...`);
+          setIsLoading(true); // Keep loading state true to indicate retrying
+          setTimeout(() => {
+            fetchData();
+            setIsLoading(false); // Reset loading state after retry
+          }, retryAfter * 60000);
+        } else {
+          console.error("Error fetching leaderboard data:", error);
+          setError(error);
+          setIsLoading(false);
+        }
+      }
+    };
+
+    attemptFetch();
   };
 
   useEffect(() => {
@@ -220,17 +236,27 @@ const Top500 = () => {
                       />
                     </div>
                   </td>
-                  <td className="flex-grow px-4 py-2 text-center">{player.splashtag}</td>
+                  <td className="flex-grow px-4 py-2 text-center">
+                    {player.splashtag}
+                  </td>
                   <td className="flex-grow px-4 py-2 text-center">
                     <img
-                      src={player.prev_season_region ? TakorokaIcon : TentatekIcon}
-                      alt={`Player was in ${player.prev_season_region ? "Takoroka" : "Tentatek"} last season`}
+                      src={
+                        player.prev_season_region ? TakorokaIcon : TentatekIcon
+                      }
+                      alt={`Player was in ${
+                        player.prev_season_region ? "Takoroka" : "Tentatek"
+                      } last season`}
                       className="h-10 w-10 object-cover aspect-square mx-auto"
                     />
                   </td>
                   <td className="w-20 px-4 py-2 text-right xpower-text font-bold">
-                    <span className="text-purplelight text-lg">{player.x_power.toFixed(1).toString().slice(0, 2)}</span>
-                    <span className="text-sm">{player.x_power.toFixed(1).toString().slice(2)}</span>
+                    <span className="text-purplelight text-lg">
+                      {player.x_power.toFixed(1).toString().slice(0, 2)}
+                    </span>
+                    <span className="text-sm">
+                      {player.x_power.toFixed(1).toString().slice(2)}
+                    </span>
                   </td>
                 </tr>
               ))}

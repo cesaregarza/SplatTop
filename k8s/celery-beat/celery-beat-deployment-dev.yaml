@@ -1,22 +1,23 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: celery-worker
+  name: celery-beat
 spec:
   replicas: 1
   selector:
     matchLabels:
-      app: celery-worker
+      app: celery-beat
   template:
     metadata:
       labels:
-        app: celery-worker
+        app: celery-beat
     spec:
       containers:
-      - name: celery-worker
+      - name: celery-beat
         image: celery-worker:latest
         imagePullPolicy: Never
-        command: ["celery", "-A", "celery_app.tasks", "worker", "--loglevel=info"]
+        command: ["celery"]
+        args: ["-A", "celery_app.beat", "beat", "--loglevel=info"]
         env:
         - name: DB_HOST
           valueFrom:

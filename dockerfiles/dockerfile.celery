@@ -43,7 +43,7 @@ ARG BUILD_VERSION
 COPY README.md /app/
 COPY pyproject.toml poetry.lock /app/
 COPY src/flask_app /app/src/flask_app
-COPY src/celery_workers /app/src/celery_workers
+COPY src/celery_app /app/src/celery_app
 COPY src/shared_lib /app/src/shared_lib
 
 # Build the application
@@ -52,4 +52,4 @@ RUN poetry version $BUILD_VERSION && \
     poetry install --no-dev --without scripts && \
     poetry update
 
-CMD ["poetry", "run", "celery", "-A", "celery_workers.tasks", "worker", "--loglevel=info"]
+CMD ["poetry", "run", "celery", "-A", "celery_app.tasks", "worker", "--loglevel=info"]
