@@ -1,6 +1,9 @@
 import React, { useEffect, useState } from "react";
 import axios from "axios";
 import Loading from "./loading";
+import DiamondBadge from "./diamond_badge";
+import Top10Badge from "./top10_badge";
+import Top500Badge from "./top500_badge";
 import SplatZonesIcon from "../assets/icons/splat_zones.png";
 import TowerControlIcon from "../assets/icons/tower_control.png";
 import RainmakerIcon from "../assets/icons/rainmaker.png";
@@ -13,6 +16,7 @@ const Top500 = () => {
   const [error, setError] = useState(null);
   const [searchQuery, setSearchQuery] = useState("");
   const [currentPage, setCurrentPage] = useState(1);
+  const [abortController, setAbortController] = useState(null);
   const itemsPerPage = 100;
   const maxCacheAge = 10;
   const cacheOffset = 6;
@@ -72,9 +76,14 @@ const Top500 = () => {
       }
     }
 
-    const attemptFetch = async (retryAfter = 2) => {
+    const attemptFetch = async (retryAfter = 5) => {
+      const controller = new AbortController();
+      setAbortController(controller);
+
       try {
-        const response = await axios.get(endpoint);
+        const response = await axios.get(endpoint, {
+          signal: controller.signal,
+        });
         setData(response.data);
         setError(null);
         setIsLoading(false);
@@ -88,13 +97,20 @@ const Top500 = () => {
         );
       } catch (error) {
         if (error.response && error.response.status === 503) {
-          console.log(`Received 503 error, retrying after ${retryAfter} minutes.`);
-          setError(`Service temporarily unavailable. Retrying in ${retryAfter} minutes...`);
+          console.log(
+            `Received 503 error, retrying after ${retryAfter} seconds.`
+          );
+          setError(
+            `Service temporarily unavailable. Retrying in ${retryAfter} seconds...`
+          );
           setIsLoading(true); // Keep loading state true to indicate retrying
           setTimeout(() => {
             fetchData();
             setIsLoading(false); // Reset loading state after retry
-          }, retryAfter * 60000);
+          }, retryAfter * 1000);
+        } else if (axios.isCancel(error)) {
+          console.log("Request was cancelled.");
+          setIsLoading(false);
         } else {
           console.error("Error fetching leaderboard data:", error);
           setError(error);
@@ -108,6 +124,12 @@ const Top500 = () => {
 
   useEffect(() => {
     fetchData();
+
+    return () => {
+      if (abortController) {
+        abortController.abort();
+      }
+    };
   }, [selectedRegion, selectedMode, currentPage]);
 
   const { players } = data || { players: [] };
@@ -240,15 +262,42 @@ const Top500 = () => {
                     {player.splashtag}
                   </td>
                   <td className="flex-grow px-4 py-2 text-center">
-                    <img
-                      src={
-                        player.prev_season_region ? TakorokaIcon : TentatekIcon
-                      }
-                      alt={`Player was in ${
-                        player.prev_season_region ? "Takoroka" : "Tentatek"
-                      } last season`}
-                      className="h-10 w-10 object-cover aspect-square mx-auto"
-                    />
+                    <div className="flex flex-col sm:flex-row justify-center items-center gap-2">
+                      <div className="flex flex-wrap justify-center items-center gap-2">
+                        <div className="min-w-[40px]">
+                          <img
+                            src={
+                              player.prev_season_region ? TakorokaIcon : TentatekIcon
+                            }
+                            alt={`Player was in ${
+                              player.prev_season_region ? "Takoroka" : "Tentatek"
+                            } last season`}
+                            className={`h-10 w-10 object-cover aspect-square`}
+                          />
+                        </div>
+                        <div className="min-w-[40px]">
+                          {player.diamond_x_count > 0 ? (
+                            <DiamondBadge count={player.diamond_x_count} />
+                          ) : (
+                            <div className="h-10 w-10 invisible"></div>
+                          )}
+                        </div>
+                        <div className="min-w-[40px]">
+                          {player.gold_x_count > 0 ? (
+                            <Top10Badge count={player.gold_x_count} />
+                          ) : (
+                            <div className="h-10 w-10 invisible"></div>
+                          )}
+                        </div>
+                        <div className="min-w-[40px]">
+                          {player.silver_x_count > 0 ? (
+                            <Top500Badge count={player.silver_x_count} />
+                          ) : (
+                            <div className="h-10 w-10 invisible"></div>
+                          )}
+                        </div>
+                      </div>
+                    </div>
                   </td>
                   <td className="w-20 px-4 py-2 text-right xpower-text font-bold">
                     <span className="text-purplelight text-lg">

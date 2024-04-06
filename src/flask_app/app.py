@@ -7,12 +7,6 @@ from flask_app.database import Session  # Not used, necessary for Session setup
 from flask_app.routes import create_front_page_bp, create_player_detail_bp
 
 app = Flask(__name__)
-from werkzeug.middleware.profiler import ProfilerMiddleware
-
-app.config["PROFILE"] = True
-app.wsgi_app = ProfilerMiddleware(
-    app.wsgi_app, restrictions=[50], sort_by=("cumtime", "tottime")
-)
 
 cache = Cache(app, config={"CACHE_TYPE": "simple"})
 
