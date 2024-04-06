@@ -16,7 +16,6 @@ const Top500 = () => {
   const [error, setError] = useState(null);
   const [searchQuery, setSearchQuery] = useState("");
   const [currentPage, setCurrentPage] = useState(1);
-  const [abortController, setAbortController] = useState(null);
   const itemsPerPage = 100;
   const maxCacheAge = 10;
   const cacheOffset = 6;
@@ -77,13 +76,8 @@ const Top500 = () => {
     }
 
     const attemptFetch = async (retryAfter = 5) => {
-      const controller = new AbortController();
-      setAbortController(controller);
-
       try {
-        const response = await axios.get(endpoint, {
-          signal: controller.signal,
-        });
+        const response = await axios.get(endpoint);
         setData(response.data);
         setError(null);
         setIsLoading(false);
@@ -108,9 +102,6 @@ const Top500 = () => {
             fetchData();
             setIsLoading(false); // Reset loading state after retry
           }, retryAfter * 1000);
-        } else if (axios.isCancel(error)) {
-          console.log("Request was cancelled.");
-          setIsLoading(false);
         } else {
           console.error("Error fetching leaderboard data:", error);
           setError(error);
@@ -124,12 +115,6 @@ const Top500 = () => {
 
   useEffect(() => {
     fetchData();
-
-    return () => {
-      if (abortController) {
-        abortController.abort();
-      }
-    };
   }, [selectedRegion, selectedMode, currentPage]);
 
   const { players } = data || { players: [] };
@@ -267,10 +252,14 @@ const Top500 = () => {
                         <div className="min-w-[40px]">
                           <img
                             src={
-                              player.prev_season_region ? TakorokaIcon : TentatekIcon
+                              player.prev_season_region
+                                ? TakorokaIcon
+                                : TentatekIcon
                             }
                             alt={`Player was in ${
-                              player.prev_season_region ? "Takoroka" : "Tentatek"
+                              player.prev_season_region
+                                ? "Takoroka"
+                                : "Tentatek"
                             } last season`}
                             className={`h-10 w-10 object-cover aspect-square`}
                           />
