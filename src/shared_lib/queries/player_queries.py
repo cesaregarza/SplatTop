@@ -1,24 +1,3 @@
-LEADERBOARD_MAIN_QUERY = """
-WITH MaxTimestamp AS (
-    SELECT MAX(timestamp) AS max_timestamp
-    FROM xscraper.players
-    WHERE mode = :mode
-),
-FilteredByTimestamp AS (
-    SELECT *
-    FROM xscraper.players
-    WHERE timestamp = (SELECT max_timestamp FROM MaxTimestamp)
-)
-SELECT f.*, ps.region AS prev_season_region
-FROM FilteredByTimestamp f
-LEFT JOIN xscraper.player_season ps
-  ON f.player_id = ps.player_id
-  AND f.season_number - 1 = ps.season_number
-WHERE f.mode = :mode
-  AND f.region = :region
-ORDER BY f.rank ASC;
-"""
-
 PLAYER_LATEST_QUERY = """
 SELECT *
 FROM xscraper.player_latest

@@ -6,7 +6,7 @@ from sqlalchemy import text
 
 from celery_app.database import Session
 from shared_lib.constants import MODES, REGIONS
-from shared_lib.queries import LEADERBOARD_MAIN_QUERY
+from shared_lib.queries.front_page_queries import LEADERBOARD_MAIN_QUERY
 from shared_lib.utils import get_badge_image, get_banner_image, get_weapon_image
 
 celery = Celery(

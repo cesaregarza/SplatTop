@@ -3,9 +3,8 @@ import json
 import redis
 from flask import Blueprint, jsonify, request
 
-redis_conn = redis.Redis(
-    host="redis", port=6379, db=0, decode_responses=True
-)
+redis_conn = redis.Redis(host="redis", port=6379, db=0, decode_responses=True)
+
 
 def create_front_page_bp() -> Blueprint:
     front_page_bp = Blueprint("front_page", __name__)
