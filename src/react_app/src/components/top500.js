@@ -1,15 +1,11 @@
 import React, { useEffect, useState } from "react";
 import axios from "axios";
 import Loading from "./loading";
-import SplatZonesIcon from "../assets/icons/splat_zones.png";
-import TowerControlIcon from "../assets/icons/tower_control.png";
-import RainmakerIcon from "../assets/icons/rainmaker.png";
-import ClamBlitzIcon from "../assets/icons/clam_blitz.png";
-import TentatekIcon from "../assets/icons/tentatek.png";
-import TakorokaIcon from "../assets/icons/takoroka.png";
 import PlayerTable from "./top500_components/player_table";
-import ColumnSelector from "./top500_components/column_selector";
+import ColumnSelector from "./top500_components/selectors/column_selector";
 import columnsConfig from "./top500_components/columns_config";
+import RegionSelector from "./top500_components/selectors/region_selector";
+import ModeSelector from "./top500_components/selectors/mode_selector";
 
 const Top500 = () => {
   const [data, setData] = useState(null);
@@ -22,8 +18,6 @@ const Top500 = () => {
   const [isLoading, setIsLoading] = useState(true);
   const [selectedRegion, setSelectedRegion] = useState("Tentatek");
   const [selectedMode, setSelectedMode] = useState("Splat Zones");
-  const modes = ["Splat Zones", "Tower Control", "Rainmaker", "Clam Blitz"];
-  const regions = ["Tentatek", "Takoroka"];
 
   const [columnVisibility, setColumnVisibility] = useState(
     columnsConfig.reduce((acc, column) => {
@@ -31,18 +25,6 @@ const Top500 = () => {
       return acc;
     }, {})
   );
-
-  const modeIcons = {
-    "Splat Zones": SplatZonesIcon,
-    "Tower Control": TowerControlIcon,
-    Rainmaker: RainmakerIcon,
-    "Clam Blitz": ClamBlitzIcon,
-  };
-
-  const regionIcons = {
-    Tentatek: TentatekIcon,
-    Takoroka: TakorokaIcon,
-  };
 
   const fetchData = async () => {
     setIsLoading(true);
@@ -136,78 +118,20 @@ const Top500 = () => {
 
   const paginate = (pageNumber) => setCurrentPage(pageNumber);
 
-  // Determine button size based on the longest string in modes and regions
-  const longestMode = modes.reduce((a, b) => (a.length > b.length ? a : b), "");
-  const longestRegion = regions.reduce(
-    (a, b) => (a.length > b.length ? a : b),
-    ""
-  );
-  const modeButtonSize = longestMode.length > 6 ? "px-2" : "px-4";
-  const regionButtonSize = longestRegion.length > 6 ? "px-2" : "px-4";
-  const modesSplit =
-    [
-      [modes[0], modes[1]],
-      [modes[2], modes[3]],
-    ] || [];
-
   return (
     <div className="container mx-auto px-4 py-8 bg-gray-900 text-white min-h-screen sm:px-2 lg:px-8">
       <h1 className="text-3xl font-bold mb-4 text-center sm:text-2xl">
         Top 500
       </h1>
       <div className="flex flex-col sm:flex-row justify-between mb-4">
-        <div className="mb-4 w-full sm:w-auto">
-          <h2 className="text-xl font-bold mb-2">Regions</h2>
-          <div className="flex flex-wrap justify-center items-center">
-            {regions.map((region) => (
-              <button
-                key={region}
-                onClick={() => setSelectedRegion(region)}
-                className={`m-1 px-4 py-2 rounded-md ${regionButtonSize} ${
-                  selectedRegion === region
-                    ? "bg-purpledark text-white hover:bg-purple"
-                    : "bg-gray-700 hover:bg-purple"
-                } flex justify-center items-center`}
-              >
-                <img
-                  src={regionIcons[region]}
-                  alt={region}
-                  className="h-12 w-12 object-cover aspect-square"
-                />
-              </button>
-            ))}
-          </div>
-        </div>
-        <div className="mb-4 w-full sm:w-auto">
-          <h2 className="text-xl font-bold mb-2">Modes</h2>
-          <div className="flex justify-center items-center">
-            {modesSplit.map((modePair, pairIndex) => (
-              <div
-                key={pairIndex}
-                className="grid grid-cols-2 justify-center items-center mb-2"
-              >
-                {modePair.map((mode, index) => (
-                  <div key={index} className="flex justify-center">
-                    <button
-                      onClick={() => setSelectedMode(mode)}
-                      className={`m-1 px-4 py-2 rounded-md ${modeButtonSize} ${
-                        selectedMode === mode
-                          ? "bg-purpledark text-white hover:bg-purple"
-                          : "bg-gray-700 hover:bg-purple"
-                      } flex justify-center items-center`}
-                    >
-                      <img
-                        src={modeIcons[mode]}
-                        alt={mode}
-                        className="h-12 w-12 object-cover aspect-square"
-                      />
-                    </button>
-                  </div>
-                ))}
-              </div>
-            ))}
-          </div>
-        </div>
+        <RegionSelector
+          selectedRegion={selectedRegion}
+          setSelectedRegion={setSelectedRegion}
+        />
+        <ModeSelector
+          selectedMode={selectedMode}
+          setSelectedMode={setSelectedMode}
+        />
       </div>
       <ColumnSelector
         columnVisibility={columnVisibility}
