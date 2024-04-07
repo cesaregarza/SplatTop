@@ -1,5 +1,5 @@
-import React, { useEffect, useState } from "react";
-import axios from "axios";
+import React, { useState } from "react";
+import useFetchWithCache from "./top500_components/fetch_with_cache";
 import Loading from "./loading";
 import PlayerTable from "./top500_components/player_table";
 import ColumnSelector from "./top500_components/selectors/column_selector";
@@ -8,14 +8,9 @@ import RegionSelector from "./top500_components/selectors/region_selector";
 import ModeSelector from "./top500_components/selectors/mode_selector";
 
 const Top500 = () => {
-  const [data, setData] = useState(null);
-  const [error, setError] = useState(null);
   const [searchQuery, setSearchQuery] = useState("");
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 100;
-  const maxCacheAge = 10;
-  const cacheOffset = 6;
-  const [isLoading, setIsLoading] = useState(true);
   const [selectedRegion, setSelectedRegion] = useState("Tentatek");
   const [selectedMode, setSelectedMode] = useState("Splat Zones");
 
@@ -26,85 +21,9 @@ const Top500 = () => {
     }, {})
   );
 
-  const fetchData = async () => {
-    setIsLoading(true);
-
-    const apiUrl = process.env.REACT_APP_API_URL || "";
-    const endpoint = `${apiUrl}/api/leaderboard?mode=${selectedMode}&region=${selectedRegion}`;
-
-    const cachedData = localStorage.getItem(endpoint);
-    if (cachedData) {
-      const parsedData = JSON.parse(cachedData);
-      const cacheTimestamp = new Date(parsedData.timestamp);
-      const cacheMinute = cacheTimestamp.getMinutes();
-      const now = new Date();
-      const nowMinute = now.getMinutes();
-      const minutesElapsedSinceCache = (now - cacheTimestamp) / 60000;
-      const cacheMinuteMod = cacheMinute % maxCacheAge;
-      const nowMinuteMod = nowMinute % maxCacheAge;
-      var shouldRegenerateCache = false;
-
-      if (
-        minutesElapsedSinceCache >= maxCacheAge ||
-        (nowMinuteMod > cacheMinuteMod &&
-          nowMinuteMod >= cacheOffset &&
-          cacheMinuteMod < cacheOffset) ||
-        (nowMinuteMod < cacheMinuteMod && nowMinuteMod >= cacheOffset) ||
-        (nowMinuteMod < cacheMinuteMod && cacheMinuteMod < cacheOffset)
-      ) {
-        localStorage.removeItem(endpoint);
-        shouldRegenerateCache = true;
-      }
-
-      if (!shouldRegenerateCache) {
-        setData(parsedData.data);
-        setError(null);
-        setIsLoading(false);
-        return;
-      }
-    }
-
-    const attemptFetch = async (retryAfter = 5) => {
-      try {
-        const response = await axios.get(endpoint);
-        setData(response.data);
-        setError(null);
-        setIsLoading(false);
-
-        localStorage.setItem(
-          endpoint,
-          JSON.stringify({
-            data: response.data,
-            timestamp: Date.now(),
-          })
-        );
-      } catch (error) {
-        if (error.response && error.response.status === 503) {
-          console.log(
-            `Received 503 error, retrying after ${retryAfter} seconds.`
-          );
-          setError(
-            `Service temporarily unavailable. Retrying in ${retryAfter} seconds...`
-          );
-          setIsLoading(true); // Keep loading state true to indicate retrying
-          setTimeout(() => {
-            fetchData();
-            setIsLoading(false); // Reset loading state after retry
-          }, retryAfter * 1000);
-        } else {
-          console.error("Error fetching leaderboard data:", error);
-          setError(error);
-          setIsLoading(false);
-        }
-      }
-    };
-
-    attemptFetch();
-  };
-
-  useEffect(() => {
-    fetchData();
-  }, [selectedRegion, selectedMode, currentPage]);
+  const apiUrl = process.env.REACT_APP_API_URL || "";
+  const endpoint = `${apiUrl}/api/leaderboard?mode=${selectedMode}&region=${selectedRegion}`;
+  const { data, error, isLoading } = useFetchWithCache(endpoint);
 
   const { players } = data || { players: [] };
 
