@@ -59,6 +59,7 @@ undeploy:
 	kubectl delete -f k8s/celery-beat/celery-beat-deployment-dev.yaml
 	kubectl delete -f k8s/react/react-deployment-dev.yaml
 	kubectl delete -f k8s/react/react-service-dev.yaml
+	make stop-port-forward
 
 .PHONY: redeploy
 redeploy: undeploy deploy
