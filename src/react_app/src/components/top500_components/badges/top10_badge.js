@@ -1,5 +1,5 @@
 import React from "react";
-import Top10BadgeIcon from "../assets/icons/t10.png";
+import Top10BadgeIcon from "../../../assets/icons/t10.png";
 
 const Top10Badge = ({ count }) => {
   const badgeClasses = `badge-container badge-gold h-10 w-10 ${

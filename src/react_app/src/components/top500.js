@@ -1,9 +1,9 @@
 import React, { useEffect, useState } from "react";
 import axios from "axios";
 import Loading from "./loading";
-import DiamondBadge from "./diamond_badge";
-import Top10Badge from "./top10_badge";
-import Top500Badge from "./top500_badge";
+import DiamondBadge from "./top500_components/badges/diamond_badge";
+import Top10Badge from "./top500_components/badges/top10_badge";
+import Top500Badge from "./top500_components/badges/top500_badge";
 import SplatZonesIcon from "../assets/icons/splat_zones.png";
 import TowerControlIcon from "../assets/icons/tower_control.png";
 import RainmakerIcon from "../assets/icons/rainmaker.png";

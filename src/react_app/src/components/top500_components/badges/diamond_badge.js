@@ -1,5 +1,5 @@
 import React from "react";
-import DiamondBadgeIcon from "../assets/icons/sorder.png";
+import DiamondBadgeIcon from "../../../assets/icons/sorder.png";
 
 const DiamondBadge = ({ count }) => {
   const badgeClasses = `badge-container badge-rainbow h-10 w-10 ${
