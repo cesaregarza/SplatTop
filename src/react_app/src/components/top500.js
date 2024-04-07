@@ -8,6 +8,8 @@ import ClamBlitzIcon from "../assets/icons/clam_blitz.png";
 import TentatekIcon from "../assets/icons/tentatek.png";
 import TakorokaIcon from "../assets/icons/takoroka.png";
 import PlayerTable from "./top500_components/player_table";
+import ColumnSelector from "./top500_components/column_selector";
+import columnsConfig from "./top500_components/columns_config";
 
 const Top500 = () => {
   const [data, setData] = useState(null);
@@ -22,6 +24,13 @@ const Top500 = () => {
   const [selectedMode, setSelectedMode] = useState("Splat Zones");
   const modes = ["Splat Zones", "Tower Control", "Rainmaker", "Clam Blitz"];
   const regions = ["Tentatek", "Takoroka"];
+
+  const [columnVisibility, setColumnVisibility] = useState(
+    columnsConfig.reduce((acc, column) => {
+      acc[column.id] = column.isVisible;
+      return acc;
+    }, {})
+  );
 
   const modeIcons = {
     "Splat Zones": SplatZonesIcon,
@@ -200,6 +209,10 @@ const Top500 = () => {
           </div>
         </div>
       </div>
+      <ColumnSelector
+        columnVisibility={columnVisibility}
+        setColumnVisibility={setColumnVisibility}
+      />
       <input
         type="text"
         placeholder="Search"
@@ -215,7 +228,10 @@ const Top500 = () => {
         ) : error ? (
           <div className="text-red-500 text-center py-4">{error.message}</div>
         ) : (
-          <PlayerTable players={currentItems} />
+          <PlayerTable
+            players={currentItems}
+            columnVisibility={columnVisibility}
+          />
         )}
       </div>
       <div className="flex justify-center mt-4 flex-wrap">

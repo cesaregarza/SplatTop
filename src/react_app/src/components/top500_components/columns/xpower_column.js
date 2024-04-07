@@ -1,4 +1,6 @@
+export const id = "xpower";
 export const name = "XPower";
+export const isVisible = true;
 export const headerClasses = "w-20 px-4 py-2 text-right";
 export const cellClasses = "w-20 px-4 py-2 text-right xpower-text font-bolt";
 export const render = (player) => (

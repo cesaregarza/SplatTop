@@ -4,7 +4,9 @@ import DiamondBadge from "../badges/diamond_badge";
 import Top10Badge from "../badges/top10_badge";
 import Top500Badge from "../badges/top500_badge";
 
+export const id = "badges";
 export const name = "Badges";
+export const isVisible = true;
 export const headerClasses = "flex-grow px-4 py-2 text-center";
 export const cellClasses = "flex-grow px-4 py-2 text-center";
 export const render = (player) => (

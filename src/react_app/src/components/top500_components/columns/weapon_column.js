@@ -1,4 +1,6 @@
+export const id = "weapon";
 export const name = "Weapon";
+export const isVisible = true;
 export const headerClasses = null;
 export const cellClasses = null;
 export const render = (player) => (

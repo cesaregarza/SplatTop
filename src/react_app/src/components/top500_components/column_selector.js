@@ -1,12 +1,12 @@
 import { useState } from "react";
 
-const ColumnSelector = ({ columns, setColumns }) => {
+const ColumnSelector = ({ columnVisibility, setColumnVisibility }) => {
   const [isOpen, setIsOpen] = useState(false);
 
-  const handleToggle = (column) => {
-    setColumns((prevColumns) => ({
-      ...prevColumns,
-      [column]: !prevColumns[column],
+  const handleToggle = (columnId) => {
+    setColumnVisibility((prev) => ({
+      ...prev,
+      [columnId]: !prev[columnId],
     }));
   };
 
@@ -38,18 +38,18 @@ const ColumnSelector = ({ columns, setColumns }) => {
       {isOpen && (
         <div className="origin-top-right absolute right-0 mt-2 w-56 rounded-md shadow-lg bg-gray-800 ring-1 ring-black ring-opacity-5 focus:outline-none">
           <div className="py-1">
-            {Object.entries(columns).map(([column, isVisible]) => (
+            {Object.entries(columnVisibility).map(([columnId, isVisible]) => (
               <label
-                key={column}
+                key={columnId}
                 className="flex justify-start items-center px-4 py-2 text-sm text-white hover:bg-gray-700 cursor-pointer"
               >
                 <input
                   type="checkbox"
                   checked={isVisible}
-                  onChange={() => handleToggle(column)}
+                  onChange={() => handleToggle(columnId)}
                   className="mr-2"
                 />
-                {column}
+                {columnId}{" "}
               </label>
             ))}
           </div>
@@ -58,3 +58,5 @@ const ColumnSelector = ({ columns, setColumns }) => {
     </div>
   );
 };
+
+export default ColumnSelector;
