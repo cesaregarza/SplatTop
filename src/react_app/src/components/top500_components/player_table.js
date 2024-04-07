@@ -1,9 +1,4 @@
 import React from "react";
-import DiamondBadge from "./badges/diamond_badge";
-import Top10Badge from "./badges/top10_badge";
-import Top500Badge from "./badges/top500_badge";
-import TentatekIcon from "../../assets/icons/tentatek.png";
-import TakorokaIcon from "../../assets/icons/takoroka.png";
 
 import * as RankColumn from "./columns/rank_column";
 import * as WeaponColumn from "./columns/weapon_column";
