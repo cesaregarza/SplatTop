@@ -21,7 +21,10 @@ const Top500 = () => {
     }, {})
   );
 
-  const apiUrl = process.env.REACT_APP_API_URL || "";
+  const isDevelopment = process.env.NODE_ENV === "development";
+  const apiUrl = isDevelopment
+    ? "http://localhost:5000"
+    : process.env.REACT_APP_API_URL || "";
   const endpoint = `${apiUrl}/api/leaderboard?mode=${selectedMode}&region=${selectedRegion}`;
   const { data, error, isLoading } = useFetchWithCache(endpoint);
 

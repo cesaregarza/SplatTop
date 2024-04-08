@@ -18,6 +18,8 @@ spec:
         ports:
         - containerPort: 5000
         env:
+        - name: ENV
+          value: "production"
         - name: DB_HOST
           valueFrom:
             secretKeyRef:

@@ -24,8 +24,10 @@ build-no-cache:
 
 .PHONY: port-forward
 port-forward:
-	kubectl port-forward service/flask-app-service 8000:80 & echo $$! > /tmp/flask-port-forward.pid
-	kubectl port-forward service/react-app-service 3000:80 & echo $$! > /tmp/react-port-forward.pid
+	kubectl port-forward service/flask-app-service 5000:80 & echo $$! > /tmp/flask-port-forward.pid
+	kubectl port-forward service/react-app-service 4000:80 & echo $$! > /tmp/react-port-forward.pid
+	echo "Flask app is running at http://localhost:5000"
+	echo "React (prod) app is running at http://localhost:4000"
 
 .PHONY: stop-port-forward
 stop-port-forward:
@@ -47,6 +49,8 @@ deploy:
 	kubectl apply -f k8s/react/react-service-dev.yaml
 	sleep 5
 	make port-forward
+	echo "React (dev) app is running at http://localhost:3000"
+	cd src/react_app && npm start
 
 .PHONY: undeploy
 undeploy:

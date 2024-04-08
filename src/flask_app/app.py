@@ -1,12 +1,20 @@
+import os
+
 from celery import Celery
 from flask import Flask
 from flask_caching import Cache
+from flask_cors import CORS
 
 from flask_app.celery_tasks import celery  # Import celery instance
 from flask_app.database import Session  # Not used, necessary for Session setup
 from flask_app.routes import create_front_page_bp, create_player_detail_bp
 
 app = Flask(__name__)
+
+if os.getenv("ENV") == "development":
+    CORS(app, resources={r"/*": {"origins": "http://localhost:3000"}})
+elif os.getenv("ENV") == "production":
+    CORS(app)
 
 cache = Cache(app, config={"CACHE_TYPE": "simple"})
 
