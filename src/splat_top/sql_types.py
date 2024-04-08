@@ -69,7 +69,7 @@ class Player(Base):
             search_text,
             postgresql_using="gin",
             postgresql_ops={"search_text": "gin_trgm_ops"},
-        )
+        ),
     )
 
     name_name_id_idx = Index("name_name_id_idx", name, name_id)

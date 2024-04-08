@@ -1,0 +1,242 @@
+<script>
+  var modes_data = {{ modes_data|tojson|safe }};
+  var seasons = {{ seasons|tojson|safe }};
+  var modeNames = Object.keys(modes_data);
+
+  var oneHourInMilliseconds = 3600000;
+  var additionalDataMap = {};
+
+  mode_order = {
+      "Splat Zones": 0,
+      "Tower Control": 1,
+      "Rainmaker": 2,
+      "Clam Blitz": 3
+  }
+
+  modeNames.sort(function(a, b) {
+      return mode_order[a] - mode_order[b];
+  });
+
+  // Initialize plotBandsArray and plotLinesArray
+  var plotBandsArray = [];
+  var plotLinesArray = [];
+
+  // Create plotBands and plotLines using the seasons data
+  seasons.forEach(function(season) {
+    var seasonDate = Date.parse(season[0]);
+    var seasonName = season[1];
+
+    // Create a plot band object
+    // #222222 if "Drizzle" or "Fresh" season, #000000 otherwise
+    color = seasonName.includes("Drizzle") || seasonName.includes("Fresh") ? '#222222' : '#000000';
+    var plotBand = {
+      color: color,
+      from: seasonDate,
+      to: seasonDate + 90 * 24 * 3600000  // 90 days in milliseconds
+    };
+
+        // Create a plot line object
+    var plotLine = {
+      color: 'rgba(255, 255, 255, 0.5)',
+      width: 2,
+      value: seasonDate,
+      zIndex: 0,
+      label: {
+        text: seasonName,
+        align: 'left',
+        style: {
+          color: 'rgba(255, 255, 255, 0.5)'
+        }
+      }
+    };
+
+    // Add these to their respective arrays
+    plotBandsArray.push(plotBand);
+    plotLinesArray.push(plotLine);
+  });
+
+  modeNames.forEach(function(mode, index) {
+
+      var mode_data = modes_data[mode].map(function(item) {
+            var timestamp = Date.parse(item.timestamp);
+            var compositeKey = timestamp + "_" + mode;
+            additionalDataMap[compositeKey] = {
+                stage_1: item.stage_1,
+                stage_2: item.stage_2,
+                weapon: item.weapon,
+                rank: item.rank,
+            }
+            return [
+                Date.parse(item.timestamp),
+                item.x_power,
+            ];
+      });
+
+      if (mode_data.length == 0) {
+          document.querySelector(".no-data-overlay.chart" + (index + 1)).style.display = "flex";
+      }
+
+      // Assuming mode_data is an array of [x, y] pairs, sort by timestamp
+      mode_data.sort(function(a, b) {
+          return a[0] - b[0];
+        });
+
+      var breaks = [];
+      for (var i = 1; i < mode_data.length; i++) {
+          if (Math.abs(mode_data[i][0] - mode_data[i - 1][0]) > oneHourInMilliseconds) {
+              breaks.push([
+              mode_data[i - 1][0] + 1000,
+              mode_data[i][0] - 1000,
+              ]);
+          }
+      }
+
+      Highcharts.stockChart('mode' + (index + 1), {
+          chart: {
+            height: "54%",
+            zoomType: null,
+            panning: {
+              enabled: true,
+              type: 'x',
+            }
+          },
+          rangeSelector: {
+              enabled: true,
+              inputEnabled: false,
+              buttons: [{
+                  type: 'day',
+                  count: 3,
+                  text: '3D'
+              }, {
+                  type: 'week',
+                  count: 2,
+                  text: '2W'
+              }, {
+                  type: 'month',
+                  count: 2,
+                  text: '2M'
+              }, {
+                  type: 'month',
+                  count: 6,
+                  text: '6M'
+              }, {
+                  type: 'year',
+                  count: 1,
+                  text: '1Y'
+              }, {
+                  type: 'all',
+                  text: 'All'
+              }],
+              selected: 2,
+          },
+          navigator: {
+              enabled: true,
+              handles: {
+                  height: 20,
+                  width: 20,
+              }
+          },
+          title: {
+          text: mode
+          },
+          xAxis: {
+          type: 'datetime',
+          breaks: breaks,
+          plotBands: plotBandsArray,
+          plotLines: plotLinesArray,
+          },
+          yAxis: {
+          title: {
+              text: 'X Power'
+          }
+          },
+          series: [{
+          name: mode,
+          data: mode_data,
+          dataGrouping: {
+              enabled: false
+          },
+          marker: {
+              enabled: true,
+              radius: 3
+          }
+          }],
+           tooltip: {
+                useHTML: true,
+                formatter: function() {
+                    var compositeKey = this.x + "_" + mode;
+                    var nearestKey = Object.keys(additionalDataMap).reduce(function(prev, curr) {
+                        return (Math.abs(curr - this.x) < Math.abs(prev - this.x) ? curr : prev);
+                    });
+                    var additionalData = additionalDataMap[compositeKey];
+                    return '<table>' +
+                        '<tr><td><strong>Date:</strong></td><td>' + Highcharts.dateFormat('%A, %b %e, %Y %H:%M', this.x) + 'GMT</td></tr>' +
+                        '<tr><td><strong>X Power:</strong></td><td>' + this.y + '</td></tr>' +
+                        '<tr><td><strong>Rank:</strong></td><td>' + additionalData.rank + '</td></tr>' +
+                        '<tr><td><strong>Stage 1:</strong></td><td>' + additionalData.stage_1 + '</td></tr>' +
+                        '<tr><td><strong>Stage 2:</strong></td><td>' + additionalData.stage_2 + '</td></tr>' +
+                        '<tr><td><strong>Fav Weapon:</strong></td><td>' + additionalData.weapon + '</td></tr>' +
+                        '</table>';
+                },
+                valueDecimals: 1,
+                backgroundColor: '#111111',
+                borderColor: '#d6d6d6',
+                style: {
+                    color: '#d6d6d6'
+                }
+           },
+          responsive: {
+            rules: [{
+              condition: {
+                maxWidth: 500
+              },
+              chartOptions: {
+                chart: {
+                  height: "100%",
+                  series: {
+                    marker: {
+                        radius: 1,
+                    },
+                  },
+                },
+                rangeSelector: {
+                  inputEnabled: false,
+                },
+              }
+            },
+            {
+              condition: {
+                minWidth: 500,
+                maxWidth: 1000
+              },
+              chartOptions: {
+                chart: {
+                  height: "54%"
+                },
+                rangeSelector: {
+                  inputEnabled: true,
+                },
+                series: {
+                    marker: {
+                        radius: 3,
+                    },
+                },
+              }
+            },
+            {
+              condition: {
+                minWidth: 1000
+              },
+              chartOptions: {
+                chart: {
+                  height: "54%"
+                },
+                rangeSelector: {
+                  inputEnabled: true,
+                },
+              }
+            }],
+        }
+      });
+  });
+</script>

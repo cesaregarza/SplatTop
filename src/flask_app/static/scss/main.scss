@@ -1,0 +1,239 @@
+// Define functions and variables
+$accent-color: #ad5ad7;
+$accent-dark: darken($accent-color, 10%);
+$accent-darker: darken($accent-color, 20%);
+$accent-light: lighten($accent-color, 10%);
+$accent-lighter: lighten($accent-color, 20%);
+$white-color: #d6d6d6;
+$whiter-color: lighten($white-color, 10%);
+$black-color: #111111;
+
+$scrollbar-color: $accent-darker;
+$scrollbar-hover-color: $accent-dark;
+
+// Import Bulma's initial variables
+@import "../bulma/sass/utilities/initial-variables";
+
+// Override variables
+$primary: $accent-color;
+$body-background-color: $black-color;
+$body-color: $white-color;
+$link-color: $white-color;
+$link-hover-color: lighten($link-color, 10%);
+$content-heading-color: $body-color;
+
+$navbar-background-color: darken($body-background-color, 6%);
+$navbar-item-color: $white-color;
+$navbar-item-hover-background-color: lighten($navbar-background-color, 10%);
+$navbar-item-hover-color: $navbar-item-color;
+$footer-background-color: $body-background-color;
+$footer-color: $body-color;
+
+$card-background-color: lighten($body-background-color, 10%);
+$card-color: $body-color;
+$card-header-background-color: $navbar-background-color;
+$card-header-color: $navbar-item-color;
+
+$title-color: $body-color;
+$subtitle-color: $body-color;
+$text-strong: $body-color;
+$text-light: $body-color;
+
+$table-color: $body-color;
+$table-background-color: lighten($navbar-background-color, 3%);
+$table-border-color: $accent-color;
+$table-head-cell-color: $accent-color;
+$table-cell-heading-color: $accent-color;
+$table-striped-row-even-background-color: lighten($navbar-background-color, 12%);
+$table-striped-row-even-hover-background-color: lighten($navbar-background-color, 20%);
+$table-row-hover-background-color: lighten($navbar-background-color, 18%);
+$table-row-active-background-color: $accent-darker;
+$table-row-active-color: $whiter-color;
+
+$tabs-toggle-link-hover-background-color: $accent-darker;
+$tabs-toggle-link-active-color: $white-color;
+$tabs-toggle-link-active-background-color: $accent-color;
+$tabs-toggle-link-active-border-color: $accent-darker;
+
+// Import the rest of Bulma
+@import "../bulma/bulma";
+
+// Define styles below
+@font-face {
+    font-family: 'Splatfont2';
+    src: url('/static/fonts/Splatfont2.ttf') format('truetype');
+    font-weight: normal;
+    font-style: normal;
+    font-display: swap;
+  }
+
+html, body {
+    font-family: 'Splatfont2', sans-serif;
+}
+
+$player-max-height: 85vh;
+.content {
+  .box {
+    background-color: lighten($body-background-color, 10%);
+    border-radius: 5px;
+    padding: 20px;
+    margin-bottom: 20px;
+
+    @include desktop {
+      max-height: $player-max-height;
+      overflow-y: auto;
+      overflow-x: hidden;
+    }
+
+    strong, h1, h2, h3, h4, h5, h6 {
+      color: $accent-color;
+    }
+
+  }
+
+  a {
+    color: $accent-dark;
+  }
+
+  .tabs {
+    ul {
+      margin-left: 2em;
+      margin-right: 2em;
+    }
+  }
+
+  strong, h1, h2, h3, h4, h5, h6 {
+      color: $accent-dark;
+  }
+  
+  p, li {
+      color: $body-color;
+  }
+
+  .content-block > *:not(:last-child) {
+      margin-bottom: $content-block-margin-bottom;
+  }
+
+  table {
+      thead th {
+          color: $accent-dark;
+          background-color: $navbar-background-color;
+      }
+
+      th {
+          color: $accent-lighter;
+      }
+  }
+}
+
+.player-table {
+  width: 100%;
+  overflow-x: auto;
+  overflow-y: auto;
+}
+
+.chart-container {
+  position: relative;
+  .highcharts-tooltip {
+    table, tr, td {
+      border: none;
+      border-collapse: collapse;
+      border-spacing: 0;
+      font-size: 12px;
+      line-height: 0.3em;
+    }
+  }
+  .highcharts-label {
+    text {
+      color: $accent-color;
+    }
+  }
+}
+
+.chart-column {
+
+  @include desktop {
+    max-height: $player-max-height;
+  }
+}
+
+.no-data-overlay {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  display: none;
+  align-items: center;
+  justify-content: center;
+  background: rgba($navbar-background-color, 0.8);
+  text-align: center;
+  line-height: 1.2;
+  font-size: 20px;
+}
+
+.leaderboard {
+  width: 100vw;
+  overflow-x: auto;
+  overflow-y: auto;
+}
+
+.leaderboard-cell {
+  max-width: 20%;
+  overflow-x: auto;
+  overflow-y: hidden;
+  white-space: nowrap;
+}
+
+.scrollable-table {
+  max-width: 80vw;
+  overflow-x: auto;
+  overflow-y: hidden;
+  white-space: nowrap;
+}
+
+@media screen and (max-width: 768px)  {
+  .tabs.is-toggle ul {
+    flex-direction: column;
+    li {
+      width: 100%;
+      &:not(:last-child) a {
+        border-bottom-color: transparent;
+      }
+      &:first-child a {
+        border-radius: 4px 4px 0 0;
+      }
+      &:last-child a {
+        border-radius: 0 0 4px 4px;
+      }
+    }
+  }
+}
+
+.jcc {
+  justify-content: center !important;
+}
+
+.player-columns {
+  .columns {
+    margin-left: 0;
+    margin-right: 0;
+  }
+  #player-stats-left-side {
+    height: 100%;
+  }
+  .alias-table {
+    max-height: 15vh;
+    overflow-y: auto;
+  }
+  #player-stats-title {
+    margin-bottom: 0;
+    justify-content: center;
+  }
+  .stats-row {
+    max-height: 19%;
+    min-height: 19%;
+    display: flex;
+    align-items: center;
+  }
+}
