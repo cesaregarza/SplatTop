@@ -73,7 +73,7 @@ compile-sass:
 	sass src/flask_app/static/scss/main.scss src/flask_app/static/css/main.css
 
 .PHONY: update
-update: undeploy stop-port-forward build deploy
+update: undeploy build deploy
 
 .PHONY: full-update
 full-update: undeploy compile-sass build deploy

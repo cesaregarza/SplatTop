@@ -8,6 +8,7 @@ from flask_cors import CORS
 from flask_app.celery_tasks import celery  # Import celery instance
 from flask_app.database import Session  # Not used, necessary for Session setup
 from flask_app.routes import create_front_page_bp, create_player_detail_bp
+from flask_app.routes.temp_player import create_temp_player_bp
 
 app = Flask(__name__)
 
@@ -23,6 +24,9 @@ app.register_blueprint(front_page_bp)
 
 player_detail_bp = create_player_detail_bp()
 app.register_blueprint(player_detail_bp)
+
+temp_player_bp = create_temp_player_bp()
+app.register_blueprint(temp_player_bp)
 
 celery.send_task("tasks.pull_data")
 
