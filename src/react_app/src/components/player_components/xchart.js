@@ -1,7 +1,6 @@
 import React from "react";
 import * as V from "victory";
 import { getPercentageInSeason } from "./helper_functions";
-import "./xchart.css";
 
 class XChart extends React.Component {
   constructor(props) {
