@@ -10,7 +10,7 @@ class AnimatedGlowDot extends React.Component {
       <g filter="url(#glow)">
         {/* Original Dot */}
         <circle cx={x} cy={y} r="4" fill="#ab5ab7" />
-        
+
         {/* Animated Glow Dot */}
         <circle cx={x} cy={y} r="4" fill="#ab5ab7" opacity="0.3">
           <animate
@@ -32,7 +32,6 @@ class AnimatedGlowDot extends React.Component {
     );
   }
 }
-
 
 class XChart extends React.Component {
   constructor(props) {
