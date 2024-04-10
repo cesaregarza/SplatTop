@@ -30,19 +30,21 @@ const PlayerTest = () => {
   }, [player_id]);
 
   return (
-    <div className="container mx-auto px-4 py-8 bg-gray-900 text-white min-h-screen">
-      <h1 className="text-3xl font-bold mb-4 text-center">Player Test Chart</h1>
-      {isLoading ? (
-        <div className="text-center py-4">
-          <Loading />
-        </div>
-      ) : error ? (
-        <div className="text-red-500 text-center py-4">{error.message}</div>
-      ) : (
-        <div>
+    <div className="flex flex-col flex-grow">
+      <header className="text-3xl font-bold mb-4 text-center text-white">Player Test Chart</header>
+      <main className="flex-grow container mx-auto px-4 py-8 bg-gray-900 text-white overflow-auto">
+        {isLoading ? (
+          <div className="flex justify-center items-center h-full">
+            <Loading />
+          </div>
+        ) : error ? (
+          <div className="text-red-500 text-center">{error.message}</div>
+        ) : (
+          <>
             <XChart data={data} />
-        </div>
-      )}
+          </>
+        )}
+      </main>
     </div>
   );
 };

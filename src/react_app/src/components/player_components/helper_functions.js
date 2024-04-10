@@ -31,4 +31,24 @@ const getPercentageInSeason = (timestamp, season) => {
   return (elapsedDuration / totalDuration) * 100;
 };
 
-export { getSeasonStartDate, getSeasonEndDate, getPercentageInSeason };
+const calculateSeasonNow = () => {
+  const now_utc = new Date();
+  return calculateSeasonByTimestamp(now_utc);
+};
+
+const calculateSeasonByTimestamp = (timestamp) => {
+  const timestamp_utc = new Date(timestamp);
+  const timestamp_utc_month = (timestamp_utc.getUTCMonth() + 1) % 12;
+  const timestamp_utc_year =
+    timestamp_utc.getUTCFullYear() + (timestamp_utc_month === 0 ? 1 : 0);
+  return (
+    4 * (timestamp_utc_year - 2022) + Math.floor(timestamp_utc_month / 3) - 3
+  );
+};
+
+export {
+  getSeasonStartDate,
+  getSeasonEndDate,
+  getPercentageInSeason,
+  calculateSeasonNow,
+};

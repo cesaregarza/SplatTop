@@ -4,76 +4,97 @@ import { getPercentageInSeason } from "./helper_functions";
 
 const XChart = ({ data }) => {
   const d3Container = useRef(null);
-  const [mode, setMode] = useState("Tower Control"); // Default mode
+  const [mode, setMode] = useState("Splat Zones"); // Default mode
 
   useEffect(() => {
-    if (data && d3Container.current) {
-      const filteredData = data.filter((d) => d.mode === mode);
-      const margin = { top: 20, right: 30, bottom: 40, left: 90 },
-        width = 460 - margin.left - margin.right,
-        height = 400 - margin.top - margin.bottom;
+    const handleResize = () => {
+      if (data && d3Container.current) {
+        const filteredData = data.filter((d) => d.mode === mode);
+        const margin = { top: 20, right: 30, bottom: 40, left: 90 };
+        const containerRect = d3Container.current.getBoundingClientRect();
+        const width = containerRect.width;
+        const minHeight = 500; // Set a minimum height for the chart
+        const height = Math.max(containerRect.height, minHeight) - margin.top - margin.bottom;
 
-      // Clear SVG before redrawing
-      d3.select(d3Container.current).selectAll("*").remove();
+        // Clear SVG before redrawing
+        d3.select(d3Container.current).selectAll("*").remove();
 
-      const svg = d3
-        .select(d3Container.current)
-        .append("svg")
-        .attr("width", width + margin.left + margin.right)
-        .attr("height", height + margin.top + margin.bottom)
-        .append("g")
-        .attr("transform", `translate(${margin.left},${margin.top})`);
+        const svg = d3
+          .select(d3Container.current)
+          .append("svg")
+          .attr("width", "100%")
+          .attr("height", height + margin.top + margin.bottom)
+          .append("g")
+          .attr("transform", `translate(${margin.left},${margin.top})`);
 
-      // Add X axis for percentage of the season
-      const x = d3
-        .scaleLinear()
-        .domain([0, 100]) // Percentage of the season
-        .range([0, width]);
-      svg
-        .append("g")
-        .attr("transform", `translate(0,${height})`)
-        .call(d3.axisBottom(x));
-
-      // Add Y axis for x_power
-      const y = d3
-        .scaleLinear()
-        .domain([0, d3.max(filteredData, (d) => d.x_power)])
-        .range([height, 0]);
-      svg.append("g").call(d3.axisLeft(y));
-
-      // Group data by season and sort by percentage in season
-      const dataBySeason = d3.group(filteredData, (d) => d.season_number);
-      const currentSeason = Math.max(...dataBySeason.keys()); // Get the current season as the max
-      dataBySeason.forEach((values, season) => {
-        // Sort values by percentage in season
-        const sortedValues = values.sort((a, b) => getPercentageInSeason(a.timestamp, season) - getPercentageInSeason(b.timestamp, season));
-
-        const line = d3
-          .line()
-          .x((d) => x(getPercentageInSeason(d.timestamp, season)))
-          .y((d) => y(d.x_power));
-
+        const x = d3
+          .scaleLinear()
+          .domain([0, 100])
+          .range([0, width - margin.left - margin.right]);
         svg
-          .append("path")
-          .datum(sortedValues)
-          .attr("fill", "none")
-          .attr("stroke", season === currentSeason ? "#ab5ab7" : "gray") // Highlight current season in #ab5ab7, others in gray
-          .attr("stroke-width", season == currentSeason ? 3 : 1)
-          .attr("d", line);
-      });
-    }
-  }, [data, mode]); // Redraw chart if data or mode changes
+          .append("g")
+          .attr("transform", `translate(0,${height})`)
+          .call(d3.axisBottom(x));
+
+        const y = d3
+          .scaleLinear()
+          .domain([0, d3.max(filteredData, (d) => d.x_power)])
+          .range([height, 0]);
+        svg.append("g").call(d3.axisLeft(y));
+
+        const dataBySeason = d3.group(filteredData, (d) => d.season_number);
+        const currentSeason = Math.max(...dataBySeason.keys());
+        const seasonsDescending = Array.from(dataBySeason.keys()).sort((a, b) => a - b);
+        const colorScale = d3.scaleLinear().domain([0, seasonsDescending.length - 1]).range(["#ab5ab7", "black"]);
+
+        seasonsDescending.forEach(season => {
+          const values = dataBySeason.get(season);
+          const sortedValues = values.sort(
+            (a, b) =>
+              getPercentageInSeason(a.timestamp, season) -
+              getPercentageInSeason(b.timestamp, season)
+          );
+
+          const line = d3
+            .line()
+            .x((d) => x(getPercentageInSeason(d.timestamp, season)))
+            .y((d) => y(d.x_power));
+
+          svg
+            .append("path")
+            .datum(sortedValues)
+            .attr("fill", "none")
+            .attr("stroke", season === currentSeason ? "#ab5ab7" : colorScale(seasonsDescending.indexOf(season)))
+            .attr("stroke-width", season === currentSeason ? 3 : 1)
+            .attr("d", line);
+        });
+      }
+    };
+
+    const initialRender = () => {
+      handleResize();
+      window.addEventListener("resize", handleResize);
+    };
+
+    setTimeout(initialRender, 0); // Delay the initial rendering
+
+    return () => {
+      window.removeEventListener("resize", handleResize);
+    };
+  }, [data, mode]);
 
   return (
-    <div>
+    <>
       <select value={mode} onChange={(e) => setMode(e.target.value)}>
         <option value="Tower Control">Tower Control</option>
         <option value="Rainmaker">Rainmaker</option>
         <option value="Splat Zones">Splat Zones</option>
         <option value="Clam Blitz">Clam Blitz</option>
       </select>
-      <div className="chart-container" ref={d3Container}></div>
-    </div>
+      <div className="chart-container flex-grow" ref={d3Container}>
+        <div style={{ position: "absolute", top: 0, left: 0, width: "100%", height: "100%" }}></div>
+      </div>
+    </>
   );
 };
 
