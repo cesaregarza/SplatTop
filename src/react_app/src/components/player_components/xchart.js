@@ -1,101 +1,179 @@
-import React, { useEffect, useRef, useState } from "react";
-import * as d3 from "d3";
+import React from "react";
+import * as V from "victory";
 import { getPercentageInSeason } from "./helper_functions";
+import "./xchart.css";
 
-const XChart = ({ data }) => {
-  const d3Container = useRef(null);
-  const [mode, setMode] = useState("Splat Zones"); // Default mode
-
-  useEffect(() => {
-    const handleResize = () => {
-      if (data && d3Container.current) {
-        const filteredData = data.filter((d) => d.mode === mode);
-        const margin = { top: 20, right: 30, bottom: 40, left: 90 };
-        const containerRect = d3Container.current.getBoundingClientRect();
-        const width = containerRect.width;
-        const minHeight = 500; // Set a minimum height for the chart
-        const height = Math.max(containerRect.height, minHeight) - margin.top - margin.bottom;
-
-        // Clear SVG before redrawing
-        d3.select(d3Container.current).selectAll("*").remove();
-
-        const svg = d3
-          .select(d3Container.current)
-          .append("svg")
-          .attr("width", "100%")
-          .attr("height", height + margin.top + margin.bottom)
-          .append("g")
-          .attr("transform", `translate(${margin.left},${margin.top})`);
-
-        const x = d3
-          .scaleLinear()
-          .domain([0, 100])
-          .range([0, width - margin.left - margin.right]);
-        svg
-          .append("g")
-          .attr("transform", `translate(0,${height})`)
-          .call(d3.axisBottom(x));
-
-        const y = d3
-          .scaleLinear()
-          .domain([0, d3.max(filteredData, (d) => d.x_power)])
-          .range([height, 0]);
-        svg.append("g").call(d3.axisLeft(y));
-
-        const dataBySeason = d3.group(filteredData, (d) => d.season_number);
-        const currentSeason = Math.max(...dataBySeason.keys());
-        const seasonsDescending = Array.from(dataBySeason.keys()).sort((a, b) => a - b);
-        const colorScale = d3.scaleLinear().domain([0, seasonsDescending.length - 1]).range(["#ab5ab7", "black"]);
-
-        seasonsDescending.forEach(season => {
-          const values = dataBySeason.get(season);
-          const sortedValues = values.sort(
-            (a, b) =>
-              getPercentageInSeason(a.timestamp, season) -
-              getPercentageInSeason(b.timestamp, season)
-          );
-
-          const line = d3
-            .line()
-            .x((d) => x(getPercentageInSeason(d.timestamp, season)))
-            .y((d) => y(d.x_power));
-
-          svg
-            .append("path")
-            .datum(sortedValues)
-            .attr("fill", "none")
-            .attr("stroke", season === currentSeason ? "#ab5ab7" : colorScale(seasonsDescending.indexOf(season)))
-            .attr("stroke-width", season === currentSeason ? 3 : 1)
-            .attr("d", line);
-        });
-      }
+class XChart extends React.Component {
+  constructor(props) {
+    super(props);
+    this.state = {
+      mode: "Splat Zones",
+      isSmooth: true,
+      zoomDomain: { x: [0, 100] },
     };
+  }
 
-    const initialRender = () => {
-      handleResize();
-      window.addEventListener("resize", handleResize);
-    };
+  handleZoom(domain) {
+    this.setState({ selectedDomain: domain });
+  }
 
-    setTimeout(initialRender, 0); // Delay the initial rendering
+  handleBrush(domain) {
+    this.setState({ zoomDomain: domain });
+  }
 
-    return () => {
-      window.removeEventListener("resize", handleResize);
-    };
-  }, [data, mode]);
+  render() {
+    const { data } = this.props;
+    const { mode, isSmooth, zoomDomain } = this.state;
 
-  return (
-    <>
-      <select value={mode} onChange={(e) => setMode(e.target.value)}>
-        <option value="Tower Control">Tower Control</option>
-        <option value="Rainmaker">Rainmaker</option>
-        <option value="Splat Zones">Splat Zones</option>
-        <option value="Clam Blitz">Clam Blitz</option>
-      </select>
-      <div className="chart-container flex-grow" ref={d3Container}>
-        <div style={{ position: "absolute", top: 0, left: 0, width: "100%", height: "100%" }}></div>
+    const filteredData = data
+      ? data.filter((d) => d.mode === mode && d.updated)
+      : [];
+
+    const seasons = filteredData.reduce((acc, curr) => {
+      const season = curr.season_number;
+      if (!acc.includes(season)) acc.push(season);
+      return acc;
+    }, []);
+
+    const currentSeason = Math.max(...seasons);
+
+    const dataBySeason = filteredData.reduce((acc, curr) => {
+      const season = curr.season_number;
+      if (!acc[season]) acc[season] = [];
+      acc[season].push({
+        x: getPercentageInSeason(curr.timestamp, season),
+        y: curr.x_power,
+      });
+      return acc;
+    }, {});
+
+    const sortedSeasons = seasons.sort((a, b) => {
+      if (a === currentSeason) return 1;
+      if (b === currentSeason) return -1;
+      return b - a;
+    });
+
+    const lines = sortedSeasons.map((season, index) => {
+      const sortedValues = dataBySeason[season].sort((a, b) => a.x - b.x);
+      const baseHue = 292;
+      const saturation = 40;
+      const lightness = 42 - 5 * index;
+      const strokeColor =
+        season === currentSeason
+          ? "#ab5ab7"
+          : `hsl(${baseHue}, ${saturation}%, ${lightness}%)`;
+
+      return (
+        <V.VictoryLine
+          key={season}
+          data={sortedValues}
+          style={{
+            data: {
+              stroke: strokeColor,
+              strokeWidth: season === currentSeason ? 4 : 2,
+              strokeLinecap: "round",
+              opacity: season === currentSeason ? 1.0 : 0.8,
+            },
+          }}
+          interpolation={isSmooth ? "monotoneX" : "linear"}
+        />
+      );
+    });
+
+    return (
+      <div className="xchart-container">
+        <div className="controls">
+          <select
+            className="mode-selector bg-gray-800 text-white p-2.5 rounded-md border-none"
+            value={mode}
+            onChange={(e) => this.setState({ mode: e.target.value })}
+          >
+            <option value="Splat Zones">Splat Zones</option>
+            <option value="Tower Control">Tower Control</option>
+            <option value="Rainmaker">Rainmaker</option>
+            <option value="Clam Blitz">Clam Blitz</option>
+          </select>
+          <label className="smooth-toggle">
+            <input
+              type="checkbox"
+              checked={isSmooth}
+              onChange={() => this.setState({ isSmooth: !isSmooth })}
+            />{" "}
+            Enable Smoothing
+          </label>
+        </div>
+        <div className="chart-container">
+          <V.VictoryChart
+            theme={V.VictoryTheme.material}
+            style={{
+              grid: { stroke: "none", opacity: 0.1 },
+              parent: { position: "relative", zIndex: 0 },
+            }}
+            scale={{ x: "linear", y: "linear" }}
+            width={800}
+            height={400}
+            containerComponent={
+              <V.VictoryZoomContainer
+                zoomDimension="x"
+                zoomDomain={zoomDomain}
+                onZoomDomainChange={this.handleZoom.bind(this)}
+                allowZoom={true}
+                style={{
+                  brushArea: {
+                    stroke: "lightgray",
+                    fill: "white",
+                    opacity: 0.5,
+                  },
+                }}
+              />
+            }
+          >
+            <V.VictoryAxis
+              dependentAxis
+              style={{ axis: { stroke: "white" } }}
+              tickFormat={(t) => `${(t / 1000).toFixed(1)}k`}
+            />
+            <V.VictoryAxis
+              style={{ axis: { stroke: "white" } }}
+              tickValues={[0, 20, 40, 60, 80, 100]}
+              tickFormat={["Start", "20%", "40%", "60%", "80%", "End"]}
+            />
+            {lines}
+          </V.VictoryChart>
+          <V.VictoryChart
+            theme={V.VictoryTheme.material}
+            style={{
+              grid: { stroke: "none", opacity: 0.1 },
+              parent: { position: "relative", zIndex: 0 },
+            }}
+            scale={{ x: "linear", y: "linear" }}
+            width={800}
+            height={100}
+            padding={{ top: 0, bottom: 20, left: 50, right: 50 }}
+            containerComponent={
+              <V.VictoryBrushContainer
+                brushDimension="x"
+                brushDomain={this.state.selectedDomain}
+                onBrushDomainChange={this.handleBrush.bind(this)}
+                brushStyle={{ fill: "darkgray", opacity: 0.4 }}
+              />
+            }
+          >
+            <V.VictoryAxis
+              style={{
+                axis: { stroke: "white" },
+                ticks: { size: 5 },
+                tickLabels: { fontSize: 7, padding: 5 },
+              }}
+              tickValues={[0, 20, 40, 60, 80, 100]}
+              tickFormat={["Start", "20%", "40%", "60%", "80%", "End"]}
+            />
+            {lines}
+          </V.VictoryChart>
+        </div>
       </div>
-    </>
-  );
-};
+    );
+  }
+}
 
 export default XChart;
