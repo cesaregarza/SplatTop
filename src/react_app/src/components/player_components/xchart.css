@@ -1,0 +1,27 @@
+@keyframes expand-fade {
+  0% {
+    opacity: 0.3;
+    transform: scale(1);
+  }
+  100% {
+    opacity: 0;
+    transform: scale(3);
+  }
+}
+
+.animated-dot {
+  position: relative;
+}
+
+.animated-dot::before {
+  content: "";
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 10px;
+  height: 10px;
+  background-color: #ab5ab7;
+  border-radius: 50%;
+  transform: translate(-50%, -50%);
+  animation: expand-fade 2s ease-out infinite;
+}

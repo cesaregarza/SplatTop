@@ -1,6 +1,38 @@
 import React from "react";
 import * as V from "victory";
 import { getPercentageInSeason } from "./helper_functions";
+import "./xchart.css";
+
+class AnimatedGlowDot extends React.Component {
+  render() {
+    const { x, y } = this.props;
+    return (
+      <g filter="url(#glow)">
+        {/* Original Dot */}
+        <circle cx={x} cy={y} r="4" fill="#ab5ab7" />
+        
+        {/* Animated Glow Dot */}
+        <circle cx={x} cy={y} r="4" fill="#ab5ab7" opacity="0.3">
+          <animate
+            attributeName="r"
+            from="4"
+            to="12"
+            dur="1.5s"
+            repeatCount="indefinite"
+          />
+          <animate
+            attributeName="opacity"
+            from="0.3"
+            to="0"
+            dur="1.5s"
+            repeatCount="indefinite"
+          />
+        </circle>
+      </g>
+    );
+  }
+}
+
 
 class XChart extends React.Component {
   constructor(props) {
@@ -79,6 +111,10 @@ class XChart extends React.Component {
       );
     });
 
+    const latestDataPoint = dataBySeason[currentSeason]
+      ? dataBySeason[currentSeason][dataBySeason[currentSeason].length - 1]
+      : null;
+
     return (
       <div className="xchart-container">
         <div className="controls">
@@ -101,6 +137,18 @@ class XChart extends React.Component {
             Enable Smoothing
           </label>
         </div>
+        <svg style={{ height: 0 }}>
+          <defs>
+            <filter id="glow" x="-50%" y="-50%" width="200%" height="200%">
+              <feGaussianBlur stdDeviation="2.5" result="coloredBlur" />
+              <feMerge>
+                <feMergeNode in="coloredBlur" />
+                <feMergeNode in="SourceGraphic" />
+              </feMerge>
+            </filter>
+          </defs>
+        </svg>
+
         <div className="chart-container">
           <V.VictoryChart
             theme={V.VictoryTheme.material}
@@ -138,6 +186,21 @@ class XChart extends React.Component {
               tickFormat={["Start", "20%", "40%", "60%", "80%", "End"]}
             />
             {lines}
+            {latestDataPoint && (
+              <V.VictoryScatter
+                data={[latestDataPoint]}
+                dataComponent={<AnimatedGlowDot />}
+                style={{
+                  data: {
+                    fill: "#ab5ab7",
+                    stroke: "none",
+                    filter: "url(#glow)",
+                  },
+                }}
+                size={4}
+                symbol="circle"
+              />
+            )}
           </V.VictoryChart>
           <V.VictoryChart
             theme={V.VictoryTheme.material}
