@@ -46,9 +46,21 @@ const calculateSeasonByTimestamp = (timestamp) => {
   );
 };
 
+const dataWithNulls = (data, threshold = 2) => {
+  const result = [];
+  for (let i = 0; i < data.length; i++) {
+    result.push(data[i]);
+    if (i < data.length - 1 && data[i + 1].x - data[i].x >= threshold) {
+      result.push({ x: (data[i + 1].x + data[i].x) / 2, y: null });
+    }
+  }
+  return result;
+};
+
 export {
   getSeasonStartDate,
   getSeasonEndDate,
   getPercentageInSeason,
   calculateSeasonNow,
+  dataWithNulls,
 };

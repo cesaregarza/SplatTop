@@ -1,6 +1,10 @@
 import React from "react";
 import * as V from "victory";
-import { getPercentageInSeason } from "./helper_functions";
+import {
+  getPercentageInSeason,
+  calculateSeasonNow,
+  dataWithNulls,
+} from "./helper_functions";
 import "./xchart.css";
 
 class AnimatedGlowDot extends React.Component {
@@ -38,8 +42,8 @@ class XChart extends React.Component {
     super(props);
     this.state = {
       mode: "Splat Zones",
-      isSmooth: true,
       zoomDomain: { x: [0, 100] },
+      removeValuesNotInTop500: false,
     };
   }
 
@@ -51,13 +55,20 @@ class XChart extends React.Component {
     this.setState({ zoomDomain: domain });
   }
 
+  toggleRemoveValuesNotInTop500 = () => {
+    this.setState((prevState) => ({
+      removeValuesNotInTop500: !prevState.removeValuesNotInTop500,
+    }));
+  };
+
   render() {
     const { data } = this.props;
-    const { mode, isSmooth, zoomDomain } = this.state;
+    const { mode, zoomDomain, removeValuesNotInTop500 } = this.state;
 
-    const filteredData = data
-      ? data.filter((d) => d.mode === mode && d.updated)
-      : [];
+    const filteredData = data ? data.filter((d) => d.mode === mode) : [];
+
+    const minY = Math.min(...filteredData.map((d) => d.x_power));
+    const maxY = Math.max(...filteredData.map((d) => d.x_power));
 
     const seasons = filteredData.reduce((acc, curr) => {
       const season = curr.season_number;
@@ -65,7 +76,7 @@ class XChart extends React.Component {
       return acc;
     }, []);
 
-    const currentSeason = Math.max(...seasons);
+    const currentSeason = calculateSeasonNow();
 
     const dataBySeason = filteredData.reduce((acc, curr) => {
       const season = curr.season_number;
@@ -85,6 +96,8 @@ class XChart extends React.Component {
 
     const lines = sortedSeasons.map((season, index) => {
       const sortedValues = dataBySeason[season].sort((a, b) => a.x - b.x);
+      const threshold = removeValuesNotInTop500 ? 1 : 100;
+      const sortedValuesWithNulls = dataWithNulls(sortedValues, threshold);
       const baseHue = 292;
       const saturation = 40;
       const lightness = 42 - 5 * index;
@@ -96,7 +109,7 @@ class XChart extends React.Component {
       return (
         <V.VictoryLine
           key={season}
-          data={sortedValues}
+          data={sortedValuesWithNulls}
           style={{
             data: {
               stroke: strokeColor,
@@ -105,7 +118,7 @@ class XChart extends React.Component {
               opacity: season === currentSeason ? 1.0 : 0.8,
             },
           }}
-          interpolation={isSmooth ? "monotoneX" : "linear"}
+          interpolation="linear"
         />
       );
     });
@@ -127,14 +140,18 @@ class XChart extends React.Component {
             <option value="Rainmaker">Rainmaker</option>
             <option value="Clam Blitz">Clam Blitz</option>
           </select>
-          <label className="smooth-toggle">
+          <div className="flex items-center space-x-2">
             <input
+              id="top500Checkbox"
               type="checkbox"
-              checked={isSmooth}
-              onChange={() => this.setState({ isSmooth: !isSmooth })}
-            />{" "}
-            Enable Smoothing
-          </label>
+              checked={removeValuesNotInTop500}
+              onChange={this.toggleRemoveValuesNotInTop500}
+              className="w-4 h-4 text-purple-600 bg-gray-800 border-gray-600 rounded focus:ring-purple-500"
+            />
+            <label htmlFor="top500Checkbox" className="text-white text-sm">
+              Remove Values Not in Top 500
+            </label>
+          </div>
         </div>
         <svg style={{ height: 0 }}>
           <defs>
@@ -158,6 +175,7 @@ class XChart extends React.Component {
             scale={{ x: "linear", y: "linear" }}
             width={800}
             height={400}
+            domain={{ y: [minY - 100, maxY + 100] }}
             containerComponent={
               <V.VictoryZoomContainer
                 zoomDimension="x"
@@ -176,13 +194,21 @@ class XChart extends React.Component {
           >
             <V.VictoryAxis
               dependentAxis
-              style={{ axis: { stroke: "white" } }}
+              style={{
+                axis: { stroke: "white" },
+                axisLabel: { fill: "white" },
+              }}
               tickFormat={(t) => `${(t / 1000).toFixed(1)}k`}
+              label="X Power"
             />
             <V.VictoryAxis
-              style={{ axis: { stroke: "white" } }}
+              style={{
+                axis: { stroke: "white" },
+                axisLabel: { fill: "white" },
+              }}
               tickValues={[0, 20, 40, 60, 80, 100]}
               tickFormat={["Start", "20%", "40%", "60%", "80%", "End"]}
+              label="Season Progress"
             />
             {lines}
             {latestDataPoint && (
@@ -210,6 +236,7 @@ class XChart extends React.Component {
             scale={{ x: "linear", y: "linear" }}
             width={800}
             height={100}
+            domain={{ y: [minY - 100, maxY + 100] }}
             padding={{ top: 0, bottom: 20, left: 50, right: 50 }}
             containerComponent={
               <V.VictoryBrushContainer
