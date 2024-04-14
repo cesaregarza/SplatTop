@@ -35,7 +35,7 @@ class XChart extends React.Component {
     const maxBrightness = 60;
     const brightnessStep =
       (maxBrightness - minBrightness) / processedData.length;
-    
+
     const currentPercentage = getPercentageInSeason(new Date(), currentSeason);
 
     const options = {
@@ -78,18 +78,20 @@ class XChart extends React.Component {
           },
         },
         gridLineColor: "rgba(255, 255, 255, 0.1)",
-        plotLines: [{
-          color: 'rgba(255, 0, 0, 0.4)',
-          width: 2,
-          value: currentPercentage,
-          label: {
-            text: 'Time right now',
-            align: 'left',
-            style: {
-              color: 'rgba(255, 255, 255, 0.4)'
-            }
-          }
-        }]
+        plotLines: [
+          {
+            color: "rgba(255, 0, 0, 0.4)",
+            width: 2,
+            value: currentPercentage,
+            label: {
+              text: "Time right now",
+              align: "left",
+              style: {
+                color: "rgba(255, 255, 255, 0.4)",
+              },
+            },
+          },
+        ],
       },
       yAxis: {
         title: {
