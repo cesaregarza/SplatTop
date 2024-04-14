@@ -57,10 +57,50 @@ const dataWithNulls = (data, threshold = 2) => {
   return result;
 };
 
+function filterAndProcessData(data, mode, removeValuesNotInTop500) {
+  const filteredData = data ? data.filter((d) => d.mode === mode) : [];
+  const seasons = filteredData.reduce((acc, curr) => {
+    const season = curr.season_number;
+    if (!acc.includes(season)) acc.push(season);
+    return acc;
+  }, []);
+  const currentSeason = calculateSeasonNow();
+  const dataBySeason = filteredData.reduce((acc, curr) => {
+    const season = curr.season_number;
+    acc[season] = acc[season] || [];
+    acc[season].push({
+      x: getPercentageInSeason(curr.timestamp, season),
+      y: curr.x_power,
+      updated: curr.updated,
+    });
+    return acc;
+  }, {});
+  console.log(dataBySeason);
+  const sortedSeasons = seasons.sort((a, b) =>
+    a === currentSeason ? 1 : b === currentSeason ? -1 : b - a
+  );
+  const processedData = sortedSeasons.map((season) => {
+    const sortedValues = dataBySeason[season].sort((a, b) => a.x - b.x);
+    const threshold = removeValuesNotInTop500 ? 1 : 100;
+    const sortedValuesWithNulls = dataWithNulls(sortedValues, threshold);
+
+    return {
+      season,
+      dataPoints: sortedValuesWithNulls,
+      isCurrent: season === currentSeason,
+    };
+  });
+  return {
+    currentSeason,
+    processedData: processedData.sort((a, b) => a.season - b.season),
+  }
+  };
+
 export {
   getSeasonStartDate,
   getSeasonEndDate,
   getPercentageInSeason,
   calculateSeasonNow,
   dataWithNulls,
+  filterAndProcessData,
 };
