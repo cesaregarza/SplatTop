@@ -3,8 +3,6 @@ import HighchartsReact from "highcharts-react-official";
 import Highcharts from "highcharts";
 import {
   getPercentageInSeason,
-  calculateSeasonNow,
-  dataWithNulls,
   filterAndProcessData,
 } from "./helper_functions";
 import "./xchart.css";
@@ -14,20 +12,9 @@ class XChart extends React.Component {
     super(props);
     this.state = {
       mode: "Splat Zones",
-      zoomDomain: { x: [0, 100] },
-      removeValuesNotInTop500: false,
+      removeValuesNotInTop500: true,
     };
   }
-
-  handleZoom = (event) => {
-    const { x } = event.xAxis[0];
-    this.setState({ zoomDomain: { x } });
-  };
-
-  handleBrush = (event) => {
-    const { x } = event.xAxis[0];
-    this.setState({ zoomDomain: { x } });
-  };
 
   toggleRemoveValuesNotInTop500 = () => {
     this.setState((prevState) => ({
@@ -37,10 +24,19 @@ class XChart extends React.Component {
 
   render() {
     const { data } = this.props;
-    const { mode, zoomDomain, removeValuesNotInTop500 } = this.state;
-    const { currentSeason, processedData } =
-      filterAndProcessData(data, mode, removeValuesNotInTop500);
+    const { mode, removeValuesNotInTop500 } = this.state;
+    const { currentSeason, processedData } = filterAndProcessData(
+      data,
+      mode,
+      removeValuesNotInTop500
+    );
     console.log(processedData);
+    const minBrightness = 35;
+    const maxBrightness = 60;
+    const brightnessStep =
+      (maxBrightness - minBrightness) / processedData.length;
+    
+    const currentPercentage = getPercentageInSeason(new Date(), currentSeason);
 
     const options = {
       chart: {
@@ -61,51 +57,53 @@ class XChart extends React.Component {
                     },
                   },
                 });
-              } else {
-                series.update({
-                  enableMouseTracking: true,
-                  marker: {
-                    enabled: true,
-                    states: {
-                      hover: {
-                        enabled: true,
-                      },
-                    },
-                  },
-                });
               }
             });
           },
         },
-        backgroundColor: "#1a202c", // Set the chart background color to dark
+        backgroundColor: "#1a202c",
       },
       title: {
         text: "X Power Chart",
         style: {
-          color: "#ffffff", // Set the title color to white
+          color: "#ffffff",
         },
       },
       xAxis: {
-        categories: ["Start", ...Array(4).fill(""), "End"], // Set the desired categories
+        categories: ["Start", ...Array(4).fill(""), "End"],
         crosshair: true,
         labels: {
           style: {
-            color: "#ffffff", // Set the xAxis label color to white
+            color: "#ffffff",
           },
         },
+        gridLineColor: "rgba(255, 255, 255, 0.1)",
+        plotLines: [{
+          color: 'rgba(255, 0, 0, 0.4)',
+          width: 2,
+          value: currentPercentage,
+          label: {
+            text: 'Time right now',
+            align: 'left',
+            style: {
+              color: 'rgba(255, 255, 255, 0.4)'
+            }
+          }
+        }]
       },
       yAxis: {
         title: {
           text: "X Power",
           style: {
-            color: "#ffffff", // Set the yAxis title color to white
+            color: "#ffffff",
           },
         },
         labels: {
           style: {
-            color: "#ffffff", // Set the yAxis label color to white
+            color: "#ffffff",
           },
         },
+        gridLineColor: "rgba(255, 255, 255, 0.1)",
       },
       tooltip: {
         shared: true,
@@ -117,13 +115,13 @@ class XChart extends React.Component {
               .map((point) => `<b>${point.series.name}</b>: ${point.y}`)
               .join("<br/>");
           }
-          return false; // Don't show tooltips for non-current seasons
+          return false;
         },
       },
       plotOptions: {
         series: {
           marker: {
-            enabled: false, // Disable markers for all series
+            enabled: false,
           },
         },
       },
@@ -131,17 +129,20 @@ class XChart extends React.Component {
         name:
           `Season ${seasonData.season} X Power` +
           (seasonData.isCurrent ? " (Current)" : ""),
-        data: seasonData.dataPoints.map((point) => ([
-          point.x,
-          point.y,
-        ])),
+        data: seasonData.dataPoints.map((point) => [point.x, point.y]),
         pointStart: 0,
         pointInterval: 20,
         color: seasonData.isCurrent
           ? "#ab5ab7"
-          : `hsl(0, 0%, ${100 - index * 10}%)`, // Set the series color
-        zIndex: seasonData.isCurrent ? 10 : 0, // Set higher zIndex for the current season
+          : `hsla(292, 50%, ${minBrightness + index * brightnessStep}%, 0.6)`,
+        zIndex: seasonData.isCurrent ? 10 : 0,
+        lineWidth: seasonData.isCurrent ? 5 : 2,
       })),
+      legend: {
+        itemStyle: {
+          color: "#ffffff",
+        },
+      },
     };
 
     return (
