@@ -1,6 +1,6 @@
 import React from "react";
 import HighchartsReact from "highcharts-react-official";
-import Highcharts from "highcharts";
+import Highcharts from "highcharts/highstock";
 import {
   getPercentageInSeason,
   filterAndProcessData,
@@ -43,7 +43,6 @@ class XChart extends React.Component {
         zoomType: "x",
         height: 400,
         events: {
-          selection: this.handleZoom,
           load: function () {
             this.series.forEach((series) => {
               if (!series.name.includes("(Current)")) {
@@ -64,18 +63,32 @@ class XChart extends React.Component {
         backgroundColor: "#1a202c",
       },
       title: {
-        text: "X Power Chart",
+        text: `${mode} X Power`,
         style: {
           color: "#ffffff",
         },
       },
       xAxis: {
-        categories: ["Start", ...Array(4).fill(""), "End"],
+        title: {
+          text: "Percentage of Season Elapsed",
+          style: {
+            color: "#ffffff",
+          },
+        },
         crosshair: true,
         labels: {
           style: {
             color: "#ffffff",
           },
+          formatter: function () {
+            if (this.value === 0) {
+              return "Start";
+            } else if (this.value === 100) {
+              return "End";
+            } else {
+              return `${this.value}%`;
+            }
+          }
         },
         gridLineColor: "rgba(255, 255, 255, 0.1)",
         plotLines: [
@@ -92,6 +105,8 @@ class XChart extends React.Component {
             },
           },
         ],
+        min: 0,
+        max: 100,
       },
       yAxis: {
         title: {
@@ -104,6 +119,13 @@ class XChart extends React.Component {
           style: {
             color: "#ffffff",
           },
+          formatter: function () {
+            if (this.value >= 1000) {
+              return `${(this.value / 1000).toFixed(1)}k`;
+            } else {
+              return this.value;
+            }
+          }
         },
         gridLineColor: "rgba(255, 255, 255, 0.1)",
       },
@@ -125,6 +147,7 @@ class XChart extends React.Component {
           marker: {
             enabled: false,
           },
+          showInNavigator: true,
         },
       },
       series: processedData.map((seasonData, index) => ({
@@ -145,6 +168,31 @@ class XChart extends React.Component {
           color: "#ffffff",
         },
       },
+      navigator: {
+        enabled: true,
+        xAxis: {
+          min: -5,
+          max: 105,
+          labels: {
+            style: {
+              color: "#ffffff",
+            },
+            formatter: function () {
+              if (this.value === 0) {
+                return "Start";
+              } else if (this.value === 100) {
+                return "End";
+              } else {
+                return this.value;
+              }
+            }
+          }
+        },
+        scrollbar: {
+          enabled: true,
+        },
+        maskFill: "rgba(255, 255, 255, 0.1)",
+      }
     };
 
     return (
