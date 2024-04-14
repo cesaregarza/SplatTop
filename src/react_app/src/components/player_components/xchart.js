@@ -88,7 +88,7 @@ class XChart extends React.Component {
             } else {
               return `${this.value}%`;
             }
-          }
+          },
         },
         gridLineColor: "rgba(255, 255, 255, 0.1)",
         plotLines: [
@@ -125,7 +125,7 @@ class XChart extends React.Component {
             } else {
               return this.value;
             }
-          }
+          },
         },
         gridLineColor: "rgba(255, 255, 255, 0.1)",
       },
@@ -185,14 +185,14 @@ class XChart extends React.Component {
               } else {
                 return this.value;
               }
-            }
-          }
+            },
+          },
         },
         scrollbar: {
           enabled: true,
         },
         maskFill: "rgba(255, 255, 255, 0.1)",
-      }
+      },
     };
 
     return (
