@@ -76,9 +76,10 @@ class XChart extends React.Component {
         gridLineColor: "rgba(255, 255, 255, 0.1)",
         plotLines: [
           {
-            color: "rgba(255, 0, 0, 0.4)",
+            color: "rgba(255, 255, 255, 0.4)",
             width: 2,
             value: currentPercentage,
+            dashStyle: "Dash",
             label: {
               text: "Time right now",
               align: "left",
