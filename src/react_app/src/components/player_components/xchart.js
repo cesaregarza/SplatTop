@@ -4,6 +4,8 @@ import Highcharts from "highcharts/highstock";
 import {
   getPercentageInSeason,
   filterAndProcessData,
+  getSeasonName,
+  getSeasonColor,
 } from "./helper_functions";
 import "./xchart.css";
 
@@ -31,10 +33,6 @@ class XChart extends React.Component {
       removeValuesNotInTop500
     );
     console.log(processedData);
-    const minBrightness = 35;
-    const maxBrightness = 60;
-    const brightnessStep =
-      (maxBrightness - minBrightness) / processedData.length;
 
     const currentPercentage = getPercentageInSeason(new Date(), currentSeason);
 
@@ -152,14 +150,12 @@ class XChart extends React.Component {
       },
       series: processedData.map((seasonData, index) => ({
         name:
-          `Season ${seasonData.season} X Power` +
+          getSeasonName(seasonData.season) +
           (seasonData.isCurrent ? " (Current)" : ""),
         data: seasonData.dataPoints.map((point) => [point.x, point.y]),
         pointStart: 0,
         pointInterval: 20,
-        color: seasonData.isCurrent
-          ? "#ab5ab7"
-          : `hsla(292, 50%, ${minBrightness + index * brightnessStep}%, 0.6)`,
+        color: getSeasonColor(seasonData.season, seasonData.isCurrent),
         zIndex: seasonData.isCurrent ? 10 : 0,
         lineWidth: seasonData.isCurrent ? 5 : 2,
       })),

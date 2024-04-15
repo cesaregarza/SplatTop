@@ -75,7 +75,6 @@ function filterAndProcessData(data, mode, removeValuesNotInTop500) {
     });
     return acc;
   }, {});
-  console.log(dataBySeason);
   const sortedSeasons = seasons.sort((a, b) =>
     a === currentSeason ? 1 : b === currentSeason ? -1 : b - a
   );
@@ -93,8 +92,31 @@ function filterAndProcessData(data, mode, removeValuesNotInTop500) {
   return {
     currentSeason,
     processedData: processedData.sort((a, b) => a.season - b.season),
-  }
   };
+}
+
+const getSeasonName = (season_number) => {
+  const season_offset = season_number + 2;
+  const season_index = season_offset % 4;
+  const year = 2022 + Math.floor(season_offset / 4);
+  const season_names = ["Fresh", "Sizzle", "Drizzle", "Chill"];
+  return `${season_names[season_index]} ${year}`;
+};
+
+const getSeasonColor = (season_number, isCurrent) => {
+  const saturation = 100;
+  const baseLightness = 25;
+  const lightnessStep = 10;
+  const season_offset = season_number + 2;
+  const season_index = season_offset % 4;
+  const year_offset = Math.floor(season_offset / 4);
+  const hues = [140, 55, 30, 200]; // Green, Yellow, Orange, Cerulean
+  const currentSeasonLightnessBoost = isCurrent ? 15 : 0;
+  const lightness =
+    baseLightness + year_offset * lightnessStep + currentSeasonLightnessBoost;
+  const alpha = isCurrent ? 1 : 0.6;
+  return `hsla(${hues[season_index]}, ${saturation}%, ${lightness}%, ${alpha})`;
+};
 
 export {
   getSeasonStartDate,
@@ -103,4 +125,6 @@ export {
   calculateSeasonNow,
   dataWithNulls,
   filterAndProcessData,
+  getSeasonName,
+  getSeasonColor,
 };
