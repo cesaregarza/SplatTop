@@ -6,10 +6,24 @@ import {
   filterAndProcessData,
   getSeasonName,
   getSeasonColor,
+  getClassicColor,
 } from "./helper_functions";
 import "./xchart.css";
 
 class XChart extends React.Component {
+  constructor(props) {
+    super(props);
+    this.state = {
+      colorMode: "Classic", // Default color mode
+    };
+  }
+
+  toggleColorMode = () => {
+    this.setState((prevState) => ({
+      colorMode: prevState.colorMode === "Seasonal" ? "Classic" : "Seasonal",
+    }));
+  };
+
   render() {
     const { data, mode, removeValuesNotInTop500 } = this.props;
     const { currentSeason, processedData } = filterAndProcessData(
@@ -141,7 +155,14 @@ class XChart extends React.Component {
         data: seasonData.dataPoints.map((point) => [point.x, point.y]),
         pointStart: 0,
         pointInterval: 20,
-        color: getSeasonColor(seasonData.season, seasonData.isCurrent),
+        color:
+          this.state.colorMode === "Seasonal"
+            ? getSeasonColor(seasonData.season, seasonData.isCurrent)
+            : getClassicColor(
+                seasonData.season,
+                seasonData.isCurrent,
+                processedData.length
+              ),
         zIndex: seasonData.isCurrent ? 10 : 0,
         lineWidth: seasonData.isCurrent ? 5 : 2,
       })),
@@ -179,6 +200,7 @@ class XChart extends React.Component {
 
     return (
       <div className="xchart-container">
+        <button onClick={this.toggleColorMode}>Toggle Color Mode</button>
         <HighchartsReact highcharts={Highcharts} options={options} />
       </div>
     );

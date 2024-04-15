@@ -118,6 +118,17 @@ const getSeasonColor = (season_number, isCurrent) => {
   return `hsla(${hues[season_index]}, ${saturation}%, ${lightness}%, ${alpha})`;
 };
 
+const getClassicColor = (season_number, isCurrent, numSeasons) => {
+  if (isCurrent) {
+    return "#ab5ab7";
+  }
+  const minBrightness = 25;
+  const maxBrightness = 60;
+  const brightnessStep = (maxBrightness - minBrightness) / numSeasons;
+  const brightness = minBrightness + season_number * brightnessStep;
+  return `hsla(292, 50%, ${brightness}%, 0.6)`;
+};
+
 export {
   getSeasonStartDate,
   getSeasonEndDate,
@@ -127,4 +138,5 @@ export {
   filterAndProcessData,
   getSeasonName,
   getSeasonColor,
+  getClassicColor,
 };
