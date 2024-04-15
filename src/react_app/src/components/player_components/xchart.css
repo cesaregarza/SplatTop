@@ -25,3 +25,17 @@
   transform: translate(-50%, -50%);
   animation: expand-fade 2s ease-out infinite;
 }
+
+.classic-bg {
+  background-color: #ab5ab7;
+}
+
+.seasonal-bg {
+  background: linear-gradient(
+    to right top,
+    #00ff55 23%,
+    #ffe900 26% 49%,
+    #cc6600 52% 75%,
+    #0087cc 78%
+  );
+}
