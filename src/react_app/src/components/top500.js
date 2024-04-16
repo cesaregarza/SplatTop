@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import useFetchWithCache from "./top500_components/fetch_with_cache";
 import Loading from "./loading";
 import PlayerTable from "./top500_components/player_table";
@@ -20,6 +20,17 @@ const Top500 = () => {
       return acc;
     }, {})
   );
+
+  const modeNameMap = {
+    "Splat Zones": "SZ",
+    "Tower Control": "TC",
+    Rainmaker: "RM",
+    "Clam Blitz": "CB",
+  };
+
+  useEffect(() => {
+    document.title = `splat.top - ${selectedRegion} ${modeNameMap[selectedMode]}`;
+  });
 
   const isDevelopment = process.env.NODE_ENV === "development";
   const apiUrl = isDevelopment
