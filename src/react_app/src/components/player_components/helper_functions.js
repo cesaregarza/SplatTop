@@ -46,18 +46,35 @@ const calculateSeasonByTimestamp = (timestamp) => {
   );
 };
 
-const dataWithNulls = (data, threshold = 2) => {
+const dataWithNulls = (data, threshold, festsForSeason) => {
   const result = [];
   for (let i = 0; i < data.length; i++) {
     result.push(data[i]);
     if (i < data.length - 1 && data[i + 1].x - data[i].x >= threshold) {
-      result.push({ x: (data[i + 1].x + data[i].x) / 2, y: null });
+      const midPointX = (data[i + 1].x + data[i].x) / 2;
+      let isWithinFestival = false;
+      for (const fest of festsForSeason) {
+        if (midPointX >= fest.start && midPointX <= fest.end) {
+          isWithinFestival = true;
+          break;
+        }
+      }
+      if (!isWithinFestival) {
+        result.push({ x: midPointX, y: null });
+      }
     }
   }
   return result;
 };
 
-function filterAndProcessData(data, mode, removeValuesNotInTop500) {
+function filterAndProcessData(
+  data,
+  mode,
+  removeValuesNotInTop500,
+  festivalDates
+) {
+  const hoursThreshold = 24 * 1;
+  const approxThreshold = (hoursThreshold / (24 * 90)) * 100;
   const filteredData = data ? data.filter((d) => d.mode === mode) : [];
   const seasons = filteredData.reduce((acc, curr) => {
     const season = curr.season_number;
@@ -65,6 +82,18 @@ function filterAndProcessData(data, mode, removeValuesNotInTop500) {
     return acc;
   }, []);
   const currentSeason = calculateSeasonNow();
+  if (!festivalDates) {
+    festivalDates = [];
+  }
+  const festivalDatesPercent = festivalDates.map((dateRange) => {
+    const startDate = dateRange[0];
+    const season = calculateSeasonByTimestamp(startDate);
+    return {
+      season: season,
+      start: getPercentageInSeason(startDate, season),
+      end: getPercentageInSeason(dateRange[1], season),
+    };
+  });
   const dataBySeason = filteredData.reduce((acc, curr) => {
     const season = curr.season_number;
     acc[season] = acc[season] || [];
@@ -80,8 +109,15 @@ function filterAndProcessData(data, mode, removeValuesNotInTop500) {
   );
   const processedData = sortedSeasons.map((season) => {
     const sortedValues = dataBySeason[season].sort((a, b) => a.x - b.x);
-    const threshold = removeValuesNotInTop500 ? 1 : 100;
-    const sortedValuesWithNulls = dataWithNulls(sortedValues, threshold);
+    const threshold = removeValuesNotInTop500 ? approxThreshold : 100;
+    const festsForSeason = festivalDatesPercent.filter(
+      (fest) => fest.season === season
+    );
+    const sortedValuesWithNulls = dataWithNulls(
+      sortedValues,
+      threshold,
+      festsForSeason
+    );
 
     return {
       season,

@@ -8,6 +8,7 @@ import {
   getSeasonColor,
   getClassicColor,
 } from "./helper_functions";
+import fetchFestivalDates from "./splatfest_retriever";
 import "./xchart.css";
 
 // This component is the old-style class-based component for performance reasons
@@ -18,6 +19,15 @@ class XChart extends React.Component {
     this.state = {
       colorMode: "Classic", // Default color mode
     };
+  }
+
+  async componentDidMount() {
+    try {
+      const dates = await fetchFestivalDates();
+      this.setState({ festivalDates: dates });
+    } catch (error) {
+      console.error("Error fetching festival dates:", error);
+    }
   }
 
   toggleColorMode = () => {
@@ -31,9 +41,9 @@ class XChart extends React.Component {
     const { currentSeason, processedData } = filterAndProcessData(
       data,
       mode,
-      removeValuesNotInTop500
+      removeValuesNotInTop500,
+      this.state.festivalDates
     );
-    console.log(processedData);
 
     const currentPercentage = getPercentageInSeason(new Date(), currentSeason);
 
