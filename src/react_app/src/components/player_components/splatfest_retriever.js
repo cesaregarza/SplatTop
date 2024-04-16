@@ -7,15 +7,16 @@ export const fetchFestivalDates = async () => {
 
     if (cachedData) {
       const { date, dates } = JSON.parse(cachedData);
-      if (date === today) {
-        // Parse each of the dates, not using JSON.parse
+      const cacheDate = new Date(date);
+      const todayDate = new Date(today);
+      const oneWeek = 7 * 24 * 60 * 60 * 1000; // One week in milliseconds
+      if (todayDate - cacheDate < oneWeek) {
         const parsedDates = JSON.parse(dates);
         return parsedDates.map((date) => [
           new Date(date[0]),
           new Date(date[1]),
         ]);
       } else {
-        // Remove expired cache
         localStorage.removeItem("festivalDates");
       }
     }
@@ -34,7 +35,7 @@ export const fetchFestivalDates = async () => {
     localStorage.setItem(
       "festivalDates",
       JSON.stringify({ date: today, dates: JSON.stringify(dates) })
-    ); // Store dates as a stringified JSON
+    );
     return dates;
   } catch (error) {
     throw new Error("Error fetching festival dates: " + error.message);
