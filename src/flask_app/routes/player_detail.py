@@ -1,9 +1,9 @@
 from flask import Blueprint, render_template, request
-from flask_socketio import SocketIO, emit
 from flask_caching import Cache
+from flask_socketio import SocketIO, emit
 from sqlalchemy import text
 
-from flask_app.database import Session
+from flask_app.connections import Session
 from shared_lib.constants import MODES, REGIONS
 from shared_lib.models import Player, PlayerLatest
 from shared_lib.queries.player_queries import (

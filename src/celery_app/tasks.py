@@ -1,20 +1,29 @@
 import json
+import logging
 
 import redis
 from celery import Celery
 from sqlalchemy import text
 
 from celery_app.database import Session
-from shared_lib.constants import MODES, REGIONS
+from shared_lib.constants import (
+    MODES,
+    PLAYER_PUBSUB_CHANNEL,
+    REDIS_HOST,
+    REDIS_PORT,
+    REDIS_URI,
+    REGIONS,
+)
 from shared_lib.queries.front_page_queries import LEADERBOARD_MAIN_QUERY
+from shared_lib.queries.player_queries import PLAYER_DATA_QUERY
 from shared_lib.utils import get_badge_image, get_banner_image, get_weapon_image
 
-celery = Celery(
-    "tasks", broker="redis://redis:6379", backend="redis://redis:6379"
-)
+celery = Celery("tasks", broker=REDIS_URI, backend=REDIS_URI)
 
 # Establish a connection to Redis
-redis_conn = redis.Redis(host="redis", port=6379, db=0, decode_responses=True)
+redis_conn = redis.Redis(
+    host=REDIS_HOST, port=REDIS_PORT, db=0, decode_responses=True
+)
 
 
 @celery.task(name="tasks.hello")
@@ -56,3 +65,24 @@ def pull_data() -> None:
         for region in REGIONS:
             region_bool = region == "Takoroka"
             fetch_and_store_leaderboard_data(mode, region_bool)
+
+
+@celery.task(name="tasks.fetch_player_data")
+def fetch_player_data(player_id: str) -> None:
+    logging.info("Running task: fetch_player_data for player_id: %s", player_id)
+    base_query = text(PLAYER_DATA_QUERY)
+    with Session() as session:
+        result = session.execute(
+            base_query, {"player_id": player_id}
+        ).fetchall()
+
+    result = [{**row._asdict()} for row in result]
+    for player in result:
+        player["timestamp"] = player["timestamp"].isoformat()
+        player["rotation_start"] = player["rotation_start"].isoformat()
+
+    # Publish the data to the player_data_channel
+    redis_conn.publish(
+        PLAYER_PUBSUB_CHANNEL,
+        json.dumps({"player_id": player_id, "data": result}),
+    )

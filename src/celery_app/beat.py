@@ -1,9 +1,9 @@
 from celery import Celery
 from celery.schedules import crontab
 
-celery = Celery(
-    "tasks", broker="redis://redis:6379", backend="redis://redis:6379"
-)
+from shared_lib.constants import REDIS_URI
+
+celery = Celery("tasks", broker=REDIS_URI, backend=REDIS_URI)
 
 celery.conf.beat_schedule = {
     "pull-data-every-ten-minutes": {

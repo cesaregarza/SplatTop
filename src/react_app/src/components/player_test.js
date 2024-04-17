@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { useLocation } from "react-router-dom";
 import axios from "axios";
+import { io } from "socket.io-client";
 import Loading from "./loading";
 import XChart from "./player_components/xchart";
 
@@ -21,6 +22,21 @@ const PlayerTest = () => {
       try {
         const response = await axios.get(endpoint);
         setData(response.data);
+
+        // Establish a WebSocket connection
+        const socket = io(`${apiUrl}/player`, { query: { player_id } });
+
+        // Listen for the "initial_data" event
+        socket.on("player_data", (data) => {
+          console.log("Received initial data via WebSocket:", data);
+          // Update the state with the received data if needed
+          // setData(data);
+        });
+
+        // Clean up the WebSocket connection on component unmount
+        return () => {
+          socket.disconnect();
+        };
       } catch (error) {
         setError(error);
       } finally {

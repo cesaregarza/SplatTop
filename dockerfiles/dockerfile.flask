@@ -33,8 +33,8 @@ FROM base AS dependencies
 COPY pyproject.toml poetry.lock ./
 RUN poetry install --no-root --no-dev --without scripts
 
-# Install Gunicorn
-RUN poetry add gunicorn
+# Install Gunicorn and Eventlet
+RUN poetry add gunicorn eventlet
 
 ###############################
 #        Build Image          #
@@ -55,5 +55,4 @@ RUN poetry version $BUILD_VERSION && \
     poetry install --no-dev --without scripts && \
     poetry update
 
-# Change the CMD to use Gunicorn
-CMD ["poetry", "run", "gunicorn", "flask_app:app", "-w", "4", "-b", "0.0.0.0:8000"]
+CMD ["poetry", "run", "gunicorn", "--worker-class", "eventlet", "-w", "1", "-b", "0.0.0.0:8000", "flask_app:app"]

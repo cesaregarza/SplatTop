@@ -24,9 +24,10 @@ build-no-cache:
 
 .PHONY: port-forward
 port-forward:
-	kubectl port-forward service/flask-app-service 5000:80 & echo $$! > /tmp/flask-port-forward.pid
+	kubectl port-forward service/flask-app-service 5000:80 8001:8001 & echo $$! > /tmp/flask-port-forward.pid
 	kubectl port-forward service/react-app-service 4000:80 & echo $$! > /tmp/react-port-forward.pid
 	echo "Flask app is running at http://localhost:5000"
+	echo "Websocket is running at http://localhost:8001"
 	echo "React (prod) app is running at http://localhost:4000"
 
 .PHONY: stop-port-forward

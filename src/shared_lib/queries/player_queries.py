@@ -34,3 +34,9 @@ MostRecentRow AS (
 SELECT *
 FROM MostRecentRow;
 """
+
+PLAYER_DATA_QUERY = """
+SELECT *
+FROM xscraper.players
+WHERE player_id = :player_id
+"""
