@@ -23,6 +23,7 @@ celery = "^5.3.6"
 redis = "^5.0.3"
 flask-htmx = "^0.3.2"
 flask-socketio = "^5.3.6"
+eventlet = "^0.36.1"
 
 
 [tool.poetry.group.dev.dependencies]

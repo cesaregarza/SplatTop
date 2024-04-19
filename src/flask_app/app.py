@@ -14,7 +14,7 @@ from flask_app.routes import create_front_page_bp, create_player_detail_bp
 from flask_app.routes.temp_player import create_temp_player_bp
 
 # Setup basic logging
-logging.basicConfig(level=logging.INFO)
+logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 
 app = Flask(__name__)
 

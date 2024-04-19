@@ -12,6 +12,5 @@ Session = scoped_session(sessionmaker(bind=engine))
 REDIS_URI = f"redis://{REDIS_HOST}:{REDIS_PORT}"
 celery = Celery("tasks", broker=REDIS_URI, backend=REDIS_URI)
 
-redis_conn = redis.Redis(
-    host=REDIS_HOST, port=REDIS_PORT, db=0, decode_responses=True
-)
+pool = redis.ConnectionPool(host=REDIS_HOST, port=REDIS_PORT, db=0, decode_responses=True, max_connections=10)
+redis_conn = redis.Redis(connection_pool=pool)

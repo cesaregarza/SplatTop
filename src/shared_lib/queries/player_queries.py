@@ -12,7 +12,8 @@ FROM (
     WHERE player_id = :player_id
       AND updated = TRUE
 ) AS filtered
-GROUP BY splashtag;
+GROUP BY splashtag
+ORDER BY latest_updated_timestamp DESC;
 """
 
 PLAYER_MOST_RECENT_ROW_QUERY = """

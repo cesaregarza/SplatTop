@@ -9,6 +9,7 @@ const PlayerTest = () => {
   const location = useLocation();
   const player_id = location.pathname.split("/")[2];
   const [data, setData] = useState(null);
+  const [chartData, setChartData] = useState(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState(null);
   const [mode, setMode] = useState("Splat Zones");
@@ -26,11 +27,11 @@ const PlayerTest = () => {
         // Establish a WebSocket connection
         const socket = io(`${apiUrl}/player`, { query: { player_id } });
 
-        // Listen for the "initial_data" event
-        socket.on("player_data", (data) => {
-          console.log("Received initial data via WebSocket:", data);
-          // Update the state with the received data if needed
-          // setData(data);
+        // Listen for the "player_data" event
+        socket.on("player_data", (newData) => {
+          console.log("Received player data via WebSocket:", newData);
+          // Update the chartData state with the received data
+          setChartData(newData);
         });
 
         // Clean up the WebSocket connection on component unmount
@@ -89,11 +90,27 @@ const PlayerTest = () => {
                 </label>
               </div>
             </div>
-            <XChart
-              data={data}
-              mode={mode}
-              removeValuesNotInTop500={removeValuesNotInTop500}
-            />
+            {data && data.length > 0 ? (
+              <div>
+                <h2 className="text-2xl font-bold mb-4">Player Names:</h2>
+                <ul className="mb-8">
+                  {[...new Set(data.map(({ splashtag }) => splashtag))].map((splashtag, index) => (
+                    <li key={`${splashtag}-${index}`}>{splashtag}</li>
+                  ))}
+                </ul>
+                {chartData ? (
+                  <XChart
+                    data={chartData}
+                    mode={mode}
+                    removeValuesNotInTop500={removeValuesNotInTop500}
+                  />
+                ) : (
+                  <div className="text-center">Loading chart data...</div>
+                )}
+              </div>
+            ) : (
+              <div className="text-center">No data available</div>
+            )}
           </>
         )}
       </main>
