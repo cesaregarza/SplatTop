@@ -1,7 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { useLocation } from "react-router-dom";
 import axios from "axios";
-import { io } from "socket.io-client";
 import Loading from "./loading";
 import XChart from "./player_components/xchart";
 
@@ -18,25 +17,26 @@ const PlayerTest = () => {
   useEffect(() => {
     const fetchData = async () => {
       setIsLoading(true);
-      const apiUrl = "http://localhost:5000";
+      const apiUrl = "http://localhost:5000"; // Update the URL to your FastAPI server
       const endpoint = `${apiUrl}/player_test/${player_id}`;
       try {
         const response = await axios.get(endpoint);
         setData(response.data);
 
         // Establish a WebSocket connection
-        const socket = io(`${apiUrl}/player`, { query: { player_id } });
+        const socket = new WebSocket(`${apiUrl.replace("http", "ws")}/ws/player/${player_id}`);
 
-        // Listen for the "player_data" event
-        socket.on("player_data", (newData) => {
+        // Listen for messages from the WebSocket
+        socket.onmessage = (event) => {
+          const newData = JSON.parse(event.data);
           console.log("Received player data via WebSocket:", newData);
           // Update the chartData state with the received data
           setChartData(newData);
-        });
+        };
 
         // Clean up the WebSocket connection on component unmount
         return () => {
-          socket.disconnect();
+          socket.close();
         };
       } catch (error) {
         setError(error);

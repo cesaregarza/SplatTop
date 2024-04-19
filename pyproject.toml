@@ -24,6 +24,9 @@ redis = "^5.0.3"
 flask-htmx = "^0.3.2"
 flask-socketio = "^5.3.6"
 eventlet = "^0.36.1"
+fastapi = "^0.110.2"
+uvicorn = "^0.29.0"
+asyncpg = "^0.29.0"
 
 
 [tool.poetry.group.dev.dependencies]

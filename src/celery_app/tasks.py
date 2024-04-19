@@ -8,15 +8,18 @@ from sqlalchemy import text
 from celery_app.database import Session
 from shared_lib.constants import (
     MODES,
+    PLAYER_LATEST_REDIS_KEY,
     PLAYER_PUBSUB_CHANNEL,
     REDIS_HOST,
     REDIS_PORT,
     REDIS_URI,
     REGIONS,
-    PLAYER_LATEST_REDIS_KEY,
 )
 from shared_lib.queries.front_page_queries import LEADERBOARD_MAIN_QUERY
-from shared_lib.queries.player_queries import PLAYER_DATA_QUERY, PLAYER_LATEST_QUERY
+from shared_lib.queries.player_queries import (
+    PLAYER_DATA_QUERY,
+    PLAYER_LATEST_QUERY,
+)
 from shared_lib.utils import get_badge_image, get_banner_image, get_weapon_image
 
 celery = Celery("tasks", broker=REDIS_URI, backend=REDIS_URI)
