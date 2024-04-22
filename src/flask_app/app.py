@@ -1,17 +1,20 @@
+import asyncio
 import logging
 import os
-from fastapi import FastAPI, WebSocket
-from fastapi.middleware.cors import CORSMiddleware
-from starlette.responses import JSONResponse
-from starlette.requests import Request
+import threading
 
-from flask_app.connections import Session, celery, redis_conn
+from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
+
+from flask_app.connections import celery
 from flask_app.pubsub import listen_for_updates
 from flask_app.routes import temp_player_router
 from flask_app.routes.front_page import create_front_page_router
 
 # Setup basic logging
-logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s")
+logging.basicConfig(
+    level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s"
+)
 
 app = FastAPI()
 
@@ -33,9 +36,6 @@ app.add_middleware(
 app.include_router(create_front_page_router())
 app.include_router(temp_player_router)
 
-@app.websocket("/ws/updates")
-async def websocket_endpoint(websocket: WebSocket):
-    await listen_for_updates(websocket)
 
 # Background task setup
 @app.on_event("startup")
@@ -43,8 +43,16 @@ async def startup_event():
     # Send Celery task
     celery.send_task("tasks.pull_data")
 
+    # Start the pubsub listener in a separate daemon thread
+    # pubsub_thread = threading.Thread(target=listen_for_updates, daemon=True)
+    pubsub_thread = threading.Thread(
+        target=asyncio.run, args=(listen_for_updates(),), daemon=True
+    )
+    pubsub_thread.start()
+
 
 # Run the app using Uvicorn programmatically
 if __name__ == "__main__":
     import uvicorn
+
     uvicorn.run(app, host="0.0.0.0", port=5000, log_level="info")
