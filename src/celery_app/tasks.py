@@ -1,5 +1,6 @@
 import json
 import logging
+from datetime import datetime
 
 import redis
 from celery import Celery
@@ -8,6 +9,7 @@ from sqlalchemy import text
 from celery_app.database import Session
 from shared_lib.constants import (
     MODES,
+    PLAYER_DATA_REDIS_KEY,
     PLAYER_LATEST_REDIS_KEY,
     PLAYER_PUBSUB_CHANNEL,
     REDIS_HOST,
@@ -74,6 +76,36 @@ def pull_data() -> None:
 @celery.task(name="tasks.fetch_player_data")
 def fetch_player_data(player_id: str) -> None:
     logging.info("Running task: fetch_player_data for player_id: %s", player_id)
+    task_signature = f"fetch_player_data:{player_id}"
+    already_running = redis_conn.get(task_signature)
+
+    if already_running:
+        logging.info("Task already running. Skipping.")
+        return
+    else:
+        redis_conn.set(task_signature, "true", ex=60)
+
+    cache_key = f"{PLAYER_LATEST_REDIS_KEY}:{player_id}"
+
+    if redis_conn.exists(cache_key):
+        logging.info("Data already exists in cache. Skipping fetch.")
+    else:
+        result = _fetch_player_data(player_id)
+        redis_conn.set(cache_key, json.dumps(result), ex=60)
+
+    # Publish the data to the player_data_channel
+    redis_conn.publish(
+        PLAYER_PUBSUB_CHANNEL,
+        json.dumps({"player_id": player_id, "key": cache_key}),
+    )
+    try:
+        redis_conn.delete(task_signature)
+    except Exception as e:
+        logging.error(f"Error deleting task signature: {e}")
+        logging.error("Probably expired before deletion. Proceeding.")
+
+
+def _fetch_player_data(player_id: str) -> list[dict]:
     base_query = text(PLAYER_DATA_QUERY)
     with Session() as session:
         result = session.execute(
@@ -85,8 +117,4 @@ def fetch_player_data(player_id: str) -> None:
         player["timestamp"] = player["timestamp"].isoformat()
         player["rotation_start"] = player["rotation_start"].isoformat()
 
-    # Publish the data to the player_data_channel
-    redis_conn.publish(
-        PLAYER_PUBSUB_CHANNEL,
-        json.dumps({"player_id": player_id, "data": result}),
-    )
+    return result

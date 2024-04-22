@@ -17,24 +17,20 @@ const PlayerTest = () => {
   useEffect(() => {
     const fetchData = async () => {
       setIsLoading(true);
-      const apiUrl = "http://localhost:5000"; // Update the URL to your FastAPI server
+      const apiUrl = "http://localhost:5000";
       const endpoint = `${apiUrl}/player_test/${player_id}`;
       try {
         const response = await axios.get(endpoint);
         setData(response.data);
 
-        // Establish a WebSocket connection
         const socket = new WebSocket(`${apiUrl.replace("http", "ws")}/ws/player/${player_id}`);
 
-        // Listen for messages from the WebSocket
         socket.onmessage = (event) => {
+          console.log("Received data from websocket");
           const newData = JSON.parse(event.data);
-          console.log("Received player data via WebSocket:", newData);
-          // Update the chartData state with the received data
           setChartData(newData);
         };
 
-        // Clean up the WebSocket connection on component unmount
         return () => {
           socket.close();
         };
@@ -53,7 +49,7 @@ const PlayerTest = () => {
   };
 
   return (
-    <div className="flex flex-col flex-grow">
+    <div className="flex flex-col min-h-screen">
       <header className="text-3xl font-bold mb-4 text-center text-white">
         Player Test Chart
       </header>
@@ -91,22 +87,26 @@ const PlayerTest = () => {
               </div>
             </div>
             {data && data.length > 0 ? (
-              <div>
-                <h2 className="text-2xl font-bold mb-4">Player Names:</h2>
-                <ul className="mb-8">
-                  {[...new Set(data.map(({ splashtag }) => splashtag))].map((splashtag, index) => (
-                    <li key={`${splashtag}-${index}`}>{splashtag}</li>
-                  ))}
-                </ul>
-                {chartData ? (
-                  <XChart
-                    data={chartData}
-                    mode={mode}
-                    removeValuesNotInTop500={removeValuesNotInTop500}
-                  />
-                ) : (
-                  <div className="text-center">Loading chart data...</div>
-                )}
+              <div className="flex flex-col md:flex-row">
+                <div className="md:w-1/3 md:pr-8">
+                  <h2 className="text-2xl font-bold mb-4">Player Names:</h2>
+                  <ul>
+                    {[...new Set(data.map(({ splashtag }) => splashtag))].map((splashtag, index) => (
+                      <li key={`${splashtag}-${index}`}>{splashtag}</li>
+                    ))}
+                  </ul>
+                </div>
+                <div className="md:w-2/3 mt-8 md:mt-0">
+                  {chartData ? (
+                    <XChart
+                      data={chartData}
+                      mode={mode}
+                      removeValuesNotInTop500={removeValuesNotInTop500}
+                    />
+                  ) : (
+                    <div className="text-center">Loading chart data...</div>
+                  )}
+                </div>
               </div>
             ) : (
               <div className="text-center">No data available</div>
