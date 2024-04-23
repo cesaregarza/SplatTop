@@ -3,6 +3,7 @@ import { useLocation } from "react-router-dom";
 import axios from "axios";
 import Loading from "./loading";
 import XChart from "./player_components/xchart";
+import Aliases from "./player_components/aliases";
 
 const PlayerTest = () => {
   const location = useLocation();
@@ -23,7 +24,9 @@ const PlayerTest = () => {
         const response = await axios.get(endpoint);
         setData(response.data);
 
-        const socket = new WebSocket(`${apiUrl.replace("http", "ws")}/ws/player/${player_id}`);
+        const socket = new WebSocket(
+          `${apiUrl.replace("http", "ws")}/ws/player/${player_id}`
+        );
 
         socket.onmessage = (event) => {
           console.log("Received data from websocket");
@@ -89,12 +92,7 @@ const PlayerTest = () => {
             {data && data.length > 0 ? (
               <div className="flex flex-col md:flex-row">
                 <div className="md:w-1/3 md:pr-8">
-                  <h2 className="text-2xl font-bold mb-4">Player Names:</h2>
-                  <ul>
-                    {[...new Set(data.map(({ splashtag }) => splashtag))].map((splashtag, index) => (
-                      <li key={`${splashtag}-${index}`}>{splashtag}</li>
-                    ))}
-                  </ul>
+                  <Aliases data={data} />
                 </div>
                 <div className="md:w-2/3 mt-8 md:mt-0">
                   {chartData ? (
@@ -104,7 +102,7 @@ const PlayerTest = () => {
                       removeValuesNotInTop500={removeValuesNotInTop500}
                     />
                   ) : (
-                    <div className="text-center">Loading chart data...</div>
+                    < Loading />
                   )}
                 </div>
               </div>

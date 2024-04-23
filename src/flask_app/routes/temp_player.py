@@ -4,7 +4,7 @@ import logging
 from fastapi import APIRouter, WebSocket, WebSocketDisconnect
 from sqlalchemy import text
 
-from flask_app.connections import async_session, celery, connection_manager
+from flask_app.connections import async_session, connection_manager
 from shared_lib.queries.player_queries import PLAYER_ALIAS_QUERY
 
 router = APIRouter()
@@ -14,7 +14,7 @@ logger = logging.getLogger(__name__)
 
 @router.get("/player_test/{player_id}")
 async def temp_player(player_id: str):
-    async with async_session() as session:  # Ensure you have an asynchronous session
+    async with async_session() as session:
         logger.info("Fetching initial player data")
         result = await session.execute(
             text(PLAYER_ALIAS_QUERY), {"player_id": player_id}

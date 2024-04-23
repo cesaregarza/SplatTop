@@ -162,3 +162,7 @@ body {
 .badge-rainbow .high-value {
   animation: glow-rainbow 5s ease-in-out infinite;
 }
+
+.alias-table {
+  overflow-x: auto;
+}
