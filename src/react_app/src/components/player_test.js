@@ -19,11 +19,15 @@ const PlayerTest = () => {
   useEffect(() => {
     const fetchData = async () => {
       setIsLoading(true);
+      document.title = "splat.top - Player Page";
       const apiUrl = "http://localhost:5000";
       const endpoint = `${apiUrl}/player_test/${player_id}`;
       try {
         const response = await axios.get(endpoint);
         setData(response.data);
+        if (response.data && response.data.length > 0) {
+          document.title = `splat.top - ${response.data[0].splashtag}`;
+        }
 
         const socket = new WebSocket(
           `${apiUrl.replace("http", "ws")}/ws/player/${player_id}`
