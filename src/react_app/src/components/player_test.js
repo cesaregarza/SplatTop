@@ -59,7 +59,7 @@ const PlayerTest = () => {
   return (
     <div className="flex flex-col min-h-screen">
       <header className="text-3xl font-bold mb-4 text-center text-white">
-        Player Test Chart
+        Player Page
       </header>
       <main className="flex-grow container mx-auto px-4 py-8 bg-gray-900 text-white overflow-auto">
         {isLoading ? (
@@ -70,21 +70,6 @@ const PlayerTest = () => {
           <div className="text-red-500 text-center">{error.message}</div>
         ) : (
           <>
-            <div className="controls mb-4">
-              <ModeSelector selectedMode={mode} setSelectedMode={setMode} />
-              <div className="flex items-center space-x-2 mt-2">
-                <input
-                  id="top500Checkbox"
-                  type="checkbox"
-                  checked={removeValuesNotInTop500}
-                  onChange={toggleRemoveValuesNotInTop500}
-                  className="w-4 h-4 text-purple-600 bg-gray-800 border-gray-600 rounded focus:ring-purple-500"
-                />
-                <label htmlFor="top500Checkbox" className="text-white text-sm">
-                  Remove Values Not in Top 500
-                </label>
-              </div>
-            </div>
             {data && data.length > 0 ? (
               <div className="flex flex-col md:flex-row">
                 <div className="md:w-1/3 md:pr-8">
@@ -92,11 +77,28 @@ const PlayerTest = () => {
                 </div>
                 <div className="md:w-2/3 mt-8 md:mt-0">
                   {chartData ? (
-                    <XChart
-                      data={chartData}
-                      mode={mode}
-                      removeValuesNotInTop500={removeValuesNotInTop500}
-                    />
+                    <>
+                      <div className="controls mb-4">
+                        <ModeSelector selectedMode={mode} setSelectedMode={setMode} />
+                        <div className="flex items-center space-x-2 mt-2">
+                          <input
+                            id="top500Checkbox"
+                            type="checkbox"
+                            checked={removeValuesNotInTop500}
+                            onChange={toggleRemoveValuesNotInTop500}
+                            className="w-4 h-4 text-purple-600 bg-gray-800 border-gray-600 rounded focus:ring-purple-500"
+                          />
+                          <label htmlFor="top500Checkbox" className="text-white text-sm">
+                            Remove Values Not in Top 500
+                          </label>
+                        </div>
+                      </div>
+                      <XChart
+                        data={chartData}
+                        mode={mode}
+                        removeValuesNotInTop500={removeValuesNotInTop500}
+                      />
+                    </>
                   ) : (
                     <Loading text={"Loading chart..."} />
                   )}
