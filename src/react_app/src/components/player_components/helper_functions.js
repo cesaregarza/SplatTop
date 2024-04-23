@@ -165,6 +165,11 @@ const getClassicColor = (season_number, isCurrent, numSeasons) => {
   return `hsla(292, 50%, ${brightness}%, 0.6)`;
 };
 
+const getAvailableModes = (data) => {
+  const modes = ["Splat Zones", "Tower Control", "Rainmaker", "Clam Blitz"];
+  return modes.map((mode) => data.some((item) => item.mode === mode));
+};
+
 export {
   getSeasonStartDate,
   getSeasonEndDate,
@@ -175,4 +180,5 @@ export {
   getSeasonName,
   getSeasonColor,
   getClassicColor,
+  getAvailableModes,
 };

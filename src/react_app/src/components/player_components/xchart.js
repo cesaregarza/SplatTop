@@ -7,10 +7,13 @@ import {
   getSeasonName,
   getSeasonColor,
   getClassicColor,
+  getAvailableModes,
 } from "./helper_functions";
 import fetchFestivalDates from "./splatfest_retriever";
 import ModeSelector from "../top500_components/selectors/mode_selector";
 import "./xchart.css";
+
+const allModes = ["Splat Zones", "Tower Control", "Rainmaker", "Clam Blitz"];
 
 // This component is the old-style class-based component for performance reasons
 // I'm not sure why highcharts doesn't like the functional component instead
@@ -24,10 +27,19 @@ class XChart extends React.Component {
     };
   }
 
+  calculateAvailableModes = () => {
+    const { data } = this.props;
+    const availableModes = getAvailableModes(data);
+    const firstAvailableModeIndex = availableModes.indexOf(true);
+    const firstAvailableMode = allModes[firstAvailableModeIndex];
+    this.setState({ availableModes, mode: firstAvailableMode });
+  };
+
   async componentDidMount() {
     try {
       const dates = await fetchFestivalDates();
       this.setState({ festivalDates: dates });
+      this.calculateAvailableModes();
     } catch (error) {
       console.error("Error fetching festival dates:", error);
     }
@@ -51,7 +63,7 @@ class XChart extends React.Component {
 
   render() {
     const { data } = this.props;
-    const { mode, removeValuesNotInTop500, currentSeason, processedData } = filterAndProcessData(
+    const { currentSeason, processedData } = filterAndProcessData(
       data,
       this.state.mode,
       this.state.removeValuesNotInTop500,
@@ -85,7 +97,7 @@ class XChart extends React.Component {
         backgroundColor: "#1a202c",
       },
       title: {
-        text: `${mode} X Power`,
+        text: `${this.state.mode} X Power`,
         style: {
           color: "#ffffff",
         },
@@ -226,7 +238,11 @@ class XChart extends React.Component {
     return (
       <div className="xchart-container">
         <div className="pb-4 flex justify-center">
-          <ModeSelector selectedMode={this.state.mode} setSelectedMode={this.setMode} />
+          <ModeSelector
+            selectedMode={this.state.mode}
+            setSelectedMode={this.setMode}
+            allowedModes={this.state.availableModes}
+          />
           <div className="flex items-center space-x-2 mt-2">
             <input
               id="top500Checkbox"
