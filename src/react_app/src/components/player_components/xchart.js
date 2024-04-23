@@ -9,6 +9,7 @@ import {
   getClassicColor,
 } from "./helper_functions";
 import fetchFestivalDates from "./splatfest_retriever";
+import ModeSelector from "../top500_components/selectors/mode_selector";
 import "./xchart.css";
 
 // This component is the old-style class-based component for performance reasons
@@ -18,6 +19,8 @@ class XChart extends React.Component {
     super(props);
     this.state = {
       colorMode: "Classic", // Default color mode
+      mode: "Splat Zones", // Default mode
+      removeValuesNotInTop500: true, // Default filter setting
     };
   }
 
@@ -36,12 +39,22 @@ class XChart extends React.Component {
     }));
   };
 
+  toggleRemoveValuesNotInTop500 = () => {
+    this.setState((prevState) => ({
+      removeValuesNotInTop500: !prevState.removeValuesNotInTop500,
+    }));
+  };
+
+  setMode = (newMode) => {
+    this.setState({ mode: newMode });
+  };
+
   render() {
-    const { data, mode, removeValuesNotInTop500 } = this.props;
-    const { currentSeason, processedData } = filterAndProcessData(
+    const { data } = this.props;
+    const { mode, removeValuesNotInTop500, currentSeason, processedData } = filterAndProcessData(
       data,
-      mode,
-      removeValuesNotInTop500,
+      this.state.mode,
+      this.state.removeValuesNotInTop500,
       this.state.festivalDates
     );
 
@@ -213,6 +226,19 @@ class XChart extends React.Component {
     return (
       <div className="xchart-container">
         <div className="pb-4 flex justify-center">
+          <ModeSelector selectedMode={this.state.mode} setSelectedMode={this.setMode} />
+          <div className="flex items-center space-x-2 mt-2">
+            <input
+              id="top500Checkbox"
+              type="checkbox"
+              checked={this.state.removeValuesNotInTop500}
+              onChange={this.toggleRemoveValuesNotInTop500}
+              className="w-4 h-4 text-purple-600 bg-gray-800 border-gray-600 rounded focus:ring-purple-500"
+            />
+            <label htmlFor="top500Checkbox" className="text-white text-sm">
+              Remove Values Not in Top 500
+            </label>
+          </div>
           <label
             htmlFor="toggleColorMode"
             className="inline-flex items-center cursor-pointer"
