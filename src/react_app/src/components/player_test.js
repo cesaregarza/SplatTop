@@ -4,6 +4,7 @@ import axios from "axios";
 import Loading from "./loading";
 import XChart from "./player_components/xchart";
 import Aliases from "./player_components/aliases";
+import ModeSelector from "./top500_components/selectors/mode_selector";
 
 const PlayerTest = () => {
   const location = useLocation();
@@ -59,23 +60,14 @@ const PlayerTest = () => {
       <main className="flex-grow container mx-auto px-4 py-8 bg-gray-900 text-white overflow-auto">
         {isLoading ? (
           <div className="flex justify-center items-center h-full">
-            <Loading />
+            <Loading text="Loading page..." />
           </div>
         ) : error ? (
           <div className="text-red-500 text-center">{error.message}</div>
         ) : (
           <>
             <div className="controls mb-4">
-              <select
-                className="mode-selector bg-gray-800 text-white p-2.5 rounded-md border-none"
-                value={mode}
-                onChange={(e) => setMode(e.target.value)}
-              >
-                <option value="Splat Zones">Splat Zones</option>
-                <option value="Tower Control">Tower Control</option>
-                <option value="Rainmaker">Rainmaker</option>
-                <option value="Clam Blitz">Clam Blitz</option>
-              </select>
+              <ModeSelector selectedMode={mode} setSelectedMode={setMode} />
               <div className="flex items-center space-x-2 mt-2">
                 <input
                   id="top500Checkbox"
@@ -102,7 +94,7 @@ const PlayerTest = () => {
                       removeValuesNotInTop500={removeValuesNotInTop500}
                     />
                   ) : (
-                    < Loading />
+                    <Loading text={"Loading chart..."} />
                   )}
                 </div>
               </div>
