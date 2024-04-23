@@ -17,7 +17,11 @@ const modesSplit = [
 ];
 const modeButtonSize = "px-4";
 
-const ModeSelector = ({ selectedMode, setSelectedMode }) => {
+const ModeSelector = ({
+  selectedMode,
+  setSelectedMode,
+  allowedModes = [true, true, true, true],
+}) => {
   return (
     <div className="mb-4 w-full sm:w-auto">
       <h2 className="text-xl font-bold mb-2">Modes</h2>
@@ -30,12 +34,26 @@ const ModeSelector = ({ selectedMode, setSelectedMode }) => {
             {modePair.map((mode, index) => (
               <div key={index} className="flex justify-center">
                 <button
-                  onClick={() => setSelectedMode(mode)}
+                  onClick={() =>
+                    allowedModes[modes.indexOf(mode)]
+                      ? setSelectedMode(mode)
+                      : null
+                  }
                   className={`m-1 px-4 py-2 rounded-md ${modeButtonSize} ${
                     selectedMode === mode
                       ? "bg-purpledark text-white hover:bg-purple"
                       : "bg-gray-700 hover:bg-purple"
-                  } flex justify-center items-center`}
+                  } flex justify-center items-center ${
+                    !allowedModes[modes.indexOf(mode)]
+                      ? "grayscale cursor-not-allowed"
+                      : ""
+                  }`}
+                  disabled={!allowedModes[modes.indexOf(mode)]}
+                  title={
+                    !allowedModes[modes.indexOf(mode)]
+                      ? "No data found for this mode"
+                      : ""
+                  }
                 >
                   <img
                     src={modeIcons[mode]}
