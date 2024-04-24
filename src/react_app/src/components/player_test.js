@@ -2,8 +2,9 @@ import React, { useState, useEffect } from "react";
 import { useLocation } from "react-router-dom";
 import axios from "axios";
 import Loading from "./loading";
-import XChart from "./player_components/xchart";
+import ChartController from "./player_components/chart_controller";
 import Aliases from "./player_components/aliases";
+import { modes } from "./constants";
 
 const PlayerTest = () => {
   const location = useLocation();
@@ -70,8 +71,9 @@ const PlayerTest = () => {
                 </div>
                 <div className="md:w-2/3 mt-8 md:mt-0">
                   {chartData ? (
-                    <XChart
+                    <ChartController
                       data={chartData}
+                      modes={modes}
                     />
                   ) : (
                     <Loading text={"Loading chart..."} />
