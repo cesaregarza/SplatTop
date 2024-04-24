@@ -40,6 +40,16 @@
   );
 }
 
+.accessible-bg {
+  background: linear-gradient(
+    to left top,
+    #117733 23%,
+    #DDCC77 26% 49%,
+    #AA4499 52% 75%,
+    #332288 78%
+  )
+}
+
 .controls-box > div.absolute {
   top: -1.25rem;
   left: 1rem;

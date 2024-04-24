@@ -6,7 +6,9 @@ import {
   filterAndProcessData,
   getSeasonName,
   getSeasonColor,
-  getClassicColor,
+  getAccessibleColor,
+  getDefaultWidth,
+  getAccessibleWidth,
 } from "./helper_functions";
 import fetchFestivalDates from "./splatfest_retriever";
 import "./xchart.css";
@@ -37,6 +39,7 @@ class XChart extends React.Component {
       true,
       festivalDates
     );
+    
 
     const currentPercentage = getPercentageInSeason(new Date(), currentSeason);
 
@@ -54,7 +57,7 @@ class XChart extends React.Component {
       },
       xAxis: {
         title: {
-          text: "Percentage of Season Elapsed",
+          text: "% of Season Elapsed",
           style: {
             color: "#ffffff",
           },
@@ -143,15 +146,16 @@ class XChart extends React.Component {
         pointStart: 0,
         pointInterval: 20,
         color:
-          colorMode === "Seasonal"
+          (colorMode === "Seasonal"
             ? getSeasonColor(seasonData.season, seasonData.isCurrent)
-            : getClassicColor(
+            : getAccessibleColor(
                 seasonData.season,
-                seasonData.isCurrent,
-                processedData.length
-              ),
+            )
+          ),
         zIndex: seasonData.isCurrent ? 10 : 0,
-        lineWidth: seasonData.isCurrent ? 5 : 2,
+        lineWidth: (colorMode === "Seasonal")
+          ? getDefaultWidth(seasonData.isCurrent)
+          : getAccessibleWidth(seasonData.season),
         enableMouseTracking: seasonData.isCurrent,
         marker: {
           states: {

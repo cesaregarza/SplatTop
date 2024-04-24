@@ -6,7 +6,6 @@ const getSeasonStartDate = (season) => {
   return new Date(Date.UTC(year, monthMap[monthIndex], 1));
 };
 
-// Helper function to get the season end date
 const getSeasonEndDate = (season) => {
   const nextSeasonStart = getSeasonStartDate(season + 1);
   return new Date(
@@ -22,7 +21,6 @@ const getSeasonEndDate = (season) => {
   );
 };
 
-// Helper function to convert timestamp to percentage in season
 const getPercentageInSeason = (timestamp, season) => {
   const seasonStart = getSeasonStartDate(season);
   const seasonEnd = getSeasonEndDate(season);
@@ -165,6 +163,25 @@ const getClassicColor = (season_number, isCurrent, numSeasons) => {
   return `hsla(292, 50%, ${brightness}%, 0.6)`;
 };
 
+const getAccessibleColor = (season_number) => {
+  const colors = ["#117733", "#DDCC77", "#AA4499", "#332288"];
+  return colors[season_number % colors.length];
+};
+
+const getDefaultWidth = (isCurrent) => {
+  return isCurrent ? 5 : 2;
+};
+
+const getAccessibleWidth = (seasonNumber) => {
+  const currentWidth = 5;
+  const minWidth = 1;
+  const maxWidth = 3;
+  const numSeasons = calculateSeasonNow();
+  const widthStep = (maxWidth - minWidth) / numSeasons;
+  const width = minWidth + seasonNumber * widthStep;
+  return seasonNumber === numSeasons ? currentWidth : width;
+};
+
 const getAvailableModes = (data) => {
   const modes = ["Splat Zones", "Tower Control", "Rainmaker", "Clam Blitz"];
   return modes.map((mode) => data.some((item) => item.mode === mode));
@@ -180,5 +197,8 @@ export {
   getSeasonName,
   getSeasonColor,
   getClassicColor,
+  getAccessibleColor,
+  getDefaultWidth,
+  getAccessibleWidth,
   getAvailableModes,
 };
