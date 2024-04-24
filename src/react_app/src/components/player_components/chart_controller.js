@@ -22,24 +22,22 @@ function ChartController({ data, modes }) {
 
   return (
     <div>
-      <div className="relative controls-box border-2 border-gray-200 rounded-lg p-4 mb-4">
+      <XChart data={data} mode={mode} colorMode={colorMode} />
+      <div className="relative controls-box border-2 border-gray-200 rounded-lg p-4">
         <div className="absolute bg-gray-900">
           <h2 className="text-lg font-semibold rounded-sm">Controls</h2>
         </div>
-        <div className="pt-10 pb-4 flex flex-col justify-center items-center">
-          <ModeSelector
-            selectedMode={mode}
-            setSelectedMode={handleModeChange}
-            allowedModes={modes.map((mode) =>
-              data.some((d) => d.mode === mode)
-            )}
-          />
-          <div className="w-full flex justify-center items-center mt-4">
+        <div className="flex flex-col justify-center items-center">
+          <div className="w-full flex justify-center items-center">
             <label
               htmlFor="toggleColorMode"
               className="inline-flex items-center cursor-pointer"
             >
-              <span className="text-sm font-medium text-gray-900 dark:text-gray-300 mr-2">
+              <span
+                className={`text-sm font-medium mr-2 ${
+                  colorMode === "Seasonal" ? "highlighted-option" : ""
+                }`}
+              >
                 Seasonal
               </span>
               <div className="relative" title="Change the color scheme">
@@ -56,14 +54,29 @@ function ChartController({ data, modes }) {
                   }`}
                 ></div>
               </div>
-              <span className="text-sm font-medium text-gray-900 dark:text-gray-300 ml-2">
+              <span
+                className={`text-sm font-medium ml-2 ${
+                  colorMode === "Accessible" ? "highlighted-option" : ""
+                }`}
+              >
                 Accessible
               </span>
             </label>
           </div>
+          <ModeSelector
+            selectedMode={mode}
+            setSelectedMode={handleModeChange}
+            allowedModes={modes.map((mode) =>
+              data.some((d) => d.mode === mode)
+            )}
+            showTitle={false}
+            modeButtonSize="px-3"
+            imageWidth="w-10"
+            imageHeight="h-10"
+            baseClass="w-full sm:w-auto"
+          />
         </div>
       </div>
-      <XChart data={data} mode={mode} colorMode={colorMode} />
     </div>
   );
 }
