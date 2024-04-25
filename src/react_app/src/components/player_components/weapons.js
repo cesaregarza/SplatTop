@@ -21,6 +21,9 @@ class WeaponsChart extends React.Component {
       otherThresholdPercent
     );
 
+    console.log(seriesCount);
+    console.log(drilldownData);
+
     const innerSeriesCount = seriesCount.map((item) => {
       if (item.name !== "Other") {
         const total = Object.values(item.y).reduce((acc, val) => acc + val, 0);
@@ -28,13 +31,18 @@ class WeaponsChart extends React.Component {
           name: item.name,
           y: total,
           drilldown: item.name,
-          data: Object.entries(item.y).map(([season, value]) => ({
-            name: `${item.name}:Season ${season}`,
-            y: value,
-          })),
+          data: Object.entries(item.y).map(([season, value]) => [
+            `Season ${season}`,
+            value,
+          ]),
+        };
+      } else {
+        return {
+          name: item.name,
+          y: item.y,
+          drilldown: item.name,
         };
       }
-      return item;
     });
 
     const outerSeriesCount = seriesCount.flatMap((item) => {
@@ -94,14 +102,49 @@ class WeaponsChart extends React.Component {
         },
       ],
       drilldown: {
-        series: drilldownData.map((item) => ({
-          ...item,
-          id: item.name,
-          data: item.data.map((d) => ({
-            name: `${item.name}:Season ${d[0]}`,
-            y: d[1],
-          })),
-        })),
+        series: innerSeriesCount
+          .filter((item) => item.name !== "Other")
+          .map((item) => ({
+            id: item.name,
+            name: item.name,
+            data: item.data,
+          }))
+          .concat({
+            id: "Other",
+            name: "Other",
+            data: drilldownData.map(([id, count]) => [id.toString(), count]),
+          }),
+          breadcrumbs: {
+            style: {
+              fontSize: "14px",
+              fontWeight: "bold",
+              color: "#ffffff",
+            },
+            buttonTheme: {
+              style: {
+                color: "#ffffff",
+                fill: "transparent",
+                fontWeight: "normal",
+                fontSize: "14px",
+              },
+              states: {
+                hover: {
+                  fill: "transparent",
+                  style: {
+                    color: "#c183e1",
+                  },
+                },
+                select: {
+                  fill: "transparent",
+                  style: {
+                    color: "#ab5ab7",
+                    textDecoration: "none",
+                    fontWeight: "bold",
+                  },
+                },
+              },
+            },
+          },
       },
       tooltip: {
         headerFormat: '<span style="font-size:11px">{series.name}</span><br>',

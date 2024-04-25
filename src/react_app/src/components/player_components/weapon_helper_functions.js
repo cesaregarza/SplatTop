@@ -88,7 +88,7 @@ const computeDrilldown = (counts, percentageThreshold) => {
       (acc, val) => acc + val,
       0
     );
-    drilldownData.push({ name: key, id: "Other", data: [[key, sumValues]] });
+    drilldownData.push([key, sumValues]);
   }
 
   return {
