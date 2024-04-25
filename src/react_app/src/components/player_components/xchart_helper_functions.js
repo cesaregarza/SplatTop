@@ -192,6 +192,7 @@ export {
   getSeasonEndDate,
   getPercentageInSeason,
   calculateSeasonNow,
+  calculateSeasonByTimestamp,
   dataWithNulls,
   filterAndProcessData,
   getSeasonName,

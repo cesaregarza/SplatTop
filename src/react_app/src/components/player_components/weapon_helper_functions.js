@@ -1,64 +1,105 @@
-const filterAndProcessWeapons = (data, mode) => {
+import { calculateSeasonByTimestamp } from "./xchart_helper_functions";
+
+const filterDataAndGroupByWeapon = (data, mode) => {
   const filteredData = data
     ? data.filter((d) => d.mode === mode && d.updated === true)
     : [];
 
-  const groupedByWeapon = filteredData.reduce((acc, item) => {
-    const { weapon_id } = item;
-    acc[weapon_id] = (acc[weapon_id] || 0) + 1;
+  const groupedByWeaponAndSeason = filteredData.reduce((acc, item) => {
+    const { weapon_id, timestamp } = item;
+    const season = calculateSeasonByTimestamp(timestamp);
+    if (!acc[weapon_id]) {
+      acc[weapon_id] = {};
+    }
+    acc[weapon_id][season] = (acc[weapon_id][season] || 0) + 1;
     return acc;
   }, {});
 
-  const totalCounts = filteredData.length;
-  const groupedByPercent = Object.keys(groupedByWeapon).reduce((acc, key) => {
-    const count = groupedByWeapon[key];
-    const percentage = (count / totalCounts) * 100;
-    acc[key] = percentage;
-    return acc;
-  }, {});
-
-  return {
-    counts: groupedByWeapon,
-    percentage: groupedByPercent,
-  };
+  return groupedByWeaponAndSeason;
 };
 
-const computeDrilldown = (counts, percentage, percentageThreshold) => {
+const processGroupedData = (groupedData, seasons = null) => {
+  const result = {};
+  for (const weapon_id in groupedData) {
+    let count = 0;
+    for (const season in groupedData[weapon_id]) {
+      const seasonInt = parseInt(season);
+      if (!seasons || seasons.includes(seasonInt)) {
+        count += groupedData[weapon_id][season];
+      }
+    }
+    result[weapon_id] = count;
+  }
+  return result;
+};
+
+const calculateTotalPercentage = (groupedByWeaponAndSeason) => {
+  let totalCounts = 0;
+  for (const weaponSeasons of Object.values(groupedByWeaponAndSeason)) {
+    for (const count of Object.values(weaponSeasons)) {
+      totalCounts += count;
+    }
+  }
+
+  const groupedByPercent = {};
+  for (const weapon_id of Object.keys(groupedByWeaponAndSeason)) {
+    let countsForSeasons = 0;
+    for (const count of Object.values(groupedByWeaponAndSeason[weapon_id])) {
+      countsForSeasons += count;
+    }
+    const percentage = (countsForSeasons / totalCounts) * 100;
+    groupedByPercent[weapon_id] = percentage;
+  }
+
+  return groupedByPercent;
+};
+
+const computeDrilldown = (counts, percentageThreshold) => {
   let otherIds = [];
   let otherCount = 0;
-  let otherPercentage = 0;
+  const percentage = calculateTotalPercentage(counts);
+
+  // Identify "other" categories based on the percentage threshold
   for (const key in percentage) {
     if (percentage[key] < percentageThreshold) {
       otherIds.push(key);
-      otherCount += counts[key];
-      otherPercentage += percentage[key];
+      otherCount += Object.values(counts[key]).reduce(
+        (acc, val) => acc + val,
+        0
+      );
     }
   }
 
-  let drilldownPercent = [];
-  for (const key in counts) {
-    if (otherIds.includes(key)) {
-      drilldownPercent.push({ name: key, y: percentage[key] });
-    }
-  }
-
-  let seriesPercentage = [];
+  // Prepare series data excluding "other" categories
+  let seriesCount = [];
   for (const key in counts) {
     if (!otherIds.includes(key)) {
-      seriesPercentage.push({ name: key, y: percentage[key] });
+      seriesCount.push({ name: key, y: counts[key], drilldown: key });
     }
   }
-  seriesPercentage.push({
-    name: "Other",
-    y: otherPercentage,
-    drilldown: "Other",
-  });
+
+  // Add the "other" category to the series data
+  seriesCount.push({ name: "Other", y: otherCount, drilldown: "Other" });
+
+  // Prepare drilldown data for "other" categories
+  let drilldownData = [];
+  for (const key of otherIds) {
+    const sumValues = Object.values(counts[key]).reduce(
+      (acc, val) => acc + val,
+      0
+    );
+    drilldownData.push({ name: key, id: "Other", data: [[key, sumValues]] });
+  }
 
   return {
-    seriesPercentage,
-    drilldownPercent,
-    otherCount,
+    seriesCount,
+    drilldownData,
   };
 };
 
-export { filterAndProcessWeapons, computeDrilldown };
+export {
+  filterDataAndGroupByWeapon,
+  processGroupedData,
+  calculateTotalPercentage,
+  computeDrilldown,
+};

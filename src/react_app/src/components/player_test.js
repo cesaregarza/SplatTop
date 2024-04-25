@@ -6,7 +6,7 @@ import ChartController from "./player_components/chart_controller";
 import Aliases from "./player_components/aliases";
 import { modes } from "./constants";
 
-import { filterAndProcessWeapons } from "./player_components/weapon_helper_functions";
+import { filterDataAndGroupByWeapon, processGroupedData } from "./player_components/weapon_helper_functions";
 
 const PlayerTest = () => {
   const location = useLocation();
@@ -37,7 +37,9 @@ const PlayerTest = () => {
           console.log("Received data from websocket");
           const newData = JSON.parse(event.data);
           console.log(newData);
-          console.log(filterAndProcessWeapons(newData, modes[0]));
+          const groupedData = filterDataAndGroupByWeapon(newData, modes[0]);
+          console.log(groupedData);
+          console.log(processGroupedData(groupedData, [6]));
           setChartData(newData);
         };
 

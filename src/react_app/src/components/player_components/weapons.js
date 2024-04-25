@@ -1,26 +1,51 @@
 import React from "react";
 import HighchartsReact from "highcharts-react-official";
-import Highcharts from "highcharts/highstock";
+import Highcharts from "highcharts";
+import drilldown from "highcharts/modules/drilldown";
 import {
-  filterAndProcessWeapons,
+  filterDataAndGroupByWeapon,
   computeDrilldown,
 } from "./weapon_helper_functions";
 import "./xchart.css";
 
+drilldown(Highcharts);
+
 class WeaponsChart extends React.Component {
   render() {
     const { data, mode } = this.props;
-    const { counts, percentage } = filterAndProcessWeapons(data, mode);
+    const groupedData = filterDataAndGroupByWeapon(data, mode);
 
-    const otherThresholdPercent = 2;
-    const { seriesPercentage, drilldownPercent, otherCount } = computeDrilldown(
-      counts,
-      percentage,
+    const otherThresholdPercent = 4;
+    const { seriesCount, drilldownData } = computeDrilldown(
+      groupedData,
       otherThresholdPercent
     );
 
-    let newCounts = {...counts};
-    newCounts["Other"] = otherCount;
+    const innerSeriesCount = seriesCount.map((item) => {
+      if (item.name !== "Other") {
+        const total = Object.values(item.y).reduce((acc, val) => acc + val, 0);
+        return {
+          name: item.name,
+          y: total,
+          drilldown: item.name,
+          data: Object.entries(item.y).map(([season, value]) => ({
+            name: `${item.name}:Season ${season}`,
+            y: value,
+          })),
+        };
+      }
+      return item;
+    });
+
+    const outerSeriesCount = seriesCount.flatMap((item) => {
+      if (item.name === "Other") {
+        return [{ name: item.name, y: item.y }];
+      }
+      return Object.entries(item.y).map(([season, count]) => ({
+        name: `${item.name}:${season}`,
+        y: count,
+      }));
+    });
 
     const options = {
       chart: {
@@ -34,50 +59,72 @@ class WeaponsChart extends React.Component {
           color: "#ffffff",
         },
       },
-      series: [{
-        name: "Weapon Usage",
-        colorByPoint: true,
-        data: seriesPercentage,
-      }],
+      series: [
+        {
+          name: "Total Weapon Usage",
+          colorByPoint: true,
+          data: innerSeriesCount.map((item) => ({
+            name: item.name,
+            y: item.y,
+            drilldown: item.name,
+          })),
+          size: "60%",
+          dataLabels: {
+            enabled: false,
+          },
+        },
+        {
+          name: "Detailed Weapon Usage",
+          colorByPoint: true,
+          data: outerSeriesCount,
+          size: "100%",
+          innerSize: "60%",
+          id: "weapons",
+          dataLabels: {
+            formatter: function () {
+              return `<b>${this.point.name}</b>: ${this.y}`;
+            },
+            filter: {
+              property: "percentage",
+              operator: ">",
+              value: 2,
+            },
+          },
+          showInLegend: false,
+        },
+      ],
       drilldown: {
-        series: drilldownPercent.map(item => ({
-          name: item.name,
+        series: drilldownData.map((item) => ({
+          ...item,
           id: item.name,
-          data: [item]
-        }))
+          data: item.data.map((d) => ({
+            name: `${item.name}:Season ${d[0]}`,
+            y: d[1],
+          })),
+        })),
       },
       tooltip: {
         headerFormat: '<span style="font-size:11px">{series.name}</span><br>',
-        pointFormat: '<span style="color:{point.color}">{point.name}</span>: <b>{point.y:.2f}%</b> of total<br/>'
+        pointFormat:
+          '<span style="color:{point.color}">{point.name}</span>: <b>{point.y}</b><br/>',
       },
       plotOptions: {
         pie: {
           allowPointSelect: true,
-          cursor: 'pointer',
-          dataLabels: {
-            enabled: true,
-            format: '<b>{point.name}</b>: {point.y:.2f} %'
-          },
-          showInLegend: true
-        }
+          cursor: "pointer",
+        },
       },
       legend: {
-        itemStyle: {
-          color: "#ffffff",
-        },
+        enabled: false,
       },
     };
 
     return (
       <div>
-        <HighchartsReact
-          highcharts={Highcharts}
-          options={options}
-        />
+        <HighchartsReact highcharts={Highcharts} options={options} />
       </div>
     );
   }
 }
 
 export default WeaponsChart;
-
