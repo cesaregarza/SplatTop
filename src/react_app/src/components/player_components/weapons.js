@@ -52,6 +52,7 @@ class WeaponsChart extends React.Component {
       }));
     });
 
+    const totalUsage = innerSeriesCount.reduce((acc, item) => acc + item.y, 0);
     const options = {
       chart: {
         type: "pie",
@@ -70,7 +71,7 @@ class WeaponsChart extends React.Component {
           colorByPoint: true,
           data: innerSeriesCount.map((item) => ({
             name: item.name,
-            y: item.y,
+            y: (item.y / totalUsage) * 100,
             drilldown: item.name,
           })),
           size: "60%",
@@ -81,13 +82,16 @@ class WeaponsChart extends React.Component {
         {
           name: "Detailed Weapon Usage",
           colorByPoint: true,
-          data: outerSeriesCount,
+          data: outerSeriesCount.map((item) => ({
+            name: item.name,
+            y: (item.y / totalUsage) * 100,
+          })),
           size: "100%",
           innerSize: "60%",
           id: "weapons",
           dataLabels: {
             formatter: function () {
-              return `<b>${this.point.name}</b>: ${this.y}`;
+              return `<b>${this.point.name}</b>: ${this.y.toFixed(2)}%`;
             },
             filter: {
               property: "percentage",
@@ -104,12 +108,18 @@ class WeaponsChart extends React.Component {
           .map((item) => ({
             id: item.name,
             name: item.name,
-            data: item.data,
+            data: item.data.map(([season, value]) => [
+              season,
+              (value / totalUsage) * 100,
+            ]),
           }))
           .concat({
             id: "Other",
             name: "Other",
-            data: drilldownData.map(([id, count]) => [id.toString(), count]),
+            data: drilldownData.map(([id, count]) => [
+              id.toString(),
+              (count / totalUsage) * 100,
+            ]),
           }),
         breadcrumbs: {
           style: {
@@ -146,7 +156,7 @@ class WeaponsChart extends React.Component {
       tooltip: {
         headerFormat: '<span style="font-size:11px">{series.name}</span><br>',
         pointFormat:
-          '<span style="color:{point.color}">{point.name}</span>: <b>{point.y}</b><br/>',
+          '<span style="color:{point.color}">{point.name}</span>: <b>{point.y:.2f}%</b> of total<br>',
       },
       plotOptions: {
         pie: {
