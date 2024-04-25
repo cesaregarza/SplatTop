@@ -23,7 +23,7 @@ function ChartController({ data, modes }) {
   return (
     <div>
       <XChart data={data} mode={mode} colorMode={colorMode} />
-      <div className="relative controls-box border-2 border-gray-200 rounded-lg p-4">
+      <div className="relative controls-box border-2 border-gray-200 rounded-lg py-4 px-1 mt-5">
         <div className="absolute bg-gray-900">
           <h2 className="text-lg font-semibold rounded-sm">Controls</h2>
         </div>
@@ -70,9 +70,7 @@ function ChartController({ data, modes }) {
               data.some((d) => d.mode === mode)
             )}
             showTitle={false}
-            modeButtonSize="px-3"
-            imageWidth="w-10"
-            imageHeight="h-10"
+            modeButtonSize="mt-3"
             baseClass="w-full sm:w-auto"
           />
         </div>

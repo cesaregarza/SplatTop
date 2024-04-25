@@ -85,10 +85,10 @@ class XChart extends React.Component {
             value: currentPercentage,
             dashStyle: "Dash",
             label: {
-              text: "Time right now",
+              text: "Now",
               align: "left",
               style: {
-                color: "rgba(255, 255, 255, 0.4)",
+                color: "rgba(255, 255, 255, 0.8)",
               },
             },
           },
