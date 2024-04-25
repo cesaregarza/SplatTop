@@ -21,9 +21,6 @@ class WeaponsChart extends React.Component {
       otherThresholdPercent
     );
 
-    console.log(seriesCount);
-    console.log(drilldownData);
-
     const innerSeriesCount = seriesCount.map((item) => {
       if (item.name !== "Other") {
         const total = Object.values(item.y).reduce((acc, val) => acc + val, 0);
@@ -114,37 +111,37 @@ class WeaponsChart extends React.Component {
             name: "Other",
             data: drilldownData.map(([id, count]) => [id.toString(), count]),
           }),
-          breadcrumbs: {
+        breadcrumbs: {
+          style: {
+            fontSize: "14px",
+            fontWeight: "bold",
+            color: "#ffffff",
+          },
+          buttonTheme: {
             style: {
-              fontSize: "14px",
-              fontWeight: "bold",
               color: "#ffffff",
+              fill: "transparent",
+              fontWeight: "normal",
+              fontSize: "14px",
             },
-            buttonTheme: {
-              style: {
-                color: "#ffffff",
+            states: {
+              hover: {
                 fill: "transparent",
-                fontWeight: "normal",
-                fontSize: "14px",
-              },
-              states: {
-                hover: {
-                  fill: "transparent",
-                  style: {
-                    color: "#c183e1",
-                  },
+                style: {
+                  color: "#c183e1",
                 },
-                select: {
-                  fill: "transparent",
-                  style: {
-                    color: "#ab5ab7",
-                    textDecoration: "none",
-                    fontWeight: "bold",
-                  },
+              },
+              select: {
+                fill: "transparent",
+                style: {
+                  color: "#ab5ab7",
+                  textDecoration: "none",
+                  fontWeight: "bold",
                 },
               },
             },
           },
+        },
       },
       tooltip: {
         headerFormat: '<span style="font-size:11px">{series.name}</span><br>',
