@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from "react";
 import ModeSelector from "../top500_components/selectors/mode_selector";
 import XChart from "./xchart";
+import WeaponsChart from "./weapons";
 
 function ChartController({ data, modes }) {
   const [mode, setMode] = useState(modes[0]);
@@ -23,6 +24,7 @@ function ChartController({ data, modes }) {
   return (
     <div>
       <XChart data={data} mode={mode} colorMode={colorMode} />
+        <WeaponsChart data={data} mode={mode} colorMode={colorMode} />
       <div className="relative controls-box border-2 border-gray-200 rounded-lg py-4 px-1 mt-5">
         <div className="absolute bg-gray-900">
           <h2 className="text-lg font-semibold rounded-sm">Controls</h2>

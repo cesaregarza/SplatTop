@@ -1,14 +1,20 @@
 import React from "react";
+import { useNavigate } from "react-router-dom";
 
 import columnsConfig from "./columns_config";
 
 const PlayerTable = ({ players, columnVisibility }) => {
+  const navigate = useNavigate();
   const visibleColumns = columnsConfig.filter(
     (column) => columnVisibility[column.id]
   );
 
   const defaultHeaderClasses = "w-20 px-4 py-2 text-center";
   const defaultCellClasses = "w-20 px-4 py-2 text-center";
+
+  const handleRowClick = (playerId) => {
+    navigate(`/player_test/${playerId}`);
+  };
 
   return (
     <table className="table-auto w-full bg-gray-800">
@@ -28,7 +34,8 @@ const PlayerTable = ({ players, columnVisibility }) => {
         {players.map((player) => (
           <tr
             key={player.player_id}
-            className="border-b border-gray-700 hover:bg-purpledark"
+            className="border-b border-gray-700 hover:bg-purpledark cursor-pointer"
+            onClick={() => handleRowClick(player.player_id)}
           >
             {visibleColumns.map((column, index) => (
               <td

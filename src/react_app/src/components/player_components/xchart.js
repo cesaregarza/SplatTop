@@ -9,7 +9,7 @@ import {
   getAccessibleColor,
   getDefaultWidth,
   getAccessibleWidth,
-} from "./helper_functions";
+} from "./xchart_helper_functions";
 import fetchFestivalDates from "./splatfest_retriever";
 import "./xchart.css";
 
