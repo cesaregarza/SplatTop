@@ -66,7 +66,8 @@ def get_boto3_client(session: boto3.Session) -> boto3.client:
 def check_if_needs_update(client: boto3.client, latest_version: str) -> bool:
     try:
         response = client.get_object(
-            Bucket=BUCKET_NAME, Key=ASSETS_PATH + "/latest_stored_version",
+            Bucket=BUCKET_NAME,
+            Key=ASSETS_PATH + "/latest_stored_version",
         )
         current_version = response["Body"].read().decode("utf-8").strip()
         return current_version != latest_version
@@ -101,7 +102,9 @@ def download_file_from_repo(file: dict) -> bytes:
 
 def upload_file_to_bucket(client: boto3.client, key: str, data: bytes):
     try:
-        client.put_object(ACL="public-read", Bucket=BUCKET_NAME, Key=key, Body=data)
+        client.put_object(
+            ACL="public-read", Bucket=BUCKET_NAME, Key=key, Body=data
+        )
     except ClientError as e:
         print(f"Error uploading file to bucket: {e}")
         raise
@@ -151,7 +154,12 @@ def update_data(client: boto3.client):
         data = orjson.loads(response["Body"].read())
         data = parse_weapon_data(data)
         data_string = orjson.dumps({str(k): v for k, v in data.items()})
-        client.put_object(ACL="public-read", Bucket=BUCKET_NAME, Key=DESTINATION_PATH, Body=data_string)
+        client.put_object(
+            ACL="public-read",
+            Bucket=BUCKET_NAME,
+            Key=DESTINATION_PATH,
+            Body=data_string,
+        )
     except ClientError as e:
         print(f"Error updating data: {e}")
         raise
