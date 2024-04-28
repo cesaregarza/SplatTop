@@ -27,6 +27,8 @@ eventlet = "^0.36.1"
 fastapi = "^0.110.2"
 uvicorn = "^0.29.0"
 asyncpg = "^0.29.0"
+pandas = "^2.2.2"
+orjson = "^3.10.1"
 
 
 [tool.poetry.group.dev.dependencies]

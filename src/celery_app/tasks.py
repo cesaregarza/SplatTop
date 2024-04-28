@@ -1,7 +1,7 @@
 import json
 import logging
-from datetime import datetime
 
+import pandas as pd
 import redis
 from celery import Celery
 from sqlalchemy import text
@@ -91,6 +91,10 @@ def fetch_player_data(player_id: str) -> None:
         logging.info("Data already exists in cache. Skipping fetch.")
     else:
         result = _fetch_player_data(player_id)
+        result = {
+            "player_data": result,
+            "aggregated_data": aggregate_player_data(result),
+        }
         redis_conn.set(cache_key, json.dumps(result), ex=60)
 
     # Publish the data to the player_data_channel
@@ -118,3 +122,40 @@ def _fetch_player_data(player_id: str) -> list[dict]:
         player["rotation_start"] = player["rotation_start"].isoformat()
 
     return result
+
+
+def aggregate_player_data(player_data: list[dict]) -> dict:
+    logging.info("Aggregating player data")
+    player_df = pd.DataFrame(player_data)
+    weapon_counts = aggregate_weapon_counts(player_df)
+    weapon_winrate = aggregate_weapon_winrate(player_df)
+    return {
+        "weapon_counts": weapon_counts,
+        "weapon_winrate": weapon_winrate,
+    }
+
+
+def aggregate_weapon_counts(player_df: pd.DataFrame) -> list[dict]:
+    return (
+        player_df.query("updated")
+        .groupby(["mode", "weapon_id", "season_number"])["rank"]
+        .count()
+        .reset_index()
+        .rename(columns={"rank": "count"})
+        .to_dict(orient="records")
+    )
+
+
+def aggregate_weapon_winrate(player_df: pd.DataFrame) -> list[dict]:
+    out_df = player_df.query("updated")
+    out_df["x_power_diff"] = out_df["x_power"].diff()
+    # It shouldn't ever happen but filter out any x_power_diff that are 0
+    out_df = out_df.loc[out_df["x_power_diff"] != 0]
+    out_df["win"] = out_df["x_power_diff"] > 0
+    return (
+        out_df.groupby(["mode", "weapon_id", "season_number"])["win"]
+        .agg(["sum", "count"])
+        .reset_index()
+        .rename(columns={"win": "win_count", "count": "total_count"})
+        .to_dict(orient="records")
+    )
