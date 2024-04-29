@@ -10,4 +10,8 @@ celery.conf.beat_schedule = {
         "task": "tasks.pull_data",
         "schedule": crontab(minute="*/10"),
     },
+    "update-weapon-info-every-hour": {
+        "task": "tasks.update_weapon_info",
+        "schedule": crontab(minute=0, hour="*"),
+    },
 }

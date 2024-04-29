@@ -1,8 +1,9 @@
-import json
 import logging
 
+import orjson
 import pandas as pd
 import redis
+import requests
 from celery import Celery
 from sqlalchemy import text
 
@@ -16,6 +17,8 @@ from shared_lib.constants import (
     REDIS_PORT,
     REDIS_URI,
     REGIONS,
+    WEAPON_INFO_REDIS_KEY,
+    WEAPON_INFO_URL,
 )
 from shared_lib.queries.front_page_queries import LEADERBOARD_MAIN_QUERY
 from shared_lib.queries.player_queries import (
@@ -62,7 +65,7 @@ def fetch_and_store_leaderboard_data(mode: str, region_bool: bool) -> None:
     redis_key = (
         f"leaderboard_data:{mode}:{'Takoroka' if region_bool else 'Tentatek'}"
     )
-    redis_conn.set(redis_key, json.dumps(players))
+    redis_conn.set(redis_key, orjson.dumps(players))
 
 
 @celery.task(name="tasks.pull_data")
@@ -95,12 +98,12 @@ def fetch_player_data(player_id: str) -> None:
             "player_data": result,
             "aggregated_data": aggregate_player_data(result),
         }
-        redis_conn.set(cache_key, json.dumps(result), ex=60)
+        redis_conn.set(cache_key, orjson.dumps(result), ex=60)
 
     # Publish the data to the player_data_channel
     redis_conn.publish(
         PLAYER_PUBSUB_CHANNEL,
-        json.dumps({"player_id": player_id, "key": cache_key}),
+        orjson.dumps({"player_id": player_id, "key": cache_key}),
     )
     try:
         redis_conn.delete(task_signature)
@@ -159,3 +162,12 @@ def aggregate_weapon_winrate(player_df: pd.DataFrame) -> list[dict]:
         .rename(columns={"win": "win_count", "count": "total_count"})
         .to_dict(orient="records")
     )
+
+
+@celery.task(name="tasks.update_weapon_info")
+def update_weapon_info() -> None:
+    logging.info("Running task: update_weapon_info")
+    response = requests.get(WEAPON_INFO_URL)
+    weapon_info = response.json()
+    redis_conn.set(WEAPON_INFO_REDIS_KEY, orjson.dumps(weapon_info))
+    logging.info("Weapon info updated in Redis.")

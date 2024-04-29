@@ -2,57 +2,70 @@ import React from "react";
 import HighchartsReact from "highcharts-react-official";
 import Highcharts from "highcharts";
 import drilldown from "highcharts/modules/drilldown";
-import {
-  filterDataAndGroupByWeapon,
-  computeDrilldown,
-} from "./weapon_helper_functions";
+import axios from "axios";
+import { computeDrilldown } from "./weapon_helper_functions";
 import "./xchart.css";
 
 drilldown(Highcharts);
 
+const isDevelopment = process.env.NODE_ENV === "development";
+const apiUrl = isDevelopment
+  ? "http://localhost:5000"
+  : process.env.REACT_APP_API_URL || "";
+const endpoint = `${apiUrl}/api/weapon_info`;
+
 class WeaponsChart extends React.Component {
+  constructor(props) {
+    super(props);
+    const localData = localStorage.getItem("weaponReferenceData");
+    this.state = {
+      weaponReferenceData: localData ? JSON.parse(localData) : null,
+    };
+    if (!localData) {
+      this.fetchWeaponReferenceData();
+    }
+  }
+
+  componentDidMount() {
+    // Data fetching is now initiated in the constructor if local storage is empty
+  }
+
+  fetchWeaponReferenceData() {
+    axios
+      .get(endpoint)
+      .then((response) => {
+        if (response.status === 200 && response.data) {
+          this.setState({ weaponReferenceData: response.data });
+          localStorage.setItem(
+            "weaponReferenceData",
+            JSON.stringify(response.data)
+          );
+        } else {
+          console.error("No data received:", response);
+        }
+      })
+      .catch((error) =>
+        console.error("Error fetching weapon reference data:", error)
+      );
+  }
+
   render() {
-    const { data, mode } = this.props;
-    const groupedData = filterDataAndGroupByWeapon(data, mode);
+    const { weapon_winrate } = this.props.data;
+    const { mode } = this.props;
+
+    const filteredWinrate = weapon_winrate.filter((d) => d.mode === mode);
 
     const otherThresholdPercent = 4;
-    const { seriesCount, drilldownData } = computeDrilldown(
-      groupedData,
-      otherThresholdPercent
-    );
 
-    const innerSeriesCount = seriesCount.map((item) => {
-      if (item.name !== "Other") {
-        const total = Object.values(item.y).reduce((acc, val) => acc + val, 0);
-        return {
-          name: item.name,
-          y: total,
-          drilldown: item.name,
-          data: Object.entries(item.y).map(([season, value]) => [
-            `Season ${season}`,
-            value,
-          ]),
-        };
-      } else {
-        return {
-          name: item.name,
-          y: item.y,
-          drilldown: item.name,
-        };
-      }
-    });
+    const { innerSeriesData, outerSeriesData, drilldownData } =
+      computeDrilldown(
+        filteredWinrate,
+        otherThresholdPercent,
+        this.state.weaponReferenceData
+      );
 
-    const outerSeriesCount = seriesCount.flatMap((item) => {
-      if (item.name === "Other") {
-        return [{ name: item.name, y: item.y }];
-      }
-      return Object.entries(item.y).map(([season, count]) => ({
-        name: `${item.name}:${season}`,
-        y: count,
-      }));
-    });
+    const totalUsage = innerSeriesData.reduce((acc, item) => acc + item.y, 0);
 
-    const totalUsage = innerSeriesCount.reduce((acc, item) => acc + item.y, 0);
     const options = {
       chart: {
         type: "pie",
@@ -69,7 +82,7 @@ class WeaponsChart extends React.Component {
         {
           name: "Total Weapon Usage",
           colorByPoint: true,
-          data: innerSeriesCount.map((item) => ({
+          data: innerSeriesData.map((item) => ({
             name: item.name,
             y: (item.y / totalUsage) * 100,
             drilldown: item.name,
@@ -82,7 +95,7 @@ class WeaponsChart extends React.Component {
         {
           name: "Detailed Weapon Usage",
           colorByPoint: true,
-          data: outerSeriesCount.map((item) => ({
+          data: outerSeriesData.map((item) => ({
             name: item.name,
             y: (item.y / totalUsage) * 100,
           })),
@@ -103,24 +116,7 @@ class WeaponsChart extends React.Component {
         },
       ],
       drilldown: {
-        series: innerSeriesCount
-          .filter((item) => item.name !== "Other")
-          .map((item) => ({
-            id: item.name,
-            name: item.name,
-            data: item.data.map(([season, value]) => [
-              season,
-              (value / totalUsage) * 100,
-            ]),
-          }))
-          .concat({
-            id: "Other",
-            name: "Other",
-            data: drilldownData.map(([id, count]) => [
-              id.toString(),
-              (count / totalUsage) * 100,
-            ]),
-          }),
+        series: drilldownData,
         breadcrumbs: {
           style: {
             fontSize: "14px",

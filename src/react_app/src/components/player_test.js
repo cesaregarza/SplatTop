@@ -37,9 +37,6 @@ const PlayerTest = () => {
           console.log("Received data from websocket");
           const newData = JSON.parse(event.data);
           console.log(newData);
-          const groupedData = filterDataAndGroupByWeapon(newData, modes[0]);
-          console.log(groupedData);
-          console.log(processGroupedData(groupedData, [6]));
           setChartData(newData);
         };
 

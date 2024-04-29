@@ -8,8 +8,11 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from flask_app.connections import celery
 from flask_app.pubsub import listen_for_updates
-from flask_app.routes import temp_player_router
-from flask_app.routes.front_page import create_front_page_router
+from flask_app.routes import (
+    front_page_router,
+    temp_player_router,
+    weapon_info_router,
+)
 
 # Setup basic logging
 logging.basicConfig(
@@ -33,8 +36,9 @@ app.add_middleware(
 )
 
 # Register routers
-app.include_router(create_front_page_router())
+app.include_router(front_page_router)
 app.include_router(temp_player_router)
+app.include_router(weapon_info_router)
 
 
 # Background task setup
@@ -42,6 +46,7 @@ app.include_router(temp_player_router)
 async def startup_event():
     # Send Celery task
     celery.send_task("tasks.pull_data")
+    celery.send_task("tasks.update_weapon_info")
 
     # Start the pubsub listener in a separate daemon thread
     # pubsub_thread = threading.Thread(target=listen_for_updates, daemon=True)

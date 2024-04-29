@@ -23,8 +23,12 @@ function ChartController({ data, modes }) {
 
   return (
     <div>
-      <XChart data={data} mode={mode} colorMode={colorMode} />
-        <WeaponsChart data={data} mode={mode} colorMode={colorMode} />
+      <XChart data={data.player_data} mode={mode} colorMode={colorMode} />
+      <WeaponsChart
+        data={data.aggregated_data}
+        mode={mode}
+        colorMode={colorMode}
+      />
       <div className="relative controls-box border-2 border-gray-200 rounded-lg py-4 px-1 mt-5">
         <div className="absolute bg-gray-900">
           <h2 className="text-lg font-semibold rounded-sm">Controls</h2>
@@ -69,7 +73,7 @@ function ChartController({ data, modes }) {
             selectedMode={mode}
             setSelectedMode={handleModeChange}
             allowedModes={modes.map((mode) =>
-              data.some((d) => d.mode === mode)
+              data.player_data.some((d) => d.mode === mode)
             )}
             showTitle={false}
             modeButtonSize="mt-3"

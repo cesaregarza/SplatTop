@@ -1,24 +1,4 @@
-import { calculateSeasonByTimestamp } from "./xchart_helper_functions";
-
-const filterDataAndGroupByWeapon = (data, mode) => {
-  const filteredData = data
-    ? data.filter((d) => d.mode === mode && d.updated === true)
-    : [];
-
-  const groupedByWeaponAndSeason = filteredData.reduce((acc, item) => {
-    const { weapon_id, timestamp } = item;
-    const season = calculateSeasonByTimestamp(timestamp);
-    if (!acc[weapon_id]) {
-      acc[weapon_id] = {};
-    }
-    acc[weapon_id][season] = (acc[weapon_id][season] || 0) + 1;
-    return acc;
-  }, {});
-
-  return groupedByWeaponAndSeason;
-};
-
-const processGroupedData = (groupedData, seasons = null) => {
+function processGroupedData(groupedData, seasons = null) {
   const result = {};
   for (const weapon_id in groupedData) {
     let count = 0;
@@ -31,75 +11,116 @@ const processGroupedData = (groupedData, seasons = null) => {
     result[weapon_id] = count;
   }
   return result;
-};
+}
 
-const calculateTotalPercentage = (groupedByWeaponAndSeason) => {
-  let totalCounts = 0;
-  for (const weaponSeasons of Object.values(groupedByWeaponAndSeason)) {
-    for (const count of Object.values(weaponSeasons)) {
-      totalCounts += count;
-    }
-  }
-
+function calculateTotalPercentage(aggregatedData) {
+  let totalCounts = aggregatedData.reduce(
+    (acc, val) => acc + val.total_count,
+    0
+  );
   const groupedByPercent = {};
-  for (const weapon_id of Object.keys(groupedByWeaponAndSeason)) {
-    let countsForSeasons = 0;
-    for (const count of Object.values(groupedByWeaponAndSeason[weapon_id])) {
-      countsForSeasons += count;
+  for (const row of aggregatedData) {
+    if (row.weapon_id in groupedByPercent) {
+      groupedByPercent[row.weapon_id] += (row.total_count / totalCounts) * 100;
+    } else {
+      groupedByPercent[row.weapon_id] = (row.total_count / totalCounts) * 100;
     }
-    const percentage = (countsForSeasons / totalCounts) * 100;
-    groupedByPercent[weapon_id] = percentage;
   }
-
   return groupedByPercent;
-};
+}
 
-const computeDrilldown = (counts, percentageThreshold) => {
-  let otherIds = [];
+function computeDrilldown(counts, percentageThreshold, weaponReferenceData) {
+  const aggCounts = {};
+  const classAgg = {};
+
+  // Aggregate counts by weapon_id
+  for (const row of counts) {
+    if (row.weapon_id in aggCounts) {
+      aggCounts[row.weapon_id].total_count += row.total_count;
+      aggCounts[row.weapon_id].win_count += row.sum;
+    } else {
+      aggCounts[row.weapon_id] = {
+        total_count: row.total_count,
+        win_count: row.sum,
+      };
+    }
+  }
+
+  // Aggregate counts by class
+  for (const weapon_id in aggCounts) {
+    const weaponClass = weaponReferenceData[weapon_id]?.class || "Unknown";
+    if (weaponClass in classAgg) {
+      classAgg[weaponClass].total_count += aggCounts[weapon_id].total_count;
+      classAgg[weaponClass].weapons.push(weapon_id);
+    } else {
+      classAgg[weaponClass] = {
+        total_count: aggCounts[weapon_id].total_count,
+        weapons: [weapon_id],
+      };
+    }
+  }
+
+  const totalWeaponCount = Object.values(aggCounts).reduce(
+    (acc, val) => acc + val.total_count,
+    0
+  );
+
+  // Determine which classes are "Other"
   let otherCount = 0;
-  const percentage = calculateTotalPercentage(counts);
-
-  // Identify "other" categories based on the percentage threshold
-  for (const key in percentage) {
-    if (percentage[key] < percentageThreshold) {
-      otherIds.push(key);
-      otherCount += Object.values(counts[key]).reduce(
-        (acc, val) => acc + val,
-        0
-      );
+  const otherClasses = [];
+  const innerSeriesData = [];
+  for (const weaponClass in classAgg) {
+    const classPercentage =
+      (classAgg[weaponClass].total_count / totalWeaponCount) * 100;
+    if (classPercentage < percentageThreshold) {
+      otherClasses.push(...classAgg[weaponClass].weapons);
+      otherCount += classAgg[weaponClass].total_count;
+    } else {
+      innerSeriesData.push({
+        name: weaponClass,
+        y: (classAgg[weaponClass].total_count / totalWeaponCount) * 100,
+        drilldown: weaponClass,
+      });
     }
   }
 
-  // Prepare series data excluding "other" categories
-  let seriesCount = [];
-  for (const key in counts) {
-    if (!otherIds.includes(key)) {
-      seriesCount.push({ name: key, y: counts[key], drilldown: key });
+  // Add "Other" category
+  innerSeriesData.push({
+    name: "Other",
+    y: (otherCount / totalWeaponCount) * 100,
+    drilldown: "Other",
+  });
+
+  // Prepare outer series data and drilldown data
+  const outerSeriesData = [];
+  const drilldownData = [];
+  for (const weaponClass in classAgg) {
+    if (!otherClasses.includes(weaponClass)) {
+      const classData = classAgg[weaponClass].weapons.map((weapon_id) => ({
+        name: weapon_id,
+        y: (aggCounts[weapon_id].total_count / totalWeaponCount) * 100,
+      }));
+      outerSeriesData.push(...classData);
+      drilldownData.push({
+        id: weaponClass,
+        name: weaponClass,
+        data: classData,
+      });
     }
   }
 
-  // Add the "other" category to the series data
-  seriesCount.push({ name: "Other", y: otherCount, drilldown: "Other" });
-
-  // Prepare drilldown data for "other" categories
-  let drilldownData = [];
-  for (const key of otherIds) {
-    const sumValues = Object.values(counts[key]).reduce(
-      (acc, val) => acc + val,
-      0
-    );
-    drilldownData.push([key, sumValues]);
-  }
+  // Drilldown data for "Other"
+  const otherDrilldownData = otherClasses.map((weapon_id) => ({
+    name: weapon_id,
+    y: (aggCounts[weapon_id].total_count / totalWeaponCount) * 100,
+  }));
+  drilldownData.push({ id: "Other", name: "Other", data: otherDrilldownData });
 
   return {
-    seriesCount,
+    innerSeriesData,
+    outerSeriesData,
     drilldownData,
   };
-};
+}
 
-export {
-  filterDataAndGroupByWeapon,
-  processGroupedData,
-  calculateTotalPercentage,
-  computeDrilldown,
-};
+export { processGroupedData, calculateTotalPercentage, computeDrilldown };
