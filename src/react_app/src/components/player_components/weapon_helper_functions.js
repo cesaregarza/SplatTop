@@ -1,34 +1,3 @@
-function processGroupedData(groupedData, seasons = null) {
-  const result = {};
-  for (const weapon_id in groupedData) {
-    let count = 0;
-    for (const season in groupedData[weapon_id]) {
-      const seasonInt = parseInt(season);
-      if (!seasons || seasons.includes(seasonInt)) {
-        count += groupedData[weapon_id][season];
-      }
-    }
-    result[weapon_id] = count;
-  }
-  return result;
-}
-
-function calculateTotalPercentage(aggregatedData) {
-  let totalCounts = aggregatedData.reduce(
-    (acc, val) => acc + val.total_count,
-    0
-  );
-  const groupedByPercent = {};
-  for (const row of aggregatedData) {
-    if (row.weapon_id in groupedByPercent) {
-      groupedByPercent[row.weapon_id] += (row.total_count / totalCounts) * 100;
-    } else {
-      groupedByPercent[row.weapon_id] = (row.total_count / totalCounts) * 100;
-    }
-  }
-  return groupedByPercent;
-}
-
 function computeDrilldown(
   counts,
   percentageThreshold,
@@ -37,7 +6,6 @@ function computeDrilldown(
 ) {
   const aggCounts = {};
   const classAgg = {};
-  console.log("weaponReferenceData", weaponReferenceData);
 
   const translateWeaponId = (weapon_id) => {
     const weaponClass = weaponReferenceData[weapon_id]?.class;
@@ -148,4 +116,4 @@ function computeDrilldown(
   };
 }
 
-export { processGroupedData, calculateTotalPercentage, computeDrilldown };
+export { computeDrilldown };
