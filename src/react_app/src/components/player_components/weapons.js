@@ -14,6 +14,16 @@ const apiUrl = isDevelopment
   : process.env.REACT_APP_API_URL || "";
 const endpoint = `${apiUrl}/api/weapon_info`;
 
+const hues = [
+  0, 32.72727273, 65.45454545, 98.18181818, 130.90909091, 163.63636364,
+  196.36363636, 229.09090909, 261.81818182, 294.54545455, 327.27272727,
+];
+const weaponOrder = [
+  "Blaster",
+  "Roller",
+  "Shooter",
+]
+
 class WeaponsChart extends React.Component {
   constructor(props) {
     super(props);
@@ -31,22 +41,30 @@ class WeaponsChart extends React.Component {
   }
 
   fetchWeaponReferenceData() {
-    axios
-      .get(endpoint)
-      .then((response) => {
-        if (response.status === 200 && response.data) {
-          this.setState({ weaponReferenceData: response.data });
-          localStorage.setItem(
-            "weaponReferenceData",
-            JSON.stringify(response.data)
-          );
-        } else {
-          console.error("No data received:", response);
-        }
-      })
-      .catch((error) =>
-        console.error("Error fetching weapon reference data:", error)
-      );
+    const fetchData = () => {
+      axios
+        .get(endpoint)
+        .then((response) => {
+          if (response.status === 200 && response.data) {
+            this.setState({ weaponReferenceData: response.data });
+            localStorage.setItem(
+              "weaponReferenceData",
+              JSON.stringify(response.data)
+            );
+          } else {
+            console.error("No data received:", response);
+          }
+        })
+        .catch((error) => {
+          if (error.response && error.response.status === 503) {
+            console.error("Service unavailable, retrying fetch:", error);
+            setTimeout(fetchData, 1000);
+          } else {
+            console.error("Error fetching weapon reference data:", error);
+          }
+        });
+    };
+    fetchData();
   }
 
   render() {
@@ -65,6 +83,10 @@ class WeaponsChart extends React.Component {
         this.state.weaponReferenceData,
         weaponTranslations
       );
+
+    console.log("innerSeriesData", innerSeriesData);
+    console.log("outerSeriesData", outerSeriesData);
+    console.log("drilldownData", drilldownData);
 
     const totalUsage = innerSeriesData.reduce((acc, item) => acc + item.y, 0);
 
