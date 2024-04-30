@@ -52,6 +52,7 @@ class WeaponsChart extends React.Component {
   render() {
     const { weapon_winrate } = this.props.data;
     const { mode } = this.props;
+    const { weaponTranslations } = this.props;
 
     const filteredWinrate = weapon_winrate.filter((d) => d.mode === mode);
 
@@ -61,7 +62,8 @@ class WeaponsChart extends React.Component {
       computeDrilldown(
         filteredWinrate,
         otherThresholdPercent,
-        this.state.weaponReferenceData
+        this.state.weaponReferenceData,
+        weaponTranslations
       );
 
     const totalUsage = innerSeriesData.reduce((acc, item) => acc + item.y, 0);
@@ -83,6 +85,7 @@ class WeaponsChart extends React.Component {
           name: "Total Weapon Usage",
           colorByPoint: true,
           data: innerSeriesData.map((item) => ({
+            name: weaponTranslations[item.name] || item.name, // Use translated name if available
             name: item.name,
             y: (item.y / totalUsage) * 100,
             drilldown: item.name,

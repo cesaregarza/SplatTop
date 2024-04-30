@@ -6,7 +6,7 @@ import ChartController from "./player_components/chart_controller";
 import Aliases from "./player_components/aliases";
 import { modes } from "./constants";
 
-import { filterDataAndGroupByWeapon, processGroupedData } from "./player_components/weapon_helper_functions";
+const DEFAULT_LANGUAGE = "USen";
 
 const PlayerTest = () => {
   const location = useLocation();
@@ -15,6 +15,7 @@ const PlayerTest = () => {
   const [chartData, setChartData] = useState(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [weaponTranslations, setWeaponTranslations] = useState(null);
 
   useEffect(() => {
     const fetchData = async () => {
@@ -22,12 +23,18 @@ const PlayerTest = () => {
       document.title = "splat.top - Player Page";
       const apiUrl = "http://localhost:5000";
       const endpoint = `${apiUrl}/player_test/${player_id}`;
+      const translationEndpoint = `${apiUrl}/api/game_translation`;
+
       try {
         const response = await axios.get(endpoint);
         setData(response.data);
         if (response.data && response.data.length > 0) {
           document.title = `splat.top - ${response.data[0].splashtag}`;
         }
+
+        const translationsResponse = await axios.get(translationEndpoint);
+        setWeaponTranslations(translationsResponse.data);
+        console.log(translationsResponse.data);
 
         const socket = new WebSocket(
           `${apiUrl.replace("http", "ws")}/ws/player/${player_id}`
@@ -77,6 +84,7 @@ const PlayerTest = () => {
                     <ChartController
                       data={chartData}
                       modes={modes}
+                      weaponTranslations={weaponTranslations[DEFAULT_LANGUAGE]}
                     />
                   ) : (
                     <Loading text={"Loading chart..."} />

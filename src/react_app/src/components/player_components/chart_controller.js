@@ -3,7 +3,7 @@ import ModeSelector from "../top500_components/selectors/mode_selector";
 import XChart from "./xchart";
 import WeaponsChart from "./weapons";
 
-function ChartController({ data, modes }) {
+function ChartController({ data, modes, weaponTranslations }) {
   const [mode, setMode] = useState(modes[0]);
   const [colorMode, setColorMode] = useState("Seasonal");
 
@@ -28,6 +28,7 @@ function ChartController({ data, modes }) {
         data={data.aggregated_data}
         mode={mode}
         colorMode={colorMode}
+        weaponTranslations={weaponTranslations}
       />
       <div className="relative controls-box border-2 border-gray-200 rounded-lg py-4 px-1 mt-5">
         <div className="absolute bg-gray-900">

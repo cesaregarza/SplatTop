@@ -29,33 +29,58 @@ function calculateTotalPercentage(aggregatedData) {
   return groupedByPercent;
 }
 
-function computeDrilldown(counts, percentageThreshold, weaponReferenceData) {
+function computeDrilldown(
+  counts,
+  percentageThreshold,
+  weaponReferenceData,
+  weaponTranslations
+) {
   const aggCounts = {};
   const classAgg = {};
+  console.log("weaponReferenceData", weaponReferenceData);
 
-  // Aggregate counts by weapon_id
+  const translateWeaponId = (weapon_id) => {
+    const weaponClass = weaponReferenceData[weapon_id]?.class;
+    const kit = weaponReferenceData[weapon_id]?.reference_kit;
+    const translationKey = `${weaponClass}_${kit}`;
+    return weaponTranslations[`WeaponName_Main`][translationKey];
+  };
+
+  const translateClassName = (className) => {
+    return weaponTranslations["WeaponTypeName"][className];
+  };
+
+  // Aggregate counts by translated weapon ID
   for (const row of counts) {
-    if (row.weapon_id in aggCounts) {
-      aggCounts[row.weapon_id].total_count += row.total_count;
-      aggCounts[row.weapon_id].win_count += row.sum;
+    const translatedWeaponId = translateWeaponId(row.weapon_id);
+    if (translatedWeaponId in aggCounts) {
+      aggCounts[translatedWeaponId].total_count += row.total_count;
+      aggCounts[translatedWeaponId].win_count += row.sum;
     } else {
-      aggCounts[row.weapon_id] = {
+      aggCounts[translatedWeaponId] = {
         total_count: row.total_count,
         win_count: row.sum,
       };
     }
   }
 
-  // Aggregate counts by class
-  for (const weapon_id in aggCounts) {
-    const weaponClass = weaponReferenceData[weapon_id]?.class || "Unknown";
+  // Aggregate counts by class using original weapon ID for class determination
+  for (const translatedWeaponId in aggCounts) {
+    const originalWeaponId = Object.keys(weaponReferenceData).find(
+      (id) => translateWeaponId(id) === translatedWeaponId
+    );
+    const weaponClass = translateClassName(
+      weaponReferenceData[originalWeaponId]?.class
+    );
+
     if (weaponClass in classAgg) {
-      classAgg[weaponClass].total_count += aggCounts[weapon_id].total_count;
-      classAgg[weaponClass].weapons.push(weapon_id);
+      classAgg[weaponClass].total_count +=
+        aggCounts[translatedWeaponId].total_count;
+      classAgg[weaponClass].weapons.push(translatedWeaponId);
     } else {
       classAgg[weaponClass] = {
-        total_count: aggCounts[weapon_id].total_count,
-        weapons: [weapon_id],
+        total_count: aggCounts[translatedWeaponId].total_count,
+        weapons: [translatedWeaponId],
       };
     }
   }

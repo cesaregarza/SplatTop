@@ -205,8 +205,8 @@ def process_rowid(row_id: str) -> dict[str, str]:
 
     return {
         "class": weapon_class,
-        "kit": weapon_main + weapon_suffix,
-        "reference_kit": weapon_main + weapon_reference_suffix,
+        "kit": f"{weapon_main}_{weapon_suffix}",
+        "reference_kit": f"{weapon_main}_{weapon_reference_suffix}",
     }
 
 
@@ -222,12 +222,14 @@ def process_weapon_data(preprocessed_data: dict[int, dict]) -> dict[int, dict]:
         }
     return out
 
+
 def pull_language_data(client: boto3.client, language: str):
     BASE_KEY = "CommonMsg/Weapon/%s"
     KEYS = [
         "WeaponName_Main",
         "WeaponName_Sub",
         "WeaponName_Special",
+        "WeaponTypeName",
     ]
     response = requests.get(LANGUAGE_BASE_URL % language)
     data = orjson.loads(response.text)
@@ -238,6 +240,7 @@ def pull_language_data(client: boto3.client, language: str):
         Key=f"{LANGUAGE_PATH}/{language}.json",
         Body=orjson.dumps(data),
     )
+
 
 def pull_all_language_data(client: boto3.client):
     for language in SUPPORTED_LANGUAGES:

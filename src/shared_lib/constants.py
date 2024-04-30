@@ -18,3 +18,14 @@ WEAPON_INFO_URL = (
     "https://splat-top.nyc3.cdn.digitaloceanspaces.com/data/weapon_info.json"
 )
 WEAPON_INFO_REDIS_KEY = "weapon_info"
+GAME_TRANSLATION_BASE_URL = (
+    "https://splat-top.nyc3.digitaloceanspaces.com/data/language/%s.json"
+)
+LANGUAGES = [
+    "USen",
+    "USes",
+    "JPja",
+    "EUfr",
+    "EUde",
+]
+GAME_TRANSLATION_REDIS_KEY = "weapon_translations"
