@@ -18,6 +18,15 @@ BASE_XREF_URL = f"{RAW_URL}/data/mush/%s"
 WEAPON_ID_XREF = f"{BASE_XREF_URL}/WeaponInfoMain.json"
 BADGE_ID_XREF = f"{BASE_XREF_URL}/BadgeInfo.json"
 BANNER_ID_XREF = f"{BASE_XREF_URL}/NamePlateBgInfo.json"
+LANGUAGE_BASE_URL = f"{RAW_URL}/data/language/%s.json"
+
+SUPPORTED_LANGUAGES = [
+    "USen",
+    "USes",
+    "JPja",
+    "EUfr",
+    "EUde",
+]
 
 BUCKET_NAME = "splat-top"
 ASSETS_PATH = "assets"
@@ -25,10 +34,12 @@ WEAPON_PATH = "images/weapon_flat"
 BADGE_PATH = "images/badge"
 BANNER_PATH = "images/npl"
 DATA_PATH = "data"
+LANGUAGE_PATH = f"{DATA_PATH}/language"
 
 WEAPON_KEY = f"{ASSETS_PATH}/weapon_flat"
 BADGE_KEY = f"{ASSETS_PATH}/badge"
 BANNER_KEY = f"{ASSETS_PATH}/npl"
+
 
 KIT_XREF = {"H": "00", "O": "00", "Oct": "01"}
 
@@ -211,6 +222,27 @@ def process_weapon_data(preprocessed_data: dict[int, dict]) -> dict[int, dict]:
         }
     return out
 
+def pull_language_data(client: boto3.client, language: str):
+    BASE_KEY = "CommonMsg/Weapon/%s"
+    KEYS = [
+        "WeaponName_Main",
+        "WeaponName_Sub",
+        "WeaponName_Special",
+    ]
+    response = requests.get(LANGUAGE_BASE_URL % language)
+    data = orjson.loads(response.text)
+    data = {k: data[BASE_KEY % k] for k in KEYS}
+    client.put_object(
+        ACL="public-read",
+        Bucket=BUCKET_NAME,
+        Key=f"{LANGUAGE_PATH}/{language}.json",
+        Body=orjson.dumps(data),
+    )
+
+def pull_all_language_data(client: boto3.client):
+    for language in SUPPORTED_LANGUAGES:
+        pull_language_data(client, language)
+
 
 def main():
     try:
@@ -241,6 +273,7 @@ def main():
         print("Assets updated.")
         print("Updating data...")
         update_data(client)
+        pull_all_language_data(client)
         print("Data updated.")
     except Exception as e:
         print(f"An error occurred: {e}")
