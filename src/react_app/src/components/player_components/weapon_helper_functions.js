@@ -6,7 +6,9 @@ function computeDrilldown(
 ) {
   const aggCounts = {};
   const classAgg = {};
+  const weaponToClassMap = {};
 
+  // Helper function to translate weapon IDs using the provided translation data
   const translateWeaponId = (weapon_id) => {
     const weaponClass = weaponReferenceData[weapon_id]?.class;
     const kit = weaponReferenceData[weapon_id]?.reference_kit;
@@ -14,6 +16,8 @@ function computeDrilldown(
     return weaponTranslations[`WeaponName_Main`][translationKey];
   };
 
+  // Helper function to translate class names using the provided translation
+  //data
   const translateClassName = (className) => {
     return weaponTranslations["WeaponTypeName"][className];
   };
@@ -40,6 +44,7 @@ function computeDrilldown(
     const weaponClass = translateClassName(
       weaponReferenceData[originalWeaponId]?.class
     );
+    weaponToClassMap[translatedWeaponId] = weaponClass;
 
     if (weaponClass in classAgg) {
       classAgg[weaponClass].total_count +=
@@ -58,7 +63,7 @@ function computeDrilldown(
     0
   );
 
-  // Determine which classes are "Other"
+  // Determine which classes are "Other" based on the percentage threshold
   let otherCount = 0;
   const otherClasses = [];
   const innerSeriesData = [];
@@ -68,6 +73,9 @@ function computeDrilldown(
     if (classPercentage < percentageThreshold) {
       otherClasses.push(...classAgg[weaponClass].weapons);
       otherCount += classAgg[weaponClass].total_count;
+      classAgg[weaponClass].weapons.forEach((weapon) => {
+        weaponToClassMap[weapon] = "Other";
+      });
     } else {
       innerSeriesData.push({
         name: weaponClass,
@@ -77,32 +85,50 @@ function computeDrilldown(
     }
   }
 
-  // Add "Other" category
+  // Add "Other" category to inner series data
   innerSeriesData.push({
     name: "Other",
     y: (otherCount / totalWeaponCount) * 100,
     drilldown: "Other",
   });
 
+  // Sort inner series data by prevalence (descending order)
+  innerSeriesData.sort((a, b) => b.y - a.y);
+
   // Prepare outer series data and drilldown data
   const outerSeriesData = [];
   const drilldownData = [];
   for (const weaponClass in classAgg) {
-    if (!otherClasses.includes(weaponClass)) {
-      const classData = classAgg[weaponClass].weapons.map((weapon_id) => ({
-        name: weapon_id,
-        y: (aggCounts[weapon_id].total_count / totalWeaponCount) * 100,
-      }));
-      outerSeriesData.push(...classData);
-      drilldownData.push({
-        id: weaponClass,
-        name: weaponClass,
-        data: classData,
-      });
-    }
+    const classData = classAgg[weaponClass].weapons.map((weapon_id) => ({
+      name: weapon_id,
+      y: (aggCounts[weapon_id].total_count / totalWeaponCount) * 100,
+    }));
+    outerSeriesData.push(...classData);
+    drilldownData.push({
+      id: weaponClass,
+      name: weaponClass,
+      data: classData,
+    });
   }
 
-  // Drilldown data for "Other"
+  // Create a mapping of weaponClass to its index in innerSeriesData for sorting
+  const classRanking = innerSeriesData.reduce((acc, item, index) => {
+    acc[item.name] = index;
+    return acc;
+  }, {});
+
+  // Sort outer series data first by the rank in inner series data, then by y
+  //(descending order)
+  outerSeriesData.sort((a, b) => {
+    const classAIndex = classRanking[weaponToClassMap[a.name]];
+    const classBIndex = classRanking[weaponToClassMap[b.name]];
+    if (classAIndex !== classBIndex) {
+      return classAIndex - classBIndex;
+    }
+    return b.y - a.y;
+  });
+
+  // Drilldown data for "Other" category
   const otherDrilldownData = otherClasses.map((weapon_id) => ({
     name: weapon_id,
     y: (aggCounts[weapon_id].total_count / totalWeaponCount) * 100,
