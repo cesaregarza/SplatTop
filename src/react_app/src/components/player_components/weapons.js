@@ -14,7 +14,6 @@ const apiUrl = isDevelopment
   : process.env.REACT_APP_API_URL || "";
 const endpoint = `${apiUrl}/api/weapon_info`;
 
-
 class WeaponsChart extends React.Component {
   constructor(props) {
     super(props);
@@ -105,7 +104,12 @@ class WeaponsChart extends React.Component {
           })),
           size: "60%",
           dataLabels: {
-            enabled: false,
+            enabled: true,
+            distance: -30,
+            inside: true,
+            formatter: function () {
+              return `<span style="color: #000000;">${this.point.name}</span>`;
+            },
           },
         },
         {
@@ -133,13 +137,13 @@ class WeaponsChart extends React.Component {
         },
       ],
       drilldown: {
-        series: drilldownData.map(series => ({
+        series: drilldownData.map((series) => ({
           ...series,
-          data: series.data.map(item => ({
+          data: series.data.map((item) => ({
             name: item.name,
             y: item.y,
-            color: item.color // Ensuring drilldown data also has colors
-          }))
+            color: item.color, // Ensuring drilldown data also has colors
+          })),
         })),
         breadcrumbs: {
           style: {
@@ -186,6 +190,10 @@ class WeaponsChart extends React.Component {
       },
       legend: {
         enabled: false,
+      },
+      activeDataLabelStyle: {
+        textDecoration: "none",
+        color: "#ab5ab7",
       },
     };
 
