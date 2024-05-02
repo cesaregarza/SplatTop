@@ -235,6 +235,7 @@ function computeDrilldown(
       name: item.name,
       y: item.y,
       color: newColor,
+      classColor: entry.color.hex(),
     });
   });
 
@@ -245,9 +246,7 @@ function computeDrilldown(
     return {
       name: weapon_id,
       y: weaponPercentage,
-      color: chroma(translatedWeaponColors["Other"].color)
-        .brighten((50 - weaponPercentage / 2) / 100)
-        .hex(),
+      color: translatedWeaponColors["Other"].color.hex(),
     };
   });
   drilldownData.push({ id: "Other", name: "Other", data: otherDrilldownData });

@@ -101,6 +101,7 @@ class WeaponsChart extends React.Component {
             y: (item.y / totalUsage) * 100,
             drilldown: item.name,
             color: item.color, // Assigning color from the computed data
+            classColor: item.color,
           })),
           size: "60%",
           dataLabels: {
@@ -119,6 +120,7 @@ class WeaponsChart extends React.Component {
             name: item.name,
             y: (item.y / totalUsage) * 100,
             color: item.color, // Assigning color from the computed data
+            classColor: item.classColor, // Ensuring drilldown data also has colors
           })),
           size: "100%",
           innerSize: "60%",
@@ -143,6 +145,7 @@ class WeaponsChart extends React.Component {
             name: item.name,
             y: item.y,
             color: item.color, // Ensuring drilldown data also has colors
+            classColor: item.color,
           })),
         })),
         breadcrumbs: {
@@ -180,7 +183,7 @@ class WeaponsChart extends React.Component {
       tooltip: {
         headerFormat: '<span style="font-size:11px">{series.name}</span><br>',
         pointFormat:
-          '<span style="color:{point.color}">{point.name}</span>: <b>{point.y:.2f}%</b> of total<br>',
+          '<span style="color:{point.classColor}">{point.name}</span>: <b>{point.y:.2f}%</b> of total<br>',
       },
       plotOptions: {
         pie: {
