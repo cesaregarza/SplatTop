@@ -211,18 +211,18 @@ function computeDrilldown(
   console.log("preOuterSeriesData", preOuterSeriesData);
 
   // Create a mapping of weaponClass to its start index in outerSeriesData
-const classStartIndices = innerSeriesData.reduce((acc, item, index) => {
-  for (let i = 0; i < preOuterSeriesData.length; i++) {
-    const weapon = preOuterSeriesData[i];
-    if (weaponToClassMap[weapon.name] === item.name) {
-      acc[item.name] = i;
-      break;
+  const classStartIndices = innerSeriesData.reduce((acc, item, index) => {
+    for (let i = 0; i < preOuterSeriesData.length; i++) {
+      const weapon = preOuterSeriesData[i];
+      if (weaponToClassMap[weapon.name] === item.name) {
+        acc[item.name] = i;
+        break;
+      }
     }
-  }
-  return acc;
-}, {});
+    return acc;
+  }, {});
 
-console.log("classStartIndices", classStartIndices);
+  console.log("classStartIndices", classStartIndices);
 
   // Adjust brightness of colors based on weapon index
   const outerSeriesData = [];
