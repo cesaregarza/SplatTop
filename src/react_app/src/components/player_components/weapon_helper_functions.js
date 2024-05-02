@@ -55,7 +55,6 @@ function adjustBrightnessByRank(labColor, rank, delta, maxRank, invert) {
   const [l, a, b] = labColor;
   const clampedRank = Math.min(Math.max(rank, 0), maxRank);
   const newL = l + (invert ? -1 : 1) * clampedRank * delta;
-  console.log("l, newL", l, newL, invert);
   return chroma.lab(newL, a, b).hex();
 }
 
@@ -96,7 +95,6 @@ function computeDrilldown(
       color: color,
     };
   }
-  console.log("translatedWeaponColors", translatedWeaponColors);
 
   // Aggregate counts by translated weapon ID
   for (const row of counts) {
@@ -208,7 +206,6 @@ function computeDrilldown(
     }
     return b.y - a.y;
   });
-  console.log("preOuterSeriesData", preOuterSeriesData);
 
   // Create a mapping of weaponClass to its start index in outerSeriesData
   const classStartIndices = innerSeriesData.reduce((acc, item, index) => {
@@ -222,8 +219,6 @@ function computeDrilldown(
     return acc;
   }, {});
 
-  console.log("classStartIndices", classStartIndices);
-
   // Adjust brightness of colors based on weapon index
   const outerSeriesData = [];
   preOuterSeriesData.forEach((item, index) => {
@@ -236,15 +231,12 @@ function computeDrilldown(
       maxRank,
       entry.colorType === "dark"
     );
-    console.log("oldColor", entry.color.hex());
-    console.log("newColor", newColor);
     outerSeriesData.push({
       name: item.name,
       y: item.y,
       color: newColor,
     });
   });
-  console.log("outerSeriesData", outerSeriesData);
 
   // Drilldown data for "Other" category
   const otherDrilldownData = otherClasses.map((weapon_id) => {
