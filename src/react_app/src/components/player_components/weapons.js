@@ -14,15 +14,6 @@ const apiUrl = isDevelopment
   : process.env.REACT_APP_API_URL || "";
 const endpoint = `${apiUrl}/api/weapon_info`;
 
-const hues = [
-  0, 32.72727273, 65.45454545, 98.18181818, 130.90909091, 163.63636364,
-  196.36363636, 229.09090909, 261.81818182, 294.54545455, 327.27272727,
-];
-const weaponOrder = [
-  "Blaster",
-  "Roller",
-  "Shooter",
-]
 
 class WeaponsChart extends React.Component {
   constructor(props) {
@@ -108,9 +99,9 @@ class WeaponsChart extends React.Component {
           colorByPoint: true,
           data: innerSeriesData.map((item) => ({
             name: weaponTranslations[item.name] || item.name, // Use translated name if available
-            name: item.name,
             y: (item.y / totalUsage) * 100,
             drilldown: item.name,
+            color: item.color, // Assigning color from the computed data
           })),
           size: "60%",
           dataLabels: {
@@ -123,6 +114,7 @@ class WeaponsChart extends React.Component {
           data: outerSeriesData.map((item) => ({
             name: item.name,
             y: (item.y / totalUsage) * 100,
+            color: item.color, // Assigning color from the computed data
           })),
           size: "100%",
           innerSize: "60%",
@@ -141,7 +133,14 @@ class WeaponsChart extends React.Component {
         },
       ],
       drilldown: {
-        series: drilldownData,
+        series: drilldownData.map(series => ({
+          ...series,
+          data: series.data.map(item => ({
+            name: item.name,
+            y: item.y,
+            color: item.color // Ensuring drilldown data also has colors
+          }))
+        })),
         breadcrumbs: {
           style: {
             fontSize: "14px",
