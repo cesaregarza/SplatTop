@@ -2,10 +2,12 @@ import React, { useState, useEffect } from "react";
 import ModeSelector from "../top500_components/selectors/mode_selector";
 import XChart from "./xchart";
 import WeaponsChart from "./weapons";
+import SeasonSelector from "./season_selector";
 
 function ChartController({ data, modes, weaponTranslations }) {
   const [mode, setMode] = useState(modes[0]);
   const [colorMode, setColorMode] = useState("Seasonal");
+  const [selectedSeasons, setSelectedSeasons] = useState([]);
 
   useEffect(() => {
     // This could be used to fetch additional data or perform setup operations
@@ -21,11 +23,30 @@ function ChartController({ data, modes, weaponTranslations }) {
     );
   };
 
+  const handleSeasonChange = (seasons) => {
+    setSelectedSeasons(seasons);
+  };
+
+  const filterBySeasonAndMode = (data) => {
+    if (selectedSeasons.length === 0) {
+      return data.filter((d) => d.mode === mode);
+    } else {
+      return data.filter(
+        (d) => d.mode === mode && selectedSeasons.includes(d.season_number)
+      );
+    }
+  };
+
+  const filteredAggregatedData = {
+    weapon_counts: filterBySeasonAndMode(data.aggregated_data.weapon_counts),
+    weapon_winrate: filterBySeasonAndMode(data.aggregated_data.weapon_winrate),
+  };
+
   return (
     <div>
       <XChart data={data.player_data} mode={mode} colorMode={colorMode} />
       <WeaponsChart
-        data={data.aggregated_data}
+        data={filteredAggregatedData}
         mode={mode}
         colorMode={colorMode}
         weaponTranslations={weaponTranslations}
@@ -79,6 +100,11 @@ function ChartController({ data, modes, weaponTranslations }) {
             showTitle={false}
             modeButtonSize="mt-3"
             baseClass="w-full sm:w-auto"
+          />
+          <SeasonSelector
+            data={data.aggregated_data}
+            mode={mode}
+            onSeasonChange={handleSeasonChange}
           />
         </div>
       </div>

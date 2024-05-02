@@ -209,3 +209,4 @@ class WeaponsChart extends React.Component {
 }
 
 export default WeaponsChart;
+

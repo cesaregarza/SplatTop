@@ -39,7 +39,6 @@ class XChart extends React.Component {
       true,
       festivalDates
     );
-    
 
     const currentPercentage = getPercentageInSeason(new Date(), currentSeason);
 
@@ -146,16 +145,14 @@ class XChart extends React.Component {
         pointStart: 0,
         pointInterval: 20,
         color:
-          (colorMode === "Seasonal"
+          colorMode === "Seasonal"
             ? getSeasonColor(seasonData.season, seasonData.isCurrent)
-            : getAccessibleColor(
-                seasonData.season,
-            )
-          ),
+            : getAccessibleColor(seasonData.season),
         zIndex: seasonData.isCurrent ? 10 : 0,
-        lineWidth: (colorMode === "Seasonal")
-          ? getDefaultWidth(seasonData.isCurrent)
-          : getAccessibleWidth(seasonData.season),
+        lineWidth:
+          colorMode === "Seasonal"
+            ? getDefaultWidth(seasonData.isCurrent)
+            : getAccessibleWidth(seasonData.season),
         enableMouseTracking: seasonData.isCurrent,
         marker: {
           states: {
