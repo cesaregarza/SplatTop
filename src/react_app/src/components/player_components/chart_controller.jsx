@@ -43,7 +43,7 @@ function ChartController({ data, modes, weaponTranslations }) {
   };
 
   return (
-    <div>
+    <div className="pb-24">
       <XChart data={data.player_data} mode={mode} colorMode={colorMode} />
       <WeaponsChart
         data={filteredAggregatedData}

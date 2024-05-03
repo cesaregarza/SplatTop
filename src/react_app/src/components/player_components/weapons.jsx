@@ -86,6 +86,36 @@ class WeaponsChart extends React.Component {
         height: 400,
         backgroundColor: "#1a202c",
       },
+      responsive: {
+        rules: [
+          {
+            condition: {
+              maxWidth: 500,
+            },
+            chartOptions: {
+              chart: {
+                height: 250,
+              },
+              series: [
+                {},
+                {
+                  dataLabels: {
+                    formatter: function () {
+                      return `<b style="font-size: 9px;">${this.point.name}</b>`;
+                    },
+                    filter: {
+                      property: "percentage",
+                      operator: ">",
+                      value: 5,
+                    },
+                    distance: 5,
+                  },
+                },
+              ],
+            },
+          },
+        ],
+      },
       title: {
         text: `${mode} Weapons Usage`,
         style: {
@@ -189,6 +219,10 @@ class WeaponsChart extends React.Component {
         pie: {
           allowPointSelect: true,
           cursor: "pointer",
+          dataLabels: {
+            connectorColor: "#FFFFFF",
+            overflow: "justify",
+          },
         },
       },
       legend: {
@@ -209,4 +243,3 @@ class WeaponsChart extends React.Component {
 }
 
 export default WeaponsChart;
-
