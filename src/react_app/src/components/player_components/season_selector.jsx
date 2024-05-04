@@ -43,9 +43,6 @@ function SeasonSelector({ data, mode, onSeasonChange }) {
     };
   }, []);
 
-  const columnCount = 3;
-  const columnSize = Math.ceil(seasonNumbers.length / columnCount);
-
   return (
     <div className="flex justify-center">
       <div className="relative inline-block text-left" ref={menuRef}>
@@ -86,36 +83,28 @@ function SeasonSelector({ data, mode, onSeasonChange }) {
               aria-orientation="vertical"
               aria-labelledby="options-menu"
             >
-              {Array.from({ length: columnCount }, (_, columnIndex) => (
-                <div key={columnIndex} className="px-2">
-                  {seasonNumbers
-                    .slice(
-                      columnIndex * columnSize,
-                      (columnIndex + 1) * columnSize
-                    )
-                    .map((season) => (
-                      <label
-                        key={season}
-                        className={`flex items-center py-2 px-4 text-sm ${
-                          isSeasonAvailable(season)
-                            ? "text-white hover:bg-gray-800 hover:text-purple-400"
-                            : "text-gray-500"
-                        } ${
-                          selectedSeasons.includes(season)
-                            ? "bg-purple-900 text-purple-400"
-                            : ""
-                        } rounded-md cursor-pointer transition duration-200 ease-in-out`}
-                      >
-                        <input
-                          type="checkbox"
-                          checked={selectedSeasons.includes(season)}
-                          onChange={() => handleSeasonChange(season)}
-                          className="mr-2"
-                        />
-                        <span>{getSeasonName(season)}</span>
-                      </label>
-                    ))}
-                </div>
+              {seasonNumbers.map((season) => (
+                <label
+                  key={season}
+                  className={`flex items-center py-2 px-4 text-sm w-full ${
+                    isSeasonAvailable(season)
+                      ? "text-white hover:bg-gray-800 hover:text-purple-400"
+                      : "text-gray-500"
+                  } ${
+                    selectedSeasons.includes(season)
+                      ? "bg-purple-900 text-purple-400"
+                      : ""
+                  } rounded-md cursor-pointer transition duration-200 ease-in-out`}
+                  style={{ minWidth: "33%" }} // Ensuring each cell has equal width
+                >
+                  <input
+                    type="checkbox"
+                    checked={selectedSeasons.includes(season)}
+                    onChange={() => handleSeasonChange(season)}
+                    className="mr-2"
+                  />
+                  <span>{getSeasonName(season)}</span>
+                </label>
               ))}
             </div>
             <div className="absolute bottom-0 left-0 right-0 h-4 bg-gradient-to-t from-gray-900"></div>
