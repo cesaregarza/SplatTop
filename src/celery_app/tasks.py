@@ -27,6 +27,7 @@ from shared_lib.queries.front_page_queries import LEADERBOARD_MAIN_QUERY
 from shared_lib.queries.player_queries import (
     PLAYER_DATA_QUERY,
     PLAYER_LATEST_QUERY,
+    SEASON_RESULTS_QUERY,
 )
 from shared_lib.utils import get_badge_image, get_banner_image, get_weapon_image
 
@@ -96,10 +97,13 @@ def fetch_player_data(player_id: str) -> None:
     if redis_conn.exists(cache_key):
         logging.info("Data already exists in cache. Skipping fetch.")
     else:
-        result = _fetch_player_data(player_id)
+        player_result = _fetch_player_data(player_id)
+        season_result = _fetch_season_data(player_id)
         result = {
-            "player_data": result,
-            "aggregated_data": aggregate_player_data(result),
+            "player_data": player_result,
+            "aggregated_data": aggregate_player_data(
+                player_result, season_result
+            ),
         }
         redis_conn.set(cache_key, orjson.dumps(result), ex=60)
 
@@ -130,14 +134,31 @@ def _fetch_player_data(player_id: str) -> list[dict]:
     return result
 
 
-def aggregate_player_data(player_data: list[dict]) -> dict:
+def _fetch_season_data(player_id: str) -> list[dict]:
+    base_query = text(SEASON_RESULTS_QUERY)
+    with Session() as session:
+        result = session.execute(
+            base_query, {"player_id": player_id}
+        ).fetchall()
+
+    result = [{**row._asdict()} for row in result]
+
+    return result
+
+
+def aggregate_player_data(
+    player_data: list[dict], season_data: list[dict]
+) -> dict:
     logging.info("Aggregating player data")
     player_df = pd.DataFrame(player_data)
     weapon_counts = aggregate_weapon_counts(player_df)
     weapon_winrate = aggregate_weapon_winrate(player_df)
+    latest_data = calculate_latest_data(player_df)
     return {
         "weapon_counts": weapon_counts,
         "weapon_winrate": weapon_winrate,
+        "season_results": season_data,
+        "latest_data": latest_data,
     }
 
 
@@ -165,6 +186,14 @@ def aggregate_weapon_winrate(player_df: pd.DataFrame) -> list[dict]:
         .rename(columns={"win": "win_count", "count": "total_count"})
         .to_dict(orient="records")
     )
+
+
+def calculate_latest_data(player_df: pd.DataFrame) -> dict:
+    latest_timestamps = player_df.groupby("mode")["timestamp"].max()
+    latest_data = player_df[
+        player_df["timestamp"].isin(latest_timestamps)
+    ].to_dict(orient="records")
+    return latest_data
 
 
 @celery.task(name="tasks.update_weapon_info")

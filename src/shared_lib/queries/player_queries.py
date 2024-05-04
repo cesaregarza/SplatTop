@@ -41,3 +41,9 @@ SELECT *
 FROM xscraper.players
 WHERE player_id = :player_id
 """
+
+SEASON_RESULTS_QUERY = """
+SELECT *
+FROM xscraper.season_results
+WHERE player_id = :player_id
+"""

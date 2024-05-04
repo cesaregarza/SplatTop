@@ -4,6 +4,7 @@ import axios from "axios";
 import Loading from "./loading";
 import ChartController from "./player_components/chart_controller";
 import Aliases from "./player_components/aliases";
+import SeasonResults from "./player_components/season_results";
 import { modes } from "./constants";
 
 const DEFAULT_LANGUAGE = "USen";
@@ -78,6 +79,7 @@ const PlayerTest = () => {
               <div className="flex flex-col md:flex-row">
                 <div className="md:w-1/3 md:pr-8">
                   <Aliases data={data} />
+                  {chartData ? <SeasonResults data={chartData} /> : <Loading text="Loading season results..." />}
                 </div>
                 <div className="md:w-2/3 mt-8 md:mt-0">
                   {chartData ? (
