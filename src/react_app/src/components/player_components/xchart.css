@@ -44,10 +44,10 @@
   background: linear-gradient(
     to left top,
     #117733 23%,
-    #DDCC77 26% 49%,
-    #AA4499 52% 75%,
+    #ddcc77 26% 49%,
+    #aa4499 52% 75%,
     #332288 78%
-  )
+  );
 }
 
 .controls-box > div.absolute {
@@ -61,3 +61,27 @@ span.highlighted-option {
   font-weight: bold;
 }
 
+.aliases-container {
+  width: 100%;
+}
+
+.aliases-title {
+  font-size: 1.5rem;
+  font-weight: bold;
+  margin-bottom: 1rem;
+}
+
+.aliases-table {
+  width: 100%;
+  text-align: left;
+  border: 1px solid #e2e8f0;
+  table-layout: fixed;
+}
+
+.aliases-table-row {
+  border-bottom: 1px solid #edf2f7;
+}
+
+.aliases-table-cell {
+  padding: 0.5rem 1rem;
+}
