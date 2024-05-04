@@ -2,7 +2,7 @@ import React from "react";
 
 const Aliases = ({ data }) => {
   return (
-    <div className="aliases-container mx-auto w-full mt-5">
+    <div className="aliases-container mx-auto w-full">
       <h2 className="aliases-title text-2xl font-bold mb-4">Aliases</h2>
       <div className="relative overflow-y-auto max-h-48">
         <table className="aliases-table w-full border-collapse">
