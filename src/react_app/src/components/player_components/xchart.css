@@ -78,6 +78,10 @@ span.highlighted-option {
   table-layout: fixed;
 }
 
+.aliases-header {
+  top: -1px;
+}
+
 .aliases-table-row {
   border-bottom: 1px solid #edf2f7;
 }
