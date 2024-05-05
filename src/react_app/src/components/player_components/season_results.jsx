@@ -4,6 +4,8 @@ import SplatZonesIcon from "../../assets/icons/splat_zones.png";
 import TowerControlIcon from "../../assets/icons/tower_control.png";
 import RainmakerIcon from "../../assets/icons/rainmaker.png";
 import ClamBlitzIcon from "../../assets/icons/clam_blitz.png";
+import Top10Badge from "../top500_components/badges/top10_badge";
+import Top500Badge from "../top500_components/badges/top500_badge";
 
 const modeIcons = {
   "Splat Zones": SplatZonesIcon,
@@ -24,9 +26,9 @@ const SeasonResults = (data) => {
       (item, index, self) =>
         index === self.findIndex((t) => t.mode === item.mode)
     )
-    .map((item) => ({ ...item, season_number: item.season_number + 2 }));
+    .map((item) => ({ ...item, season_number: item.season_number + 1 }));
 
-  const currentSeason = calculateSeasonNow() + 2;
+  const currentSeason = calculateSeasonNow() + 1;
   const combinedData = [...activeData, ...latestDataUnique];
   const seasons = [
     ...new Set(combinedData.map((item) => item.season_number)),
@@ -58,8 +60,8 @@ const SeasonResults = (data) => {
             onClick={() => setActiveTab(season)}
           >
             {season === currentSeason
-              ? `${getSeasonName(season - 2)} (Live)`
-              : getSeasonName(season - 2)}
+              ? `${getSeasonName(season - 1)} (Live)`
+              : getSeasonName(season - 1)}
           </button>
         ))}
       </div>
@@ -86,8 +88,29 @@ const SeasonResults = (data) => {
                 />
                 {item.mode}
               </td>
-              <td className="px-4 py-2">{item.rank}</td>
-              <td className="px-4 py-2">{item.x_power}</td>
+              <td className="px-4 py-2">
+                {item.rank >= 1 && item.rank <= 10 ? (
+                  <span className="text-purplelight font-bold">
+                    {item.rank}
+                  </span>
+                ) : (
+                  item.rank
+                )}
+              </td>
+              <td className="px-4 py-2 text-right">
+                {typeof item.x_power !== "string" ? (
+                  <>
+                    <span className="text-purplelight text-lg">
+                      {item.x_power.toFixed(1).toString().slice(0, 2)}
+                    </span>
+                    <span className="text-sm">
+                      {item.x_power.toFixed(1).toString().slice(2)}
+                    </span>
+                  </>
+                ) : (
+                  item.x_power
+                )}
+              </td>
             </tr>
           ))}
         </tbody>

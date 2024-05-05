@@ -74,15 +74,18 @@ function filterAndProcessData(
   const hoursThreshold = 24 * 1;
   const approxThreshold = (hoursThreshold / (24 * 90)) * 100;
   const filteredData = data ? data.filter((d) => d.mode === mode) : [];
+
   const seasons = filteredData.reduce((acc, curr) => {
     const season = curr.season_number;
     if (!acc.includes(season)) acc.push(season);
     return acc;
   }, []);
+
   const currentSeason = calculateSeasonNow();
   if (!festivalDates) {
     festivalDates = [];
   }
+
   const festivalDatesPercent = festivalDates.map((dateRange) => {
     const startDate = dateRange[0];
     const season = calculateSeasonByTimestamp(startDate);
@@ -92,6 +95,7 @@ function filterAndProcessData(
       end: getPercentageInSeason(dateRange[1], season),
     };
   });
+
   const dataBySeason = filteredData.reduce((acc, curr) => {
     const season = curr.season_number;
     acc[season] = acc[season] || [];
@@ -102,9 +106,11 @@ function filterAndProcessData(
     });
     return acc;
   }, {});
+
   const sortedSeasons = seasons.sort((a, b) =>
     a === currentSeason ? 1 : b === currentSeason ? -1 : b - a
   );
+
   const processedData = sortedSeasons.map((season) => {
     const sortedValues = dataBySeason[season].sort((a, b) => a.x - b.x);
     const threshold = removeValuesNotInTop500 ? approxThreshold : 100;

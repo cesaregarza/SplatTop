@@ -74,10 +74,6 @@ class WeaponsChart extends React.Component {
         weaponTranslations
       );
 
-    console.log("innerSeriesData", innerSeriesData);
-    console.log("outerSeriesData", outerSeriesData);
-    console.log("drilldownData", drilldownData);
-
     const totalUsage = innerSeriesData.reduce((acc, item) => acc + item.y, 0);
 
     const options = {
