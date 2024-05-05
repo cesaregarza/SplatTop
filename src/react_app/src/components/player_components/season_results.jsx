@@ -4,8 +4,6 @@ import SplatZonesIcon from "../../assets/icons/splat_zones.png";
 import TowerControlIcon from "../../assets/icons/tower_control.png";
 import RainmakerIcon from "../../assets/icons/rainmaker.png";
 import ClamBlitzIcon from "../../assets/icons/clam_blitz.png";
-import Top10Badge from "../top500_components/badges/top10_badge";
-import Top500Badge from "../top500_components/badges/top500_badge";
 
 const modeIcons = {
   "Splat Zones": SplatZonesIcon,

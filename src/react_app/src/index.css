@@ -174,3 +174,44 @@ body {
   position: sticky;
   top: 0;
 }
+
+.combined-badge {
+  position: relative;
+  display: inline-block;
+  overflow: visible;
+}
+
+.badge-slice-gold, .badge-slice-silver {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+}
+
+.badge-slice-gold {
+  clip-path: polygon(0 0, 100% 0, 0 100%);
+}
+
+.badge-slice-silver {
+  clip-path: polygon(100% 0, 100% 100%, 0 100%);
+}
+
+.badge-count-wrapper {
+  position: absolute;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.badge-count-wrapper-gold {
+  top: 25%;
+  right: 70%;
+  z-index: 10;
+}
+
+.badge-count-wrapper-silver {
+  bottom: 0%;
+  left: 110%;
+  z-index: 10;
+}
