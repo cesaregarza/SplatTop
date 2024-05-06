@@ -165,6 +165,7 @@ def aggregate_player_data(
 def aggregate_weapon_counts(player_df: pd.DataFrame) -> list[dict]:
     return (
         player_df.query("updated")
+        .sort_values("timestamp", ascending=False)
         .groupby(["mode", "weapon_id", "season_number"])["rank"]
         .count()
         .reset_index()

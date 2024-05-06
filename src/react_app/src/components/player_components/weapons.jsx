@@ -118,6 +118,12 @@ class WeaponsChart extends React.Component {
           color: "#ffffff",
         },
       },
+      subtitle: {
+        text: "All weapon data is approximate",
+        style: {
+          color: "#ffcc00",
+        },
+      },
       series: [
         {
           name: "Total Weapon Usage",
