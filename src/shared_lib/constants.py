@@ -29,3 +29,4 @@ LANGUAGES = [
     "EUde",
 ]
 GAME_TRANSLATION_REDIS_KEY = "weapon_translations"
+ALIASES_REDIS_KEY = "player_aliases"

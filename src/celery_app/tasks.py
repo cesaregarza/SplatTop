@@ -9,6 +9,7 @@ from sqlalchemy import text
 
 from celery_app.database import Session
 from shared_lib.constants import (
+    ALIASES_REDIS_KEY,
     GAME_TRANSLATION_BASE_URL,
     GAME_TRANSLATION_REDIS_KEY,
     LANGUAGES,
@@ -24,6 +25,7 @@ from shared_lib.constants import (
     WEAPON_INFO_URL,
 )
 from shared_lib.queries.front_page_queries import LEADERBOARD_MAIN_QUERY
+from shared_lib.queries.misc_queries import ALIAS_QUERY
 from shared_lib.queries.player_queries import (
     PLAYER_DATA_QUERY,
     PLAYER_LATEST_QUERY,
@@ -225,3 +227,15 @@ def update_weapon_info() -> None:
     logging.info("Weapon info updated in Redis.")
     redis_conn.set(GAME_TRANSLATION_REDIS_KEY, orjson.dumps(language_data))
     logging.info("Weapon translations updated in Redis.")
+
+
+@celery.task(name="tasks.pull_aliases")
+def pull_aliases() -> None:
+    logging.info("Running task: fetch_aliases")
+    query = text(ALIAS_QUERY)
+    with Session() as session:
+        result = session.execute(query).fetchall()
+
+    aliases = [{**row._asdict()} for row in result]
+    redis_conn.set(ALIASES_REDIS_KEY, orjson.dumps(aliases))
+    logging.info("Aliases updated in Redis.")

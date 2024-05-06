@@ -182,3 +182,18 @@ class SeasonResults(Base):
         ),
         {"schema": "xscraper"},
     )
+
+
+class Aliases(Base):
+    __tablename__ = "aliases"
+
+    player_id = Column(String, primary_key=True)
+    splashtag = Column(
+        String,
+        unique=True,
+    )
+
+    __table_args__ = (
+        Index("idx_aliases_player_id", "player_id"),
+        {"schema": "xscraper"},
+    )

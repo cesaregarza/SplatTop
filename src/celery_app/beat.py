@@ -14,4 +14,8 @@ celery.conf.beat_schedule = {
         "task": "tasks.update_weapon_info",
         "schedule": crontab(minute=0, hour="*"),
     },
+    "pull-aliases-every-ten-minutes": {
+        "task": "tasks.pull_aliases",
+        "schedule": crontab(minute="*/10"),
+    },
 }
