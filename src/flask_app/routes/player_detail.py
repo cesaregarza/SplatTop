@@ -1,4 +1,3 @@
-#### THIS FILE IS TEMPORARY JUST TO SERVE DATA TO THE FRONTEND FOR DEVELOPMENT ####
 import logging
 
 from fastapi import APIRouter, WebSocket, WebSocketDisconnect
