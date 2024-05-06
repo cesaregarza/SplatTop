@@ -10,7 +10,7 @@ from flask_app.connections import celery
 from flask_app.pubsub import listen_for_updates
 from flask_app.routes import (
     front_page_router,
-    temp_player_router,
+    player_detail_router,
     weapon_info_router,
 )
 
@@ -37,7 +37,7 @@ app.add_middleware(
 
 # Register routers
 app.include_router(front_page_router)
-app.include_router(temp_player_router)
+app.include_router(player_detail_router)
 app.include_router(weapon_info_router)
 
 

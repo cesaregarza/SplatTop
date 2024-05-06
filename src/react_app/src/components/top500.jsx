@@ -80,7 +80,7 @@ const Top500 = () => {
       <div className="overflow-x-auto">
         {isLoading ? (
           <div className="text-center py-4">
-            <Loading text="Loading Top 500..."/>
+            <Loading text="Loading Top 500..." />
           </div>
         ) : error ? (
           <div className="text-red-500 text-center py-4">{error.message}</div>

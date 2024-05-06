@@ -5,7 +5,7 @@ import Navbar from './components/navbar';
 import Footer from './components/footer';
 import FAQ from './components/static_pages/faq';
 import About from './components/static_pages/about';
-import PlayerTest from './components/player_test'; // Added import for PlayerTest component
+import PlayerDetail from './components/player_detail';
 import { BrowserRouter as Router, Route, Routes } from 'react-router-dom';
 
 const App = () => {
@@ -17,8 +17,7 @@ const App = () => {
           <Route exact path="/" element={<Top500 />} />
           <Route exact path="/faq" element={<FAQ />} />
           <Route exact path="/about" element={<About />} />
-          <Route path="/player_test/:player_id" element={<PlayerTest />} /> {/* Added route for PlayerTest component */}
-          {/* Add more routes for other components */}
+          <Route path="/player/:player_id" element={<PlayerDetail />} />
         </Routes>
         <Footer />
       </div>

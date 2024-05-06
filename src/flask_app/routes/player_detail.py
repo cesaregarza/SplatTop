@@ -11,8 +11,8 @@ router = APIRouter()
 logger = logging.getLogger(__name__)
 
 
-@router.get("/player_test/{player_id}")
-async def temp_player(player_id: str):
+@router.get("/api/player/{player_id}")
+async def player_detail(player_id: str):
     async with async_session() as session:
         logger.info("Fetching initial player data")
         result = await session.execute(

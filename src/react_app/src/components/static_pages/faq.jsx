@@ -80,6 +80,22 @@ const FAQ = () => {
       ),
     },
     {
+      question: "My weapon data is incorrect. Can you fix it?",
+      answer: (
+        <p className="text-white">
+          <span className="text-purplelight">Weapon data</span> is calculated
+          based on the snapshot appearances in the Top 500 as maintained by
+          SplatNet3. While the methodology tends to be more accurate than not,
+          there are edge cases where the weapon data may be incorrect. This is
+          not something we can fix without massive effort, as it would require
+          at least doubling the scraping cadence to minimize errors. If you
+          believe the data is incorrect, feel free to contact us with the
+          details. We can't guarantee a fix, but the knowledge helps us improve
+          the system for everyone.
+        </p>
+      ),
+    },
+    {
       question: "Can I have access to the data? I want to analyze it myself.",
       answer: (
         <>
@@ -125,6 +141,8 @@ const FAQ = () => {
       ),
     },
   ];
+
+  document.title = "splat.top - FAQ";
 
   return (
     <div className="container mx-auto px-4 py-8">

@@ -13,7 +13,7 @@ const PlayerTable = ({ players, columnVisibility }) => {
   const defaultCellClasses = "w-20 px-4 py-2 text-center";
 
   const handleRowClick = (playerId) => {
-    navigate(`/player_test/${playerId}`);
+    navigate(`/player/${playerId}`);
   };
 
   return (

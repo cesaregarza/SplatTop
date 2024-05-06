@@ -10,7 +10,7 @@ import { modes } from "./constants";
 
 const DEFAULT_LANGUAGE = "USen";
 
-const PlayerTest = () => {
+const PlayerDetail = () => {
   const location = useLocation();
   const player_id = location.pathname.split("/")[2];
   const [data, setData] = useState(null);
@@ -23,8 +23,11 @@ const PlayerTest = () => {
     const fetchData = async () => {
       setIsLoading(true);
       document.title = "splat.top - Player Page";
-      const apiUrl = "http://localhost:5000";
-      const endpoint = `${apiUrl}/player_test/${player_id}`;
+      const isDevelopment = process.env.NODE_ENV === "development";
+      const apiUrl = isDevelopment
+        ? "http://localhost:5000"
+        : process.env.REACT_APP_API_URL || "";
+      const endpoint = `${apiUrl}/api/player/${player_id}`;
       const translationEndpoint = `${apiUrl}/api/game_translation`;
 
       try {
@@ -111,4 +114,4 @@ const PlayerTest = () => {
   );
 };
 
-export default PlayerTest;
+export default PlayerDetail;
