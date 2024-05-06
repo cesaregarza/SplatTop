@@ -16,10 +16,8 @@ const CombinedBadge = ({
   if (top10Count == 0) {
     return <Top500Badge count={top500Count} disable={disable} size={size} />;
   }
-  if (top500Count == 0) {
-    return <Top10Badge count={top10Count} disable={disable} size={size} />;
-  }
 
+  const noSliceClass = top500Count == 0 ? "no-slice" : "";
   const top10BadgeShineClass = disable
     ? "badge-image"
     : `badge-image ${
@@ -40,14 +38,14 @@ const CombinedBadge = ({
           <span className="badge-count">x{top10Count}</span>
         </div>
       )}
-      <div className="badge-slice badge-slice-gold">
+      <div className={`badge-slice badge-slice-gold ${noSliceClass}`}>
         <img
           src={Top10BadgeIcon}
           alt="Top 10 Badge"
           className={top10BadgeShineClass}
         />
       </div>
-      <div className="badge-slice badge-slice-silver">
+      <div className={`badge-slice badge-slice-silver ${noSliceClass}`}>
         <img
           src={Top500BadgeIcon}
           alt="Top 500 Badge"
@@ -64,5 +62,3 @@ const CombinedBadge = ({
 };
 
 export default CombinedBadge;
-
-

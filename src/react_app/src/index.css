@@ -181,7 +181,8 @@ body {
   overflow: visible;
 }
 
-.badge-slice-gold, .badge-slice-silver {
+.badge-slice-gold,
+.badge-slice-silver {
   position: absolute;
   top: 0;
   left: 0;
@@ -193,8 +194,16 @@ body {
   clip-path: polygon(0 0, 100% 0, 0 100%);
 }
 
+.badge-slice-gold.no-slice {
+  clip-path: none;
+}
+
 .badge-slice-silver {
   clip-path: polygon(100% 0, 100% 100%, 0 100%);
+}
+
+.badge-slice-silver.no-slice {
+  display: none;
 }
 
 .badge-count-wrapper {

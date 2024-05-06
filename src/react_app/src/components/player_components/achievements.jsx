@@ -152,7 +152,7 @@ const Achievements = ({ data }) => {
                   {counts.hasDiamond ? (
                     <DiamondBadge
                       count={1}
-                      disable={disabledBadge}
+                      disable={false}
                       size={badgeSize}
                       className="mr-2"
                     />
@@ -180,7 +180,7 @@ const Achievements = ({ data }) => {
                   <CombinedBadge
                     top10Count={modeCounts[mode].top10}
                     top500Count={modeCounts[mode].top500}
-                    disable={disabledBadge}
+                    disable={false}
                     size={badgeSize}
                   />
                 </td>
