@@ -3,22 +3,25 @@ import logging
 import os
 import threading
 
-from fastapi import FastAPI
+from fastapi import BackgroundTasks, FastAPI  # Import BackgroundTasks
 from fastapi.middleware.cors import CORSMiddleware
 
-from flask_app.connections import celery
+from flask_app.background_tasks import background_runner
+from flask_app.connections import celery, redis_conn
 from flask_app.pubsub import listen_for_updates
 from flask_app.routes import (
     front_page_router,
     player_detail_router,
+    search_router,
     weapon_info_router,
 )
 
 # Setup basic logging
 logging.basicConfig(
-    level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s"
+    level=logging.INFO,
+    format="%(asctime)s - %(levelname)s - %(filename)s - %(message)s",
+    datefmt="%Y-%m-%d %H:%M:%S",
 )
-
 app = FastAPI()
 
 # Setup CORS
@@ -38,6 +41,7 @@ app.add_middleware(
 # Register routers
 app.include_router(front_page_router)
 app.include_router(player_detail_router)
+app.include_router(search_router)
 app.include_router(weapon_info_router)
 
 
@@ -47,13 +51,14 @@ async def startup_event():
     # Send Celery task
     celery.send_task("tasks.pull_data")
     celery.send_task("tasks.update_weapon_info")
+    celery.send_task("tasks.pull_aliases")
 
     # Start the pubsub listener in a separate daemon thread
-    # pubsub_thread = threading.Thread(target=listen_for_updates, daemon=True)
     pubsub_thread = threading.Thread(
         target=asyncio.run, args=(listen_for_updates(),), daemon=True
     )
     pubsub_thread.start()
+    asyncio.create_task(background_runner.run())
 
 
 # Run the app using Uvicorn programmatically

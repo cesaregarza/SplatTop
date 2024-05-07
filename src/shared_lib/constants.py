@@ -30,3 +30,4 @@ LANGUAGES = [
 ]
 GAME_TRANSLATION_REDIS_KEY = "weapon_translations"
 ALIASES_REDIS_KEY = "player_aliases"
+AUTOMATON_IS_VALID_REDIS_KEY = "automaton_is_valid"

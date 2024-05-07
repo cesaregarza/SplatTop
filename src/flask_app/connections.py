@@ -1,4 +1,5 @@
 import logging
+import sqlite3
 
 import redis
 from celery import Celery
@@ -75,3 +76,7 @@ class ConnectionManager:
 
 
 connection_manager = ConnectionManager()
+
+# Create the SQLite database in memory
+sqlite_conn = sqlite3.connect(":memory:")
+sqlite_cursor = sqlite_conn.cursor()
