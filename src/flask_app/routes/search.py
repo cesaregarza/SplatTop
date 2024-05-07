@@ -21,3 +21,5 @@ async def search(query: str):
 
     logger.info(f"Searching for: {query}")
     return search_data(query)
+
+
