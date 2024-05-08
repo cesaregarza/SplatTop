@@ -11,11 +11,14 @@ const SearchBar = () => {
   const [searchQuery, setSearchQuery] = useState("");
   const [searchResults, setSearchResults] = useState([]);
   const [selectedIndex, setSelectedIndex] = useState(-1);
+  const [isSearching, setIsSearching] = useState(false);
+  const [isFocused, setIsFocused] = useState(false);
   const resultRefs = useRef([]);
 
   useEffect(() => {
     const handleSearch = async () => {
       if (searchQuery.trim() !== "" && searchQuery.length > 2) {
+        setIsSearching(true);
         const encodedQuery = encodeURIComponent(searchQuery);
         try {
           const response = await axios.get(`${endpoint}/${encodedQuery}`);
@@ -23,8 +26,10 @@ const SearchBar = () => {
         } catch (error) {
           console.error("Error searching:", error);
         }
+        setIsSearching(false);
       } else {
         setSearchResults([]);
+        setIsSearching(false);
       }
     };
 
@@ -68,29 +73,48 @@ const SearchBar = () => {
           value={searchQuery}
           onChange={(e) => setSearchQuery(e.target.value)}
           onKeyDown={handleKeyDown}
+          onFocus={() => setIsFocused(true)}
+          onBlur={() => setIsFocused(false)}
           className="w-full py-2 px-4 text-gray-700 placeholder-gray-400 rounded-md focus:outline-none"
         />
         <button
           className="text-gray-500 hover:text-gray-700 px-3 py-2 rounded-md focus:outline-none"
           onClick={() => setSearchQuery("")}
         >
-          <svg
-            className="h-5 w-5"
-            fill="none"
-            stroke="currentColor"
-            viewBox="0 0 24 24"
-            xmlns="http://www.w3.org/2000/svg"
-          >
-            <path
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              strokeWidth="2"
-              d="M6 18L18 6M6 6l12 12"
-            ></path>
-          </svg>
+          {searchQuery || isFocused ? (
+            <svg
+              className="h-5 w-5"
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+              xmlns="http://www.w3.org/2000/svg"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth="2"
+                d="M6 18L18 6M6 6l12 12"
+              ></path>
+            </svg>
+          ) : (
+            <svg
+              className="h-5 w-5"
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+              xmlns="http://www.w3.org/2000/svg"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth="2"
+                d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"
+              ></path>
+            </svg>
+          )}
         </button>
       </div>
-      {searchResults.length > 0 && (
+      {searchQuery.length >= 3 && searchResults.length > 0 ? (
         <div className="absolute z-10 mt-2 w-full bg-gray-800 rounded-md shadow-lg max-h-60 overflow-y-auto">
           <ul>
             {searchResults.slice(0, 10).map((result, index) => {
@@ -99,7 +123,7 @@ const SearchBar = () => {
               const highlightedText = keyText.replace(
                 new RegExp(searchQuery, "gi"),
                 (match) =>
-                  `<mark class="bg-purplelight text-white">${match}</mark>`
+                  `<span class="font-bold text-purplelight">${match}</span>`
               );
               return (
                 <li
@@ -116,6 +140,10 @@ const SearchBar = () => {
               );
             })}
           </ul>
+        </div>
+      ) : isSearching || searchQuery.length < 3 ? null : (
+        <div className="absolute z-10 mt-2 w-full bg-gray-800 rounded-md shadow-lg max-h-60 overflow-y-auto text-center text-white py-2">
+          No results!
         </div>
       )}
     </div>
