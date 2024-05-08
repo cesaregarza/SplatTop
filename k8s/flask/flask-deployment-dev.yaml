@@ -18,6 +18,7 @@ spec:
         imagePullPolicy: Never
         ports:
         - containerPort: 5000
+        - containerPort: 8001
         env:
         - name: ENV
           value: "development"

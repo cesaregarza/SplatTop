@@ -12,7 +12,8 @@ FROM (
     WHERE player_id = :player_id
       AND updated = TRUE
 ) AS filtered
-GROUP BY splashtag;
+GROUP BY splashtag
+ORDER BY latest_updated_timestamp DESC;
 """
 
 PLAYER_MOST_RECENT_ROW_QUERY = """
@@ -33,4 +34,16 @@ MostRecentRow AS (
 )
 SELECT *
 FROM MostRecentRow;
+"""
+
+PLAYER_DATA_QUERY = """
+SELECT *
+FROM xscraper.players
+WHERE player_id = :player_id
+"""
+
+SEASON_RESULTS_QUERY = """
+SELECT *
+FROM xscraper.season_results
+WHERE player_id = :player_id
 """

@@ -1,30 +1,28 @@
-import json
+import orjson
+from fastapi import APIRouter, HTTPException, Query
 
-import redis
-from flask import Blueprint, jsonify, request
+from flask_app.connections import redis_conn
 
-redis_conn = redis.Redis(host="redis", port=6379, db=0, decode_responses=True)
+router = APIRouter()
 
 
-def create_front_page_bp() -> Blueprint:
-    front_page_bp = Blueprint("front_page", __name__)
+@router.get("/api/leaderboard")
+async def leaderboard(
+    mode: str = Query(
+        "Splat Zones", description="Game mode for the leaderboard"
+    ),
+    region: str = Query("Tentatek", description="Region for the leaderboard"),
+):
+    region_bool = "Takoroka" if region == "Takoroka" else "Tentatek"
 
-    @front_page_bp.route("/api/leaderboard")
-    def leaderboard():
-        mode = request.args.get("mode", "Splat Zones")
-        region = request.args.get("region", "Tentatek")
-        region_bool = "Takoroka" if region == "Takoroka" else "Tentatek"
+    redis_key = f"leaderboard_data:{mode}:{region_bool}"
+    players = redis_conn.get(redis_key)
 
-        redis_key = f"leaderboard_data:{mode}:{region_bool}"
-        players = redis_conn.get(redis_key)
-
-        if players is None:
-            return (
-                jsonify({"error": "Data is not available yet, please wait."}),
-                503,
-            )
-        else:
-            players = json.loads(players)
-            return jsonify({"players": players})
-
-    return front_page_bp
+    if players is None:
+        raise HTTPException(
+            status_code=503,
+            detail="Data is not available yet, please wait.",
+        )
+    else:
+        players = orjson.loads(players)
+        return {"players": players}

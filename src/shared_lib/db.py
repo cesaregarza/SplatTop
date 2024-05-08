@@ -16,7 +16,7 @@ def create_uri() -> str:
     dev_mode = os.getenv("DEV_MODE")
     ssl_string = "" if dev_mode is None else "?sslmode=disable"
     return (
-        f"postgresql+psycopg2://{user}:{password}@{host}:{port}/"
+        f"postgresql+asyncpg://{user}:{password}@{host}:{port}/"
         f"{db_name}{ssl_string}"
     )
 

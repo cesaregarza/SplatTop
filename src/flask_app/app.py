@@ -1,38 +1,73 @@
+import asyncio
+import logging
 import os
+import threading
+from contextlib import asynccontextmanager
 
-from celery import Celery
-from flask import Flask
-from flask_caching import Cache
-from flask_cors import CORS
+from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
+from slowapi import _rate_limit_exceeded_handler
+from slowapi.errors import RateLimitExceeded
 
-from flask_app.celery_tasks import celery  # Import celery instance
-from flask_app.database import Session  # Not used, necessary for Session setup
-from flask_app.routes import create_front_page_bp, create_player_detail_bp
+from flask_app.background_tasks import background_runner
+from flask_app.connections import celery, limiter, redis_conn
+from flask_app.pubsub import listen_for_updates
+from flask_app.routes import (
+    front_page_router,
+    player_detail_router,
+    search_router,
+    weapon_info_router,
+)
 
-app = Flask(__name__)
+# Setup basic logging
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s - %(levelname)s - %(filename)s - %(message)s",
+    datefmt="%Y-%m-%d %H:%M:%S",
+)
 
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    celery.send_task("tasks.pull_data")
+    celery.send_task("tasks.update_weapon_info")
+    celery.send_task("tasks.pull_aliases")
+
+    # Start the pubsub listener in a separate daemon thread
+    pubsub_thread = threading.Thread(
+        target=asyncio.run, args=(listen_for_updates(),), daemon=True
+    )
+    pubsub_thread.start()
+    asyncio.create_task(background_runner.run())
+    yield
+
+
+app = FastAPI(lifespan=lifespan)
+app.state.limiter = limiter
+app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
+
+# Setup CORS
 if os.getenv("ENV") == "development":
-    CORS(app, resources={r"/*": {"origins": "http://localhost:3000"}})
-elif os.getenv("ENV") == "production":
-    CORS(app)
+    origins = ["http://localhost:3000"]
+else:
+    origins = ["*"]
 
-cache = Cache(app, config={"CACHE_TYPE": "simple"})
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=origins,
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
-front_page_bp = create_front_page_bp()
-app.register_blueprint(front_page_bp)
+# Register routers
+app.include_router(front_page_router)
+app.include_router(player_detail_router)
+app.include_router(search_router)
+app.include_router(weapon_info_router)
 
-player_detail_bp = create_player_detail_bp()
-app.register_blueprint(player_detail_bp)
+# Run the app using Uvicorn programmatically
+if __name__ == "__main__":
+    import uvicorn
 
-celery.send_task("tasks.pull_data")
-
-
-def run_dev():
-    from werkzeug.middleware.profiler import ProfilerMiddleware
-
-    app.config["PROFILE"] = True
-    app.wsgi_app = ProfilerMiddleware(app.wsgi_app, restrictions=[30])
-    app.run(host="0.0.0.0", port=5000, debug=True)
-
-
-# Removed the if __name__ == "__main__" check as it's not used with gunicorn
+    uvicorn.run(app, host="0.0.0.0", port=5000, log_level="info")

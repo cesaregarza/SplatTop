@@ -24,9 +24,10 @@ build-no-cache:
 
 .PHONY: port-forward
 port-forward:
-	kubectl port-forward service/flask-app-service 5000:80 & echo $$! > /tmp/flask-port-forward.pid
+	kubectl port-forward service/flask-app-service 5000:80 8001:8001 & echo $$! > /tmp/flask-port-forward.pid
 	kubectl port-forward service/react-app-service 4000:80 & echo $$! > /tmp/react-port-forward.pid
 	echo "Flask app is running at http://localhost:5000"
+	echo "Websocket is running at http://localhost:8001"
 	echo "React (prod) app is running at http://localhost:4000"
 
 .PHONY: stop-port-forward
@@ -73,7 +74,7 @@ compile-sass:
 	sass src/flask_app/static/scss/main.scss src/flask_app/static/css/main.css
 
 .PHONY: update
-update: undeploy stop-port-forward build deploy
+update: undeploy build deploy
 
 .PHONY: full-update
 full-update: undeploy compile-sass build deploy
@@ -93,6 +94,10 @@ celery-beat-logs:
 .PHONY: react-logs
 react-logs:
 	kubectl logs -f `kubectl get pods -l app=react-app -o jsonpath='{.items[0].metadata.name}'`
+
+.PHONY: redis-logs
+redis-logs:
+	kubectl logs -f `kubectl get pods -l app=redis -o jsonpath='{.items[0].metadata.name}'`
 
 .PHONY: start-react-app-dev
 start-react-app-dev:

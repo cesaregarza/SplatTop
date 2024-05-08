@@ -1,71 +1,44 @@
-from flask import Blueprint, render_template, request
-from flask_caching import Cache
+import logging
+
+from fastapi import APIRouter, WebSocket, WebSocketDisconnect
 from sqlalchemy import text
 
-from flask_app.database import Session
-from shared_lib.constants import MODES, REGIONS
-from shared_lib.models import Player, PlayerLatest
-from shared_lib.queries.player_queries import (
-    PLAYER_ALIAS_QUERY,
-    PLAYER_LATEST_QUERY,
-    PLAYER_MOST_RECENT_ROW_QUERY,
-)
+from flask_app.connections import async_session, connection_manager
+from shared_lib.queries.player_queries import PLAYER_ALIAS_QUERY
+
+router = APIRouter()
+
+logger = logging.getLogger(__name__)
 
 
-def create_player_detail_bp() -> Blueprint:
-    player_detail_bp = Blueprint("player_detail", __name__)
-
-    @player_detail_bp.route("/player/<string:player_id>")
-    def player_detail(player_id: str):
-        base_query = text(PLAYER_LATEST_QUERY)
-        with Session() as session:
-            result = session.execute(
-                base_query, {"player_id": player_id}
-            ).fetchall()
-
-            if not result:
-                return render_template("player_404.html"), 404
-
-            aliases = session.execute(
-                text(PLAYER_ALIAS_QUERY), {"player_id": player_id}
-            ).fetchall()
-
-            player = session.execute(
-                text(PLAYER_MOST_RECENT_ROW_QUERY), {"player_id": player_id}
-            ).fetchone()
-
-        latest_data = [PlayerLatest(**player._asdict()) for player in result]
-        aliases_data = [
-            {
-                "alias": alias[0],
-                "last_updated": alias[1].strftime("%Y-%m-%d"),
-            }
-            for alias in aliases
-        ]
-        # Sort the aliases so the most recent is first
-        aliases_data.sort(key=lambda x: x["last_updated"], reverse=True)
-        # Remove the most recent alias from the list, as it's already displayed
-        aliases_data = aliases_data[1:]
-
-        return render_template(
-            "player_dev.html",
-            player_details=player,
-            data={},
-            aliases=aliases_data,
-            modes=MODES,
-            current_stats={mode: {} for mode in MODES},
+@router.get("/api/player/{player_id}")
+async def player_detail(player_id: str):
+    async with async_session() as session:
+        logger.info("Fetching initial player data")
+        result = await session.execute(
+            text(PLAYER_ALIAS_QUERY), {"player_id": player_id}
         )
+        result = result.fetchall()
 
-    return player_detail_bp
+    logger.info("Initial player data fetched")
+    result = [{**row._asdict()} for row in result]
+    for player in result:
+        player["latest_updated_timestamp"] = player[
+            "latest_updated_timestamp"
+        ].isoformat()
+
+    logger.info("Returning initial player data")
+    return result
 
 
-def get_player_stats():
-    pass
-
-
-def get_player_chart_data():
-    pass
-
-
-def get_mode_icons():
-    pass
+@router.websocket("/ws/player/{player_id}")
+async def websocket_endpoint(websocket: WebSocket, player_id: str):
+    await connection_manager.connect(websocket, player_id)
+    try:
+        while True:
+            data = await websocket.receive_text()
+            await connection_manager.send_personal_message(
+                f"You wrote: {data}", player_id
+            )
+    except WebSocketDisconnect:
+        connection_manager.disconnect(player_id)

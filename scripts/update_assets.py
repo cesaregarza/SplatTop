@@ -1,6 +1,7 @@
 import os
 
 import boto3
+import orjson
 import requests
 from botocore.exceptions import (
     ClientError,
@@ -17,15 +18,30 @@ BASE_XREF_URL = f"{RAW_URL}/data/mush/%s"
 WEAPON_ID_XREF = f"{BASE_XREF_URL}/WeaponInfoMain.json"
 BADGE_ID_XREF = f"{BASE_XREF_URL}/BadgeInfo.json"
 BANNER_ID_XREF = f"{BASE_XREF_URL}/NamePlateBgInfo.json"
+LANGUAGE_BASE_URL = f"{RAW_URL}/data/language/%s.json"
 
-BUCKET_NAME = "assets"
+SUPPORTED_LANGUAGES = [
+    "USen",
+    "USes",
+    "JPja",
+    "EUfr",
+    "EUde",
+]
+
+BUCKET_NAME = "splat-top"
+ASSETS_PATH = "assets"
 WEAPON_PATH = "images/weapon_flat"
 BADGE_PATH = "images/badge"
 BANNER_PATH = "images/npl"
+DATA_PATH = "data"
+LANGUAGE_PATH = f"{DATA_PATH}/language"
 
-WEAPON_KEY = "weapon_flat"
-BADGE_KEY = "badge"
-BANNER_KEY = "npl"
+WEAPON_KEY = f"{ASSETS_PATH}/weapon_flat"
+BADGE_KEY = f"{ASSETS_PATH}/badge"
+BANNER_KEY = f"{ASSETS_PATH}/npl"
+
+
+KIT_XREF = {"H": "00", "O": "00", "Oct": "01"}
 
 
 def get_latest_version() -> str:
@@ -61,7 +77,8 @@ def get_boto3_client(session: boto3.Session) -> boto3.client:
 def check_if_needs_update(client: boto3.client, latest_version: str) -> bool:
     try:
         response = client.get_object(
-            Bucket=BUCKET_NAME, Key="latest_stored_version"
+            Bucket=BUCKET_NAME,
+            Key=ASSETS_PATH + "/latest_stored_version",
         )
         current_version = response["Body"].read().decode("utf-8").strip()
         return current_version != latest_version
@@ -96,7 +113,9 @@ def download_file_from_repo(file: dict) -> bytes:
 
 def upload_file_to_bucket(client: boto3.client, key: str, data: bytes):
     try:
-        client.put_object(Bucket=BUCKET_NAME, Key=key, Body=data)
+        client.put_object(
+            ACL="public-read", Bucket=BUCKET_NAME, Key=key, Body=data
+        )
     except ClientError as e:
         print(f"Error uploading file to bucket: {e}")
         raise
@@ -106,7 +125,7 @@ def update_version_file(client: boto3.client, latest_version: str):
     try:
         client.put_object(
             Bucket=BUCKET_NAME,
-            Key="latest_stored_version",
+            Key=f"{ASSETS_PATH}/latest_stored_version",
             Body=latest_version,
             ACL="public-read",
         )
@@ -138,6 +157,96 @@ def overwrite_xref_files(client: boto3.client, latest_version: str):
             print(f"Error uploading xref file to bucket: {e}")
 
 
+def update_data(client: boto3.client):
+    WEAPON_DATA_PATH = "assets/weapon_flat/WeaponInfoMain.json"
+    DESTINATION_PATH = "data/weapon_info.json"
+    try:
+        response = client.get_object(Bucket=BUCKET_NAME, Key=WEAPON_DATA_PATH)
+        data = orjson.loads(response["Body"].read())
+        data = parse_weapon_data(data)
+        data_string = orjson.dumps({str(k): v for k, v in data.items()})
+        client.put_object(
+            ACL="public-read",
+            Bucket=BUCKET_NAME,
+            Key=DESTINATION_PATH,
+            Body=data_string,
+        )
+    except ClientError as e:
+        print(f"Error updating data: {e}")
+        raise
+
+
+def parse_weapon_data(data: list[dict]) -> dict:
+    data = [x for x in data if x["Type"] == "Versus"]
+    KEYS_TO_KEEP = [
+        "Season",
+        "__RowId",
+        "SpecialWeapon",
+        "SubWeapon",
+        "SpecialPoint",
+    ]
+    preprocessed_data = {x["Id"]: {k: x[k] for k in KEYS_TO_KEEP} for x in data}
+    return process_weapon_data(preprocessed_data)
+
+
+def extract_sub_special(raw_subspecial: str) -> str:
+    return raw_subspecial[len("Work/Gyml/") :].split(".spl")[0]
+
+
+def process_rowid(row_id: str) -> dict[str, str]:
+    weapon_class = row_id.split("_")[0]
+    weapon_main = row_id.split("_")[1]
+    weapon_suffix = row_id.split("_")[-1]
+
+    if weapon_suffix in KIT_XREF:
+        weapon_reference_suffix = KIT_XREF[weapon_suffix]
+    else:
+        weapon_reference_suffix = weapon_suffix
+
+    return {
+        "class": weapon_class,
+        "kit": f"{weapon_main}_{weapon_suffix}",
+        "reference_kit": f"{weapon_main}_{weapon_reference_suffix}",
+    }
+
+
+def process_weapon_data(preprocessed_data: dict[int, dict]) -> dict[int, dict]:
+    out = {}
+    for key, value in preprocessed_data.items():
+        row_id = value["__RowId"]
+        out[key] = {
+            "season": value["Season"],
+            "sub": extract_sub_special(value["SubWeapon"]),
+            "special": extract_sub_special(value["SpecialWeapon"]),
+            **process_rowid(row_id),
+        }
+    return out
+
+
+def pull_language_data(client: boto3.client, language: str):
+    BASE_KEY = "CommonMsg/Weapon/%s"
+    KEYS = [
+        "WeaponName_Main",
+        "WeaponName_Sub",
+        "WeaponName_Special",
+        "WeaponTypeName",
+    ]
+    response = requests.get(LANGUAGE_BASE_URL % language)
+    data = orjson.loads(response.text)
+    data = {k: data[BASE_KEY % k] for k in KEYS}
+    client.put_object(
+        ACL="public-read",
+        Bucket=BUCKET_NAME,
+        Key=f"{LANGUAGE_PATH}/{language}.json",
+        Body=orjson.dumps(data),
+    )
+
+
+def pull_all_language_data(client: boto3.client):
+    for language in SUPPORTED_LANGUAGES:
+        pull_language_data(client, language)
+
+
 def main():
     try:
         session = get_boto3_session()
@@ -157,7 +266,7 @@ def main():
             existing_files = get_existing_file_names(client, key)
             new_files = list_files_in_repo(path)
             for file in tqdm(new_files, desc=f"Updating {key}"):
-                if file["name"] not in existing_files:
+                if f"{key}/{file['name']}" not in existing_files:
                     data = download_file_from_repo(file)
                     upload_file_to_bucket(client, f"{key}/{file['name']}", data)
 
@@ -165,6 +274,10 @@ def main():
 
         update_version_file(client, latest_version)
         print("Assets updated.")
+        print("Updating data...")
+        update_data(client)
+        pull_all_language_data(client)
+        print("Data updated.")
     except Exception as e:
         print(f"An error occurred: {e}")
 

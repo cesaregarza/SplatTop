@@ -1,0 +1,1 @@
+PLAYER_DATA_NAMESPACE = "/player"
