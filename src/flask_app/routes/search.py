@@ -1,9 +1,8 @@
 import logging
 
-import orjson
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException, Request
 
-from flask_app.connections import redis_conn
+from flask_app.connections import limiter, redis_conn
 from flask_app.memory_sqlite import search_data
 from shared_lib.constants import AUTOMATON_IS_VALID_REDIS_KEY
 
@@ -12,7 +11,8 @@ logger = logging.getLogger(__name__)
 
 
 @router.get("/api/search/{query}")
-async def search(query: str):
+@limiter.limit("10/second")
+async def search(query: str, request: Request):
     if not redis_conn.get(AUTOMATON_IS_VALID_REDIS_KEY):
         raise HTTPException(
             status_code=503,
@@ -20,6 +20,4 @@ async def search(query: str):
         )
 
     logger.info(f"Searching for: {query}")
-    return search_data(query)
-
-
+    return search_data(query)[:10]

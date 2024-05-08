@@ -4,6 +4,8 @@ import sqlite3
 import redis
 from celery import Celery
 from fastapi import WebSocket
+from slowapi import Limiter
+from slowapi.util import get_remote_address
 from sqlalchemy import create_engine
 from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine
 from sqlalchemy.orm import scoped_session, sessionmaker
@@ -80,3 +82,6 @@ connection_manager = ConnectionManager()
 # Create the SQLite database in memory
 sqlite_conn = sqlite3.connect(":memory:")
 sqlite_cursor = sqlite_conn.cursor()
+
+# Create slowapi limiter
+limiter = Limiter(key_func=get_remote_address)
