@@ -7,6 +7,7 @@ import Aliases from "./player_components/aliases";
 import SeasonResults from "./player_components/season_results";
 import Achievements from "./player_components/achievements";
 import { modes } from "./constants";
+import { getBaseApiUrl, getBaseWebsocketUrl } from "./utils";
 
 const DEFAULT_LANGUAGE = "USen";
 
@@ -23,13 +24,11 @@ const PlayerDetail = () => {
     const fetchData = async () => {
       setIsLoading(true);
       document.title = "splat.top - Player Page";
-      const isDevelopment = process.env.NODE_ENV === "development";
-      const apiUrl = isDevelopment
-        ? "http://localhost:5000"
-        : process.env.REACT_APP_API_URL || "";
+      const apiUrl = getBaseApiUrl();
       const endpoint = `${apiUrl}/api/player/${player_id}`;
       const translationEndpoint = `${apiUrl}/api/game_translation`;
-      const websocketEndpoint = `${apiUrl.replace("http", "ws")}/ws/player/${player_id}`;
+      const baseWebsocketUrl = getBaseWebsocketUrl();
+      const websocketEndpoint = `${baseWebsocketUrl}/ws/player/${player_id}`;
       console.log("endpoint", endpoint);
       console.log("translationEndpoint", translationEndpoint);
       console.log("websocketEndpoint", websocketEndpoint);
@@ -49,9 +48,11 @@ const PlayerDetail = () => {
         socket.onmessage = (event) => {
           console.log("Received data from websocket");
           const newData = JSON.parse(event.data);
-          console.log(newData);
           setChartData(newData);
         };
+        socket.onerror = (event) => {
+          console.error("Websocket error", event);
+        }
 
         return () => {
           socket.close();

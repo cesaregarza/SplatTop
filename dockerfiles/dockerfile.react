@@ -21,9 +21,6 @@ RUN npm install -D tailwindcss@latest postcss@latest autoprefixer@latest
 ###############################
 FROM dependencies AS build
 
-ARG REACT_APP_API_URL
-ENV REACT_APP_API_URL=$REACT_APP_API_URL
-
 COPY src/react_app/src ./src
 COPY src/react_app/public ./public
 
