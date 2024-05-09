@@ -3,7 +3,7 @@ import logging
 from fastapi import APIRouter, WebSocket, WebSocketDisconnect
 from sqlalchemy import text
 
-from flask_app.connections import async_session, connection_manager
+from fast_api_app.connections import async_session, connection_manager
 from shared_lib.queries.player_queries import PLAYER_ALIAS_QUERY
 
 router = APIRouter()

@@ -1,7 +1,7 @@
 import json
 import logging
 
-from flask_app.connections import connection_manager, redis_conn
+from fast_api_app.connections import connection_manager, redis_conn
 from shared_lib.constants import PLAYER_PUBSUB_CHANNEL
 
 logger = logging.getLogger(__name__)

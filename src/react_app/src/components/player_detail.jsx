@@ -29,6 +29,10 @@ const PlayerDetail = () => {
         : process.env.REACT_APP_API_URL || "";
       const endpoint = `${apiUrl}/api/player/${player_id}`;
       const translationEndpoint = `${apiUrl}/api/game_translation`;
+      const websocketEndpoint = `${apiUrl.replace("http", "ws")}/ws/player/${player_id}`;
+      console.log("endpoint", endpoint);
+      console.log("translationEndpoint", translationEndpoint);
+      console.log("websocketEndpoint", websocketEndpoint);
 
       try {
         const response = await axios.get(endpoint);
@@ -39,11 +43,8 @@ const PlayerDetail = () => {
 
         const translationsResponse = await axios.get(translationEndpoint);
         setWeaponTranslations(translationsResponse.data);
-        console.log(translationsResponse.data);
 
-        const socket = new WebSocket(
-          `${apiUrl.replace("http", "ws")}/ws/player/${player_id}`
-        );
+        const socket = new WebSocket(websocketEndpoint);
 
         socket.onmessage = (event) => {
           console.log("Received data from websocket");

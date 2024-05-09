@@ -1,7 +1,7 @@
 import asyncio
 import logging
 
-from flask_app.memory_sqlite import update_database
+from fast_api_app.memory_sqlite import update_database
 
 logger = logging.getLogger(__name__)
 

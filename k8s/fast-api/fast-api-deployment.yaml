@@ -1,20 +1,20 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: flask-app
+  name: fast-api-app
 spec:
   replicas: 1
   selector:
     matchLabels:
-      app: flask-app
+      app: fast-api-app
   template:
     metadata:
       labels:
-        app: flask-app
+        app: fast-api-app
     spec:
       containers:
-      - name: flask-app
-        image: flask-app:latest
+      - name: fast-api-app
+        image: fast-api-app:latest
         ports:
         - containerPort: 5000
         env:

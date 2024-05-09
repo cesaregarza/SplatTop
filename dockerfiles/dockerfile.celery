@@ -42,7 +42,7 @@ ARG BUILD_VERSION
 
 COPY README.md /app/
 COPY pyproject.toml poetry.lock /app/
-COPY src/flask_app /app/src/flask_app
+COPY src/fast_api_app /app/src/fast_api_app
 COPY src/celery_app /app/src/celery_app
 COPY src/shared_lib /app/src/shared_lib
 

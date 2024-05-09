@@ -42,7 +42,7 @@ ARG BUILD_VERSION
 
 COPY README.md /app/
 COPY pyproject.toml poetry.lock /app/
-COPY src/flask_app /app/src/flask_app
+COPY src/fast_api_app /app/src/fast_api_app
 COPY src/celery_app /app/src/celery_app
 COPY src/shared_lib /app/src/shared_lib
 
@@ -52,4 +52,4 @@ RUN poetry version $BUILD_VERSION && \
     poetry install --no-dev --without scripts && \
     poetry update
 
-CMD ["poetry", "run", "uvicorn", "flask_app.app:app", "--host", "0.0.0.0", "--port", "8000"]
+CMD ["poetry", "run", "uvicorn", "fast_api_app.app:app", "--host", "0.0.0.0", "--port", "8000"]

@@ -2,7 +2,7 @@ import logging
 
 import orjson
 
-from flask_app.connections import redis_conn, sqlite_conn, sqlite_cursor
+from fast_api_app.connections import redis_conn, sqlite_conn, sqlite_cursor
 from shared_lib.constants import ALIASES_REDIS_KEY, AUTOMATON_IS_VALID_REDIS_KEY
 
 logger = logging.getLogger(__name__)

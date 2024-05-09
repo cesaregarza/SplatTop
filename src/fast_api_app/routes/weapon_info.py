@@ -1,7 +1,7 @@
 import orjson
 from fastapi import APIRouter, HTTPException
 
-from flask_app.connections import redis_conn
+from fast_api_app.connections import redis_conn
 from shared_lib.constants import (
     GAME_TRANSLATION_REDIS_KEY,
     WEAPON_INFO_REDIS_KEY,

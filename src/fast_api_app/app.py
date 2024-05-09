@@ -9,10 +9,10 @@ from fastapi.middleware.cors import CORSMiddleware
 from slowapi import _rate_limit_exceeded_handler
 from slowapi.errors import RateLimitExceeded
 
-from flask_app.background_tasks import background_runner
-from flask_app.connections import celery, limiter, redis_conn
-from flask_app.pubsub import listen_for_updates
-from flask_app.routes import (
+from fast_api_app.background_tasks import background_runner
+from fast_api_app.connections import celery, limiter
+from fast_api_app.pubsub import listen_for_updates
+from fast_api_app.routes import (
     front_page_router,
     player_detail_router,
     search_router,

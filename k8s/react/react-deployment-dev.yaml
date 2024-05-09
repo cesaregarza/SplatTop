@@ -20,4 +20,4 @@ spec:
         - containerPort: 80
         env:
         - name: REACT_APP_API_URL
-          value: "http://flask-app-service:80"
+          value: "http://fast-api-app-service:80"

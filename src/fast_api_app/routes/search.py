@@ -2,8 +2,8 @@ import logging
 
 from fastapi import APIRouter, HTTPException, Request
 
-from flask_app.connections import limiter, redis_conn
-from flask_app.memory_sqlite import search_data
+from fast_api_app.connections import limiter, redis_conn
+from fast_api_app.memory_sqlite import search_data
 from shared_lib.constants import AUTOMATON_IS_VALID_REDIS_KEY
 
 router = APIRouter()

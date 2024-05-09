@@ -107,7 +107,7 @@ const About = () => {
               project.
             </li>
             <li>
-              <span className="text-purplelight">Slushie</span> and {" "}
+              <span className="text-purplelight">Slushie</span> and{" "}
               <span className="text-purplelight">hfcRed</span> for their
               invaluable feedback and suggestions on the project.
             </li>

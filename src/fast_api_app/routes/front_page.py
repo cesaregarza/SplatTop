@@ -1,7 +1,7 @@
 import orjson
 from fastapi import APIRouter, HTTPException, Query
 
-from flask_app.connections import redis_conn
+from fast_api_app.connections import redis_conn
 
 router = APIRouter()
 

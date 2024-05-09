@@ -32,22 +32,6 @@ const Footer = () => {
                   Contact
                 </Link>
               </li>
-              <li>
-                <Link
-                  to="/terms"
-                  className="text-white hover:text-ab5ab7 transition duration-300"
-                >
-                  Terms of Service
-                </Link>
-              </li>
-              <li>
-                <Link
-                  to="/privacy"
-                  className="text-white hover:text-ab5ab7 transition duration-300"
-                >
-                  Privacy Policy
-                </Link>
-              </li>
             </ul>
           </div>
         </div>
