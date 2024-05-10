@@ -8,6 +8,7 @@ import SeasonResults from "./player_components/season_results";
 import Achievements from "./player_components/achievements";
 import { modes } from "./constants";
 import { getBaseApiUrl, getBaseWebsocketUrl } from "./utils";
+import pako from "pako";
 
 const DEFAULT_LANGUAGE = "USen";
 
@@ -29,9 +30,6 @@ const PlayerDetail = () => {
       const translationEndpoint = `${apiUrl}/api/game_translation`;
       const baseWebsocketUrl = getBaseWebsocketUrl();
       const websocketEndpoint = `${baseWebsocketUrl}/ws/player/${player_id}`;
-      console.log("endpoint", endpoint);
-      console.log("translationEndpoint", translationEndpoint);
-      console.log("websocketEndpoint", websocketEndpoint);
 
       try {
         const response = await axios.get(endpoint);
@@ -46,16 +44,36 @@ const PlayerDetail = () => {
         const socket = new WebSocket(websocketEndpoint);
 
         socket.onmessage = (event) => {
-          console.log("Received data from websocket");
-          const newData = JSON.parse(event.data);
-          setChartData(newData);
+          if (event.data instanceof Blob) {
+            const reader = new FileReader();
+            reader.onload = () => {
+              const decompressedData = pako.inflate(reader.result, {
+                to: "string",
+              });
+              const newData = JSON.parse(decompressedData);
+              setChartData(newData);
+            };
+            reader.readAsArrayBuffer(event.data);
+          } else {
+            const newData = JSON.parse(event.data);
+            setChartData(newData);
+          }
         };
-        socket.onerror = (event) => {
-          console.error("Websocket error", event);
-        }
 
+        socket.onerror = (event) => {
+          setError(new Error("Websocket error"));
+        };
+
+        socket.onclose = (event) => {
+          // Optionally handle the connection close
+        };
+
+        // Store the WebSocket instance in a variable
+        const socketInstance = socket;
+
+        // Cleanup function to close the WebSocket connection when the component is unmounted
         return () => {
-          socket.close();
+          socketInstance.close();
         };
       } catch (error) {
         setError(error);

@@ -1,3 +1,4 @@
+import asyncio
 import logging
 
 from fastapi import APIRouter, WebSocket, WebSocketDisconnect
@@ -34,11 +35,12 @@ async def player_detail(player_id: str):
 @router.websocket("/ws/player/{player_id}")
 async def websocket_endpoint(websocket: WebSocket, player_id: str):
     await connection_manager.connect(websocket, player_id)
+
     try:
         while True:
             data = await websocket.receive_text()
-            await connection_manager.send_personal_message(
-                f"You wrote: {data}", player_id
-            )
+            # Do nothing with data for now
     except WebSocketDisconnect:
         connection_manager.disconnect(player_id)
+    finally:
+        logger.info("WebSocket connection for player %s closed", player_id)

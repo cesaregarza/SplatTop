@@ -1,5 +1,6 @@
 import logging
 import sqlite3
+import zlib
 
 import redis
 from celery import Celery
@@ -45,11 +46,12 @@ redis_conn = redis.Redis(connection_pool=pool)
 class ConnectionManager:
     def __init__(self):
         self.active_connections: dict[str, WebSocket] = {}
+        self.heartbeat_interval = 30
 
     async def connect(self, websocket: WebSocket, player_id: str):
         await websocket.accept()
         self.active_connections[player_id] = websocket
-        logger.info(f"Client connected and added to room: {player_id}")
+        logger.info("Client connected and added to room: %s", player_id)
         celery.send_task("tasks.fetch_player_data", args=[player_id])
         logger.info("Task sent to Celery")
 
@@ -67,14 +69,21 @@ class ConnectionManager:
             await self.active_connections[player_id].send_text(message)
 
     async def broadcast_player_data(self, message: str, player_id: str):
-        logger.info(f"Broadcasting player data for: {player_id}")
+        logger.info("Broadcasting player data for: %s", player_id)
         if player_id in self.active_connections:
-            logger.info("Player is connected, sending data")
-            logger.info(f"Message length: {len(message):,}")
-            await self.active_connections[player_id].send_text(message)
-            logger.info("Data sent")
+            compressed_message = zlib.compress(message.encode())
+            logger.info("Player is connected, sending compressed data")
+            logger.info(
+                "Original message length: %s, Compressed message length: %s",
+                f"{len(message):,}",
+                f"{len(compressed_message):,}",
+            )
+            await self.active_connections[player_id].send_bytes(
+                compressed_message
+            )
+            logger.info("Compressed data sent")
         else:
-            logger.info(f"Player {player_id} not connected")
+            logger.info("Player %s not connected", player_id)
 
 
 connection_manager = ConnectionManager()
