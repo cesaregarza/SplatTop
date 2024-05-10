@@ -112,7 +112,9 @@ def fetch_player_data(player_id: str) -> None:
     # Publish the data to the player_data_channel
     redis_conn.publish(
         PLAYER_PUBSUB_CHANNEL,
-        orjson.dumps({"player_id": player_id, "key": cache_key}),
+        orjson.dumps(
+            {"player_id": player_id, "key": cache_key, "type": "data"}
+        ),
     )
     try:
         redis_conn.delete(task_signature)

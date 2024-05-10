@@ -11,7 +11,7 @@ from slowapi.errors import RateLimitExceeded
 
 from fast_api_app.background_tasks import background_runner
 from fast_api_app.connections import celery, limiter
-from fast_api_app.pubsub import listen_for_updates
+from fast_api_app.pubsub import start_pubsub_listener
 from fast_api_app.routes import (
     front_page_router,
     player_detail_router,
@@ -33,11 +33,7 @@ async def lifespan(app: FastAPI):
     celery.send_task("tasks.update_weapon_info")
     celery.send_task("tasks.pull_aliases")
 
-    # Start the pubsub listener in a separate daemon thread
-    pubsub_thread = threading.Thread(
-        target=asyncio.run, args=(listen_for_updates(),), daemon=True
-    )
-    pubsub_thread.start()
+    start_pubsub_listener()
     asyncio.create_task(background_runner.run())
     yield
 
