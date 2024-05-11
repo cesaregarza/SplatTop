@@ -6,6 +6,7 @@ import ColumnSelector from "./top500_components/selectors/column_selector";
 import columnsConfig from "./top500_components/columns_config";
 import RegionSelector from "./top500_components/selectors/region_selector";
 import ModeSelector from "./top500_components/selectors/mode_selector";
+import Pagination from "./top500_components/pagination";
 
 const Top500 = () => {
   const [searchQuery, setSearchQuery] = useState(
@@ -93,6 +94,13 @@ const Top500 = () => {
         columnVisibility={columnVisibility}
         setColumnVisibility={setColumnVisibility}
       />
+      <Pagination
+        totalItems={filteredPlayers.length}
+        itemsPerPage={itemsPerPage}
+        currentPage={currentPage}
+        onPageChange={paginate}
+        isTopOfPage={true}
+      />
       <input
         type="text"
         placeholder="Search"
@@ -114,24 +122,13 @@ const Top500 = () => {
           />
         )}
       </div>
-      <div className="flex justify-center mt-4 flex-wrap">
-        {Array.from(
-          { length: Math.ceil(filteredPlayers.length / itemsPerPage) },
-          (_, i) => (
-            <button
-              key={i}
-              onClick={() => paginate(i + 1)}
-              className={`mx-1 px-4 py-2 rounded-md ${
-                currentPage === i + 1
-                  ? "bg-purpledark text-white hover:bg-purple"
-                  : "bg-gray-700 hover:bg-purple"
-              }`}
-            >
-              {i + 1}
-            </button>
-          )
-        )}
-      </div>
+      <Pagination
+        totalItems={filteredPlayers.length}
+        itemsPerPage={itemsPerPage}
+        currentPage={currentPage}
+        onPageChange={paginate}
+        isTopOfPage={false}
+      />
     </div>
   );
 };

@@ -54,6 +54,7 @@ deploy:
 	kubectl apply -f https://raw.githubusercontent.com/kubernetes/ingress-nginx/controller-v1.0.0/deploy/static/provider/cloud/deploy.yaml
 	sleep 20
 	kubectl apply -f k8s/ingress-dev.yaml
+	kubectl port-forward -n ingress-nginx service/ingress-nginx-controller 8080:80
 
 .PHONY: undeploy
 undeploy:
