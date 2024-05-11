@@ -20,6 +20,7 @@ const PlayerDetail = () => {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState(null);
   const [weaponTranslations, setWeaponTranslations] = useState(null);
+  const [socket, setSocket] = useState(null);
 
   useEffect(() => {
     const fetchData = async () => {
@@ -41,9 +42,13 @@ const PlayerDetail = () => {
         const translationsResponse = await axios.get(translationEndpoint);
         setWeaponTranslations(translationsResponse.data);
 
-        const socket = new WebSocket(websocketEndpoint);
+        if (socket) {
+          socket.close();
+        }
 
-        socket.onmessage = (event) => {
+        const newSocket = new WebSocket(websocketEndpoint);
+
+        newSocket.onmessage = (event) => {
           if (event.data instanceof Blob) {
             const reader = new FileReader();
             reader.onload = () => {
@@ -60,21 +65,15 @@ const PlayerDetail = () => {
           }
         };
 
-        socket.onerror = (event) => {
+        newSocket.onerror = (event) => {
           setError(new Error("Websocket error"));
         };
 
-        socket.onclose = (event) => {
+        newSocket.onclose = (event) => {
           // Optionally handle the connection close
         };
 
-        // Store the WebSocket instance in a variable
-        const socketInstance = socket;
-
-        // Cleanup function to close the WebSocket connection when the component is unmounted
-        return () => {
-          socketInstance.close();
-        };
+        setSocket(newSocket);
       } catch (error) {
         setError(error);
       } finally {
@@ -83,6 +82,12 @@ const PlayerDetail = () => {
     };
 
     fetchData();
+
+    return () => {
+      if (socket) {
+        socket.close();
+      }
+    };
   }, [player_id]);
 
   return (

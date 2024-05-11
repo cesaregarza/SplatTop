@@ -8,17 +8,26 @@ import RegionSelector from "./top500_components/selectors/region_selector";
 import ModeSelector from "./top500_components/selectors/mode_selector";
 
 const Top500 = () => {
-  const [searchQuery, setSearchQuery] = useState("");
-  const [currentPage, setCurrentPage] = useState(1);
+  const [searchQuery, setSearchQuery] = useState(
+    localStorage.getItem("searchQuery") || ""
+  );
+  const [currentPage, setCurrentPage] = useState(
+    parseInt(localStorage.getItem("currentPage"), 10) || 1
+  );
   const itemsPerPage = 100;
-  const [selectedRegion, setSelectedRegion] = useState("Tentatek");
-  const [selectedMode, setSelectedMode] = useState("Splat Zones");
+  const [selectedRegion, setSelectedRegion] = useState(
+    localStorage.getItem("selectedRegion") || "Tentatek"
+  );
+  const [selectedMode, setSelectedMode] = useState(
+    localStorage.getItem("selectedMode") || "Splat Zones"
+  );
 
   const [columnVisibility, setColumnVisibility] = useState(
-    columnsConfig.reduce((acc, column) => {
-      acc[column.id] = column.isVisible;
-      return acc;
-    }, {})
+    JSON.parse(localStorage.getItem("columnVisibility")) ||
+      columnsConfig.reduce((acc, column) => {
+        acc[column.id] = column.isVisible;
+        return acc;
+      }, {})
   );
 
   const modeNameMap = {
@@ -30,7 +39,18 @@ const Top500 = () => {
 
   useEffect(() => {
     document.title = `splat.top - ${selectedRegion} ${modeNameMap[selectedMode]}`;
-  });
+    localStorage.setItem("searchQuery", searchQuery);
+    localStorage.setItem("currentPage", currentPage.toString());
+    localStorage.setItem("selectedRegion", selectedRegion);
+    localStorage.setItem("selectedMode", selectedMode);
+    localStorage.setItem("columnVisibility", JSON.stringify(columnVisibility));
+  }, [
+    searchQuery,
+    currentPage,
+    selectedRegion,
+    selectedMode,
+    columnVisibility,
+  ]);
 
   const isDevelopment = process.env.NODE_ENV === "development";
   const apiUrl = isDevelopment
@@ -49,7 +69,10 @@ const Top500 = () => {
   const indexOfFirstItem = indexOfLastItem - itemsPerPage;
   const currentItems = filteredPlayers.slice(indexOfFirstItem, indexOfLastItem);
 
-  const paginate = (pageNumber) => setCurrentPage(pageNumber);
+  const paginate = (pageNumber) => {
+    setCurrentPage(pageNumber);
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  };
 
   return (
     <div className="container mx-auto px-4 py-8 bg-gray-900 text-white min-h-screen sm:px-2 lg:px-8">

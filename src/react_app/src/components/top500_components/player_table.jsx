@@ -14,6 +14,7 @@ const PlayerTable = ({ players, columnVisibility }) => {
 
   const handleRowClick = (playerId) => {
     navigate(`/player/${playerId}`);
+    window.scrollTo(0, 0);
   };
 
   return (
