@@ -3,10 +3,18 @@ import useFetchWithCache from "./top500_components/fetch_with_cache";
 import Loading from "./loading";
 import columnsConfig from "./top500_components/columns_config";
 import { getBaseApiUrl } from "./utils";
-const PlayerTable = React.lazy(() => import("./top500_components/player_table"));
-const ColumnSelector = React.lazy(() => import("./top500_components/selectors/column_selector"));
-const RegionSelector = React.lazy(() => import("./top500_components/selectors/region_selector"));
-const ModeSelector = React.lazy(() => import("./top500_components/selectors/mode_selector"));
+const PlayerTable = React.lazy(() =>
+  import("./top500_components/player_table")
+);
+const ColumnSelector = React.lazy(() =>
+  import("./top500_components/selectors/column_selector")
+);
+const RegionSelector = React.lazy(() =>
+  import("./top500_components/selectors/region_selector")
+);
+const ModeSelector = React.lazy(() =>
+  import("./top500_components/selectors/mode_selector")
+);
 const Pagination = React.lazy(() => import("./top500_components/pagination"));
 
 const modeNameMap = {
@@ -58,13 +66,15 @@ const Top500 = () => {
   const endpoint = `${apiUrl}/api/leaderboard?mode=${selectedMode}&region=${selectedRegion}`;
   const { data, error, isLoading } = useFetchWithCache(endpoint);
 
-  const players = data ? Object.keys(data.players).reduce((acc, key) => {
-    data.players[key].forEach((value, index) => {
-      if (!acc[index]) acc[index] = {};
-      acc[index][key] = value;
-    });
-    return acc;
-  }, []) : [];
+  const players = data
+    ? Object.keys(data.players).reduce((acc, key) => {
+        data.players[key].forEach((value, index) => {
+          if (!acc[index]) acc[index] = {};
+          acc[index][key] = value;
+        });
+        return acc;
+      }, [])
+    : [];
 
   const filteredPlayers = players.filter((player) =>
     player.name.toLowerCase().includes(searchQuery.toLowerCase())

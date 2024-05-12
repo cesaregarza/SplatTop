@@ -1,13 +1,13 @@
-import React, { Suspense } from 'react';
-import './App.css';
-import Navbar from './components/navbar';
-import Footer from './components/footer';
-import { BrowserRouter as Router, Route, Routes } from 'react-router-dom';
+import React, { Suspense } from "react";
+import "./App.css";
+import Navbar from "./components/navbar";
+import Footer from "./components/footer";
+import { BrowserRouter as Router, Route, Routes } from "react-router-dom";
 
-const Top500 = React.lazy(() => import('./components/top500'));
-const FAQ = React.lazy(() => import('./components/static_pages/faq'));
-const About = React.lazy(() => import('./components/static_pages/about'));
-const PlayerDetail = React.lazy(() => import('./components/player_detail'));
+const Top500 = React.lazy(() => import("./components/top500"));
+const FAQ = React.lazy(() => import("./components/static_pages/faq"));
+const About = React.lazy(() => import("./components/static_pages/about"));
+const PlayerDetail = React.lazy(() => import("./components/player_detail"));
 
 const App = () => {
   return (
