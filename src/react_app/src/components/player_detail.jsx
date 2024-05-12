@@ -1,14 +1,20 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, Suspense } from "react";
 import { useLocation } from "react-router-dom";
 import axios from "axios";
 import Loading from "./loading";
-import ChartController from "./player_components/chart_controller";
-import Aliases from "./player_components/aliases";
-import SeasonResults from "./player_components/season_results";
-import Achievements from "./player_components/achievements";
 import { modes } from "./constants";
 import { getBaseApiUrl, getBaseWebsocketUrl } from "./utils";
 import pako from "pako";
+const ChartController = React.lazy(() =>
+  import("./player_components/chart_controller")
+);
+const Aliases = React.lazy(() => import("./player_components/aliases"));
+const SeasonResults = React.lazy(() =>
+  import("./player_components/season_results")
+);
+const Achievements = React.lazy(() =>
+  import("./player_components/achievements")
+);
 
 const DEFAULT_LANGUAGE = "USen";
 
@@ -122,7 +128,7 @@ const PlayerDetail = () => {
         ) : error ? (
           <div className="text-red-500 text-center">{error.message}</div>
         ) : (
-          <>
+          <Suspense fallback={<Loading text="Loading components..." />}>
             {data && data.length > 0 ? (
               <div className="flex flex-col md:flex-row">
                 <div className="md:w-2/5 md:pr-8">
@@ -155,7 +161,7 @@ const PlayerDetail = () => {
             ) : (
               <div className="text-center">No data available</div>
             )}
-          </>
+          </Suspense>
         )}
       </main>
     </div>
