@@ -24,5 +24,11 @@ async def leaderboard(
             detail="Data is not available yet, please wait.",
         )
     else:
-        players = orjson.loads(players)
-        return {"players": players}
+        players: list[dict] = orjson.loads(players)
+        out: dict[str, list] = {}
+        for player in players:
+            for key, value in player.items():
+                if key not in out:
+                    out[key] = []
+                out[key].append(value)
+        return {"players": out}

@@ -24,10 +24,11 @@ async_engine = create_async_engine(create_uri())
 # Synchronous session
 Session = scoped_session(sessionmaker(bind=sync_engine))
 
-# Asynchronous session
-async_session = scoped_session(
-    sessionmaker(bind=async_engine, class_=AsyncSession, expire_on_commit=False)
+# Asynchronous session with pool
+async_session_factory = sessionmaker(
+    bind=async_engine, class_=AsyncSession, expire_on_commit=False
 )
+async_session = scoped_session(async_session_factory)
 
 REDIS_URI = f"redis://{REDIS_HOST}:{REDIS_PORT}"
 celery = Celery("tasks", broker=REDIS_URI, backend=REDIS_URI)

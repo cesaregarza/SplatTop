@@ -1,10 +1,9 @@
-import asyncio
 import logging
 
 from fastapi import APIRouter, WebSocket, WebSocketDisconnect
 from sqlalchemy import text
 
-from fast_api_app.connections import async_session, connection_manager
+from fast_api_app.connections import async_session_factory, connection_manager
 from shared_lib.queries.player_queries import PLAYER_ALIAS_QUERY
 
 router = APIRouter()
@@ -14,7 +13,7 @@ logger = logging.getLogger(__name__)
 
 @router.get("/api/player/{player_id}")
 async def player_detail(player_id: str):
-    async with async_session() as session:
+    async with async_session_factory() as session:
         logger.info("Fetching initial player data")
         result = await session.execute(
             text(PLAYER_ALIAS_QUERY), {"player_id": player_id}
