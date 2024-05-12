@@ -190,10 +190,12 @@ class Aliases(Base):
     player_id = Column(String, primary_key=True)
     splashtag = Column(
         String,
-        unique=True,
+        primary_key=True,
     )
+    last_seen = Column(DateTime(timezone=True))
 
     __table_args__ = (
         Index("idx_aliases_player_id", "player_id"),
+        Index("idx_aliases_splashtag", "splashtag"),
         {"schema": "xscraper"},
     )

@@ -58,6 +58,37 @@ function adjustBrightnessByRank(labColor, rank, delta, maxRank, invert) {
   return chroma.lab(newL, a, b).hex();
 }
 
+function getImageFromId(weaponId, weaponReferenceData) {
+  const baseCDNUrl = "https://splat-top.nyc3.cdn.digitaloceanspaces.com/";
+  const weaponData = weaponReferenceData[weaponId];
+  const name = `${weaponData.class}_${weaponData.kit}`;
+  if (weaponData) {
+    return `${baseCDNUrl}assets/weapon_flat/Path_Wst_${name}.png`;
+  }
+  return `${baseCDNUrl}assets/weapon_flat/Dummy.png`;
+}
+
+function createTranslator(weaponReferenceData, weaponTranslations) {
+  const translateWeaponId = (weapon_id) => {
+    const weaponClass = weaponReferenceData[weapon_id]?.class;
+    const kit = weaponReferenceData[weapon_id]?.reference_kit;
+    const translationKey = `${weaponClass}_${kit}`;
+    return weaponTranslations[`WeaponName_Main`][translationKey];
+  };
+
+  const translateClassName = (className) => {
+    if (className === "Other") {
+      return className;
+    }
+    return weaponTranslations["WeaponTypeName"][className];
+  };
+
+  return {
+    translateWeaponId,
+    translateClassName,
+  };
+}
+
 function computeDrilldown(
   counts,
   percentageThreshold,
@@ -70,21 +101,9 @@ function computeDrilldown(
   const maxRank = 5;
   const deltaL = 8;
 
-  // Helper function to translate weapon IDs using the provided translation data
-  const translateWeaponId = (weapon_id) => {
-    const weaponClass = weaponReferenceData[weapon_id]?.class;
-    const kit = weaponReferenceData[weapon_id]?.reference_kit;
-    const translationKey = `${weaponClass}_${kit}`;
-    return weaponTranslations[`WeaponName_Main`][translationKey];
-  };
-
-  // Helper function to translate class names using the provided translation data
-  const translateClassName = (className) => {
-    if (className === "Other") {
-      return className;
-    }
-    return weaponTranslations["WeaponTypeName"][className];
-  };
+  const translator = createTranslator(weaponReferenceData, weaponTranslations);
+  const translateWeaponId = translator.translateWeaponId;
+  const translateClassName = translator.translateClassName;
 
   const translatedWeaponColors = {};
   for (const weaponClass in weaponColors) {
@@ -258,4 +277,4 @@ function computeDrilldown(
   };
 }
 
-export { computeDrilldown };
+export { getImageFromId, createTranslator, computeDrilldown };

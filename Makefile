@@ -26,7 +26,6 @@ build-no-cache:
 port-forward:
 	kubectl port-forward service/fast-api-app-service 5000:80 8001:8001 & echo $$! > /tmp/fast-apiport-forward.pid
 	kubectl port-forward service/react-app-service 4000:80 & echo $$! > /tmp/react-port-forward.pid
-	kubectl port-forward -n ingress-nginx service/ingress-nginx-controller 8080:80 & echo $$! > /tmp/ingress-port-forward.pid
 	echo "fast-api app is running at http://localhost:5000"
 	echo "Websocket is running at http://localhost:8001"
 	echo "React (prod) app is running at http://localhost:4000"
@@ -35,13 +34,11 @@ port-forward:
 stop-port-forward:
 	kill `cat /tmp/fast-apiport-forward.pid` || true
 	kill `cat /tmp/react-port-forward.pid` || true
-	kill `cat /tmp/ingress-port-forward.pid` || true
 	rm -f /tmp/fast-apiport-forward.pid
 	rm -f /tmp/react-port-forward.pid
-	rm -f /tmp/ingress-port-forward.pid
 
-.PHONY: deploy
-deploy:
+.PHONY: deploy-core
+deploy-core:
 	kubectl apply -f k8s/secrets.yaml
 	kubectl apply -f k8s/redis/redis-deployment.yaml
 	kubectl apply -f k8s/redis/redis-service.yaml
@@ -52,12 +49,22 @@ deploy:
 	kubectl apply -f k8s/react/react-deployment-dev.yaml
 	kubectl apply -f k8s/react/react-service-dev.yaml
 	kubectl apply -f https://raw.githubusercontent.com/kubernetes/ingress-nginx/controller-v1.0.0/deploy/static/provider/cloud/deploy.yaml
+
+.PHONY: deploy
+deploy:
+	make deploy-core
 	sleep 20
 	kubectl apply -f k8s/ingress-dev.yaml
 	kubectl port-forward -n ingress-nginx service/ingress-nginx-controller 8080:80
 
-.PHONY: undeploy
-undeploy:
+.PHONY: deploy-dev
+deploy-dev:
+	make deploy-core
+	make port-forward
+	cd src/react_app && npm start
+
+.PHONY: undeploy-core
+undeploy-core:
 	kubectl delete -f k8s/secrets.yaml
 	kubectl delete -f k8s/redis/redis-deployment.yaml
 	kubectl delete -f k8s/redis/redis-service.yaml
@@ -67,15 +74,28 @@ undeploy:
 	kubectl delete -f k8s/celery-beat/celery-beat-deployment-dev.yaml
 	kubectl delete -f k8s/react/react-deployment-dev.yaml
 	kubectl delete -f k8s/react/react-service-dev.yaml
-	kubectl delete -f https://raw.githubusercontent.com/kubernetes/ingress-nginx/controller-v1.0.0/deploy/static/provider/cloud/deploy.yaml
+
+.PHONY: undeploy
+undeploy:
+	make undeploy-core
 	kubectl delete -f k8s/ingress-dev.yaml
+
+.PHONY: undeploy-dev
+undeploy-dev:
+	make undeploy-core
 	make stop-port-forward
 
 .PHONY: redeploy
 redeploy: undeploy deploy
 
+.PHONY: redeploy-dev
+redeploy-dev: undeploy-dev deploy-dev
+
 .PHONY: update
 update: undeploy build deploy
+
+.PHONY: update-dev
+update-dev: undeploy-dev build deploy-dev
 
 .PHONY: fast-api-logs
 fast-api-logs:
@@ -104,3 +124,8 @@ ingress-logs:
 .PHONY: start-react-app-dev
 start-react-app-dev:
 	cd src/react_app && npm start
+
+.PHONY: format
+format:
+	black src/
+	isort src/

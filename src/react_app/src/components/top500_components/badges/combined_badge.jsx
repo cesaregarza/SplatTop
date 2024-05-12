@@ -1,7 +1,6 @@
 import React from "react";
 import Top10BadgeIcon from "../../../assets/icons/t10.png";
 import Top500BadgeIcon from "../../../assets/icons/t500.png";
-import Top10Badge from "./top10_badge";
 import Top500Badge from "./top500_badge";
 
 const CombinedBadge = ({
@@ -13,11 +12,11 @@ const CombinedBadge = ({
   if (top10Count === 0 && top500Count === 0) {
     return null;
   }
-  if (top10Count == 0) {
+  if (top10Count === 0) {
     return <Top500Badge count={top500Count} disable={disable} size={size} />;
   }
 
-  const noSliceClass = top500Count == 0 ? "no-slice" : "";
+  const noSliceClass = top500Count === 0 ? "no-slice" : "";
   const top10BadgeShineClass = disable
     ? "badge-image"
     : `badge-image ${

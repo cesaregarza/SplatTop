@@ -157,11 +157,13 @@ def aggregate_player_data(
     player_df = pd.DataFrame(player_data)
     weapon_counts = aggregate_weapon_counts(player_df)
     weapon_winrate = aggregate_weapon_winrate(player_df)
+    agg_season_data = aggregate_season_data(player_df)
     latest_data = pull_all_latest_data(player_id)
     return {
         "weapon_counts": weapon_counts,
         "weapon_winrate": weapon_winrate,
         "season_results": season_data,
+        "aggregate_season_data": agg_season_data,
         "latest_data": latest_data,
     }
 
@@ -189,6 +191,16 @@ def aggregate_weapon_winrate(player_df: pd.DataFrame) -> list[dict]:
         .agg(["sum", "count"])
         .reset_index()
         .rename(columns={"win": "win_count", "count": "total_count"})
+        .to_dict(orient="records")
+    )
+
+
+def aggregate_season_data(player_df: pd.DataFrame) -> list[dict]:
+    return (
+        player_df.groupby(["season_number", "mode"])["x_power"]
+        .max()
+        .rename("peak_x_power")
+        .reset_index()
         .to_dict(orient="records")
     )
 

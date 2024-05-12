@@ -21,6 +21,7 @@ const PlayerDetail = () => {
   const [error, setError] = useState(null);
   const [weaponTranslations, setWeaponTranslations] = useState(null);
   const [socket, setSocket] = useState(null);
+  const [weaponReferenceData, setWeaponReferenceData] = useState(null);
 
   useEffect(() => {
     const fetchData = async () => {
@@ -79,6 +80,24 @@ const PlayerDetail = () => {
       } finally {
         setIsLoading(false);
       }
+
+      const localData = localStorage.getItem("weaponReferenceData");
+      if (localData) {
+        setWeaponReferenceData(JSON.parse(localData));
+      } else {
+        try {
+          const referenceResponse = await axios.get(
+            `${apiUrl}/api/weapon_info`
+          );
+          setWeaponReferenceData(referenceResponse.data);
+          localStorage.setItem(
+            "weaponReferenceData",
+            JSON.stringify(referenceResponse.data)
+          );
+        } catch (error) {
+          console.error("Error fetching weapon reference data:", error);
+        }
+      }
     };
 
     fetchData();
@@ -106,23 +125,27 @@ const PlayerDetail = () => {
           <>
             {data && data.length > 0 ? (
               <div className="flex flex-col md:flex-row">
-                <div className="md:w-1/3 md:pr-8">
+                <div className="md:w-2/5 md:pr-8">
                   <Aliases data={data} />
                   {chartData ? (
                     <>
-                      <SeasonResults data={chartData} />
+                      <SeasonResults
+                        data={chartData}
+                        weaponReferenceData={weaponReferenceData}
+                      />
                       <Achievements data={chartData} />
                     </>
                   ) : (
                     <Loading text="Loading season results..." />
                   )}
                 </div>
-                <div className="md:w-2/3 mt-8 md:mt-0">
+                <div className="md:w-3/5 mt-8 md:mt-0">
                   {chartData ? (
                     <ChartController
                       data={chartData}
                       modes={modes}
                       weaponTranslations={weaponTranslations[DEFAULT_LANGUAGE]}
+                      weaponReferenceData={weaponReferenceData}
                     />
                   ) : (
                     <Loading text={"Loading chart..."} />

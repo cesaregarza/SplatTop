@@ -4,7 +4,12 @@ import XChart from "./xchart";
 import WeaponsChart from "./weapons";
 import SeasonSelector from "./season_selector";
 
-function ChartController({ data, modes, weaponTranslations }) {
+function ChartController({
+  data,
+  modes,
+  weaponTranslations,
+  weaponReferenceData,
+}) {
   const [mode, setMode] = useState(modes[0]);
   const [colorMode, setColorMode] = useState("Seasonal");
   const [selectedSeasons, setSelectedSeasons] = useState([]);
@@ -50,6 +55,7 @@ function ChartController({ data, modes, weaponTranslations }) {
         mode={mode}
         colorMode={colorMode}
         weaponTranslations={weaponTranslations}
+        weaponReferenceData={weaponReferenceData}
       />
       <div className="relative controls-box border-2 border-gray-200 rounded-lg py-4 px-1 mt-5">
         <div className="absolute bg-gray-900">

@@ -45,6 +45,21 @@ body {
   font-family: "FiraMono", monospace;
 }
 
+::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+
+::-webkit-scrollbar-track {
+  background: #1F2937;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #ab5ab7;
+  border-radius: 5px;
+  border: 1px solid #1F2937;
+}
+
 @keyframes glow {
   0%,
   100% {

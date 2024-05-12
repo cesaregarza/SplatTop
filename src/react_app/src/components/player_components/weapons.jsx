@@ -2,65 +2,17 @@ import React from "react";
 import HighchartsReact from "highcharts-react-official";
 import Highcharts from "highcharts";
 import drilldown from "highcharts/modules/drilldown";
-import axios from "axios";
 import { computeDrilldown } from "./weapon_helper_functions";
 import "./xchart.css";
 
 drilldown(Highcharts);
 
-const isDevelopment = process.env.NODE_ENV === "development";
-const apiUrl = isDevelopment
-  ? "http://localhost:5000"
-  : process.env.REACT_APP_API_URL || "";
-const endpoint = `${apiUrl}/api/weapon_info`;
-
 class WeaponsChart extends React.Component {
-  constructor(props) {
-    super(props);
-    const localData = localStorage.getItem("weaponReferenceData");
-    this.state = {
-      weaponReferenceData: localData ? JSON.parse(localData) : null,
-    };
-    if (!localData) {
-      this.fetchWeaponReferenceData();
-    }
-  }
-
-  componentDidMount() {
-    // Data fetching is now initiated in the constructor if local storage is empty
-  }
-
-  fetchWeaponReferenceData() {
-    const fetchData = () => {
-      axios
-        .get(endpoint)
-        .then((response) => {
-          if (response.status === 200 && response.data) {
-            this.setState({ weaponReferenceData: response.data });
-            localStorage.setItem(
-              "weaponReferenceData",
-              JSON.stringify(response.data)
-            );
-          } else {
-            console.error("No data received:", response);
-          }
-        })
-        .catch((error) => {
-          if (error.response && error.response.status === 503) {
-            console.error("Service unavailable, retrying fetch:", error);
-            setTimeout(fetchData, 1000);
-          } else {
-            console.error("Error fetching weapon reference data:", error);
-          }
-        });
-    };
-    fetchData();
-  }
 
   render() {
     const { weapon_winrate } = this.props.data;
     const { mode } = this.props;
-    const { weaponTranslations } = this.props;
+    const { weaponTranslations, weaponReferenceData } = this.props;
 
     const filteredWinrate = weapon_winrate.filter((d) => d.mode === mode);
 
@@ -70,7 +22,7 @@ class WeaponsChart extends React.Component {
       computeDrilldown(
         filteredWinrate,
         otherThresholdPercent,
-        this.state.weaponReferenceData,
+        weaponReferenceData,
         weaponTranslations
       );
 
@@ -129,10 +81,10 @@ class WeaponsChart extends React.Component {
           name: "Total Weapon Usage",
           colorByPoint: true,
           data: innerSeriesData.map((item) => ({
-            name: weaponTranslations[item.name] || item.name, // Use translated name if available
+            name: weaponTranslations[item.name] || item.name,
             y: (item.y / totalUsage) * 100,
             drilldown: item.name,
-            color: item.color, // Assigning color from the computed data
+            color: item.color,
             classColor: item.color,
           })),
           size: "60%",
@@ -151,8 +103,8 @@ class WeaponsChart extends React.Component {
           data: outerSeriesData.map((item) => ({
             name: item.name,
             y: (item.y / totalUsage) * 100,
-            color: item.color, // Assigning color from the computed data
-            classColor: item.classColor, // Ensuring drilldown data also has colors
+            color: item.color,
+            classColor: item.classColor,
           })),
           size: "100%",
           innerSize: "60%",
@@ -176,7 +128,7 @@ class WeaponsChart extends React.Component {
           data: series.data.map((item) => ({
             name: item.name,
             y: item.y,
-            color: item.color, // Ensuring drilldown data also has colors
+            color: item.color,
             classColor: item.color,
           })),
         })),
