@@ -5,15 +5,10 @@ WHERE player_id = :player_id;
 """
 
 PLAYER_ALIAS_QUERY = """
-SELECT splashtag, MAX(timestamp) AS latest_updated_timestamp
-FROM (
-    SELECT splashtag, timestamp
-    FROM xscraper.players
-    WHERE player_id = :player_id
-      AND updated = TRUE
-) AS filtered
-GROUP BY splashtag
-ORDER BY latest_updated_timestamp DESC;
+SELECT splashtag, last_seen AS latest_updated_timestamp
+FROM xscraper.aliases
+WHERE player_id = :player_id
+ORDER BY last_seen DESC;
 """
 
 PLAYER_MOST_RECENT_ROW_QUERY = """
