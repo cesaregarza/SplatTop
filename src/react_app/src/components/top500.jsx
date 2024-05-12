@@ -7,6 +7,14 @@ import columnsConfig from "./top500_components/columns_config";
 import RegionSelector from "./top500_components/selectors/region_selector";
 import ModeSelector from "./top500_components/selectors/mode_selector";
 import Pagination from "./top500_components/pagination";
+import { getBaseApiUrl } from "./utils";
+
+const modeNameMap = {
+  "Splat Zones": "SZ",
+  "Tower Control": "TC",
+  Rainmaker: "RM",
+  "Clam Blitz": "CB",
+};
 
 const Top500 = () => {
   const [searchQuery, setSearchQuery] = useState(
@@ -31,13 +39,6 @@ const Top500 = () => {
       }, {})
   );
 
-  const modeNameMap = {
-    "Splat Zones": "SZ",
-    "Tower Control": "TC",
-    Rainmaker: "RM",
-    "Clam Blitz": "CB",
-  };
-
   useEffect(() => {
     document.title = `splat.top - ${selectedRegion} ${modeNameMap[selectedMode]}`;
     localStorage.setItem("searchQuery", searchQuery);
@@ -53,10 +54,7 @@ const Top500 = () => {
     columnVisibility,
   ]);
 
-  const isDevelopment = process.env.NODE_ENV === "development";
-  const apiUrl = isDevelopment
-    ? "http://localhost:5000"
-    : process.env.REACT_APP_API_URL || "";
+  const apiUrl = getBaseApiUrl();
   const endpoint = `${apiUrl}/api/leaderboard?mode=${selectedMode}&region=${selectedRegion}`;
   const { data, error, isLoading } = useFetchWithCache(endpoint);
 

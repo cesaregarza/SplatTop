@@ -107,7 +107,7 @@ const PlayerDetail = () => {
         socket.close();
       }
     };
-  }, [player_id]);
+  }, [player_id]); // eslint-disable-line react-hooks/exhaustive-deps
 
   return (
     <div className="flex flex-col min-h-screen">

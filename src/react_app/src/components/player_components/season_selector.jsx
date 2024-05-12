@@ -28,7 +28,7 @@ function SeasonSelector({ data, mode, onSeasonChange }) {
     );
     setSelectedSeasons(availableSeasons);
     onSeasonChange(availableSeasons);
-  }, [mode]);
+  }, [mode]); // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
     const handleOutsideClick = (event) => {

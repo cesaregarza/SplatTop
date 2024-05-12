@@ -38,7 +38,7 @@ const Achievements = ({ data }) => {
   };
 
   activeData.forEach((result) => {
-    const { season_number, mode, rank, region } = result;
+    const { season_number, mode, rank } = result;
     if (!seasonCounts[season_number]) {
       seasonCounts[season_number] = {
         top10: 0,

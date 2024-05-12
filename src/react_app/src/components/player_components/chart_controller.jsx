@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState } from "react";
 import ModeSelector from "../top500_components/selectors/mode_selector";
 import XChart from "./xchart";
 import WeaponsChart from "./weapons";
@@ -13,10 +13,6 @@ function ChartController({
   const [mode, setMode] = useState(modes[0]);
   const [colorMode, setColorMode] = useState("Seasonal");
   const [selectedSeasons, setSelectedSeasons] = useState([]);
-
-  useEffect(() => {
-    // This could be used to fetch additional data or perform setup operations
-  }, []);
 
   const handleModeChange = (newMode) => {
     setMode(newMode);

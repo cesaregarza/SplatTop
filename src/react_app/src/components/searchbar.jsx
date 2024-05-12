@@ -1,10 +1,8 @@
 import React, { useState, useEffect, useRef } from "react";
 import axios from "axios";
+import { getBaseApiUrl } from "./utils";
 
-const isDevelopment = process.env.NODE_ENV === "development";
-const apiUrl = isDevelopment
-  ? "http://localhost:5000"
-  : process.env.REACT_APP_API_URL || "";
+const apiUrl = getBaseApiUrl();
 const endpoint = `${apiUrl}/api/search`;
 
 const SearchBar = () => {
