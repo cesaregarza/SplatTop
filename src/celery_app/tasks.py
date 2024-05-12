@@ -41,11 +41,6 @@ redis_conn = redis.Redis(
 )
 
 
-@celery.task(name="tasks.hello")
-def hello():
-    return "Hello from Celery!"
-
-
 def fetch_and_store_leaderboard_data(mode: str, region_bool: bool) -> None:
     query = text(LEADERBOARD_MAIN_QUERY)
     with Session() as session:
