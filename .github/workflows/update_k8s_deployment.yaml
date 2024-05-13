@@ -50,6 +50,16 @@ jobs:
           sed -i "s|%DO_SPACES_ENDPOINT%|${DO_SPACES_ENDPOINT}|g" k8s/secrets.yaml
           kubectl apply -f k8s/secrets.yaml
 
+      - name: Install Cert-Manager
+        run: |
+          kubectl apply -f https://github.com/jetstack/cert-manager/releases/download/v1.7.1/cert-manager.yaml
+
+      - name: Wait for Cert-Manager to be ready
+        run: |
+          kubectl wait --namespace cert-manager --for=condition=available --timeout=600s deployment/cert-manager
+          kubectl wait --namespace cert-manager --for=condition=available --timeout=600s deployment/cert-manager-cainjector
+          kubectl wait --namespace cert-manager --for=condition=available --timeout=600s deployment/cert-manager-webhook
+
       - name: Update ClusterIssuer
         env:
           EMAIL: ${{ secrets.EMAIL }}
