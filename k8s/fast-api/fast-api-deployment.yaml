@@ -50,10 +50,3 @@ spec:
                 secretKeyRef:
                   name: db-secrets
                   key: DB_PORT
-          resources:
-            requests:
-              memory: "512Mi"
-              cpu: "500m"
-            limits:
-              memory: "1Gi"
-              cpu: "1"

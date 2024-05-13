@@ -23,10 +23,3 @@ spec:
           env:
             - name: ENV
               value: "production"
-          resources:
-            requests:
-              memory: "256Mi"
-              cpu: "250m"
-            limits:
-              memory: "512Mi"
-              cpu: "500m"
