@@ -48,8 +48,8 @@ spec:
                   key: DB_PORT
           resources:
             requests:
-              memory: "16Mi"
+              memory: "32Mi"
               cpu: "10m"
             limits:
-              memory: "32Mi"
+              memory: "64Mi"
               cpu: "20m"
