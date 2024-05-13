@@ -1,0 +1,75 @@
+name: Build and Upload Dockerfiles
+
+on:
+  workflow_dispatch:
+    inputs:
+      override-check:
+        description: "Override check for changes"
+        type: boolean
+        required: false
+        default: false
+  push:
+    branches:
+      - main
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    environment: SplatTop
+    outputs:
+      skip: ${{ steps.check_changes.outputs.skip }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v3
+        with:
+          token: ${{ secrets.CI_SPLATTOP_TOKEN }}
+
+      - name: Check for changes
+        id: check_changes
+        run: |
+          echo "Checking for changes in src/"
+          CHANGES=$(git diff --name-only HEAD^ HEAD -- 'src/')
+          if [ -n "$CHANGES" ]; then
+            echo "Changes found, running"
+            echo "skip=false" >> $GITHUB_OUTPUT
+          else
+            echo "No changes found, skipping"
+            echo "skip=true" >> $GITHUB_OUTPUT
+          fi
+
+  build:
+    needs: check
+    if: (needs.check.outputs.skip == 'false') || (github.event.inputs.override-check == 'true')
+    runs-on: ubuntu-latest
+    environment: SplatTop
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v3
+        with:
+          ref: main
+          token: ${{ secrets.CI_SPLATTOP_TOKEN }}
+
+      - name: Install doctl
+        uses: digitalocean/action-doctl@v2
+        with:
+          token: ${{ secrets.DIGITALOCEAN_ACCESS_TOKEN }}
+
+      - name: Login to DigitalOcean Container Registry
+        run: doctl registry login --expiry-seconds 600
+
+      - name: Build and push Celery Dockerfile
+        run: |
+          docker build -t registry.digitalocean.com/sendouq/celery:latest -f dockerfiles/dockerfile.celery .
+          docker push registry.digitalocean.com/sendouq/celery:latest
+
+      - name: Build and push FastAPI Dockerfile
+        run: |
+          docker build -t registry.digitalocean.com/sendouq/fast-api:latest -f dockerfiles/dockerfile.fast-api .
+          docker push registry.digitalocean.com/sendouq/fast-api:latest
+
+      - name: Build and push React Dockerfile
+        run: |
+          docker build -t registry.digitalocean.com/sendouq/react:latest -f dockerfiles/dockerfile.react .
+          docker push registry.digitalocean.com/sendouq/react:latest
