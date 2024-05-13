@@ -50,6 +50,14 @@ jobs:
           sed -i "s|%DO_SPACES_ENDPOINT%|${DO_SPACES_ENDPOINT}|g" k8s/secrets.yaml
           kubectl apply -f k8s/secrets.yaml
 
+      - name: Create docker registry secret
+        run: |
+          kubectl create secret docker-registry regcred \
+            --docker-server=https://registry.digitalocean.com \
+            --docker-username=${{ secrets.DIGITALOCEAN_ACCESS_TOKEN }} \
+            --docker-password=${{ secrets.DIGITALOCEAN_ACCESS_TOKEN }} \
+            --docker-email=${{ secrets.EMAIL }}
+
       - name: Install Cert-Manager
         run: |
           kubectl apply -f https://github.com/jetstack/cert-manager/releases/download/v1.7.1/cert-manager.yaml
