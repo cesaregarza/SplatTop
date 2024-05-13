@@ -56,7 +56,8 @@ jobs:
             --docker-server=https://registry.digitalocean.com \
             --docker-username=${{ secrets.DIGITALOCEAN_ACCESS_TOKEN }} \
             --docker-password=${{ secrets.DIGITALOCEAN_ACCESS_TOKEN }} \
-            --docker-email=${{ secrets.EMAIL }}
+            --docker-email=${{ secrets.EMAIL }} || \
+            echo "Registry secret already exists, continuing..."
 
       - name: Install Cert-Manager
         run: |
