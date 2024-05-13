@@ -52,12 +52,12 @@ jobs:
 
       - name: Create docker registry secret
         run: |
+          kubectl delete secret regcred --ignore-not-found
           kubectl create secret docker-registry regcred \
-            --docker-server=https://registry.digitalocean.com \
+            --docker-server=https://registry.digitalocean.com/sendouq \
             --docker-username=${{ secrets.DIGITALOCEAN_ACCESS_TOKEN }} \
             --docker-password=${{ secrets.DIGITALOCEAN_ACCESS_TOKEN }} \
-            --docker-email=${{ secrets.EMAIL }} || \
-            echo "Registry secret already exists, continuing..."
+            --docker-email=${{ secrets.EMAIL }}
 
       - name: Install Cert-Manager
         run: |
