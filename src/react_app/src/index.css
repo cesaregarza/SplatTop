@@ -1,0 +1,241 @@
+body {
+  margin: 0;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Roboto", "Oxygen",
+    "Ubuntu", "Cantarell", "Fira Sans", "Droid Sans", "Helvetica Neue",
+    sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+code {
+  font-family: source-code-pro, Menlo, Monaco, Consolas, "Courier New",
+    monospace;
+}
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@font-face {
+  font-family: "FiraMono";
+  src: url("/src/assets/fonts/FiraMono-Regular.woff2") format("woff2");
+  font-weight: normal;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: "FiraMono-Bold";
+  src: url("/src/assets/fonts/FiraMono-Bold.woff2") format("woff2");
+  font-weight: bold;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: "FiraMono-Medium";
+  src: url("/src/assets/fonts/FiraMono-Medium.woff2") format("woff2");
+  font-weight: normal;
+  font-style: normal;
+  font-display: swap;
+}
+
+html,
+body {
+  font-family: "FiraMono", monospace;
+}
+
+::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+
+::-webkit-scrollbar-track {
+  background: #1F2937;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #ab5ab7;
+  border-radius: 5px;
+  border: 1px solid #1F2937;
+}
+
+@keyframes glow {
+  0%,
+  100% {
+    filter: drop-shadow(0 0 3px rgba(255, 255, 255, 0.7)) brightness(1);
+  }
+  50% {
+    filter: drop-shadow(0 0 5px rgba(255, 255, 255, 0.9)) brightness(1.1);
+  }
+}
+
+@keyframes glow-gold {
+  0%,
+  100% {
+    filter: drop-shadow(0 0 4px rgba(255, 215, 0, 0.8)) brightness(1);
+  }
+  25%,
+  75% {
+    filter: drop-shadow(0 0 6px rgba(255, 215, 0, 0.9)) brightness(1.1);
+  }
+  50% {
+    filter: drop-shadow(0 0 10px rgba(255, 215, 0, 1)) brightness(1.2);
+  }
+}
+
+@keyframes glow-gold-ultra-value {
+  0%,
+  100% {
+    filter: drop-shadow(0 0 6px rgba(255, 215, 0, 0.9)) brightness(1.1)
+      contrast(100%);
+  }
+  25%,
+  75% {
+    filter: drop-shadow(0 0 8px rgba(255, 215, 0, 1)) brightness(1.2)
+      contrast(110%);
+  }
+  50% {
+    filter: drop-shadow(0 0 12px rgba(255, 215, 0, 1.1)) brightness(1.3)
+      contrast(120%);
+  }
+}
+
+@keyframes glow-rainbow {
+  0%,
+  100% {
+    filter: drop-shadow(0 0 12px hsl(0, 100%, 80%)) brightness(1.1);
+  }
+  16.666%,
+  83.333% {
+    filter: drop-shadow(0 0 12px hsl(60, 100%, 80%)) brightness(1.1);
+  }
+  33.333%,
+  66.666% {
+    filter: drop-shadow(0 0 13px hsl(120, 100%, 80%)) brightness(1.2);
+  }
+  50% {
+    filter: drop-shadow(0 0 13px hsl(180, 100%, 80%)) brightness(1.2);
+  }
+}
+
+.badge-container {
+  position: relative;
+  display: inline-block;
+}
+
+.badge-image {
+  width: 50px; /* Adjust size as needed */
+  height: auto;
+}
+
+.badge-count {
+  position: absolute;
+  bottom: -5px;
+  right: -5px;
+  background-color: #ff0000;
+  color: #ffffff;
+  font-size: 12px;
+  font-weight: bold;
+  padding: 2px 4px;
+  border-radius: 50%;
+}
+
+.badge-shine {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(
+    45deg,
+    rgba(255, 255, 255, 0) 40%,
+    rgba(255, 255, 255, 0.8) 50%,
+    rgba(255, 255, 255, 0) 60%
+  );
+  opacity: 0;
+  transition: opacity 0.3s ease-in-out;
+  pointer-events: none;
+}
+
+.badge-container:hover .badge-shine {
+  opacity: 1;
+}
+
+.badge-silver .high-value {
+  animation: glow 5s ease-in-out infinite;
+}
+
+.badge-gold .high-value {
+  animation: glow-gold 5s ease-in-out infinite;
+}
+
+.badge-gold .higher-value {
+  animation: glow-gold-ultra-value 5s ease-in-out infinite;
+}
+
+.badge-rainbow .high-value {
+  animation: glow-rainbow 5s ease-in-out infinite;
+}
+
+.alias-table {
+  display: block;
+  max-height: 50vh;
+  overflow-x: auto;
+  overflow-y: auto;
+}
+
+.alias-table thead th {
+  position: sticky;
+  top: 0;
+}
+
+.combined-badge {
+  position: relative;
+  display: inline-block;
+  overflow: visible;
+}
+
+.badge-slice-gold,
+.badge-slice-silver {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+}
+
+.badge-slice-gold {
+  clip-path: polygon(0 0, 100% 0, 0 100%);
+}
+
+.badge-slice-gold.no-slice {
+  clip-path: none;
+}
+
+.badge-slice-silver {
+  clip-path: polygon(100% 0, 100% 100%, 0 100%);
+}
+
+.badge-slice-silver.no-slice {
+  display: none;
+}
+
+.badge-count-wrapper {
+  position: absolute;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.badge-count-wrapper-gold {
+  top: 25%;
+  right: 70%;
+  z-index: 10;
+}
+
+.badge-count-wrapper-silver {
+  bottom: 0%;
+  left: 110%;
+  z-index: 10;
+}
