@@ -39,15 +39,15 @@ jobs:
           DO_SPACES_ENDPOINT: ${{ secrets.DO_SPACES_ENDPOINT }}
         run: |
           mv k8s/secrets.template k8s/secrets.yaml
-          sed -i "s/%DB_HOST%/${DB_HOST}/g" k8s/secrets.yaml
-          sed -i "s/%DB_USER%/${DB_USER}/g" k8s/secrets.yaml
-          sed -i "s/%DB_PASSWORD%/${DB_PASSWORD}/g" k8s/secrets.yaml
-          sed -i "s/%DB_NAME%/${DB_NAME}/g" k8s/secrets.yaml
-          sed -i "s/%DB_PORT%/${DB_PORT}/g" k8s/secrets.yaml
-          sed -i "s/%DO_SPACES_KEY%/${DO_SPACES_KEY}/g" k8s/secrets.yaml
-          sed -i "s/%DO_SPACES_SECRET%/${DO_SPACES_SECRET}/g" k8s/secrets.yaml
-          sed -i "s/%DO_SPACES_REGION%/${DO_SPACES_REGION}/g" k8s/secrets.yaml
-          sed -i "s/%DO_SPACES_ENDPOINT%/${DO_SPACES_ENDPOINT}/g" k8s/secrets.yaml
+          sed -i "s|%DB_HOST%|${DB_HOST}|g" k8s/secrets.yaml
+          sed -i "s|%DB_USER%|${DB_USER}|g" k8s/secrets.yaml
+          sed -i "s|%DB_PASSWORD%|${DB_PASSWORD}|g" k8s/secrets.yaml
+          sed -i "s|%DB_NAME%|${DB_NAME}|g" k8s/secrets.yaml
+          sed -i "s|%DB_PORT%|${DB_PORT}|g" k8s/secrets.yaml
+          sed -i "s|%DO_SPACES_KEY%|${DO_SPACES_KEY}|g" k8s/secrets.yaml
+          sed -i "s|%DO_SPACES_SECRET%|${DO_SPACES_SECRET}|g" k8s/secrets.yaml
+          sed -i "s|%DO_SPACES_REGION%|${DO_SPACES_REGION}|g" k8s/secrets.yaml
+          sed -i "s|%DO_SPACES_ENDPOINT%|${DO_SPACES_ENDPOINT}|g" k8s/secrets.yaml
           kubectl apply -f k8s/secrets.yaml
 
       - name: Update ClusterIssuer
