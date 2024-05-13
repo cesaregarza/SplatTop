@@ -16,7 +16,7 @@ spec:
         - name: regcred
       containers:
         - name: celery-worker
-          image: registry.digitalocean.com/sendouq/celery-worker:latest
+          image: registry.digitalocean.com/sendouq/celery:latest
           imagePullPolicy: Always
           command:
             ["celery", "-A", "celery_app.tasks", "worker", "--loglevel=info"]

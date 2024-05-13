@@ -16,7 +16,7 @@ spec:
         - name: regcred
       containers:
         - name: celery-beat
-          image: registry.digitalocean.com/sendouq/celery-worker:latest
+          image: registry.digitalocean.com/sendouq/celery:latest
           imagePullPolicy: Always
           command: ["celery"]
           args: ["-A", "celery_app.beat", "beat", "--loglevel=info"]

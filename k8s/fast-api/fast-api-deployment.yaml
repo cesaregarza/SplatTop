@@ -16,7 +16,7 @@ spec:
         - name: regcred
       containers:
         - name: fast-api-app
-          image: registry.digitalocean.com/sendouq/fast-api-app:latest
+          image: registry.digitalocean.com/sendouq/fast-api:latest
           imagePullPolicy: Always
           ports:
             - containerPort: 5000
