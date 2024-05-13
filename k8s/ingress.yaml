@@ -1,13 +1,22 @@
 apiVersion: networking.k8s.io/v1
 kind: Ingress
 metadata:
-  name: dev-ingress
+  name: prod-ingress
   annotations:
     nginx.org/websocket-services: "fast-api-app-service"
+    nginx.ingress.kubernetes.io/rewrite-target: /
+    nginx.ingress.kubernetes.io/ssl-redirect: "true"
+    nginx.ingress.kubernetes.io/proxy-body-size: "10m"
+    cert-manager.io/cluster-issuer: "letsencrypt-prod"
 spec:
   ingressClassName: nginx
+  tls:
+    - hosts:
+        - splat.top
+      secretName: tls-secret
   rules:
-    - http:
+    - host: splat.top
+      http:
         paths:
           - path: /
             pathType: Prefix

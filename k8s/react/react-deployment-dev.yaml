@@ -13,8 +13,8 @@ spec:
         app: react-app
     spec:
       containers:
-      - name: react-app
-        image: react-app:latest
-        imagePullPolicy: Never
-        ports:
-        - containerPort: 80
+        - name: react-app
+          image: react-app:latest
+          imagePullPolicy: Never
+          ports:
+            - containerPort: 80

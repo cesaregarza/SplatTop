@@ -13,6 +13,34 @@ spec:
         app: celery-worker
     spec:
       containers:
-      - name: celery-worker
-        image: celery-worker:latest
-        command: ["celery", "-A", "celery_app.tasks", "worker", "--loglevel=info"]
+        - name: celery-worker
+          image: registry.digitalocean.com/sendouq/celery-worker:latest
+          imagePullPolicy: Always
+          command:
+            ["celery", "-A", "celery_app.tasks", "worker", "--loglevel=info"]
+          env:
+            - name: DB_HOST
+              valueFrom:
+                secretKeyRef:
+                  name: db-secrets
+                  key: DB_HOST
+            - name: DB_USER
+              valueFrom:
+                secretKeyRef:
+                  name: db-secrets
+                  key: DB_USER
+            - name: DB_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: db-secrets
+                  key: DB_PASSWORD
+            - name: DB_NAME
+              valueFrom:
+                secretKeyRef:
+                  name: db-secrets
+                  key: DB_NAME
+            - name: DB_PORT
+              valueFrom:
+                secretKeyRef:
+                  name: db-secrets
+                  key: DB_PORT
