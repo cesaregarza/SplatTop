@@ -12,6 +12,8 @@ spec:
       labels:
         app: celery-beat
     spec:
+      imagePullSecrets:
+        - name: regcred
       containers:
         - name: celery-beat
           image: registry.digitalocean.com/sendouq/celery-worker:latest

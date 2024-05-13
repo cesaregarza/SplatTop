@@ -12,6 +12,8 @@ spec:
       labels:
         app: fast-api-app
     spec:
+      imagePullSecrets:
+        - name: regcred
       containers:
         - name: fast-api-app
           image: registry.digitalocean.com/sendouq/fast-api-app:latest

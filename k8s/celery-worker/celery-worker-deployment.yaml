@@ -12,6 +12,8 @@ spec:
       labels:
         app: celery-worker
     spec:
+      imagePullSecrets:
+        - name: regcred
       containers:
         - name: celery-worker
           image: registry.digitalocean.com/sendouq/celery-worker:latest
