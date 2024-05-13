@@ -1,0 +1,74 @@
+name: Update Kubernetes Deployment
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - main
+
+jobs:
+  update-deployment:
+    runs-on: ubuntu-latest
+    environment: SplatTop
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v3
+        with:
+          ref: main
+          token: ${{ secrets.CI_SPLATTOP_TOKEN }}
+
+      - name: Install doctl
+        uses: digitalocean/action-doctl@v2
+        with:
+          token: ${{ secrets.DIGITALOCEAN_ACCESS_TOKEN }}
+
+      - name: Save DigitalOcean kubeconfig
+        run: doctl kubernetes cluster kubeconfig save ${{ secrets.DIGITALOCEAN_CLUSTER_ID }}
+
+      - name: Create Kubernetes secrets
+        env:
+          DB_HOST: ${{ secrets.DB_HOST }}
+          DB_USER: ${{ secrets.DB_USER }}
+          DB_PASSWORD: ${{ secrets.DB_PASSWORD }}
+          DB_NAME: ${{ secrets.DB_NAME }}
+          DB_PORT: ${{ secrets.DB_PORT }}
+          DO_SPACES_KEY: ${{ secrets.DO_SPACES_KEY }}
+          DO_SPACES_SECRET: ${{ secrets.DO_SPACES_SECRET }}
+          DO_SPACES_REGION: ${{ secrets.DO_SPACES_REGION }}
+          DO_SPACES_ENDPOINT: ${{ secrets.DO_SPACES_ENDPOINT }}
+        run: |
+          mv k8s/secrets.template k8s/secrets.yaml
+          sed -i "s/%DB_HOST%/${DB_HOST}/g" k8s/secrets.yaml
+          sed -i "s/%DB_USER%/${DB_USER}/g" k8s/secrets.yaml
+          sed -i "s/%DB_PASSWORD%/${DB_PASSWORD}/g" k8s/secrets.yaml
+          sed -i "s/%DB_NAME%/${DB_NAME}/g" k8s/secrets.yaml
+          sed -i "s/%DB_PORT%/${DB_PORT}/g" k8s/secrets.yaml
+          sed -i "s/%DO_SPACES_KEY%/${DO_SPACES_KEY}/g" k8s/secrets.yaml
+          sed -i "s/%DO_SPACES_SECRET%/${DO_SPACES_SECRET}/g" k8s/secrets.yaml
+          sed -i "s/%DO_SPACES_REGION%/${DO_SPACES_REGION}/g" k8s/secrets.yaml
+          sed -i "s/%DO_SPACES_ENDPOINT%/${DO_SPACES_ENDPOINT}/g" k8s/secrets.yaml
+          kubectl apply -f k8s/secrets.yaml
+
+      - name: Update ClusterIssuer
+        env:
+          EMAIL: ${{ secrets.EMAIL }}
+        run: |
+          mv k8s/cluster-issuer.template k8s/cluster-issuer.yaml
+          sed -i "s/%EMAIL%/${EMAIL}/g" k8s/cluster-issuer.yaml
+          kubectl apply -f k8s/cluster-issuer.yaml
+
+      - name: Update Kubernetes deployment
+        run: |
+          # Update Docker image references
+          sed -i "s|image: .*|image: registry.digitalocean.com/splat-top/celery:latest|" k8s/celery-deployment.yaml
+          sed -i "s|image: .*|image: registry.digitalocean.com/splat-top/fast-api:latest|" k8s/fast-api-deployment.yaml
+          sed -i "s|image: .*|image: registry.digitalocean.com/splat-top/react:latest|" k8s/react-deployment.yaml
+
+          # Apply Kubernetes configuration files
+          kubectl apply -f k8s/celery-deployment.yaml
+          kubectl apply -f k8s/fast-api-deployment.yaml
+          kubectl apply -f k8s/fast-api-service.yaml
+          kubectl apply -f k8s/react-deployment.yaml
+          kubectl apply -f k8s/react-service.yaml
+          kubectl apply -f k8s/ingress.yaml

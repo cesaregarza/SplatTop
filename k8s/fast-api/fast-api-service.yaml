@@ -6,6 +6,10 @@ spec:
   selector:
     app: fast-api-app
   ports:
-  - port: 80
-    targetPort: 5000
-  type: LoadBalancer
+    - port: 80
+      targetPort: 5000
+      name: http
+    - port: 8001
+      targetPort: 8001
+      name: websocket
+  type: ClusterIP

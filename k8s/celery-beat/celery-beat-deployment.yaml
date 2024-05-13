@@ -1,28 +1,24 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: fast-api-app
+  name: celery-beat
 spec:
-  replicas: 2
+  replicas: 1
   selector:
     matchLabels:
-      app: fast-api-app
+      app: celery-beat
   template:
     metadata:
       labels:
-        app: fast-api-app
+        app: celery-beat
     spec:
       containers:
-        - name: fast-api-app
-          image: registry.digitalocean.com/sendouq/fast-api-app:latest
+        - name: celery-beat
+          image: registry.digitalocean.com/sendouq/celery-worker:latest
           imagePullPolicy: Always
-          ports:
-            - containerPort: 5000
-            - containerPort: 8000
-            - containerPort: 8001
+          command: ["celery"]
+          args: ["-A", "celery_app.beat", "beat", "--loglevel=info"]
           env:
-            - name: ENV
-              value: "production"
             - name: DB_HOST
               valueFrom:
                 secretKeyRef:
@@ -50,8 +46,8 @@ spec:
                   key: DB_PORT
           resources:
             requests:
-              memory: "512Mi"
-              cpu: "500m"
+              memory: "16Mi"
+              cpu: "10m"
             limits:
-              memory: "1Gi"
-              cpu: "1"
+              memory: "32Mi"
+              cpu: "20m"
