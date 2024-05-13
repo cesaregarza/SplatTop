@@ -70,15 +70,12 @@ jobs:
 
       - name: Update Kubernetes deployment
         run: |
-          # Update Docker image references
-          sed -i "s|image: .*|image: registry.digitalocean.com/splat-top/celery:latest|" k8s/celery-deployment.yaml
-          sed -i "s|image: .*|image: registry.digitalocean.com/splat-top/fast-api:latest|" k8s/fast-api-deployment.yaml
-          sed -i "s|image: .*|image: registry.digitalocean.com/splat-top/react:latest|" k8s/react-deployment.yaml
-
           # Apply Kubernetes configuration files
-          kubectl apply -f k8s/celery-deployment.yaml
-          kubectl apply -f k8s/fast-api-deployment.yaml
-          kubectl apply -f k8s/fast-api-service.yaml
-          kubectl apply -f k8s/react-deployment.yaml
-          kubectl apply -f k8s/react-service.yaml
+          kubectl apply -f k8s/redis/redis-deployment.yaml
+          kubectl apply -f k8s/celery-worker/celery-worker-deployment.yaml
+          kubectl apply -f k8s/celery-beat/celery-beat-deployment.yaml
+          kubectl apply -f k8s/fast-api/fast-api-deployment.yaml
+          kubectl apply -f k8s/fast-api/fast-api-service.yaml
+          kubectl apply -f k8s/react/react-deployment.yaml
+          kubectl apply -f k8s/react/react-service.yaml
           kubectl apply -f k8s/ingress.yaml
