@@ -66,10 +66,7 @@ jobs:
           sed -i "s|image: .*|image: registry.digitalocean.com/splat-top/react:latest|" k8s/react-deployment.yaml
 
           # Apply Kubernetes configuration files
-          kubectl apply -f k8s/namespace.yaml
-          kubectl apply -f k8s/volumes.yaml
           kubectl apply -f k8s/celery-deployment.yaml
-          kubectl apply -f k8s/celery-hpa.yaml
           kubectl apply -f k8s/fast-api-deployment.yaml
           kubectl apply -f k8s/fast-api-service.yaml
           kubectl apply -f k8s/react-deployment.yaml
