@@ -130,7 +130,10 @@ def _fetch_player_data(player_id: str) -> list[dict]:
         player["timestamp"] = player["timestamp"].isoformat()
         player["rotation_start"] = player["rotation_start"].isoformat()
 
-    return result
+    result_df = pd.DataFrame(result)
+    # Only keep rows that have a difference in x_power, and the row before it
+    mask = result_df["x_power"].diff() != 0
+    return result_df.loc[mask | mask.shift(-1)].to_dict(orient="records")
 
 
 def _fetch_season_data(player_id: str) -> list[dict]:
