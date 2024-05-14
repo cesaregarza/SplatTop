@@ -84,16 +84,6 @@ jobs:
           kubectl apply -f k8s/cluster-issuer.yaml
           kubectl apply -f k8s/certificate.yaml
 
-      - name: Install Nginx Ingress Controller
-        run: |
-          helm repo add ingress-nginx https://kubernetes.github.io/ingress-nginx
-          helm repo update
-          if kubectl get namespace ingress-nginx; then
-            helm install nginx-ingress ingress-nginx/ingress-nginx --namespace ingress-nginx
-          else
-            helm install nginx-ingress ingress-nginx/ingress-nginx --namespace ingress-nginx --create-namespace
-          fi
-
       - name: Update Kubernetes deployment
         run: |
           # Apply Kubernetes configuration files
