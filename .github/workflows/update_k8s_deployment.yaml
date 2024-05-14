@@ -81,6 +81,7 @@ jobs:
         run: |
           # Apply Kubernetes configuration files
           kubectl apply -f k8s/redis/redis-deployment.yaml
+          kubectl apply -f k8s/redis/redis-service.yaml
           kubectl apply -f k8s/celery-worker/celery-worker-deployment.yaml
           kubectl apply -f k8s/celery-beat/celery-beat-deployment.yaml
           kubectl apply -f k8s/fast-api/fast-api-deployment.yaml
