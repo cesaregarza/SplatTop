@@ -76,7 +76,7 @@ jobs:
           docker push registry.digitalocean.com/sendouq/react:latest
 
   update-deployment:
-    needs: build
+    needs: [check, build]
     runs-on: ubuntu-latest
     environment: SplatTop
 
