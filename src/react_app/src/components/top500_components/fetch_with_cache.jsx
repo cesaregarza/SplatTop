@@ -3,6 +3,7 @@ import axios from "axios";
 import LZString from "lz-string";
 
 const MAX_CACHE_ITEMS = 100;
+const MAX_BACKOFF_TIME = 60000; // 1 minute in milliseconds
 
 const useFetchWithCache = (endpoint, cacheAge = 10, cacheOffset = 6) => {
   const [data, setData] = useState(null);
@@ -14,7 +15,7 @@ const useFetchWithCache = (endpoint, cacheAge = 10, cacheOffset = 6) => {
   };
 
   useEffect(() => {
-    const fetchData = async () => {
+    const fetchData = async (retryCount = 0) => {
       setIsLoading(true);
       const cachedData = localStorage.getItem(endpoint);
       if (cachedData) {
@@ -70,8 +71,8 @@ const useFetchWithCache = (endpoint, cacheAge = 10, cacheOffset = 6) => {
         console.error("Error fetching data:", fetchError);
         setError(fetchError);
 
-        clearLocalCache();
-        fetchData();
+        const backoffTime = Math.min(2 ** retryCount * 1000, MAX_BACKOFF_TIME);
+        setTimeout(() => fetchData(retryCount + 1), backoffTime);
       } finally {
         setIsLoading(false);
       }
