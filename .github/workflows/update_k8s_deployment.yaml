@@ -23,6 +23,12 @@ jobs:
         with:
           token: ${{ secrets.DIGITALOCEAN_ACCESS_TOKEN }}
 
+      - name: Install helm
+        run: |
+          curl -fsSL -o get_helm.sh https://raw.githubusercontent.com/helm/helm/master/scripts/get-helm-3
+          chmod 700 get_helm.sh
+          ./get_helm.sh
+
       - name: Save DigitalOcean kubeconfig
         run: doctl kubernetes cluster kubeconfig save ${{ secrets.DIGITALOCEAN_CLUSTER_ID }}
 
@@ -76,6 +82,15 @@ jobs:
           mv k8s/cluster-issuer.template k8s/cluster-issuer.yaml
           sed -i "s/%EMAIL%/${EMAIL}/g" k8s/cluster-issuer.yaml
           kubectl apply -f k8s/cluster-issuer.yaml
+          kubectl apply -f k8s/certificate.yaml
+
+      - name: Install Nginx Ingress Controller
+        run: |
+          helm repo add ingress-nginx https://kubernetes.github.io/ingress-nginx
+          helm repo update
+          helm install nginx-ingress ingress-nginx/ingress-nginx \
+            --namespace ingress-nginx \
+            --create-namespace
 
       - name: Update Kubernetes deployment
         run: |
