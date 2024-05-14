@@ -7,7 +7,7 @@ const getBaseWebsocketUrl = () => {
   const isDevelopment = process.env.NODE_ENV === "development";
   return isDevelopment
     ? "ws://localhost:5000"
-    : `ws://${window.location.host}`;
+    : `wss://${window.location.host}`;
 };
 
 export { getBaseApiUrl, getBaseWebsocketUrl };
