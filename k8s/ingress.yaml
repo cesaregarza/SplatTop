@@ -33,7 +33,7 @@ spec:
               service:
                 name: fast-api-app-service
                 port:
-                  number: 80
+                  number: 5000
           - path: /ws
             pathType: Prefix
             backend:

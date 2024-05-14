@@ -44,8 +44,6 @@ jobs:
     if: (needs.check.outputs.skip == 'false') || (github.event.inputs.override-check == 'true')
     runs-on: ubuntu-latest
     environment: SplatTop
-    outputs:
-        updated: true
 
     steps:
       - name: Checkout
@@ -167,8 +165,8 @@ jobs:
           kubectl apply -f k8s/react/react-service.yaml
           kubectl apply -f k8s/ingress.yaml
 
-      - name: Repull images if build was updated
-        if: ${{ needs.build.outputs.updated == 'true' }}
+      - name: Repull images if build was not skipped
+        if: ${{ needs.build.result != 'skipped' }}
         run: |
           kubectl rollout restart deployment/redis-deployment
           kubectl rollout restart deployment/celery-worker-deployment

@@ -6,7 +6,7 @@ spec:
   selector:
     app: fast-api-app
   ports:
-    - port: 80
+    - port: 5000
       targetPort: 5000
       name: http
     - port: 8001
