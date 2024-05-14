@@ -4,10 +4,6 @@ metadata:
   name: prod-ingress
   annotations:
     nginx.org/websocket-services: "fast-api-app-service"
-    nginx.ingress.kubernetes.io/rewrite-target: /
-    nginx.ingress.kubernetes.io/ssl-redirect: "true"
-    nginx.ingress.kubernetes.io/force-ssl-redirect: "true"
-    nginx.ingress.kubernetes.io/from-to-www-redirect: "true"
     nginx.ingress.kubernetes.io/proxy-body-size: "10m"
     cert-manager.io/cluster-issuer: "letsencrypt-prod"
 spec:
@@ -34,6 +30,7 @@ spec:
                 name: fast-api-app-service
                 port:
                   number: 5000
+            nginx.ingress.kubernetes.io/rewrite-target: /api
           - path: /ws
             pathType: Prefix
             backend:
@@ -41,3 +38,4 @@ spec:
                 name: fast-api-app-service
                 port:
                   number: 8001
+            nginx.ingress.kubernetes.io/rewrite-target: /ws
