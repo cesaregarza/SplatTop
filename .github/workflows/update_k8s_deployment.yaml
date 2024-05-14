@@ -169,8 +169,8 @@ jobs:
       - name: Repull images if build was not skipped
         if: ${{ needs.build.result != 'skipped' }}
         run: |
-          kubectl rollout restart deployment/redis-deployment
-          kubectl rollout restart deployment/celery-worker-deployment
-          kubectl rollout restart deployment/celery-beat-deployment
-          kubectl rollout restart deployment/fast-api-deployment
-          kubectl rollout restart deployment/react-deployment
+          kubectl rollout restart deployment/redis
+          kubectl rollout restart deployment/celery-worker
+          kubectl rollout restart deployment/celery-beat
+          kubectl rollout restart deployment/fast-api-app
+          kubectl rollout restart deployment/react-app
