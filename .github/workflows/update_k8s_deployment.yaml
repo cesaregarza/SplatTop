@@ -44,6 +44,8 @@ jobs:
     if: (needs.check.outputs.skip == 'false') || (github.event.inputs.override-check == 'true')
     runs-on: ubuntu-latest
     environment: SplatTop
+    outputs:
+        updated: true
 
     steps:
       - name: Checkout
@@ -153,9 +155,8 @@ jobs:
           kubectl apply -f k8s/cluster-issuer.yaml
           kubectl apply -f k8s/certificate.yaml
 
-      - name: Update Kubernetes deployment
+      - name: Apply Kubernetes configuration files
         run: |
-          # Apply Kubernetes configuration files
           kubectl apply -f k8s/redis/redis-deployment.yaml
           kubectl apply -f k8s/redis/redis-service.yaml
           kubectl apply -f k8s/celery-worker/celery-worker-deployment.yaml
@@ -165,3 +166,12 @@ jobs:
           kubectl apply -f k8s/react/react-deployment.yaml
           kubectl apply -f k8s/react/react-service.yaml
           kubectl apply -f k8s/ingress.yaml
+
+      - name: Repull images if build was updated
+        if: ${{ needs.build.outputs.updated == 'true' }}
+        run: |
+          kubectl rollout restart deployment/redis-deployment
+          kubectl rollout restart deployment/celery-worker-deployment
+          kubectl rollout restart deployment/celery-beat-deployment
+          kubectl rollout restart deployment/fast-api-deployment
+          kubectl rollout restart deployment/react-deployment
