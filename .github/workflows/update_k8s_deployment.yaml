@@ -17,7 +17,8 @@ jobs:
     runs-on: ubuntu-latest
     environment: SplatTop
     outputs:
-      skip: ${{ steps.check_changes.outputs.skip }}
+      python_changed: ${{ steps.check_changes.outputs.python_changed }}
+      react_changed: ${{ steps.check_changes.outputs.react_changed }}
 
     steps:
       - name: Checkout
@@ -30,20 +31,50 @@ jobs:
         id: check_changes
         run: |
           echo "Checking for changes in src/"
-          CHANGES=$(git diff --name-only HEAD~1 HEAD -- 'src/')
-          if [ -n "$CHANGES" ]; then
-            echo "Changes found, running"
-            echo "skip=false" >> $GITHUB_OUTPUT
+          LATEST_TAG=$(git describe --tags --always `git rev-list --tags --max-count=1` 2>&1)
+          TAG_FETCH_EXIT_CODE=$?
+
+          if [ $TAG_FETCH_EXIT_CODE -ne 0 ]; then
+            echo "Failed to fetch latest tag, exit code: $TAG_FETCH_EXIT_CODE"
+            echo "python_changed=true" >> $GITHUB_OUTPUT
+            echo "react_changed=true" >> $GITHUB_OUTPUT
+            exit 0
+          fi
+
+          if [ -z "$LATEST_TAG" ]; then
+            echo "No tags found, skipping check"
+            echo "python_changed=false" >> $GITHUB_OUTPUT
+            echo "react_changed=false" >> $GITHUB_OUTPUT
+            exit 0
+          fi
+
+          echo "Latest tag: $LATEST_TAG"
+
+          PYTHON_CHANGES=$(git diff --name-only $LATEST_TAG HEAD -- 'src/celery_app/*' 'src/fast_api_app/*' 'src/shared_lib/*')
+          REACT_CHANGES=$(git diff --name-only $LATEST_TAG HEAD -- 'src/react_app/*')
+
+          if [ -n "$PYTHON_CHANGES" ]; then
+            echo "Python changes found, setting python_changed to true"
+            echo "python_changed=true" >> $GITHUB_OUTPUT
           else
-            echo "No changes found, skipping"
-            echo "skip=true" >> $GITHUB_OUTPUT
+            echo "No Python changes found, setting python_changed to false"
+            echo "python_changed=false" >> $GITHUB_OUTPUT
+          fi
+
+          if [ -n "$REACT_CHANGES" ]; then
+            echo "React changes found, setting react_changed to true"
+            echo "react_changed=true" >> $GITHUB_OUTPUT
+          else
+            echo "No React changes found, setting react_changed to false"
+            echo "react_changed=false" >> $GITHUB_OUTPUT
           fi
 
   build:
     needs: check
-    if: (needs.check.outputs.skip == 'false') || (github.event.inputs.override-check == 'true')
     runs-on: ubuntu-latest
     environment: SplatTop
+    outputs:
+      next_version: ${{ steps.calculate_version.outputs.version || '0.0.1' }}
 
     steps:
       - name: Checkout
@@ -60,17 +91,70 @@ jobs:
       - name: Login to DigitalOcean Container Registry
         run: doctl registry login --expiry-seconds 600
 
+      - name: Read .version file
+        id: semver
+        run: |
+          echo "version=$(cat .version)" >> $GITHUB_OUTPUT
+
+      - name: Get latest release
+        id: latest_release
+        run: |
+          LATEST_RELEASE=\
+          $(curl -sH "Authorization: token ${{ secrets.GITHUB_TOKEN }}" \
+          "https://api.github.com/repos/${{ github.repository }}/releases/latest" \
+          | jq -r '.tag_name')
+          echo "release=${LATEST_RELEASE}" >> $GITHUB_OUTPUT
+          echo "Latest Release: ${LATEST_RELEASE}"
+
+      - name: Calculate next version
+        id: calculate_version
+        run: |
+          LATEST_RELEASE=${{ steps.latest_release.outputs.release }}
+          BASE_VERSION=${{ steps.semver.outputs.version }}
+          CLEANED_LATEST_RELEASE=${LATEST_RELEASE#v}
+
+          echo "Latest Release without v: ${CLEANED_LATEST_RELEASE}"
+          echo "Base Version: ${BASE_VERSION}"
+
+          BASE_MAJOR=$(echo ${BASE_VERSION} | cut -d. -f1)
+          BASE_MINOR=$(echo ${BASE_VERSION} | cut -d. -f2)
+          BASE_PATCH=$(echo ${BASE_VERSION} | cut -d. -f3)
+
+          LATEST_MAJOR=$(echo ${CLEANED_LATEST_RELEASE} | cut -d. -f1)
+          LATEST_MINOR=$(echo ${CLEANED_LATEST_RELEASE} | cut -d. -f2)
+          LATEST_PATCH=$(echo ${CLEANED_LATEST_RELEASE} | cut -d. -f3)
+
+          if [[ $BASE_MAJOR -gt $LATEST_MAJOR ]] || \
+              [[ $BASE_MAJOR -eq $LATEST_MAJOR && \
+                  $BASE_MINOR -gt $LATEST_MINOR ]] || \
+              [[ $BASE_MAJOR -eq $LATEST_MAJOR && \
+                  $BASE_MINOR -eq $LATEST_MINOR && \
+                  $BASE_PATCH -gt $LATEST_PATCH ]]; then
+              echo "Base Version is greater than Latest Release"
+              NEXT_VERSION=${BASE_VERSION}
+          else
+              echo "Base Version is less or equal to Latest Release"
+              LATEST_PATCH=$((LATEST_PATCH + 1))
+              NEXT_VERSION="${LATEST_MAJOR}.${LATEST_MINOR}.${LATEST_PATCH}"
+          fi
+
+          echo "Next Version: ${NEXT_VERSION}"
+          echo "version=${NEXT_VERSION}" >> $GITHUB_OUTPUT
+
       - name: Build and push Celery Dockerfile
+        if: (needs.check.outputs.python_changed == 'true') || (github.event.inputs.override-check == 'true')
         run: |
           docker build -t registry.digitalocean.com/sendouq/celery:latest -f dockerfiles/dockerfile.celery .
           docker push registry.digitalocean.com/sendouq/celery:latest
 
       - name: Build and push FastAPI Dockerfile
+        if: (needs.check.outputs.python_changed == 'true') || (github.event.inputs.override-check == 'true')
         run: |
           docker build -t registry.digitalocean.com/sendouq/fast-api:latest -f dockerfiles/dockerfile.fast-api .
           docker push registry.digitalocean.com/sendouq/fast-api:latest
 
       - name: Build and push React Dockerfile
+        if: (needs.check.outputs.react_changed == 'true') || (github.event.inputs.override-check == 'true')
         run: |
           docker build -t registry.digitalocean.com/sendouq/react:latest -f dockerfiles/dockerfile.react .
           docker push registry.digitalocean.com/sendouq/react:latest
@@ -80,6 +164,8 @@ jobs:
     if: always()
     runs-on: ubuntu-latest
     environment: SplatTop
+    outputs:
+      next_version: ${{ needs.build.outputs.next_version }}
 
     steps:
       - name: Checkout
@@ -158,19 +244,48 @@ jobs:
         run: |
           kubectl apply -f k8s/redis/redis-deployment.yaml
           kubectl apply -f k8s/redis/redis-service.yaml
+
+      - name: Apply Celery configuration
+        if: (needs.check.outputs.python_changed == 'true') || (github.event.inputs.override-check == 'true')
+        run: |
           kubectl apply -f k8s/celery-worker/celery-worker-deployment.yaml
           kubectl apply -f k8s/celery-beat/celery-beat-deployment.yaml
+
+      - name: Apply FastAPI configuration
+        if: (needs.check.outputs.python_changed == 'true') || (github.event.inputs.override-check == 'true')
+        run: |
           kubectl apply -f k8s/fast-api/fast-api-deployment.yaml
           kubectl apply -f k8s/fast-api/fast-api-service.yaml
+
+      - name: Apply React configuration
+        if: (needs.check.outputs.react_changed == 'true') || (github.event.inputs.override-check == 'true')
+        run: |
           kubectl apply -f k8s/react/react-deployment.yaml
           kubectl apply -f k8s/react/react-service.yaml
-          kubectl apply -f k8s/ingress.yaml
+
+      - name: Apply Ingress configuration
+        run: kubectl apply -f k8s/ingress.yaml
 
       - name: Repull images if build was not skipped
         if: ${{ needs.build.result != 'skipped' }}
         run: |
-          kubectl rollout restart deployment/redis
-          kubectl rollout restart deployment/celery-worker
-          kubectl rollout restart deployment/celery-beat
-          kubectl rollout restart deployment/fast-api-app
-          kubectl rollout restart deployment/react-app
+          if [ "${{ needs.check.outputs.python_changed }}" == 'true' ]; then
+            kubectl rollout restart deployment/celery-worker
+            kubectl rollout restart deployment/celery-beat
+            kubectl rollout restart deployment/fast-api-app
+          fi
+          if [ "${{ needs.check.outputs.react_changed }}" == 'true' ]; then
+            kubectl rollout restart deployment/react-app
+          fi
+
+      - name: Create GitHub Release
+        id: create_release
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          NEXT_VERSION=${{ needs.build.outputs.next_version || '0.0.1' }}
+          echo "Creating GitHub release for version: $NEXT_VERSION"
+          curl -s --data '{"tag_name":"v'"${NEXT_VERSION}"'","target_commitish":"main","name":"v'"${NEXT_VERSION}"'","body":"Release of version '"${NEXT_VERSION}"'","draft":false,"prerelease":false}' \
+          -H "Authorization: token $GITHUB_TOKEN" \
+          -H "Content-Type: application/json" \
+          "https://api.github.com/repos/${{ github.repository }}/releases"
