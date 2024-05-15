@@ -1,4 +1,5 @@
 import logging
+import uuid
 
 from fastapi import APIRouter, WebSocket, WebSocketDisconnect
 from sqlalchemy import text
@@ -33,13 +34,18 @@ async def player_detail(player_id: str):
 
 @router.websocket("/ws/player/{player_id}")
 async def websocket_endpoint(websocket: WebSocket, player_id: str):
-    await connection_manager.connect(websocket, player_id)
+    connection_id = str(uuid.uuid4())
+    await connection_manager.connect(websocket, player_id, connection_id)
 
     try:
         while True:
             data = await websocket.receive_text()
             # Do nothing with data for now
     except WebSocketDisconnect:
-        connection_manager.disconnect(player_id)
+        connection_manager.disconnect(player_id, connection_id)
     finally:
-        logger.info("WebSocket connection for player %s closed", player_id)
+        logger.info(
+            "WebSocket connection for player %s with connection ID %s closed",
+            player_id,
+            connection_id,
+        )
