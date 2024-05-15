@@ -75,6 +75,7 @@ jobs:
     environment: SplatTop
     outputs:
       next_version: ${{ steps.calculate_version.outputs.version || '0.0.1' }}
+      latest_release: ${{ steps.latest_release.outputs.release }}
 
     steps:
       - name: Checkout
@@ -289,3 +290,33 @@ jobs:
           -H "Authorization: token $GITHUB_TOKEN" \
           -H "Content-Type: application/json" \
           "https://api.github.com/repos/${{ github.repository }}/releases"
+
+      - name: Create Release
+        if: success()
+        run: |
+          LATEST_RELEASE=${{ needs.build.outputs.latest_release }}
+          NEXT_VERSION=${{ needs.build.outputs.next_version }}
+          echo "Latest Release: ${LATEST_RELEASE}"
+          echo "Next Version: v${NEXT_VERSION}"
+          if [[ $NEXT_VERSION != $LATEST_RELEASE ]]; then
+              echo "Creating Release"
+              git tag -a v$NEXT_VERSION -m "AUTO: Release v$NEXT_VERSION"
+              git push origin v$NEXT_VERSION
+          else
+              echo "No new release to create"
+          fi
+
+  release:
+    runs-on: ubuntu-latest
+    needs: update-deployment
+    if: success()
+    steps:
+      - name: Create release
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          tag: ${{ needs.update-deployment.outputs.next_version }}
+        run: |
+          gh release create v${{ env.tag }} \
+          --repo="$GITHUB_REPOSITORY" \
+          --title="${GITHUB_REPOSITORY#*/} v${{ env.tag }}" \
+          --generate-notes
