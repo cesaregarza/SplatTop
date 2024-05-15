@@ -73,7 +73,7 @@ const PlayerDetail = () => {
         };
 
         newSocket.onerror = (event) => {
-          setError(new Error("Websocket error"));
+          console.error("Websocket error", event);
         };
 
         newSocket.onclose = (event) => {

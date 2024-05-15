@@ -10,7 +10,14 @@ const FAQ = () => {
           tracks the <span className="text-purplelight">Top 500</span> players
           in Splatoon 3 as reported by SplatNet3. The website also provides a
           history for each player's entire Top 500 journey and analytics on the
-          state of the game via the Top 500.
+          state of the game via the Top 500. For more details, visit our{" "}
+          <a
+            href="https://github.com/cesaregarza/SplatTop"
+            className="text-purplelight underline"
+          >
+            GitHub repository
+          </a>
+          .
         </p>
       ),
     },
@@ -121,8 +128,14 @@ const FAQ = () => {
       answer: (
         <p className="text-white">
           We may provide an API endpoint for your data needs. Contact us on
-          Discord, Twitter, or via a GitHub issue on our repository. Pull
-          requests greatly increase the chance of support.
+          Discord, Twitter, or via a GitHub issue on our{" "}
+          <a
+            href="https://github.com/cesaregarza/SplatTop"
+            className="text-purplelight underline"
+          >
+            GitHub repository
+          </a>
+          . Pull requests greatly increase the chance of support.
         </p>
       ),
     },
@@ -137,6 +150,19 @@ const FAQ = () => {
           If you'd like to collaborate, have a special data request, or would
           just like the analytics explained in more detail for a younger
           audience, contact us.
+        </p>
+      ),
+    },
+    {
+      question: "The line cuts off randomly, what happened?",
+      answer: (
+        <p className="text-white">
+          It's probably a data outage caused by Nintendo. The scraper is
+          designed to be highly robust, but it can't handle every situation.
+          There are times when the data is simply not available. We try our best
+          to make sure the data pipeline is uninterrupted, but sometimes
+          Nintendo's decisions are out of our control. We apologize for the
+          inconvenience.
         </p>
       ),
     },
