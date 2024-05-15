@@ -284,18 +284,6 @@ jobs:
             kubectl rollout restart deployment/react-app
           fi
 
-      - name: Create GitHub Release
-        id: create_release
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: |
-          NEXT_VERSION=${{ needs.build.outputs.next_version || '0.0.1' }}
-          echo "Creating GitHub release for version: $NEXT_VERSION"
-          curl -s --data '{"tag_name":"v'"${NEXT_VERSION}"'","target_commitish":"main","name":"v'"${NEXT_VERSION}"'","body":"Release of version '"${NEXT_VERSION}"'","draft":false,"prerelease":false}' \
-          -H "Authorization: token $GITHUB_TOKEN" \
-          -H "Content-Type: application/json" \
-          "https://api.github.com/repos/${{ github.repository }}/releases"
-
       - name: Create Release
         if: success()
         run: |
