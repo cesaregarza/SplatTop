@@ -12,5 +12,6 @@
   "column_splashtag_title": "Splashtag",
   "column_weapon_title": "Weapon",
   "column_weapon_not_supported": "Weapon name not yet supported",
-  "column_xpower_title": "X Power"
+  "column_xpower_title": "X Power",
+  "select_columns": "Select columns"
 }

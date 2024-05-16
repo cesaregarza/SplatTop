@@ -114,6 +114,7 @@ const Top500 = () => {
         <ColumnSelector
           columnVisibility={columnVisibility}
           setColumnVisibility={setColumnVisibility}
+          columnsConfig={columnsConfig}
         />
         <Pagination
           totalItems={filteredPlayers.length}
