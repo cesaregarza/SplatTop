@@ -23,9 +23,15 @@ from shared_lib.constants import (
     REGIONS,
     WEAPON_INFO_REDIS_KEY,
     WEAPON_INFO_URL,
+    WEAPON_LEADERBOARD_FLOOR,
+    WEAPON_LEADERBOARD_THRESHOLD,
+    WEAPON_LEADERBOARD_REDIS_KEY,
 )
 from shared_lib.queries.front_page_queries import LEADERBOARD_MAIN_QUERY
-from shared_lib.queries.misc_queries import ALIAS_QUERY
+from shared_lib.queries.misc_queries import (
+    ALIAS_QUERY,
+    WEAPON_LEADERBOARD_QUERY,
+)
 from shared_lib.queries.player_queries import (
     PLAYER_DATA_QUERY,
     PLAYER_LATEST_QUERY,
@@ -248,3 +254,41 @@ def pull_aliases() -> None:
     aliases = [{**row._asdict()} for row in result]
     redis_conn.set(ALIASES_REDIS_KEY, orjson.dumps(aliases))
     logging.info("Aliases updated in Redis.")
+
+
+@celery.task(name="tasks.update_weapon_leaderboard")
+def update_weapon_leaderboard() -> None:
+    query = text(WEAPON_LEADERBOARD_QUERY)
+    with Session() as session:
+        result = session.execute(query).fetchall()
+        player_data = [{**row._asdict()} for row in result]
+
+    df = pd.DataFrame(player_data)
+    weapon_info = orjson.loads(redis_conn.get(WEAPON_INFO_REDIS_KEY))
+    df["weapon"] = df["weapon_id"].apply(
+        lambda x: (
+            f"{weapon_info[str(x)]['class']}_"
+            f"{weapon_info[str(x)]['reference_kit']}"
+        )
+    )
+    count = (
+        df.groupby(["player_id", "weapon", "mode", "region"])
+        .size()
+        .reset_index(name="count")
+    )
+    count["total"] = count.groupby(["player_id", "mode", "region"])[
+        "count"
+    ].transform("sum")
+    dominant_weapons = count[
+        (count["count"] > WEAPON_LEADERBOARD_FLOOR)
+        & (count["count"] > count["total"] * WEAPON_LEADERBOARD_THRESHOLD)
+    ]
+    leaderboard = (
+        dominant_weapons.groupby(["weapon", "mode", "region"])
+        .size()
+        .reset_index(name="count")
+        .sort_values("count", ascending=False)
+        .to_dict(orient="records")
+    )
+
+    redis_conn.set(WEAPON_LEADERBOARD_REDIS_KEY, orjson.dumps(leaderboard))
