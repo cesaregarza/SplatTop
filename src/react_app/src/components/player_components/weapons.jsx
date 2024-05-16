@@ -1,18 +1,21 @@
-import React from "react";
+import React, { useEffect, useState } from "react";
 import HighchartsReact from "highcharts-react-official";
 import Highcharts from "highcharts";
 import drilldown from "highcharts/modules/drilldown";
 import { computeDrilldown } from "./weapon_helper_functions";
+import { useTranslation } from "react-i18next";
 import "./xchart.css";
 
 drilldown(Highcharts);
 
-class WeaponsChart extends React.Component {
+const WeaponsChart = (props) => {
+  const { t } = useTranslation("player");
+  const [options, setOptions] = useState({});
 
-  render() {
-    const { weapon_winrate } = this.props.data;
-    const { mode } = this.props;
-    const { weaponTranslations, weaponReferenceData } = this.props;
+  useEffect(() => {
+    const { weapon_winrate } = props.data;
+    const { mode } = props;
+    const { weaponTranslations, weaponReferenceData } = props;
 
     const filteredWinrate = weapon_winrate.filter((d) => d.mode === mode);
 
@@ -28,7 +31,9 @@ class WeaponsChart extends React.Component {
 
     const totalUsage = innerSeriesData.reduce((acc, item) => acc + item.y, 0);
 
-    const options = {
+    const chartTitle = t("weaponchart.title").replace("%MODE%", mode);
+
+    const chartOptions = {
       chart: {
         type: "pie",
         height: 400,
@@ -65,20 +70,20 @@ class WeaponsChart extends React.Component {
         ],
       },
       title: {
-        text: `${mode} Weapons Usage`,
+        text: chartTitle,
         style: {
           color: "#ffffff",
         },
       },
       subtitle: {
-        text: "All weapon data is approximate",
+        text: t("weaponchart.subtitle"),
         style: {
           color: "#ffcc00",
         },
       },
       series: [
         {
-          name: "Total Weapon Usage",
+          name: t("weaponchart.inner.title"),
           colorByPoint: true,
           data: innerSeriesData.map((item) => ({
             name: weaponTranslations[item.name] || item.name,
@@ -98,7 +103,7 @@ class WeaponsChart extends React.Component {
           },
         },
         {
-          name: "Detailed Weapon Usage",
+          name: t("weaponchart.outer.title"),
           colorByPoint: true,
           data: outerSeriesData.map((item) => ({
             name: item.name,
@@ -167,7 +172,7 @@ class WeaponsChart extends React.Component {
       tooltip: {
         headerFormat: '<span style="font-size:11px">{series.name}</span><br>',
         pointFormat:
-          '<span style="color:{point.classColor}">{point.name}</span>: <b>{point.y:.2f}%</b> of total<br>',
+          t("weaponchart.point.format"),
       },
       plotOptions: {
         pie: {
@@ -188,12 +193,14 @@ class WeaponsChart extends React.Component {
       },
     };
 
-    return (
-      <div>
-        <HighchartsReact highcharts={Highcharts} options={options} />
-      </div>
-    );
-  }
-}
+    setOptions(chartOptions);
+  }, [props]);
+
+  return (
+    <div>
+      <HighchartsReact highcharts={Highcharts} options={options} />
+    </div>
+  );
+};
 
 export default WeaponsChart;

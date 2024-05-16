@@ -1,0 +1,7 @@
+{
+    "winter": "Chill",
+    "spring": "Fresh",
+    "summer": "Sizzle",
+    "autumn": "Drizzle",
+    "format": "%SEASON% Season %YEAR%"
+}
