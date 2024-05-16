@@ -1,4 +1,5 @@
 import React, { useMemo } from "react";
+import { useTranslation } from "react-i18next";
 import TakorokaIcon from "../../../assets/icons/takoroka.png";
 import TentatekIcon from "../../../assets/icons/tentatek.png";
 
@@ -9,6 +10,7 @@ const regionIcons = {
 };
 
 const RegionSelector = ({ selectedRegion, setSelectedRegion }) => {
+  const { t } = useTranslation();
   const regionButtons = useMemo(
     () =>
       regions.map((region) => (
@@ -33,7 +35,7 @@ const RegionSelector = ({ selectedRegion, setSelectedRegion }) => {
 
   return (
     <div className="mb-4 w-full sm:w-auto">
-      <h2 className="text-xl font-bold mb-2">Regions</h2>
+      <h2 className="text-xl font-bold mb-2">{t("region")}</h2>
       <div className="flex flex-wrap justify-center items-center">
         {regionButtons}
       </div>
