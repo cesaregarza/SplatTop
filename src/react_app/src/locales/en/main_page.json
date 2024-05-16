@@ -3,5 +3,6 @@
   "search_placeholder": "Search...",
   "loading_top500": "Loading Top 500...",
   "loading": "Loading...",
-  "no_results": "No results!"
+  "no_results": "No results!",
+  "search_needs_3_chars": "Search needs at least 3 characters!"
 }

@@ -14,12 +14,14 @@ const SearchBar = () => {
   const [selectedIndex, setSelectedIndex] = useState(-1);
   const [isSearching, setIsSearching] = useState(false);
   const [isFocused, setIsFocused] = useState(false);
+  const [isShortQuery, setIsShortQuery] = useState(false);
   const resultRefs = useRef([]);
 
   useEffect(() => {
     const handleSearch = async () => {
       if (searchQuery.trim() !== "" && searchQuery.length > 2) {
         setIsSearching(true);
+        setIsShortQuery(false);
         const encodedQuery = encodeURIComponent(searchQuery);
         try {
           const response = await axios.get(`${endpoint}/${encodedQuery}`);
@@ -28,7 +30,12 @@ const SearchBar = () => {
           console.error("Error searching:", error);
         }
         setIsSearching(false);
+      } else if (searchQuery.trim() !== "" && searchQuery.length <= 2) {
+        setIsShortQuery(true);
+        setSearchResults([]);
+        setIsSearching(false);
       } else {
+        setIsShortQuery(false);
         setSearchResults([]);
         setIsSearching(false);
       }
@@ -142,14 +149,23 @@ const SearchBar = () => {
             })}
           </ul>
         </div>
-      ) : isSearching || searchQuery.length < 3 ? null : (
-        <div className="absolute z-10 mt-2 w-full bg-gray-800 rounded-md shadow-lg max-h-60 overflow-y-auto text-center text-white py-2">
-          {t("no_results")}
-        </div>
+      ) : isSearching ? null : (
+        <>
+          {isShortQuery ? (
+            <div className="absolute z-10 mt-2 w-full bg-gray-800 rounded-md shadow-lg max-h-60 overflow-y-auto text-center text-white py-2">
+              {t("search_needs_3_chars")}
+            </div>
+          ) : (
+            searchQuery.length >= 3 && (
+              <div className="absolute z-10 mt-2 w-full bg-gray-800 rounded-md shadow-lg max-h-60 overflow-y-auto text-center text-white py-2">
+                {t("no_results")}
+              </div>
+            )
+          )}
+        </>
       )}
     </div>
   );
 };
 
 export default SearchBar;
-
