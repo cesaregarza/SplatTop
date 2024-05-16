@@ -3,6 +3,8 @@ import useFetchWithCache from "./top500_components/fetch_with_cache";
 import Loading from "./loading";
 import columnsConfig from "./top500_components/columns_config";
 import { getBaseApiUrl } from "./utils";
+import { useTranslation } from "react-i18next";
+
 const PlayerTable = React.lazy(() =>
   import("./top500_components/player_table")
 );
@@ -25,6 +27,8 @@ const modeNameMap = {
 };
 
 const Top500 = () => {
+  const { t } = useTranslation("main_page");
+
   const [searchQuery, setSearchQuery] = useState(
     localStorage.getItem("searchQuery") || ""
   );
@@ -92,10 +96,10 @@ const Top500 = () => {
   return (
     <div className="container mx-auto px-4 py-8 bg-gray-900 text-white min-h-screen sm:px-2 lg:px-8">
       <h1 className="text-3xl font-bold mb-4 text-center sm:text-2xl">
-        Top 500
+        {t("title")}
       </h1>
       <div className="flex flex-col sm:flex-row justify-between mb-4">
-        <Suspense fallback={<div>Loading...</div>}>
+        <Suspense fallback={<div>{t("loading")}</div>}>
           <RegionSelector
             selectedRegion={selectedRegion}
             setSelectedRegion={setSelectedRegion}
@@ -106,7 +110,7 @@ const Top500 = () => {
           />
         </Suspense>
       </div>
-      <Suspense fallback={<div>Loading...</div>}>
+      <Suspense fallback={<div>{t("loading")}</div>}>
         <ColumnSelector
           columnVisibility={columnVisibility}
           setColumnVisibility={setColumnVisibility}
@@ -121,7 +125,7 @@ const Top500 = () => {
       </Suspense>
       <input
         type="text"
-        placeholder="Search"
+        placeholder={t("search_placeholder")}
         value={searchQuery}
         onChange={(e) => setSearchQuery(e.target.value)}
         className="border border-gray-700 bg-gray-800 rounded-md px-4 py-2 mb-4 w-full focus:outline-none focus:ring-2 focus:ring-purple"
@@ -129,12 +133,12 @@ const Top500 = () => {
       <div className="overflow-x-auto">
         {isLoading ? (
           <div className="text-center py-4">
-            <Loading text="Loading Top 500..." />
+            <Loading text={t("loading_top500")} />
           </div>
         ) : error ? (
           <div className="text-red-500 text-center py-4">{error.message}</div>
         ) : (
-          <Suspense fallback={<div>Loading...</div>}>
+          <Suspense fallback={<div>{t("loading")}</div>}>
             <PlayerTable
               players={currentItems}
               columnVisibility={columnVisibility}
@@ -142,7 +146,7 @@ const Top500 = () => {
           </Suspense>
         )}
       </div>
-      <Suspense fallback={<div>Loading...</div>}>
+      <Suspense fallback={<div>{t("loading")}</div>}>
         <Pagination
           totalItems={filteredPlayers.length}
           itemsPerPage={itemsPerPage}

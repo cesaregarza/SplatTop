@@ -1,11 +1,14 @@
 import React, { useState, useEffect, useRef } from "react";
 import axios from "axios";
 import { getBaseApiUrl } from "./utils";
+import { useTranslation } from "react-i18next";
 
 const apiUrl = getBaseApiUrl();
 const endpoint = `${apiUrl}/api/search`;
 
 const SearchBar = () => {
+  const { t } = useTranslation("main_page");
+
   const [searchQuery, setSearchQuery] = useState("");
   const [searchResults, setSearchResults] = useState([]);
   const [selectedIndex, setSelectedIndex] = useState(-1);
@@ -67,7 +70,7 @@ const SearchBar = () => {
       <div className="flex items-center bg-white rounded-md shadow-md">
         <input
           type="text"
-          placeholder="Search..."
+          placeholder={t("search_placeholder")}
           value={searchQuery}
           onChange={(e) => setSearchQuery(e.target.value)}
           onKeyDown={handleKeyDown}
@@ -141,7 +144,7 @@ const SearchBar = () => {
         </div>
       ) : isSearching || searchQuery.length < 3 ? null : (
         <div className="absolute z-10 mt-2 w-full bg-gray-800 rounded-md shadow-lg max-h-60 overflow-y-auto text-center text-white py-2">
-          No results!
+          {t("no_results")}
         </div>
       )}
     </div>
@@ -149,3 +152,4 @@ const SearchBar = () => {
 };
 
 export default SearchBar;
+

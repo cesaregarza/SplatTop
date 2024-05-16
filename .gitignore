@@ -178,3 +178,4 @@ k8s/secrets.yaml
 
 # Unignore
 !src/react_app/public/*
+!src/react_app/src/locales/*/*.json
