@@ -1,7 +1,11 @@
 import React from "react";
 import { Link } from "react-router-dom";
+import { useTranslation } from "react-i18next";
 
 const Footer = () => {
+  const { t } = useTranslation("navigation");
+  const dateString = new Date().getFullYear();
+  const rightsString = t("footer.rights").replace("%DATE%", dateString);
   return (
     <footer className="bg-gray-900 text-white py-8">
       <div className="container mx-auto px-4">
@@ -11,7 +15,8 @@ const Footer = () => {
               to="/"
               className="text-2xl font-bold text-white hover:text-ab5ab7 transition duration-300"
             >
-              splat.top <span className="text-purplelight">Top 500</span>
+              splat.top{" "}
+              <span className="text-purplelight">{t("top500")}</span>
             </Link>
           </div>
           <div>
@@ -21,7 +26,7 @@ const Footer = () => {
                   to="/about"
                   className="text-white hover:text-ab5ab7 transition duration-300"
                 >
-                  About
+                  {t("footer.about")}
                 </Link>
               </li>
               <li>
@@ -29,7 +34,7 @@ const Footer = () => {
                   to="/contact"
                   className="text-white hover:text-ab5ab7 transition duration-300"
                 >
-                  Contact
+                  {t("footer.contact")}
                 </Link>
               </li>
             </ul>
@@ -37,9 +42,7 @@ const Footer = () => {
         </div>
         <hr className="my-6 border-gray-700" />
         <div className="text-center">
-          <p className="text-sm">
-            &copy; {new Date().getFullYear()} splat.top. All rights reserved.
-          </p>
+          <p className="text-sm">&copy; {rightsString}</p>
         </div>
       </div>
     </footer>

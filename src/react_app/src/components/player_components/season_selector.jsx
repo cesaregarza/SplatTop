@@ -1,7 +1,10 @@
 import React, { useState, useEffect, useRef } from "react";
 import { calculateSeasonNow, getSeasonName } from "./xchart_helper_functions";
+import { useTranslation } from "react-i18next";
 
 function SeasonSelector({ data, mode, onSeasonChange }) {
+  const { t } = useTranslation("player");
+  const { t: g } = useTranslation("game");
   const [selectedSeasons, setSelectedSeasons] = useState([]);
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const menuRef = useRef(null);
@@ -55,7 +58,7 @@ function SeasonSelector({ data, mode, onSeasonChange }) {
             aria-expanded={isMenuOpen}
             onClick={() => setIsMenuOpen(!isMenuOpen)}
           >
-            Select Seasons (Weapons)
+            {t("controller.select_season")}
             <svg
               className="-mr-1 ml-2 h-5 w-5"
               xmlns="http://www.w3.org/2000/svg"
@@ -103,7 +106,7 @@ function SeasonSelector({ data, mode, onSeasonChange }) {
                     onChange={() => handleSeasonChange(season)}
                     className="mr-2"
                   />
-                  <span>{getSeasonName(season)}</span>
+                  <span>{getSeasonName(season, g)}</span>
                 </label>
               ))}
             </div>

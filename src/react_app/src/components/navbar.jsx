@@ -1,8 +1,11 @@
 import React, { useState } from "react";
 import { Link } from "react-router-dom";
+import { useTranslation } from "react-i18next";
 import SearchBar from "./searchbar";
+import LanguageSelector from "./language_selector";
 
 const Navbar = () => {
+  const { t } = useTranslation("navigation");
   const [isActive, setIsActive] = useState(false);
 
   const toggleNavbar = () => {
@@ -16,7 +19,7 @@ const Navbar = () => {
           to="/"
           className="text-xl sm:text-2xl font-bold text-white hover:text-ab5ab7 transition duration-300"
         >
-          splat.top <span className="text-purplelight">Top 500</span>
+          splat.top <span className="text-purplelight">{t("top500")}</span>
         </Link>
         <button
           className="hamburger md:hidden focus:outline-none"
@@ -51,11 +54,14 @@ const Navbar = () => {
                 to="/faq"
                 className="block py-2 px-4 text-white hover:bg-ab5ab7 rounded-md transition duration-300"
               >
-                FAQ
+                {t("navbar.faq")}
               </Link>
             </li>
             <li>
               <SearchBar />
+            </li>
+            <li>
+              <LanguageSelector />
             </li>
           </ul>
         </div>

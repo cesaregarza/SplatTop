@@ -1,0 +1,12 @@
+{
+    "winter": "Chill",
+    "spring": "Fresh",
+    "summer": "Sizzle",
+    "autumn": "Drizzle",
+    "format": "%SEASON% Season %YEAR%",
+    "format_short": "%SEASON% %YEAR%",
+    "sz": "Splat Zones",
+    "tc": "Tower Control",
+    "rm": "Rainmaker",
+    "cb": "Clam Blitz"
+}

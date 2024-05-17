@@ -1,4 +1,5 @@
 import React from "react";
+import { useTranslation } from "react-i18next";
 import SplatZonesIcon from "../../../assets/icons/splat_zones.png";
 import TowerControlIcon from "../../../assets/icons/tower_control.png";
 import RainmakerIcon from "../../../assets/icons/rainmaker.png";
@@ -26,9 +27,10 @@ const ModeSelector = ({
   imageHeight = "h-12",
   baseClass = "mb-4 w-full sm:w-auto",
 }) => {
+  const { t } = useTranslation();
   return (
     <div className={baseClass}>
-      {showTitle && <h2 className="text-xl font-bold mb-2">Modes</h2>}
+      {showTitle && <h2 className="text-xl font-bold mb-2">{t("modes")}</h2>}
       <div className="flex justify-center items-center">
         {modesSplit.map((modePair, pairIndex) => (
           <div

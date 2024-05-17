@@ -1,6 +1,8 @@
 import { useState } from "react";
+import { useTranslation } from "react-i18next";
 
-const ColumnSelector = ({ columnVisibility, setColumnVisibility }) => {
+const ColumnSelector = ({ columnVisibility, setColumnVisibility, columnsConfig }) => {
+  const { t } = useTranslation();
   const [isOpen, setIsOpen] = useState(false);
 
   const handleToggle = (columnId) => {
@@ -18,7 +20,7 @@ const ColumnSelector = ({ columnVisibility, setColumnVisibility }) => {
           onClick={() => setIsOpen(!isOpen)}
           className="inline-flex justify-center w-full rounded-md border border-gray-700 px-4 py-2 bg-gray-800 text-sm font-medium text-white hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-purple"
         >
-          Select Columns
+          {t("select_columns")}
           <svg
             className="-mr-1 ml-2 h-5 w-5"
             xmlns="http://www.w3.org/2000/svg"
@@ -38,18 +40,18 @@ const ColumnSelector = ({ columnVisibility, setColumnVisibility }) => {
       {isOpen && (
         <div className="origin-top-right absolute right-0 mt-2 w-56 rounded-md shadow-lg bg-gray-800 ring-1 ring-black ring-opacity-5 focus:outline-none">
           <div className="py-1">
-            {Object.entries(columnVisibility).map(([columnId, isVisible]) => (
+            {columnsConfig.map((column) => (
               <label
-                key={columnId}
+                key={column.id}
                 className="flex justify-start items-center px-4 py-2 text-sm text-white hover:bg-gray-700 cursor-pointer"
               >
                 <input
                   type="checkbox"
-                  checked={isVisible}
-                  onChange={() => handleToggle(columnId)}
+                  checked={columnVisibility[column.id]}
+                  onChange={() => handleToggle(column.id)}
                   className="mr-2"
                 />
-                {columnId}{" "}
+                {t(column.title_key)}{" "}
               </label>
             ))}
           </div>

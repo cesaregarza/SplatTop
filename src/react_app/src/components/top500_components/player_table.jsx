@@ -1,9 +1,11 @@
 import React from "react";
 import { useNavigate } from "react-router-dom";
+import { useTranslation } from "react-i18next";
 
 import columnsConfig from "./columns_config";
 
 const PlayerTable = ({ players, columnVisibility }) => {
+  const { t } = useTranslation();
   const navigate = useNavigate();
   const visibleColumns = columnsConfig.filter(
     (column) => columnVisibility[column.id]
@@ -26,7 +28,7 @@ const PlayerTable = ({ players, columnVisibility }) => {
               key={index}
               className={column.headerClasses || defaultHeaderClasses}
             >
-              {column.name}
+              {t(column.title_key)}
             </th>
           ))}
         </tr>
@@ -43,7 +45,7 @@ const PlayerTable = ({ players, columnVisibility }) => {
                 key={index}
                 className={column.cellClasses || defaultCellClasses}
               >
-                {column.render(player)}
+                {column.render(player, t)}
               </td>
             ))}
           </tr>

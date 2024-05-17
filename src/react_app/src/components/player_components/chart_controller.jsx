@@ -1,4 +1,5 @@
 import React, { useState } from "react";
+import { useTranslation } from "react-i18next";
 import ModeSelector from "../top500_components/selectors/mode_selector";
 import XChart from "./xchart";
 import WeaponsChart from "./weapons";
@@ -10,6 +11,7 @@ function ChartController({
   weaponTranslations,
   weaponReferenceData,
 }) {
+  const { t } = useTranslation("player");
   const [mode, setMode] = useState(modes[0]);
   const [colorMode, setColorMode] = useState("Seasonal");
   const [selectedSeasons, setSelectedSeasons] = useState([]);
@@ -68,7 +70,7 @@ function ChartController({
                   colorMode === "Seasonal" ? "highlighted-option" : ""
                 }`}
               >
-                Seasonal
+                {t("controller.seasonal")}
               </span>
               <div className="relative" title="Change the color scheme">
                 <input
@@ -89,7 +91,7 @@ function ChartController({
                   colorMode === "Accessible" ? "highlighted-option" : ""
                 }`}
               >
-                Accessible
+                {t("controller.accessible")}
               </span>
             </label>
           </div>
