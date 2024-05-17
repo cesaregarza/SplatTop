@@ -4,17 +4,20 @@ import Highcharts from "highcharts";
 import drilldown from "highcharts/modules/drilldown";
 import { computeDrilldown } from "./weapon_helper_functions";
 import { useTranslation } from "react-i18next";
+import { modeKeyMap } from "../constants";
 import "./xchart.css";
 
 drilldown(Highcharts);
 
 const WeaponsChart = (props) => {
-  const { t } = useTranslation("player"); 
+  const { t } = useTranslation("player");
+  const { t: g } = useTranslation("game");
   const [options, setOptions] = useState({});
 
   useEffect(() => {
     const { weapon_winrate } = props.data;
     const { mode } = props;
+    const modeName = g(modeKeyMap[mode]);
     const { weaponTranslations, weaponReferenceData } = props;
 
     const filteredWinrate = weapon_winrate.filter((d) => d.mode === mode);
@@ -26,18 +29,22 @@ const WeaponsChart = (props) => {
         filteredWinrate,
         otherThresholdPercent,
         weaponReferenceData,
-        weaponTranslations
+        weaponTranslations,
+        t("weaponchart.other")
       );
 
     const totalUsage = innerSeriesData.reduce((acc, item) => acc + item.y, 0);
 
-    const chartTitle = t("weaponchart.title").replace("%MODE%", mode);
+    const chartTitle = t("weaponchart.title").replace("%MODE%", modeName);
 
     const chartOptions = {
       chart: {
         type: "pie",
         height: 400,
         backgroundColor: "#1a202c",
+      },
+      accessibility: {
+        enabled: false,
       },
       responsive: {
         rules: [
@@ -171,8 +178,7 @@ const WeaponsChart = (props) => {
       },
       tooltip: {
         headerFormat: '<span style="font-size:11px">{series.name}</span><br>',
-        pointFormat:
-          t("weaponchart.point.format"),
+        pointFormat: t("weaponchart.point.format"),
       },
       plotOptions: {
         pie: {
@@ -194,7 +200,7 @@ const WeaponsChart = (props) => {
     };
 
     setOptions(chartOptions);
-  }, [props, t]);
+  }, [props, t, g]);
 
   return (
     <div>

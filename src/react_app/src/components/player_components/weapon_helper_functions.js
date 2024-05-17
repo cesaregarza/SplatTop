@@ -93,7 +93,8 @@ function computeDrilldown(
   counts,
   percentageThreshold,
   weaponReferenceData,
-  weaponTranslations
+  weaponTranslations,
+  otherString
 ) {
   const aggCounts = {};
   const classAgg = {};
@@ -167,7 +168,7 @@ function computeDrilldown(
       otherClasses.push(...classAgg[weaponClass].weapons);
       otherCount += classAgg[weaponClass].total_count;
       classAgg[weaponClass].weapons.forEach((weapon) => {
-        weaponToClassMap[weapon] = "Other";
+        weaponToClassMap[weapon] = otherString;
       });
     } else {
       innerSeriesData.push({
@@ -181,9 +182,9 @@ function computeDrilldown(
 
   // Add "Other" category to inner series data
   innerSeriesData.push({
-    name: "Other",
+    name: otherString,
     y: (otherCount / totalWeaponCount) * 100,
-    drilldown: "Other",
+    drilldown: otherString,
     color: translatedWeaponColors["Other"].color.hex(),
   });
 
@@ -268,7 +269,7 @@ function computeDrilldown(
       color: translatedWeaponColors["Other"].color.hex(),
     };
   });
-  drilldownData.push({ id: "Other", name: "Other", data: otherDrilldownData });
+  drilldownData.push({ id: otherString, name: otherString, data: otherDrilldownData });
 
   return {
     innerSeriesData,

@@ -5,9 +5,10 @@ const getBaseApiUrl = () => {
 
 const getBaseWebsocketUrl = () => {
   const isDevelopment = process.env.NODE_ENV === "development";
+  const wsProtocol = window.location.protocol === "https:" ? "wss" : "ws";
   return isDevelopment
     ? "ws://localhost:5000"
-    : `wss://${window.location.host}`;
+    : `${wsProtocol}://${window.location.host}`;
 };
 
 export { getBaseApiUrl, getBaseWebsocketUrl };

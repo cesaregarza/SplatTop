@@ -12,6 +12,7 @@ import {
 } from "./xchart_helper_functions";
 import fetchFestivalDates from "./splatfest_retriever";
 import { useTranslation } from "react-i18next";
+import { modeKeyMap } from "../constants";
 import "./xchart.css";
 
 const XChart = (props) => {
@@ -33,6 +34,7 @@ const XChart = (props) => {
   }, []);
 
   const { data, mode, colorMode } = props;
+  const modeName = g(modeKeyMap[mode]);
   const { currentSeason, processedData } = filterAndProcessData(
     data,
     mode,
@@ -42,7 +44,7 @@ const XChart = (props) => {
 
   const currentPercentage = getPercentageInSeason(new Date(), currentSeason);
 
-  const chartTitle = t("xchart.title").replace("%MODE%", mode);
+  const chartTitle = t("xchart.title").replace("%MODE%", modeName);
   const currSeasonIndicator = t("xchart.live_indicator");
 
   const options = {
@@ -50,6 +52,9 @@ const XChart = (props) => {
       zoomType: "x",
       height: 400,
       backgroundColor: "#1a202c",
+    },
+    accessibility: {
+      enabled: false,
     },
     title: {
       text: chartTitle,

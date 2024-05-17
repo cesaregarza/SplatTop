@@ -1,0 +1,12 @@
+{
+    "winter": "Fría",
+    "spring": "Cálida",
+    "summer": "Abrasadora",
+    "autumn": "Lluviosa",
+    "format": "Temporada %SEASON% %YEAR%",
+    "format_short": "%SEASON% %YEAR%",
+    "sz": "Pintazonas",
+    "tc": "Torreón",
+    "rm": "Pez dorado",
+    "cb": "Asalto Almeja"
+}

@@ -17,6 +17,7 @@ const modeIcons = {
 const allModes = ["Splat Zones", "Tower Control", "Rainmaker", "Clam Blitz"];
 
 const SeasonResults = ({ data, weaponReferenceData }) => {
+  const { t } = useTranslation("player");
   const { t: g } = useTranslation("game");
   const keyPrefix = "SeasonResults-";
   const activeData = data.aggregated_data.season_results;
@@ -70,7 +71,9 @@ const SeasonResults = ({ data, weaponReferenceData }) => {
 
   return (
     <div className="container mx-auto px-4 py-4">
-      <h2 className="text-2xl font-semibold mb-4 text-white">Season Results</h2>
+      <h2 className="text-2xl font-semibold mb-4 text-white">
+        {t("results.title")}
+      </h2>
       <div className="flex overflow-x-auto">
         {seasons.map((season) => (
           <button
@@ -83,7 +86,7 @@ const SeasonResults = ({ data, weaponReferenceData }) => {
             onClick={() => setActiveTab(season)}
           >
             {season === currentSeason
-              ? `${getSeasonName(season - 1, g)} (Live)`
+              ? `${getSeasonName(season - 1, g)} ${t("xchart.live_indicator")}`
               : getSeasonName(season - 1, g)}
           </button>
         ))}
@@ -93,16 +96,24 @@ const SeasonResults = ({ data, weaponReferenceData }) => {
         <table className="w-full text-white">
           <thead>
             <tr className="text-left">
-              <th className="px-4 py-2 text-sm">Mode</th>
-              <th className="px-4 py-2 text-sm">Rank</th>
-              <th className="px-4 py-2 text-sm">Final XP</th>
-              <th className="px-4 py-2 text-sm">Peak XP</th>
+              <th className="px-4 py-2 text-sm">{t("results.table.mode")}</th>
+              <th className="px-4 py-2 text-sm">{t("results.table.rank")}</th>
               <th className="px-4 py-2 text-sm">
                 {activeTab === currentSeason
-                  ? "Current Weapon"
-                  : "Final Weapon"}
+                  ? t("results.table.current_xp")
+                  : t("results.table.final_xp")}
               </th>
-              <th className="px-4 py-2 text-sm">Most Used Weapon</th>
+              <th className="px-4 py-2 text-sm">
+                {t("results.table.peak_xp")}
+              </th>
+              <th className="px-4 py-2 text-sm">
+                {activeTab === currentSeason
+                  ? t("results.table.current_weapon")
+                  : t("results.table.final_weapon")}
+              </th>
+              <th className="px-4 py-2 text-sm">
+                {t("results.table.most_used_weapon")}
+              </th>
             </tr>
           </thead>
           <tbody>

@@ -17,6 +17,7 @@
   "xchart.now": "Now",
   "weaponchart.title": "%MODE% Weapon Usage",
   "weaponchart.subtitle": "All weapon data is approximate",
+  "weaponchart.other": "Other",
   "weaponchart.inner.title": "Total Weapon Usage",
   "weaponchart.outer.title": "Detailed Weapon Usage",
   "weaponchart.point.format": "<span style=\"color:{point.classColor}\">{point.name}</span>: <b>{point.y:.2f}%</b> of total<br>",
@@ -29,5 +30,14 @@
   "achievements.title": "Achievements",
   "achievements.table.season": "Season",
   "achievements.table.region": "Region",
-  "achievements.table.total": "Total"
+  "achievements.table.total": "Total",
+  "results.title": "Season Results",
+  "results.table.mode": "Mode",
+  "results.table.rank": "Rank",
+  "results.table.current_xp": "Current XP",
+  "results.table.final_xp": "Final XP",
+  "results.table.peak_xp": "Peak XP",
+  "results.table.current_weapon": "Current Weapon",
+  "results.table.final_weapon": "Final Weapon",
+  "results.table.most_used_weapon": "Most Used Weapon"
 }
