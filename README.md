@@ -2,6 +2,8 @@
 
 SplatTop is a platform showcasing the Top 500 players in Splatoon 3, along with their ranking history. This project is built using Kubernetes and consists of seven pods: a frontend (React hosted on Nginx), a backend (FastAPI hosted on Gunicorn with Uvicorn workers), a cache/message broker/pubsub (Redis), workers (Celery), a task scheduler (Celery Beat), an ingress controller (Nginx), and a cert-manager (Let's Encrypt). The deployment is managed on a Kubernetes cluster via DigitalOcean Kubernetes Service (DOKS) with continuous integration and deployment facilitated by GitHub Actions.
 
+We welcome contributions for localizations! If you are interested in helping translate SplatTop into other languages, please refer to the [Contributing Localizations](LOCALIZING.md) section.
+
 ## Table of Contents
 
 - [Installation](#installation)
@@ -16,6 +18,7 @@ SplatTop is a platform showcasing the Top 500 players in Splatoon 3, along with 
     - [Ingress Controller Pod](#ingress-controller-pod)
     - [Cert-Manager Pod (Production Only)](#cert-manager-pod-production-only)
 - [Contributing](#contributing)
+- [Contributing Localizations](LOCALIZING.md)
 - [License](#license)
 
 ## Installation
@@ -82,6 +85,8 @@ The cert-manager pod is responsible for managing SSL/TLS certificates using Let'
 ## Contributing
 
 Contributions are welcome, but I maintain high standards for code quality and maintainability. A CONTRIBUTING.md file will be created in the future, but for now, please reach out via a GitHub Issue to discuss potential contributions. I am open to all ideas but am selective about what code is merged into the project. Feedback and suggestions are always welcome, so please do not hesitate to reach out.
+
+
 
 ## License
 
