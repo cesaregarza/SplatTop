@@ -110,7 +110,7 @@ function computeDrilldown(
   for (const weaponClass in weaponColors) {
     const entry = weaponColors[weaponClass];
     const color = chroma.lab(entry.color);
-    translatedWeaponColors[translateClassName(weaponClass)] = {
+    translatedWeaponColors[translateClassName(weaponClass, otherString)] = {
       colorType: entry.colorType,
       color: color,
     };
@@ -136,7 +136,7 @@ function computeDrilldown(
       (id) => translateWeaponId(id) === translatedWeaponId
     );
     const weaponClass = translateClassName(
-      weaponReferenceData[originalWeaponId]?.class
+      weaponReferenceData[originalWeaponId]?.class, otherString
     );
     weaponToClassMap[translatedWeaponId] = weaponClass;
 
@@ -238,6 +238,7 @@ function computeDrilldown(
     }
     return acc;
   }, {});
+  translatedWeaponColors[otherString] = translatedWeaponColors["Other"];
 
   // Adjust brightness of colors based on weapon index
   const outerSeriesData = [];
