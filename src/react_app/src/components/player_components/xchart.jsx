@@ -16,6 +16,7 @@ import "./xchart.css";
 
 const XChart = (props) => {
   const { t } = useTranslation("player");
+  const { t: g } = useTranslation("game");
   const [festivalDates, setFestivalDates] = useState(null);
 
   useEffect(() => {
@@ -143,7 +144,7 @@ const XChart = (props) => {
     },
     series: processedData.map((seasonData, index) => ({
       name:
-        getSeasonName(seasonData.season) +
+        getSeasonName(seasonData.season, g) +
         (seasonData.isCurrent ? " " + currSeasonIndicator : ""),
       data: seasonData.dataPoints.map((point) => [point.x, point.y]),
       pointStart: 0,

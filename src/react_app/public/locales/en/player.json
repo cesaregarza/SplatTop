@@ -22,5 +22,12 @@
   "weaponchart.point.format": "<span style=\"color:{point.classColor}\">{point.name}</span>: <b>{point.y:.2f}%</b> of total<br>",
   "controller.seasonal": "Seasonal",
   "controller.accessible": "Accessible",
-  "controller.select_season": "Select Seasons (Weapons)"
+  "controller.select_season": "Select Seasons (Weapons)",
+  "aliases.title": "Aliases",
+  "aliases.splashtag": "Splashtag",
+  "aliases.last_seen": "Last Seen",
+  "achievements.title": "Achievements",
+  "achievements.table.season": "Season",
+  "achievements.table.region": "Region",
+  "achievements.table.total": "Total"
 }

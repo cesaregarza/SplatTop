@@ -135,12 +135,14 @@ function filterAndProcessData(
   };
 }
 
-const getSeasonName = (season_number) => {
+const getSeasonName = (season_number, t) => {
   const season_offset = season_number + 2;
   const season_index = season_offset % 4;
   const year = 2022 + Math.floor(season_offset / 4);
-  const season_names = ["Fresh", "Sizzle", "Drizzle", "Chill"];
-  return `${season_names[season_index]} ${year}`;
+  const season_names = [t("spring"), t("summer"), t("autumn"), t("winter")];
+  return t("format_short")
+    .replace("%SEASON%", season_names[season_index])
+    .replace("%YEAR%", year);
 };
 
 const getSeasonColor = (season_number, isCurrent) => {

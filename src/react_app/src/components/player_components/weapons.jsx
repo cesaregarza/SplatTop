@@ -9,7 +9,7 @@ import "./xchart.css";
 drilldown(Highcharts);
 
 const WeaponsChart = (props) => {
-  const { t } = useTranslation("player");
+  const { t } = useTranslation("player"); 
   const [options, setOptions] = useState({});
 
   useEffect(() => {
@@ -194,7 +194,7 @@ const WeaponsChart = (props) => {
     };
 
     setOptions(chartOptions);
-  }, [props]);
+  }, [props, t]);
 
   return (
     <div>

@@ -1,4 +1,5 @@
 import React from "react";
+import { useTranslation } from "react-i18next";
 import SplatZonesIcon from "../../assets/icons/splat_zones.png";
 import TowerControlIcon from "../../assets/icons/tower_control.png";
 import RainmakerIcon from "../../assets/icons/rainmaker.png";
@@ -27,6 +28,8 @@ const columnPaddingX = "px-2";
 const rowPaddingY = "py-1";
 
 const Achievements = ({ data }) => {
+  const { t } = useTranslation("player");
+  const { t: g } = useTranslation("game");
   const activeData = data.aggregated_data.season_results;
 
   const seasonCounts = {};
@@ -73,14 +76,18 @@ const Achievements = ({ data }) => {
     <div className="container mx-auto px-4 py-4 flex justify-center">
       <div className="w-full max-w-6xl">
         <h2 className="text-2xl font-semibold mb-4 text-white text-center">
-          Achievements
+          {t("achievements.title")}
         </h2>
         <div className="relative max-h-96 overflow-x-auto">
           <table className="min-w-max text-white mx-auto">
             <thead>
               <tr className="text-left">
-                <th className={columnPaddingX + " " + rowPaddingY}>Season</th>
-                <th className={columnPaddingX + " " + rowPaddingY}>Region</th>
+                <th className={columnPaddingX + " " + rowPaddingY}>
+                  {t("achievements.table.season")}
+                </th>
+                <th className={columnPaddingX + " " + rowPaddingY}>
+                  {t("achievements.table.region")}
+                </th>
                 {allModes.map((mode) => (
                   <th key={mode} className={columnPaddingX + " " + rowPaddingY}>
                     <img
@@ -90,7 +97,9 @@ const Achievements = ({ data }) => {
                     />
                   </th>
                 ))}
-                <th className={columnPaddingX + " " + rowPaddingY}>Total</th>
+                <th className={columnPaddingX + " " + rowPaddingY}>
+                  {t("achievements.table.total")}
+                </th>
               </tr>
             </thead>
             <tbody>
@@ -98,7 +107,7 @@ const Achievements = ({ data }) => {
                 <tr key={season} className="bg-gray-800 shadow-lg">
                   <td className={columnPaddingX + " " + rowPaddingY}>
                     <span className="text-sm">
-                      {getSeasonName(Number(season) - 1)}
+                      {getSeasonName(Number(season) - 1, g)}
                     </span>
                   </td>
                   <td className={columnPaddingX + " " + rowPaddingY}>
@@ -173,7 +182,9 @@ const Achievements = ({ data }) => {
                 </tr>
               ))}
               <tr className="bg-gray-800 shadow-lg">
-                <td className={columnPaddingX + " " + rowPaddingY}>Total</td>
+                <td className={columnPaddingX + " " + rowPaddingY}>
+                  {t("achievements.table.total")}
+                </td>
                 <td className={columnPaddingX + " " + rowPaddingY}></td>
                 {allModes.map((mode) => (
                   <td

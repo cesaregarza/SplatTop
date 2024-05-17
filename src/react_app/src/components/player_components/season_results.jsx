@@ -1,6 +1,7 @@
 import React, { useState } from "react";
 import { getSeasonName, calculateSeasonNow } from "./xchart_helper_functions";
 import { getImageFromId } from "./weapon_helper_functions";
+import { useTranslation } from "react-i18next";
 import SplatZonesIcon from "../../assets/icons/splat_zones.png";
 import TowerControlIcon from "../../assets/icons/tower_control.png";
 import RainmakerIcon from "../../assets/icons/rainmaker.png";
@@ -16,6 +17,7 @@ const modeIcons = {
 const allModes = ["Splat Zones", "Tower Control", "Rainmaker", "Clam Blitz"];
 
 const SeasonResults = ({ data, weaponReferenceData }) => {
+  const { t: g } = useTranslation("game");
   const keyPrefix = "SeasonResults-";
   const activeData = data.aggregated_data.season_results;
   const latestData = data.aggregated_data.latest_data;
@@ -81,8 +83,8 @@ const SeasonResults = ({ data, weaponReferenceData }) => {
             onClick={() => setActiveTab(season)}
           >
             {season === currentSeason
-              ? `${getSeasonName(season - 1)} (Live)`
-              : getSeasonName(season - 1)}
+              ? `${getSeasonName(season - 1, g)} (Live)`
+              : getSeasonName(season - 1, g)}
           </button>
         ))}
       </div>

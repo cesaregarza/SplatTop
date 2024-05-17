@@ -4,6 +4,7 @@ import { useTranslation } from "react-i18next";
 
 function SeasonSelector({ data, mode, onSeasonChange }) {
   const { t } = useTranslation("player");
+  const { t: g } = useTranslation("game");
   const [selectedSeasons, setSelectedSeasons] = useState([]);
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const menuRef = useRef(null);
@@ -105,7 +106,7 @@ function SeasonSelector({ data, mode, onSeasonChange }) {
                     onChange={() => handleSeasonChange(season)}
                     className="mr-2"
                   />
-                  <span>{getSeasonName(season)}</span>
+                  <span>{getSeasonName(season, g)}</span>
                 </label>
               ))}
             </div>

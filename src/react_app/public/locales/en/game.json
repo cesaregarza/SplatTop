@@ -3,5 +3,6 @@
     "spring": "Fresh",
     "summer": "Sizzle",
     "autumn": "Drizzle",
-    "format": "%SEASON% Season %YEAR%"
+    "format": "%SEASON% Season %YEAR%",
+    "format_short": "%SEASON% %YEAR%"
 }
