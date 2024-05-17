@@ -136,7 +136,8 @@ function computeDrilldown(
       (id) => translateWeaponId(id) === translatedWeaponId
     );
     const weaponClass = translateClassName(
-      weaponReferenceData[originalWeaponId]?.class, otherString
+      weaponReferenceData[originalWeaponId]?.class,
+      otherString
     );
     weaponToClassMap[translatedWeaponId] = weaponClass;
 
@@ -270,7 +271,11 @@ function computeDrilldown(
       color: translatedWeaponColors["Other"].color.hex(),
     };
   });
-  drilldownData.push({ id: otherString, name: otherString, data: otherDrilldownData });
+  drilldownData.push({
+    id: otherString,
+    name: otherString,
+    data: otherDrilldownData,
+  });
 
   return {
     innerSeriesData,
