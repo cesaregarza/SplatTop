@@ -1,0 +1,50 @@
+{
+  "title": "Preguntas Frecuentes",
+  "questions": [
+    {
+      "key": "what_is_splat_top",
+      "question": "¿Qué es splat.top?",
+      "answer": "<p class='text-white'><span class='text-purplelight'>splat.top</span> es un sitio web que rastrea a los <span class='text-purplelight'>Top 500</span> jugadores de Splatoon 3 según lo reportado por SplatNet3. El sitio web también proporciona un historial completo del recorrido de cada jugador en el Top 500 y análisis sobre el estado del juego a través del Top 500. Para más detalles, visita nuestro <a href='https://github.com/cesaregarza/SplatTop' class='text-purplelight underline'>repositorio en GitHub</a>.</p>"
+    },
+    {
+      "key": "why_cant_i_find_myself",
+      "question": "¿Por qué no puedo encontrarme?",
+      "answer": "<p class='text-white'>Si no puedes encontrarte en el historial, hay dos posibles razones:<ul class='text-white list-disc pl-5'><li><span class='text-purplelight'>Acabas de entrar al Top 500:</span> El sistema se actualiza cada 10 minutos, así que si acabas de entrar al Top 500, tu historial puede no estar disponible de inmediato.</li><li><span class='text-purplelight'>Aparición breve:</span> Si estuviste en el Top 500 por poco tiempo, es posible que no encuentres tu historial.</li></ul></p>"
+    },
+    {
+      "key": "how_often_are_rankings_updated",
+      "question": "¿Con qué frecuencia se actualizan las clasificaciones?",
+      "answer": "<ul class='text-white list-disc pl-5'><li><span class='text-purplelight'>Febrero 2023-Agosto 2023:</span> Los datos se actualizaban cada hora. Un agradecimiento especial a <a href='https://splatoon3.ink' class='text-purplelight underline'>splatoon3.ink</a> por proporcionar los datos.</li><li><span class='text-purplelight'>Agosto 2023-Marzo 2024:</span> Las actualizaciones ocurrían cada quince minutos.</li><li><span class='text-purplelight'>Marzo 2024-presente:</span> Los datos ahora se actualizan cada diez minutos.</li></ul>"
+    },
+    {
+      "key": "can_i_see_my_own_ranking",
+      "question": "¿Puedo ver mi propia clasificación?",
+      "answer": "<p class='text-white'>Sí, puedes ver tu clasificación si has estado en el Top 500. Busca usando cualquier nombre en el juego que tuvieras cuando alcanzaste el Top 500. Alternativamente, si tienes tu ID de NPLN, puedes acceder a tu página directamente a través de <span class='text-purplelight'>splat.top/player/npln_id_goes_here</span>. Nota: Si estuviste brevemente en el Top 500 y no fuiste captado por nuestra recopilación de datos, no encontrarás tu clasificación.</p>"
+    },
+    {
+      "key": "my_weapon_data_is_incorrect",
+      "question": "Mis datos de armas son incorrectos. ¿Pueden arreglarlo?",
+      "answer": "<p class='text-white'><span class='text-purplelight'>Los datos de armas</span> se calculan en base a las apariciones en el Top 500 según lo registrado por SplatNet3. Aunque la metodología tiende a ser más precisa que no, hay casos excepcionales donde los datos de armas pueden ser incorrectos. Esto no es algo que podamos arreglar sin un esfuerzo masivo, ya que requeriría al menos duplicar la frecuencia de extracción de datos para minimizar errores. Si crees que los datos son incorrectos, no dudes en contactarnos con los detalles. No podemos garantizar una solución, pero la información nos ayuda a mejorar el sistema para todos.</p>"
+    },
+    {
+      "key": "can_i_have_access_to_the_data",
+      "question": "¿Puedo tener acceso a los datos? Quiero analizarlos yo mismo.",
+      "answer": "<p class='text-white'><b class='text-purplelight'>El acceso al conjunto completo de datos es limitado.</b> Solicita acceso contactándonos con tu uso previsto. Las contribuciones a splat.top o a la comunidad de Splatoon son criterios clave para el acceso. Ser un jugador destacado o creador de contenido no es suficiente.</p><p class='text-white'><b class='text-purplelight'>Para estudiantes:</b> Los proyectos académicos pueden recibir un subconjunto de datos anonimizados. Contáctanos en Discord o Twitter con los detalles del proyecto.</p>"
+    },
+    {
+      "key": "i_own_a_website_and_want_to_use_your_data",
+      "question": "Tengo un sitio web y quiero usar sus datos. ¿Puedo?",
+      "answer": "<p class='text-white'>Podemos proporcionar un endpoint de API para tus necesidades de datos. Contáctanos en Discord, Twitter, o a través de un issue en GitHub en nuestro <a href='https://github.com/cesaregarza/SplatTop' class='text-purplelight underline'>repositorio en GitHub</a>. Los pull requests aumentan significativamente la posibilidad de soporte.</p>"
+    },
+    {
+      "key": "im_a_content_creator_and_want_to_feature_your_website",
+      "question": "Soy un creador de contenido y quiero mostrar su sitio web. ¿Puedo?",
+      "answer": "<p class='text-white'>Sí, usar datos o análisis de <span class='text-purplelight'>splat.top</span> está bien siempre y cuando des crédito al sitio web. Agradecemos una mención o enlace al sitio. Si deseas colaborar, tienes una solicitud de datos especial, o simplemente deseas que los análisis se expliquen con más detalle para una audiencia más joven, contáctanos.</p>"
+    },
+    {
+      "key": "the_line_cuts_off_randomly",
+      "question": "La línea se corta aleatoriamente, ¿qué pasó?",
+      "answer": "<p class='text-white'>Probablemente sea una interrupción de datos causada por Nintendo. El scraper está diseñado para ser altamente robusto, pero no puede manejar todas las situaciones. Hay momentos en que los datos simplemente no están disponibles. Hacemos nuestro mejor esfuerzo para asegurarnos de que el flujo de datos no se interrumpa, pero a veces las decisiones de Nintendo están fuera de nuestro control. Pedimos disculpas por las molestias.</p>"
+    }
+  ]
+}

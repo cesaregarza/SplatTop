@@ -1,0 +1,19 @@
+{
+  "title": "Top 500",
+  "search_placeholder": "Search...",
+  "loading_top500": "Loading Top 500...",
+  "loading": "Loading...",
+  "no_results": "No results!",
+  "search_needs_3_chars": "Search needs at least 3 characters!",
+  "player_was_in_takoroka_last_season": "Player was in Takoroka last season",
+  "player_was_in_tentatek_last_season": "Player was in Tentatek last season",
+  "column_badge_title": "Badge",
+  "column_rank_title": "Rank",
+  "column_splashtag_title": "Splashtag",
+  "column_weapon_title": "Weapon",
+  "column_weapon_not_supported": "Weapon name not yet supported",
+  "column_xpower_title": "X Power",
+  "select_columns": "Select columns",
+  "modes": "Modes",
+  "region": "Region"
+}
