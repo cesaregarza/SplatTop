@@ -24,6 +24,14 @@ jobs:
           token: ${{ secrets.CI_SPLATTOP_TOKEN }}
           fetch-depth: 0
 
+      - name: Check if push is from CI from "AUTO:..." commit message
+        id: check_ci_step
+        run: |
+          if [[ $(git log -1 --pretty=%B) =~ ^AUTO:.* ]]; then
+            echo "Triggered by Github Actions, exiting pipeline"
+            exit 1
+          fi
+
       - name: Check for i18n changes
         id: check_i18n_changes
         run: |
