@@ -61,7 +61,7 @@ jobs:
       - name: Install Poetry
         run: |
           curl -sSL https://install.python-poetry.org | python3 -
-            echo "source $HOME/.poetry/env" >> $GITHUB_ENV
+          echo "source $HOME/.poetry/env" >> $GITHUB_ENV
 
       - name: Install script dependencies
         if: steps.check_i18n_changes.outputs.i18n_changed == 'true'
@@ -87,6 +87,7 @@ jobs:
 
   check:
     runs-on: ubuntu-latest
+    needs: i18n
     environment: SplatTop
     outputs:
       github_actions: ${{ steps.check_ci_step.outputs.github_actions }}
