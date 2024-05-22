@@ -76,7 +76,7 @@ jobs:
           DO_SPACES_REGION: ${{ secrets.DO_SPACES_REGION }}
           DO_SPACES_ENDPOINT: ${{ secrets.DO_SPACES_ENDPOINT }}
           PYTHONPATH: ${{ github.workspace }}/scripts
-        run: python i18n.py
+        run: python scripts/i18n.py
 
       - name: Create commit
         if: steps.check_i18n_changes.outputs.i18n_changed == 'true'
