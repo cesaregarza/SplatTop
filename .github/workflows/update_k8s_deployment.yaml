@@ -68,6 +68,11 @@ jobs:
         run: |
           poetry install --with scripts
 
+      - name: Set script permissions
+        if: steps.check_i18n_changes.outputs.i18n_changed == 'true'
+        run: |
+          chmod +x scripts/i18n.py
+
       - name: Run i18n script
         if: steps.check_i18n_changes.outputs.i18n_changed == 'true'
         env:
