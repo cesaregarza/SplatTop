@@ -1,12 +1,6 @@
 ## Contributing to Localization
 
-We welcome contributions to help translate SplatTop into various languages! Below are the JSON files that need to be updated for localization (the below are links to the English versions of the files, which you can use as a reference for translation):
-
-- [`faq.json`](https://github.com/cesaregarza/SplatTop/blob/main/src/react_app/public/locales/en/faq.json)
-- [`game.json`](https://github.com/cesaregarza/SplatTop/blob/main/src/react_app/public/locales/en/game.json)
-- [`main_page.json`](https://github.com/cesaregarza/SplatTop/blob/main/src/react_app/public/locales/en/main_page.json)
-- [`navigation.json`](https://github.com/cesaregarza/SplatTop/blob/main/src/react_app/public/locales/en/navigation.json)
-- [`player.json`](https://github.com/cesaregarza/SplatTop/blob/main/src/react_app/public/locales/en/player.json)
+We welcome contributions to help translate SplatTop into various languages! The localization process is now fully automated upon merge. If you want to start a new translation, use the [`USen.json`](https://github.com/cesaregarza/SplatTop/blob/main/i18n/USen.json) file as your reference. This file is located in the `i18n` directory.
 
 ### Guidelines for Localization
 
@@ -15,6 +9,7 @@ We welcome contributions to help translate SplatTop into various languages! Belo
 3. **Consistency**: Maintain consistency in terminology and style across all translations.
 4. **Top 500**: If it makes sense in the target language, please translate `Top 500` to the equivalent term in the target language. If there is no compact terminology for `Top 500` in the target language that sounds better, you can keep it as `Top 500`. Use your best judgment.
 5. **FAQ**: The FAQ section contains formatting in HTML. This might be challenging to translate if you don't have experience with HTML. If this is the case, feel free to use Markdown formatting or some other format that you are comfortable with. We will do the necessary formatting on our end and show you the final result for approval.
+6. **splatoonLanguageKey**: This is the internal reference language key. Refer to the appropriate language key from [this link](https://github.com/Leanny/splat3/tree/main/data/language).
 
 ### Steps to Contribute
 
@@ -28,7 +23,7 @@ We welcome contributions to help translate SplatTop into various languages! Belo
    ```sh
    git checkout -b add-localization-language-code
    ```
-4. **Update JSON Files**: Translate the text values in the relevant JSON files located in `src/react_app/public/locales/`.
+4. **Update JSON Files**: Translate the text values in the relevant JSON files located in `i18n/`. Updates will automatically add new keys that require translation and will be defaulted to English.
 5. **Commit Your Changes**: Commit your changes with a descriptive message.
    ```sh
    git add .
@@ -45,3 +40,4 @@ We welcome contributions to help translate SplatTop into various languages! Belo
 If you are not familiar with Git or need assistance, feel free to reach out to us on Twitter [@JoyTheDataNerd](https://twitter.com/JoyTheDataNerd) or on Discord at `pyproject.toml`. We are here to help!
 
 Thank you for contributing to SplatTop's localization efforts!
+
