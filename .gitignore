@@ -175,6 +175,7 @@ k8s/secrets.yaml
 
 # Scripts
 !scripts/*.sh
+!scripts/*/*.json
 
 # Unignore
 !src/react_app/public/*
