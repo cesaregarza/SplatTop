@@ -95,10 +95,10 @@ def update_dict_with_new_keys(reference_dict: dict, target_dict: dict) -> dict:
 
 
 def save_updated_languages(language_data: dict, lang_metadata: dict) -> None:
-    reference_data = language_data["en"]
+    reference_data = language_data["USen"]
 
     for lang_key, lang_specific_data in language_data.items():
-        if lang_key == "en":
+        if lang_key == "USen":
             continue
 
         print("Updating language:", lang_key)
