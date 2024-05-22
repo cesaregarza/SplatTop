@@ -1,10 +1,11 @@
 {
   "metadata": {
-    "key": "en",
+    "key": "USen",
     "splatoonLanguageKey": "USen",
     "languageNames": {
-      "en": "English",
-      "es": "Spanish"
+      "USen": "English (US)",
+      "USes": "Spanish (NA)",
+      "EUen": "English (UK)"
     }
   },
   "faq": {
