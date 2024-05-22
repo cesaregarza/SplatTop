@@ -1,77 +1,47 @@
 import os
+from typing import TYPE_CHECKING
 
-import boto3
 import orjson
 import requests
-from botocore.exceptions import (
-    ClientError,
-    NoCredentialsError,
-    PartialCredentialsError,
-)
+from botocore.exceptions import ClientError
 from tqdm import tqdm
+from utils.constants import (
+    ASSETS_PATH,
+    BADGE_ID_XREF,
+    BADGE_KEY,
+    BADGE_PATH,
+    BANNER_ID_XREF,
+    BANNER_KEY,
+    BANNER_PATH,
+    BUCKET_NAME,
+    DATAMINE_RAW_URL,
+    KIT_XREF,
+    WEAPON_ID_XREF,
+    WEAPON_KEY,
+    WEAPON_PATH,
+)
+from utils.datamine import (
+    download_file_from_repo,
+    list_images_in_repo,
+    pull_language_data,
+)
+from utils.languages import get_supported_languages
+from utils.spaces import (
+    get_boto3_client,
+    get_boto3_session,
+    get_existing_file_names,
+    upload_file_to_bucket,
+)
 
-REPO_PATH = "Leanny/splat3"
-API_URL = f"https://api.github.com/repos/{REPO_PATH}"
-RAW_URL = f"https://raw.githubusercontent.com/{REPO_PATH}/main"
-
-BASE_XREF_URL = f"{RAW_URL}/data/mush/%s"
-WEAPON_ID_XREF = f"{BASE_XREF_URL}/WeaponInfoMain.json"
-BADGE_ID_XREF = f"{BASE_XREF_URL}/BadgeInfo.json"
-BANNER_ID_XREF = f"{BASE_XREF_URL}/NamePlateBgInfo.json"
-LANGUAGE_BASE_URL = f"{RAW_URL}/data/language/%s.json"
-
-SUPPORTED_LANGUAGES = [
-    "USen",
-    "USes",
-    "JPja",
-    "EUfr",
-    "EUde",
-]
-
-BUCKET_NAME = "splat-top"
-ASSETS_PATH = "assets"
-WEAPON_PATH = "images/weapon_flat"
-BADGE_PATH = "images/badge"
-BANNER_PATH = "images/npl"
-DATA_PATH = "data"
-LANGUAGE_PATH = f"{DATA_PATH}/language"
-
-WEAPON_KEY = f"{ASSETS_PATH}/weapon_flat"
-BADGE_KEY = f"{ASSETS_PATH}/badge"
-BANNER_KEY = f"{ASSETS_PATH}/npl"
-
-
-KIT_XREF = {"H": "00", "O": "00", "Oct": "01"}
+if TYPE_CHECKING:
+    import boto3
 
 
 def get_latest_version() -> str:
     TARGET_URL = "data/mush/latest"
-    response = requests.get(f"{RAW_URL}/{TARGET_URL}")
+    response = requests.get(f"{DATAMINE_RAW_URL}/{TARGET_URL}")
     response.raise_for_status()
     return response.text.strip()
-
-
-def get_boto3_session() -> boto3.Session:
-    try:
-        return boto3.Session(
-            aws_access_key_id=os.getenv("DO_SPACES_KEY"),
-            aws_secret_access_key=os.getenv("DO_SPACES_SECRET"),
-            region_name=os.getenv("DO_SPACES_REGION"),
-        )
-    except (NoCredentialsError, PartialCredentialsError) as e:
-        print(f"Error in creating boto3 session: {e}")
-        raise
-
-
-def get_boto3_client(session: boto3.Session) -> boto3.client:
-    try:
-        return session.client(
-            "s3",
-            endpoint_url=os.getenv("DO_SPACES_ENDPOINT"),
-        )
-    except NoCredentialsError as e:
-        print(f"Error in creating boto3 client: {e}")
-        raise
 
 
 def check_if_needs_update(client: boto3.client, latest_version: str) -> bool:
@@ -89,39 +59,7 @@ def check_if_needs_update(client: boto3.client, latest_version: str) -> bool:
             raise
 
 
-def list_files_in_repo(subpath: str) -> list[str]:
-    TARGET_URL = f"{API_URL}/contents/{subpath}"
-    response = requests.get(TARGET_URL).json()
-    # Throw out all non-png files
-    return [file for file in response if file["name"].endswith(".png")]
-
-
-def get_existing_file_names(client: boto3.client, key: str) -> list[str]:
-    try:
-        response = client.list_objects_v2(Bucket=BUCKET_NAME, Prefix=key)
-        return [obj["Key"] for obj in response.get("Contents", [])]
-    except ClientError as e:
-        print(f"Error listing objects: {e}")
-        return []
-
-
-def download_file_from_repo(file: dict) -> bytes:
-    response = requests.get(file["download_url"])
-    response.raise_for_status()
-    return response.content
-
-
-def upload_file_to_bucket(client: boto3.client, key: str, data: bytes):
-    try:
-        client.put_object(
-            ACL="public-read", Bucket=BUCKET_NAME, Key=key, Body=data
-        )
-    except ClientError as e:
-        print(f"Error uploading file to bucket: {e}")
-        raise
-
-
-def update_version_file(client: boto3.client, latest_version: str):
+def update_version_file(client: boto3.client, latest_version: str) -> None:
     try:
         client.put_object(
             Bucket=BUCKET_NAME,
@@ -134,7 +72,7 @@ def update_version_file(client: boto3.client, latest_version: str):
         raise
 
 
-def overwrite_xref_files(client: boto3.client, latest_version: str):
+def overwrite_xref_files(client: boto3.client, latest_version: str) -> None:
     xref_urls = [
         WEAPON_ID_XREF % latest_version,
         BADGE_ID_XREF % latest_version,
@@ -157,7 +95,7 @@ def overwrite_xref_files(client: boto3.client, latest_version: str):
             print(f"Error uploading xref file to bucket: {e}")
 
 
-def update_data(client: boto3.client):
+def update_data(client: boto3.client) -> None:
     WEAPON_DATA_PATH = "assets/weapon_flat/WeaponInfoMain.json"
     DESTINATION_PATH = "data/weapon_info.json"
     try:
@@ -223,27 +161,8 @@ def process_weapon_data(preprocessed_data: dict[int, dict]) -> dict[int, dict]:
     return out
 
 
-def pull_language_data(client: boto3.client, language: str):
-    BASE_KEY = "CommonMsg/Weapon/%s"
-    KEYS = [
-        "WeaponName_Main",
-        "WeaponName_Sub",
-        "WeaponName_Special",
-        "WeaponTypeName",
-    ]
-    response = requests.get(LANGUAGE_BASE_URL % language)
-    data = orjson.loads(response.text)
-    data = {k: data[BASE_KEY % k] for k in KEYS}
-    client.put_object(
-        ACL="public-read",
-        Bucket=BUCKET_NAME,
-        Key=f"{LANGUAGE_PATH}/{language}.json",
-        Body=orjson.dumps(data),
-    )
-
-
-def pull_all_language_data(client: boto3.client):
-    for language in SUPPORTED_LANGUAGES:
+def pull_all_language_data(client: boto3.client) -> None:
+    for language in get_supported_languages():
         pull_language_data(client, language)
 
 
@@ -264,7 +183,7 @@ def main():
             [WEAPON_PATH, BADGE_PATH, BANNER_PATH],
         ):
             existing_files = get_existing_file_names(client, key)
-            new_files = list_files_in_repo(path)
+            new_files = list_images_in_repo(path)
             for file in tqdm(new_files, desc=f"Updating {key}"):
                 if f"{key}/{file['name']}" not in existing_files:
                     data = download_file_from_repo(file)

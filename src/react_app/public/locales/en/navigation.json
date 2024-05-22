@@ -1,7 +1,7 @@
 {
-    "top500": "Top 500",
-    "footer.about": "About",
-    "footer.contact": "Contact",
-    "footer.rights": "%DATE% splat.top. All rights reserved.",
-    "navbar.faq": "FAQ"
+  "top500": "Top 500",
+  "footer.about": "About",
+  "footer.contact": "Contact",
+  "footer.rights": "%DATE% splat.top. All rights reserved.",
+  "navbar.faq": "FAQ"
 }
