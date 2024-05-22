@@ -99,8 +99,12 @@ jobs:
         if: steps.check_i18n_changes.outputs.i18n_changed == 'true'
         run: |
           git add *
-          git commit -m "AUTO: Update i18n files"
-          git push origin HEAD
+          if git diff-index --quiet HEAD; then
+            echo "No changes to commit"
+          else
+            git commit -m "AUTO: Update i18n files"
+            git push origin HEAD
+          fi
 
   check:
     runs-on: ubuntu-latest
