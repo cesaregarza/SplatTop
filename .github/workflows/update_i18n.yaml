@@ -1,0 +1,67 @@
+name: Build and Update i18n
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - 'i18n/**'
+
+jobs:
+  i18n:
+    runs-on: ubuntu-latest
+    environment: SplatTop
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v3
+        with:
+          token: ${{ secrets.CI_SPLATTOP_TOKEN }}
+          fetch-depth: 0
+
+      - name: Check if push is from CI from "AUTO:..." commit message
+        id: check_ci_step
+        run: |
+          if [[ $(git log -1 --pretty=%B) =~ ^AUTO-I18N:.* ]]; then
+            echo "Prevent infinite loop by CI"
+            exit 0
+          fi
+
+      - name: Setup Git
+        run: |
+          git config --global user.name "GitHub Actions"
+          git config --global user.email "actions@github.com"
+
+      - name: Install Poetry
+        run: |
+          curl -sSL https://install.python-poetry.org | python3 -
+          echo 'export PATH="$HOME/.poetry/bin:$PATH"' >> $GITHUB_ENV
+
+      - name: Install script dependencies
+        run: |
+          poetry install --with scripts
+
+      - name: Set script permissions
+        run: |
+          chmod +x scripts/i18n.py
+
+      - name: List scripts directory contents
+        run: ls -R scripts
+
+      - name: Run i18n script
+        env:
+          DO_SPACES_KEY: ${{ secrets.DO_SPACES_KEY }}
+          DO_SPACES_SECRET: ${{ secrets.DO_SPACES_SECRET }}
+          DO_SPACES_REGION: ${{ secrets.DO_SPACES_REGION }}
+          DO_SPACES_ENDPOINT: ${{ secrets.DO_SPACES_ENDPOINT }}
+          PYTHONPATH: ${{ github.workspace }}/scripts
+        run: poetry run python scripts/i18n.py
+
+      - name: Create commit
+        run: |
+          git add *
+          if git diff-index --quiet HEAD; then
+            echo "No changes to commit"
+          else
+            git commit -m "AUTO-I18N: Update i18n files"
+            git push origin HEAD
+          fi

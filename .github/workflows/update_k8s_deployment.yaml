@@ -11,103 +11,14 @@ on:
   push:
     branches:
       - main
+    paths:
+      - 'src/**'
+      - '.version'
+      - 'k8s/**'
 
 jobs:
-  i18n:
-    runs-on: ubuntu-latest
-    environment: SplatTop
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v3
-        with:
-          token: ${{ secrets.CI_SPLATTOP_TOKEN }}
-          fetch-depth: 0
-
-      - name: Check if push is from CI from "AUTO:..." commit message
-        id: check_ci_step
-        run: |
-          if [[ $(git log -1 --pretty=%B) =~ ^AUTO:.* ]]; then
-            echo "Triggered by Github Actions, exiting pipeline"
-            exit 1
-          fi
-
-      - name: Check for i18n changes
-        id: check_i18n_changes
-        run: |
-          echo "Checking for changes in i18n/"
-          LATEST_TAG=$(git describe --tags --always `git rev-list --tags --max-count=1` 2>&1)
-          TAG_FETCH_EXIT_CODE=$?
-
-          if [ $TAG_FETCH_EXIT_CODE -ne 0 ]; then
-            echo "Failed to fetch latest tag, exit code: $TAG_FETCH_EXIT_CODE"
-            exit 0
-          fi
-
-          if [ -z "$LATEST_TAG" ]; then
-            echo "No tags found, skipping check"
-            exit 0
-          fi
-
-          echo "Latest tag: $LATEST_TAG"
-
-          I18N_CHANGES=$(git diff --name-only $LATEST_TAG HEAD -- 'i18n/*')
-
-          if [ -n "$I18N_CHANGES" ]; then
-            echo "i18n changes found, running i18n script"
-            echo "i18n_changed=true" >> $GITHUB_OUTPUT
-          else
-            echo "No i18n changes found"
-            echo "i18n_changed=false" >> $GITHUB_OUTPUT
-          fi
-
-      - name: Setup Git
-        run: |
-          git config --global user.name "GitHub Actions"
-          git config --global user.email "actions@github.com"
-
-      - name: Install Poetry
-        run: |
-          curl -sSL https://install.python-poetry.org | python3 -
-          echo 'export PATH="$HOME/.poetry/bin:$PATH"' >> $GITHUB_ENV
-
-      - name: Install script dependencies
-        if: steps.check_i18n_changes.outputs.i18n_changed == 'true'
-        run: |
-          poetry install --with scripts
-
-      - name: Set script permissions
-        if: steps.check_i18n_changes.outputs.i18n_changed == 'true'
-        run: |
-          chmod +x scripts/i18n.py
-
-      - name: List scripts directory contents
-        if: steps.check_i18n_changes.outputs.i18n_changed == 'true'
-        run: ls -R scripts
-
-      - name: Run i18n script
-        if: steps.check_i18n_changes.outputs.i18n_changed == 'true'
-        env:
-          DO_SPACES_KEY: ${{ secrets.DO_SPACES_KEY }}
-          DO_SPACES_SECRET: ${{ secrets.DO_SPACES_SECRET }}
-          DO_SPACES_REGION: ${{ secrets.DO_SPACES_REGION }}
-          DO_SPACES_ENDPOINT: ${{ secrets.DO_SPACES_ENDPOINT }}
-          PYTHONPATH: ${{ github.workspace }}/scripts
-        run: poetry run python scripts/i18n.py
-
-      - name: Create commit
-        if: steps.check_i18n_changes.outputs.i18n_changed == 'true'
-        run: |
-          git add *
-          if git diff-index --quiet HEAD; then
-            echo "No changes to commit"
-          else
-            git commit -m "AUTO: Update i18n files"
-            git push origin HEAD
-          fi
-
   check:
     runs-on: ubuntu-latest
-    needs: i18n
     environment: SplatTop
     outputs:
       github_actions: ${{ steps.check_ci_step.outputs.github_actions }}
