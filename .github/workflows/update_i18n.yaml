@@ -5,7 +5,7 @@ on:
     branches:
       - main
     paths:
-      - 'i18n/**'
+      - "i18n/**"
 
 jobs:
   i18n:
@@ -18,10 +18,10 @@ jobs:
           token: ${{ secrets.CI_SPLATTOP_TOKEN }}
           fetch-depth: 0
 
-      - name: Check if push is from CI from "AUTO:..." commit message
+      - name: Check if push is from GitHub Actions
         id: check_ci_step
         run: |
-          if [[ $(git log -1 --pretty=%B) =~ ^AUTO-I18N:.* ]]; then
+          if [ "$GITHUB_ACTOR" = "github-actions" ]; then
             echo "Prevent infinite loop by CI"
             exit 0
           fi
