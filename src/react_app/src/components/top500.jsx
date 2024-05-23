@@ -107,6 +107,7 @@ const Top500 = () => {
           <ModeSelector
             selectedMode={selectedMode}
             setSelectedMode={setSelectedMode}
+            includeAllModes={true}
           />
         </Suspense>
       </div>
