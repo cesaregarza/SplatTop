@@ -124,6 +124,21 @@ def update_supported_languages(lang_metadata: dict) -> None:
 
     write_supported_languages(supported_languages)
 
+    # Update supported_languages.js
+    supported_languages_js = {}
+    for metadata in lang_metadata.values():
+        key = metadata["splatoonLanguageKey"]
+        supported_languages_js[key] = metadata["languageNames"]
+
+    with open(REACT_SUPPLANG_FILE, "w") as f:
+        f.write(
+            "const SUPPORTED_LANGUAGES = "
+            + orjson.dumps(
+                supported_languages_js, option=orjson.OPT_INDENT_2
+            ).decode()
+            + ";\n\nexport default SUPPORTED_LANGUAGES;\n"
+        )
+
 
 def update_i18n_js(lang_metadata: dict) -> None:
     with open(REACT_I18N_FILE, "r") as f:
