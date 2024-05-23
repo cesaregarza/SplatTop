@@ -1,13 +1,19 @@
-// IF YOU ADD A NEW LANGUAGE, YOU MUST ADD IT TO THE SUPPORTED_LANGUAGES OBJECT
 const SUPPORTED_LANGUAGES = {
-    "en": {
-        "en": "English",
-        "es": "Spanish"
-    },
-    "es": {
-        "en": "Inglés",
-        "es": "Español"
-    }
-}
+  "USen": {
+    "USen": "English (US)",
+    "USes": "Spanish (NA)",
+    "EUen": "English (UK)"
+  },
+  "EUen": {
+    "USen": "English (US)",
+    "USes": "Spanish (NA)",
+    "EUen": "English (UK)"
+  },
+  "USes": {
+    "USen": "Inglés (EEUU)",
+    "USes": "Español (LATAM)",
+    "EUen": "Inglés (RU)"
+  }
+};
 
 export default SUPPORTED_LANGUAGES;

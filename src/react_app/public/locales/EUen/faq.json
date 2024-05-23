@@ -24,12 +24,12 @@
     {
       "key": "my_weapon_data_is_incorrect",
       "question": "My weapon data is incorrect. Can you fix it?",
-      "answer": "<p class='text-white'><span class='text-purplelight'>Weapon data</span> is calculated based on the snapshot appearances in the Top 500 as maintained by SplatNet3. While the methodology tends to be more accurate than not, there are edge cases where the weapon data may be incorrect. This is not something we can fix without massive effort, as it would require at least doubling the scraping cadence to minimize errors. If you believe the data is incorrect, feel free to contact us with the details. We can't guarantee a fix, but the knowledge helps us improve the system for everyone.</p>"
+      "answer": "<p class='text-white'><span class='text-purplelight'>Weapon data</span> is calculated based on the snapshot appearances in the Top 500 as maintained by SplatNet3. While the methodology tends to be more accurate than not, there are edge cases where the weapon data may be incorrect. This is not something we can fix without massive effort, as it would require at least doubling the scraping cadence to minimise errors. If you believe the data is incorrect, feel free to contact us with the details. We can't guarantee a fix, but the knowledge helps us improve the system for everyone.</p>"
     },
     {
       "key": "can_i_have_access_to_the_data",
       "question": "Can I have access to the data? I want to analyze it myself.",
-      "answer": "<p class='text-white'><b class='text-purplelight'>Access to the full dataset is limited.</b> Request access by contacting us with your intended use. Contributions to splat.top or the Splatoon community are key criteria for access. Being a top player or content creator is not enough.</p><p class='text-white'><b class='text-purplelight'>For students:</b> Academic projects can receive an anonymized data subset. Contact us on Discord or Twitter with project details.</p>"
+      "answer": "<p class='text-white'><b class='text-purplelight'>Access to the full dataset is limited.</b> Request access by contacting us with your intended use. Contributions to splat.top or the Splatoon community are key criteria for access. Being a top player or content creator is not enough.</p><p class='text-white'><b class='text-purplelight'>For students:</b> Academic projects can receive an anonymised data subset. Contact us on Discord or Twitter with project details.</p>"
     },
     {
       "key": "i_own_a_website_and_want_to_use_your_data",
@@ -44,7 +44,7 @@
     {
       "key": "the_line_cuts_off_randomly",
       "question": "The line cuts off randomly, what happened?",
-      "answer": "<p class='text-white'>It's probably a data outage caused by Nintendo. The scraper is designed to be highly robust, but it can't handle every situation. There are times when the data is simply not available. We try our best to make sure the data pipeline is uninterrupted, but sometimes Nintendo's decisions are out of our control. We apologize for the inconvenience.</p>"
+      "answer": "<p class='text-white'>It's probably a data outage caused by Nintendo. The scraper is designed to be highly robust, but it can't handle every situation. There are times when the data is simply not available. We try our best to make sure the data pipeline is uninterrupted, but sometimes Nintendo's decisions are out of our control. We apologise for the inconvenience.</p>"
     }
   ]
 }

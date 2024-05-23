@@ -11,12 +11,17 @@ on:
   push:
     branches:
       - main
+    paths:
+      - 'src/**'
+      - '.version'
+      - 'k8s/**'
 
 jobs:
   check:
     runs-on: ubuntu-latest
     environment: SplatTop
     outputs:
+      github_actions: ${{ steps.check_ci_step.outputs.github_actions }}
       python_changed: ${{ steps.check_changes.outputs.python_changed }}
       react_changed: ${{ steps.check_changes.outputs.react_changed }}
 
@@ -26,6 +31,16 @@ jobs:
         with:
           token: ${{ secrets.CI_SPLATTOP_TOKEN }}
           fetch-depth: 0
+
+      - name: Check if push is from CI from "AUTO:..." commit message
+        id: check_ci_step
+        run: |
+          if [[ $(git log -1 --pretty=%B) =~ ^AUTO:.* ]]; then
+            echo "Triggered by Github Actions, exiting pipeline"
+            echo "github_actions=true" >> $GITHUB_OUTPUT
+          else
+            echo "github_actions=false" >> $GITHUB_OUTPUT
+          fi
 
       - name: Check for changes
         id: check_changes
@@ -71,6 +86,7 @@ jobs:
 
   build:
     needs: check
+    if: (needs.check.outputs.github_actions == 'false')
     runs-on: ubuntu-latest
     environment: SplatTop
     outputs:
@@ -162,7 +178,7 @@ jobs:
 
   update-deployment:
     needs: [check, build]
-    if: always()
+    if: github.ref == 'refs/heads/main' && (needs.check.outputs.github_actions == 'false')
     runs-on: ubuntu-latest
     environment: SplatTop
     outputs:
@@ -301,8 +317,8 @@ jobs:
 
   release:
     runs-on: ubuntu-latest
-    needs: update-deployment
-    if: success()
+    needs: [update-deployment, check]
+    if: success() && github.ref == 'refs/heads/main' && (needs.check.outputs.github_actions == 'false')
     steps:
       - name: Create release
         env:

@@ -4,14 +4,14 @@ import { useTranslation } from "react-i18next";
 const FAQ = () => {
   const { t } = useTranslation("faq");
 
-  const faqData = t("faq.questions", { returnObjects: true });
+  const faqData = t("questions", { returnObjects: true });
 
-  document.title = t("faq.title");
+  document.title = t("title");
 
   return (
     <div className="container mx-auto px-4 py-8 bg-gray-800">
       <h1 className="text-4xl font-bold mb-8 text-center text-purplelight">
-        {t("faq.title")}
+        {t("title")}
       </h1>
       <div className="flex flex-col gap-8">
         {faqData &&

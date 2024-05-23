@@ -1,0 +1,142 @@
+{
+  "metadata": {
+    "key": "USen",
+    "splatoonLanguageKey": "USen",
+    "languageNames": {
+      "USen": "English (US)",
+      "USes": "Spanish (NA)",
+      "EUen": "English (UK)"
+    }
+  },
+  "faq": {
+    "title": "Frequently Asked Questions",
+    "questions": [
+      {
+        "key": "what_is_splat_top",
+        "question": "What is splat.top?",
+        "answer": "<p class='text-white'><span class='text-purplelight'>splat.top</span> is a website that tracks the <span class='text-purplelight'>Top 500</span> players in Splatoon 3 as reported by SplatNet3. The website also provides a history for each player's entire Top 500 journey and analytics on the state of the game via the Top 500. For more details, visit our <a href='https://github.com/cesaregarza/SplatTop' class='text-purplelight underline'>GitHub repository</a>.</p>"
+      },
+      {
+        "key": "why_cant_i_find_myself",
+        "question": "Why can't I find myself?",
+        "answer": "<p class='text-white'>If you can't find yourself in the history, there's two possible reasons:<ul class='text-white list-disc pl-5'><li><span class='text-purplelight'>Just entered the Top 500:</span> The system updates every 10 minutes, so if you've just entered the Top 500, your history may not be immediately available.</li><li><span class='text-purplelight'>Brief appearance:</span> If you were in the Top 500 for a short time, you may not find your history.</li></ul></p>"
+      },
+      {
+        "key": "how_often_are_rankings_updated",
+        "question": "How often are the rankings updated?",
+        "answer": "<ul class='text-white list-disc pl-5'><li><span class='text-purplelight'>February 2023-August 2023:</span> Data was updated hourly. Special thanks to <a href='https://splatoon3.ink' class='text-purplelight underline'>splatoon3.ink</a> for providing the data.</li><li><span class='text-purplelight'>August 2023-March 2024:</span> Updates occurred every fifteen minutes.</li><li><span class='text-purplelight'>March 2024-present:</span> Data is now updated every ten minutes.</li></ul>"
+      },
+      {
+        "key": "can_i_see_my_own_ranking",
+        "question": "Can I see my own ranking?",
+        "answer": "<p class='text-white'>Yes, you can view your ranking if you've been in the Top 500. Search using any in-game name you had when you reached the Top 500. Alternatively, if you have your NPLN ID you can access your page directly via <span class='text-purplelight'>splat.top/player/npln_id_goes_here</span>. Note: If you were briefly in the Top 500 and missed by our data collection, you won't find your ranking.</p>"
+      },
+      {
+        "key": "my_weapon_data_is_incorrect",
+        "question": "My weapon data is incorrect. Can you fix it?",
+        "answer": "<p class='text-white'><span class='text-purplelight'>Weapon data</span> is calculated based on the snapshot appearances in the Top 500 as maintained by SplatNet3. While the methodology tends to be more accurate than not, there are edge cases where the weapon data may be incorrect. This is not something we can fix without massive effort, as it would require at least doubling the scraping cadence to minimize errors. If you believe the data is incorrect, feel free to contact us with the details. We can't guarantee a fix, but the knowledge helps us improve the system for everyone.</p>"
+      },
+      {
+        "key": "can_i_have_access_to_the_data",
+        "question": "Can I have access to the data? I want to analyze it myself.",
+        "answer": "<p class='text-white'><b class='text-purplelight'>Access to the full dataset is limited.</b> Request access by contacting us with your intended use. Contributions to splat.top or the Splatoon community are key criteria for access. Being a top player or content creator is not enough.</p><p class='text-white'><b class='text-purplelight'>For students:</b> Academic projects can receive an anonymized data subset. Contact us on Discord or Twitter with project details.</p>"
+      },
+      {
+        "key": "i_own_a_website_and_want_to_use_your_data",
+        "question": "I own a website and I want to use your data. Can I?",
+        "answer": "<p class='text-white'>We may provide an API endpoint for your data needs. Contact us on Discord, Twitter, or via a GitHub issue on our <a href='https://github.com/cesaregarza/SplatTop' class='text-purplelight underline'>GitHub repository</a>. Pull requests greatly increase the chance of support.</p>"
+      },
+      {
+        "key": "im_a_content_creator_and_want_to_feature_your_website",
+        "question": "I'm a content creator and I want to feature your website. Can I?",
+        "answer": "<p class='text-white'>Yes, using data or analytics from <span class='text-purplelight'>splat.top</span> is fine as long as you credit the website. We appreciate a mention or link to the site. If you'd like to collaborate, have a special data request, or would just like the analytics explained in more detail for a younger audience, contact us.</p>"
+      },
+      {
+        "key": "the_line_cuts_off_randomly",
+        "question": "The line cuts off randomly, what happened?",
+        "answer": "<p class='text-white'>It's probably a data outage caused by Nintendo. The scraper is designed to be highly robust, but it can't handle every situation. There are times when the data is simply not available. We try our best to make sure the data pipeline is uninterrupted, but sometimes Nintendo's decisions are out of our control. We apologize for the inconvenience.</p>"
+      }
+    ]
+  },
+  "game": {
+    "winter": "Chill",
+    "spring": "Fresh",
+    "summer": "Sizzle",
+    "autumn": "Drizzle",
+    "format": "%SEASON% Season %YEAR%",
+    "format_short": "%SEASON% %YEAR%",
+    "sz": "Splat Zones",
+    "tc": "Tower Control",
+    "rm": "Rainmaker",
+    "cb": "Clam Blitz"
+  },
+  "main_page": {
+    "title": "Top 500",
+    "search_placeholder": "Search...",
+    "loading_top500": "Loading Top 500...",
+    "loading": "Loading...",
+    "no_results": "No results!",
+    "search_needs_3_chars": "Search needs at least 3 characters!",
+    "player_was_in_takoroka_last_season": "Player was in Takoroka last season",
+    "player_was_in_tentatek_last_season": "Player was in Tentatek last season",
+    "column_badge_title": "Badge",
+    "column_rank_title": "Rank",
+    "column_splashtag_title": "Splashtag",
+    "column_weapon_title": "Weapon",
+    "column_weapon_not_supported": "Weapon name not yet supported",
+    "column_xpower_title": "X Power",
+    "select_columns": "Select columns",
+    "modes": "Modes",
+    "region": "Region"
+  },
+  "navigation": {
+    "top500": "Top 500",
+    "footer.about": "About",
+    "footer.contact": "Contact",
+    "footer.rights": "%DATE% splat.top. All rights reserved.",
+    "navbar.faq": "FAQ"
+  },
+  "player": {
+    "data_lang_key": "USen",
+    "document_title_loading": "splat.top - Player Page",
+    "document_title_loaded": "splat.top - %PLAYER%",
+    "page_title": "Player Page",
+    "load_page": "Loading page...",
+    "load_component": "Loading components...",
+    "load_results": "Loading season results...",
+    "load_chart": "Loading chart...",
+    "no_data": "No data available",
+    "xchart.title": "%MODE% X Power",
+    "xchart.xaxis.title": "% of Season Elapsed",
+    "xchart.xaxis.start": "Start",
+    "xchart.xaxis.end": "End",
+    "xchart.yaxis.title": "X Power",
+    "xchart.live_indicator": "(Live)",
+    "xchart.now": "Now",
+    "weaponchart.title": "%MODE% Weapon Usage",
+    "weaponchart.subtitle": "All weapon data is approximate",
+    "weaponchart.other": "Other",
+    "weaponchart.inner.title": "Total Weapon Usage",
+    "weaponchart.outer.title": "Detailed Weapon Usage",
+    "weaponchart.point.format": "<span style=\"color:{point.classColor}\">{point.name}</span>: <b>{point.y:.2f}%</b> of total<br>",
+    "controller.seasonal": "Seasonal",
+    "controller.accessible": "Accessible",
+    "controller.select_season": "Select Seasons (Weapons)",
+    "aliases.title": "Aliases",
+    "aliases.splashtag": "Splashtag",
+    "aliases.last_seen": "Last Seen",
+    "achievements.title": "Achievements",
+    "achievements.table.season": "Season",
+    "achievements.table.region": "Region",
+    "achievements.table.total": "Total",
+    "results.title": "Season Results",
+    "results.table.mode": "Mode",
+    "results.table.rank": "Rank",
+    "results.table.current_xp": "Current XP",
+    "results.table.final_xp": "Final XP",
+    "results.table.peak_xp": "Peak XP",
+    "results.table.current_weapon": "Current Weapon",
+    "results.table.final_weapon": "Final Weapon",
+    "results.table.most_used_weapon": "Most Used Weapon"
+  }
+}
