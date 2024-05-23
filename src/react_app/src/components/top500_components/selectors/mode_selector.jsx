@@ -30,7 +30,7 @@ const ModeSelector = ({
   return (
     <div className={baseClass}>
       {showTitle && <h2 className="text-xl font-bold mb-2">{t("modes")}</h2>}
-      <div className="flex justify-end items-center flex-wrap">
+      <div className="flex justify-center items-center flex-wrap">
         {modes.map((mode, index) => (
           <div key={index} className="flex justify-center">
             <button

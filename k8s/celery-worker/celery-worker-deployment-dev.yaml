@@ -17,7 +17,7 @@ spec:
           image: celery-worker:latest
           imagePullPolicy: Never
           command:
-            ["celery", "-A", "celery_app.tasks", "worker", "--loglevel=info"]
+            ["celery", "-A", "celery_app.app", "worker", "--loglevel=info"]
           env:
             - name: DB_HOST
               valueFrom:

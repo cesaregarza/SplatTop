@@ -19,7 +19,7 @@ spec:
           image: registry.digitalocean.com/sendouq/celery:latest
           imagePullPolicy: Always
           command:
-            ["celery", "-A", "celery_app.tasks", "worker", "--loglevel=info"]
+            ["celery", "-A", "celery_app.app", "worker", "--loglevel=info"]
           env:
             - name: DB_HOST
               valueFrom:

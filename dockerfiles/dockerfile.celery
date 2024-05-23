@@ -52,4 +52,4 @@ RUN poetry version $BUILD_VERSION && \
     poetry install --no-dev --without scripts && \
     poetry update
 
-CMD ["poetry", "run", "celery", "-A", "celery_app.tasks", "worker", "--loglevel=info"]
+CMD ["poetry", "run", "celery", "-A", "celery_app.app", "worker", "--loglevel=info"]
