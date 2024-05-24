@@ -4,6 +4,12 @@ MODES = [
     "Rainmaker",
     "Clam Blitz",
 ]
+MODES_SNAKE_CASE = {
+    "Splat Zones": "splat_zones",
+    "Tower Control": "tower_control",
+    "Rainmaker": "rainmaker",
+    "Clam Blitz": "clam_blitz",
+}
 REGIONS = [
     "Tentatek",
     "Takoroka",

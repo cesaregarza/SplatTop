@@ -32,7 +32,7 @@ const LanguageSelector = () => {
   };
 
   const getLanguageTitle = (key) => {
-    return allLanguages[key] ? allLanguages[i18n.language][key] : "Unknown";
+    return allLanguages[i18n.language] ? allLanguages[i18n.language][key] : "Unknown";
   };
 
   return (

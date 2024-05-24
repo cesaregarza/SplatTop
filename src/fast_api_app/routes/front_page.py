@@ -2,6 +2,7 @@ import orjson
 from fastapi import APIRouter, HTTPException, Query
 
 from fast_api_app.connections import redis_conn
+from shared_lib.constants import MODES
 
 router = APIRouter()
 
