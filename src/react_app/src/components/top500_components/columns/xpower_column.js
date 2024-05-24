@@ -13,3 +13,21 @@ export const render = (player, t) => (
     </span>
   </>
 );
+export const generateRender = (column_name) => {
+  return (player, t) => {
+    const value = player[column_name];
+    if (value === null) {
+      return "--";
+    }
+    const valueStr = value.toFixed(1).toString();
+    const highlightLength = value >= 10000 ? 3 : 2;
+    return (
+      <>
+        <span className="text-purplelight text-lg">
+          {valueStr.slice(0, highlightLength)}
+        </span>
+        <span className="text-sm">{valueStr.slice(highlightLength)}</span>
+      </>
+    );
+  };
+};

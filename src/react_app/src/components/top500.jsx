@@ -1,12 +1,18 @@
 import React, { useEffect, useState, Suspense } from "react";
 import useFetchWithCache from "./top500_components/fetch_with_cache";
 import Loading from "./loading";
-import columnsConfig from "./top500_components/columns_config";
+import {
+  columnsConfig,
+  allModesColumnsConfig,
+} from "./top500_components/columns_config";
 import { getBaseApiUrl } from "./utils";
 import { useTranslation } from "react-i18next";
 
 const PlayerTable = React.lazy(() =>
   import("./top500_components/player_table")
+);
+const AllModesTable = React.lazy(() =>
+  import("./top500_components/all_modes_table")
 );
 const ColumnSelector = React.lazy(() =>
   import("./top500_components/selectors/column_selector")
@@ -24,6 +30,7 @@ const modeNameMap = {
   "Tower Control": "TC",
   Rainmaker: "RM",
   "Clam Blitz": "CB",
+  "All Modes": "AM",
 };
 
 const Top500 = () => {
@@ -81,7 +88,7 @@ const Top500 = () => {
     : [];
 
   const filteredPlayers = players.filter((player) =>
-    player.name.toLowerCase().includes(searchQuery.toLowerCase())
+    player.splashtag.toLowerCase().includes(searchQuery.toLowerCase())
   );
 
   const indexOfLastItem = currentPage * itemsPerPage;
@@ -92,6 +99,9 @@ const Top500 = () => {
     setCurrentPage(pageNumber);
     window.scrollTo({ top: 0, behavior: "smooth" });
   };
+
+  const isAllModes =
+    players.length > 0 && players[0].hasOwnProperty("total_x_power");
 
   return (
     <div className="container mx-auto px-4 py-8 bg-gray-900 text-white min-h-screen sm:px-2 lg:px-8">
@@ -115,7 +125,10 @@ const Top500 = () => {
         <ColumnSelector
           columnVisibility={columnVisibility}
           setColumnVisibility={setColumnVisibility}
-          columnsConfig={columnsConfig}
+          columnsConfig={
+            selectedMode === "All Modes" ? allModesColumnsConfig : columnsConfig
+          }
+          disabled={isAllModes}
         />
         <Pagination
           totalItems={filteredPlayers.length}
@@ -141,10 +154,14 @@ const Top500 = () => {
           <div className="text-red-500 text-center py-4">{error.message}</div>
         ) : (
           <Suspense fallback={<div>{t("loading")}</div>}>
-            <PlayerTable
-              players={currentItems}
-              columnVisibility={columnVisibility}
-            />
+            {isAllModes ? (
+              <AllModesTable players={currentItems} />
+            ) : (
+              <PlayerTable
+                players={currentItems}
+                columnVisibility={columnVisibility}
+              />
+            )}
           </Suspense>
         )}
       </div>

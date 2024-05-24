@@ -1,5 +1,6 @@
 import logging
 
+import numpy as np
 import orjson
 import pandas as pd
 from sqlalchemy import text
@@ -84,6 +85,16 @@ def process_all_data(df: pd.DataFrame) -> list[tuple[str, pd.DataFrame]]:
         logger.info(f"Processing data for region: {region}")
         region_df = df.loc[df["region"] == region]
         region_df = process_region_data(region_df)
+        for mode in MODES_SNAKE_CASE.values():
+            key = f"{mode}_weapon_image"
+            weapon_key = f"{mode}_weapon_id"
+            weapon_mask = region_df[weapon_key].notnull()
+            region_df[key] = ""
+            region_df.loc[weapon_mask, key] = (
+                region_df.loc[weapon_mask, weapon_key]
+                .astype(int)
+                .apply(get_weapon_image)
+            )
         out.append((region, region_df))
     return out
 
@@ -99,13 +110,14 @@ def process_region_data(df: pd.DataFrame) -> pd.DataFrame:
         pd.DataFrame: The processed DataFrame with aggregated and sorted data.
     """
     logger.info("Processing region data")
-    df["mode"] = df["mode"].map(MODES_SNAKE_CASE)
+    df.loc[:, "mode"] = df["mode"].map(MODES_SNAKE_CASE)
 
     df = df.set_index(["player_id", "mode"]).unstack()
     df.columns = [f"{mode}_{column}" for column, mode in df.columns]
     xp_cols = [col for col in df.columns if "x_power" in col]
     df["total_x_power"] = df[xp_cols].sum(axis=1)
     df = df.sort_values("total_x_power", ascending=False).iloc[:500]
+    df["rank"] = np.arange(1, 501)
 
     # pull from ALIASES_REDIS_KEY and get the latest alias
     # for each player in the top 500
@@ -140,5 +152,7 @@ def pull_data() -> None:
 
     for region, processed_df in process_all_data(pd.concat(dfs)):
         redis_key = f"leaderboard_data:All Modes:{region}"
-        redis_conn.set(redis_key, processed_df.to_json(orient="records"))
+        redis_conn.set(
+            redis_key, processed_df.reset_index().to_json(orient="records")
+        )
         logger.info(f"All data for region: {region} saved to Redis")
