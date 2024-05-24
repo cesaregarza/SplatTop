@@ -87,7 +87,8 @@
     "column_xpower_title": "Fuerza X",
     "select_columns": "Seleccionar columnas",
     "modes": "Modos",
-    "region": "Región"
+    "region": "Región",
+    "column_total_x_power_title": "Fuerza X Total"
   },
   "navigation": {
     "top500": "Top 500",
