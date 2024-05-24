@@ -15,5 +15,6 @@
   "column_xpower_title": "X Power",
   "select_columns": "Select columns",
   "modes": "Modes",
-  "region": "Region"
+  "region": "Region",
+  "column_total_x_power_title": "Total X Power"
 }
