@@ -13,7 +13,7 @@ i18n
     backend: {
       loadPath: "../locales/{{lng}}/{{ns}}.json",
     },
-    fallbackLng: "en",
+    fallbackLng: "USen",
     defaultNS: "main_page",
     ns: ["main_page", "faq", "game", "navigation", "player"],
     interpolation: {
