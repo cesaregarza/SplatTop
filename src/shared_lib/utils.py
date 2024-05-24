@@ -3,7 +3,8 @@ from functools import cache
 
 import requests
 
-BASE_CDN_URL = "https://splat-top.nyc3.cdn.digitaloceanspaces.com/"
+from shared_lib.constants import BASE_CDN_URL
+
 WEAPON_XREF_PATH = "assets/weapon_flat/WeaponInfoMain.json"
 BADGE_XREF_PATH = "assets/badge/BadgeInfo.json"
 BANNER_XREF_PATH = "assets/npl/NamePlateBgInfo.json"
