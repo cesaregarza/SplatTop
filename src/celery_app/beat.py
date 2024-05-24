@@ -18,4 +18,8 @@ celery.conf.beat_schedule = {
         "task": "tasks.pull_aliases",
         "schedule": crontab(minute="*/10"),
     },
+    "update-skill-offset-every-ten-minutes": {
+        "task": "tasks.update_skill_offset",
+        "schedule": crontab(minute="*/10"),
+    },
 }

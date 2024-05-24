@@ -28,8 +28,6 @@ def pull_all_latest_data() -> pd.DataFrame:
             redis_key = f"leaderboard_data:{mode}:{region}"
             players = redis_conn.get(redis_key)
             player_df = pd.DataFrame(orjson.loads(players))
-            player_df["mode"] = mode
-            player_df["region"] = region
             xp_min = player_df["x_power"].min()
             xp_max = player_df["x_power"].max()
             player_df["xp_scaled"] = (
@@ -56,7 +54,7 @@ def append_weapon_data(df: pd.DataFrame) -> pd.DataFrame:
     return df
 
 
-def map_data_to_indices(df: pd.DataFrame) -> pd.DataFrame:
+def map_indices_to_data(df: pd.DataFrame) -> pd.DataFrame:
     agg_data = (
         df.groupby("weapon_name")
         .agg(
@@ -72,16 +70,15 @@ def map_data_to_indices(df: pd.DataFrame) -> pd.DataFrame:
 
     results = []
     for _, row in agg_data.iterrows():
-        weapon_name = row["weapon_name"]
-        weapon_image = row["weapon_image"]
+        weapon_name = row["weapon_name"].iloc[0]
+        weapon_image = row["weapon_image"]["first"]
         median = row["xp_scaled"]["median"]
         count = row["xp_scaled"]["count"]
 
         subset = df_melted.query("k == @count")
         if subset.empty:
             log_probs = interpolator(
-                df_melted["bin_center"],
-                [count] * df_melted.shape[0],
+                (df_melted["bin_center"], [count] * df_melted.shape[0]),
             )
             subset = pd.DataFrame(
                 {
@@ -97,11 +94,12 @@ def map_data_to_indices(df: pd.DataFrame) -> pd.DataFrame:
         mode_logprob = mode_row["log_prob"]
         mode_bin_center = mode_row["bin_center"]
 
-        # Find the median log probability
-        median_bin_row = subset.query(
-            "(lower <= @median) & (upper >= @median)"
-        ).iloc[0]
-        median_logprob = median_bin_row["log_prob"]
+        def find_appropriate_bin_logprob(value: float) -> pd.Series:
+            mask = (subset["lower"] <= value) & (subset["upper"] >= value)
+            return subset.loc[mask, "log_prob"].iloc[0]
+
+        median_logprob = find_appropriate_bin_logprob(median)
+
         results.append(
             {
                 "weapon_name": weapon_name,
@@ -118,6 +116,14 @@ def map_data_to_indices(df: pd.DataFrame) -> pd.DataFrame:
 
 
 def compute_probability_map(sorted_xp_scaled: pd.Series) -> pd.DataFrame:
+    if len(sorted_xp_scaled) < 4000:
+        padding_length = 4000 - len(sorted_xp_scaled)
+        front_padding = [np.nan] * (padding_length // 2)
+        back_padding = [np.nan] * (padding_length - len(front_padding))
+        sorted_xp_scaled = pd.Series(
+            front_padding + sorted_xp_scaled.tolist() + back_padding
+        )
+
     prob_df = pd.DataFrame(load_probabilities())
     prob_df.columns = [int(x) * 2 + 1 for x in range(prob_df.shape[1])]
     prob_df["y"] = sorted_xp_scaled.values
@@ -130,8 +136,12 @@ def compute_probability_map(sorted_xp_scaled: pd.Series) -> pd.DataFrame:
         .pipe(np.log)
         .reset_index()
     )
-    prob_df_logbin["lower"] = prob_df_logbin["y_bin"].apply(lambda x: x.left)
-    prob_df_logbin["upper"] = prob_df_logbin["y_bin"].apply(lambda x: x.right)
+    prob_df_logbin["lower"] = (
+        prob_df_logbin["y_bin"].apply(lambda x: x.left).astype(float)
+    )
+    prob_df_logbin["upper"] = (
+        prob_df_logbin["y_bin"].apply(lambda x: x.right).astype(float)
+    )
     prob_df_logbin = prob_df_logbin.drop(columns="y_bin")
     prob_df_logbin["bin_center"] = (
         prob_df_logbin["lower"].add(prob_df_logbin["upper"]).div(2)
@@ -157,18 +167,25 @@ def create_interpolator(df_melted: pd.DataFrame) -> RegularGridInterpolator:
     return RegularGridInterpolator((y_values, k_values), data, method="linear")
 
 
-def compute_weapon_data() -> pd.DataFrame:
+def compute_skill_offset() -> pd.DataFrame:
     df = pull_all_latest_data()
     df = append_weapon_data(df)
-    df = map_data_to_indices(df)
-    diff = df["mode_logprob"].sub(df["median_logprob"])
-    df["directional_diff"] = (
-        df["median"]
-        .sub(df["mode_bin_center"])
-        .gt(0)
-        .replace({True: 1, False: -1})
-        .mul(diff)
-    )
+    df = map_indices_to_data(df)
+
+    def subcompute_skill_offset(
+        input_df: pd.DataFrame, label: str
+    ) -> pd.Series:
+        diff = input_df["mode_logprob"].sub(input_df[label + "_logprob"])
+        return (
+            input_df[label]
+            .sub(input_df["mode_bin_center"])
+            .gt(0)
+            .replace({True: 1, False: -1})
+            .mul(diff)
+        )
+
+    df["skill_offset"] = subcompute_skill_offset(df, "median")
+
     redis_conn.set(
         SKILL_OFFSET_REDIS_KEY, orjson.dumps(df.to_dict(orient="records"))
     )
