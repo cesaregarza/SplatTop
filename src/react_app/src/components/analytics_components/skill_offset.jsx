@@ -3,7 +3,7 @@ import HighchartsReact from "highcharts-react-official";
 import Highcharts from "highcharts";
 import { useTranslation } from "react-i18next";
 
-const Graph = ({ data, weaponTranslations, logarithmic }) => {
+const SkillOffsetGraph = ({ data, weaponTranslations, logarithmic }) => {
   const { t } = useTranslation("analytics");
   const [showTooltip, setShowTooltip] = useState(false);
   const imageSize = 32;
@@ -161,4 +161,4 @@ const Graph = ({ data, weaponTranslations, logarithmic }) => {
   );
 };
 
-export default Graph;
+export default SkillOffsetGraph;

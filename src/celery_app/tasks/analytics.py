@@ -5,8 +5,9 @@ import orjson
 import pandas as pd
 import requests
 from scipy.interpolate import RegularGridInterpolator
+from sqlalchemy import text
 
-from celery_app.connections import redis_conn
+from celery_app.connections import Session, redis_conn
 from shared_lib.analytics import load_probabilities
 from shared_lib.constants import (
     BASE_CDN_URL,
@@ -15,19 +16,27 @@ from shared_lib.constants import (
     SKILL_OFFSET_REDIS_KEY,
     WEAPON_INFO_URL,
 )
+from shared_lib.queries.analytics_queries import SKILL_OFFSET_QUERY
 
 logger = logging.getLogger(__name__)
 
 NUM_BINS = 150
 
 
+def fetch_leaderboard_data(mode: str, region_bool: bool) -> pd.DataFrame:
+    with Session() as session:
+        return pd.read_sql(
+            text(SKILL_OFFSET_QUERY),
+            session.connection(),
+            params={"mode": mode, "region": region_bool},
+        )
+
+
 def pull_all_latest_data() -> pd.DataFrame:
     out = []
     for mode in MODES:
         for region in REGIONS:
-            redis_key = f"leaderboard_data:{mode}:{region}"
-            players = redis_conn.get(redis_key)
-            player_df = pd.DataFrame(orjson.loads(players))
+            player_df = fetch_leaderboard_data(mode, region == "Takoroka")
             xp_min = player_df["x_power"].min()
             xp_max = player_df["x_power"].max()
             player_df["xp_scaled"] = (

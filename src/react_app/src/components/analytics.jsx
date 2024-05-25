@@ -3,7 +3,7 @@ import axios from "axios";
 import Loading from "./misc_components/loading";
 import { getBaseApiUrl } from "./utils";
 import { useTranslation } from "react-i18next";
-import Graph from "./analytics_components/graph";
+import SkillOffsetGraph from "./analytics_components/skill_offset";
 
 const Analytics = () => {
   const { t } = useTranslation("analytics");
@@ -52,7 +52,7 @@ const Analytics = () => {
         ) : (
           <Suspense fallback={<Loading text={t("load_component")} />}>
             {data && data.length > 0 ? (
-              <Graph
+              <SkillOffsetGraph
                 data={data}
                 weaponTranslations={weaponTranslations[p("data_lang_key")]}
                 logarithmic={true}
