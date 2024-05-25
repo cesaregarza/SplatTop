@@ -56,8 +56,10 @@ jobs:
 
           echo "Latest tag: $LATEST_TAG"
 
+          LAST_COMMITER=$(git log -1 --pretty=format:'%an')
+
           I18N_CHANGES=$(git diff --name-only $LATEST_TAG HEAD -- 'i18n/*')
-          if [ "$GITHUB_ACTOR" = "github-actions" ]; then
+          if [ "$LAST_COMMITER" = "github-actions" ]; then
             GH_ACTIONS_PUSHED=true
           else
             GH_ACTIONS_PUSHED=false
