@@ -1,3 +1,4 @@
+BASE_CDN_URL = "https://splat-top.nyc3.cdn.digitaloceanspaces.com/"
 MODES = [
     "Splat Zones",
     "Tower Control",
@@ -37,3 +38,4 @@ LANGUAGES = [
 GAME_TRANSLATION_REDIS_KEY = "weapon_translations"
 ALIASES_REDIS_KEY = "player_aliases"
 AUTOMATON_IS_VALID_REDIS_KEY = "automaton_is_valid"
+SKILL_OFFSET_REDIS_KEY = "skill_offset"

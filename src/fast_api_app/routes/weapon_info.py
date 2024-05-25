@@ -34,3 +34,16 @@ async def game_translation():
     else:
         game_translation = orjson.loads(game_translation)
         return game_translation
+
+
+@router.get("/api/skill_offset")
+async def skill_offset():
+    skill_offset = redis_conn.get("skill_offset")
+    if skill_offset is None:
+        raise HTTPException(
+            status_code=503,
+            detail="Data is not available yet, please wait.",
+        )
+    else:
+        skill_offset = orjson.loads(skill_offset)
+        return skill_offset

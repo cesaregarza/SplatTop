@@ -1,0 +1,18 @@
+{
+  "document_title": "splat.top - Analítica",
+  "page_title": "Analítica",
+  "load_page": "Cargando página...",
+  "load_component": "Cargando componentes...",
+  "no_data": "No hay datos disponibles",
+  "skill_offset.tab_name": "Desfase de Habilidad (Beta)",
+  "skill_offset.graph_label": "Desfase de Habilidad",
+  "skill_offset.graph_subtitle": "El Desfase de Habilidad es una correlación, no una causa.",
+  "skill_offset.xaxis.title": "Recuento de Apariciones (Top 500)",
+  "skill_offset.yaxis.title": "Desfase de Habilidad",
+  "skill_offset.marker.format": "<b><span style=\"color:#ab5ab7\">{point.weaponName}</span></b><br><b>Recuento</b>:{point.x}<br><b>Desfase de Habilidad</b>: {point.y:.2f}",
+  "skill_offset.tooltip": "El Desfase de Habilidad es una medida de qué tan bien rinde un arma en el Top 500 en comparación con el valor esperado a esa tasa de aparición. Un desfase de habilidad positivo indica que el arma y/o los jugadores que la usan están rindiendo mejor de lo esperado. Un desfase de habilidad negativo indica lo contrario. Un arma con una alta tasa de selección y un bajo desfase de habilidad indica que el arma está facilitando que los jugadores alcancen el Top 500. Un arma con una baja tasa de selección y un alto desfase de habilidad indica que el arma está siendo utilizada por unos pocos jugadores altamente habilidosos. Los datos aquí cambiarán frecuentemente ya que las selecciones de armas del Top 500 se actualizarán incluso si el jugador no está jugando X Battles. Usa esta información con precaución. Las actualizaciones futuras incluirán desfase temporal y otros factores para reducir la influencia de estos cambios.",
+  "skill_offset.controller.title": "Controles",
+  "skill_offset.controller.linlog.label": "Escala del Eje X",
+  "skill_offset.controller.linear": "Lineal",
+  "skill_offset.controller.logarithmic": "Logarítmico"
+}

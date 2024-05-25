@@ -1,0 +1,13 @@
+.logarithmic-bg {
+  background-color: #ab5ab7;
+}
+
+.highlighted-option {
+  color: #ab5ab7;
+}
+
+.controls-box > div.absolute {
+  top: -1.25rem;
+  left: 1rem;
+  padding: 0.25rem 0.5rem;
+}

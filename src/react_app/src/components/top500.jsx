@@ -1,6 +1,6 @@
 import React, { useEffect, useState, Suspense } from "react";
 import useFetchWithCache from "./top500_components/fetch_with_cache";
-import Loading from "./loading";
+import Loading from "./misc_components/loading";
 import {
   columnsConfig,
   allModesColumnsConfig,

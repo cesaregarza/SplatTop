@@ -1,8 +1,8 @@
 import React, { useState } from "react";
 import { Link } from "react-router-dom";
 import { useTranslation } from "react-i18next";
-import SearchBar from "./searchbar";
-import LanguageSelector from "./language_selector";
+import SearchBar from "./misc_components/searchbar";
+import LanguageSelector from "./misc_components/language_selector";
 
 const Navbar = () => {
   const { t } = useTranslation("navigation");
@@ -55,6 +55,14 @@ const Navbar = () => {
                 className="block py-2 px-4 text-white hover:bg-ab5ab7 rounded-md transition duration-300"
               >
                 {t("navbar.faq")}
+              </Link>
+            </li>
+            <li>
+              <Link
+                to="/analytics"
+                className="block py-2 px-4 text-white hover:bg-ab5ab7 rounded-md transition duration-300"
+              >
+                {t("navbar.analytics")}
               </Link>
             </li>
             <li>

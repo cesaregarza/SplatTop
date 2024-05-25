@@ -23,6 +23,7 @@ pandas = "^2.2.2"
 orjson = "^3.10.1"
 slowapi = "^0.1.9"
 gunicorn = "^22.0.0"
+scipy = "^1.13.1"
 
 
 [tool.poetry.group.dev.dependencies]
