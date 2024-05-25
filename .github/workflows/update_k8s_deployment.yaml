@@ -36,6 +36,14 @@ jobs:
       - name: Check for changes
         id: check_changes
         run: |
+          if [ "${{ github.event.inputs.override-check }}" == 'true' ]; then
+            echo "Override check is true, skipping change detection"
+            echo "python_changed=true" >> $GITHUB_OUTPUT
+            echo "react_changed=true" >> $GITHUB_OUTPUT
+            echo "exit_pipeline=false" >> $GITHUB_OUTPUT
+            exit 0
+          fi
+
           echo "Checking for changes in src/"
           LATEST_TAG=$(git describe --tags --always `git rev-list --tags --max-count=1` 2>&1)
           TAG_FETCH_EXIT_CODE=$?
