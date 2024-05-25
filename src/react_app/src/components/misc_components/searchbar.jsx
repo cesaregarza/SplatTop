@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from "react";
 import axios from "axios";
-import { getBaseApiUrl } from "./utils";
+import { getBaseApiUrl } from "../utils";
 import { useTranslation } from "react-i18next";
 
 const apiUrl = getBaseApiUrl();

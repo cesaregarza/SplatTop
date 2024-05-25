@@ -1,6 +1,6 @@
 import React, { useEffect, useState, useRef } from "react";
 import { useTranslation } from "react-i18next";
-import SUPPORTED_LANGUAGES from "./supported_languages";
+import SUPPORTED_LANGUAGES from "../supported_languages";
 import { FaGlobe } from "react-icons/fa";
 
 const LanguageSelector = () => {

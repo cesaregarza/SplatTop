@@ -1,7 +1,7 @@
 import React, { useState, useEffect, Suspense } from "react";
 import { useLocation } from "react-router-dom";
 import axios from "axios";
-import Loading from "./loading";
+import Loading from "./misc_components/loading";
 import { modes } from "./constants";
 import { getBaseApiUrl, getBaseWebsocketUrl } from "./utils";
 import pako from "pako";

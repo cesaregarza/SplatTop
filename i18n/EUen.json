@@ -95,7 +95,8 @@
     "footer.about": "About",
     "footer.contact": "Contact",
     "footer.rights": "%DATE% splat.top. All rights reserved.",
-    "navbar.faq": "FAQ"
+    "navbar.faq": "FAQ",
+    "navbar.analytics": "Analytics"
   },
   "player": {
     "data_lang_key": "USen",
@@ -139,5 +140,18 @@
     "results.table.current_weapon": "Current Weapon",
     "results.table.final_weapon": "Final Weapon",
     "results.table.most_used_weapon": "Most Used Weapon"
+  },
+  "analytics": {
+    "document_title": "splat.top - Analytics",
+    "page_title": "Analytics",
+    "load_page": "Loading page...",
+    "load_component": "Loading components...",
+    "no_data": "No data available",
+    "skill_offset.graph_label": "Skill Offset",
+    "skill_offset.graph_subtitle": "Skill Offset is the difference between a weapon's expected X Power and its actual X Power. A positive offset means the weapon is overperforming, while a negative offset means the weapon and/or players using it are underperforming.",
+    "skill_offset.xaxis.title": "Appearance Count (Top 500)",
+    "skill_offset.yaxis.title": "Skill Offset",
+    "skill_offset.marker.format": "<b><span style=\"color:#ab5ab7\">{point.weaponName}</span></b><br><b>Count</b>:{point.x}<br><b>Skill Offset</b>: {point.y:.2f}",
+    "skill_offset.tooltip": "Skill Offset is a measure of how well a weapon performs in the Top 500 as compared to the expected value at that appearance rate. A positive skill offset indicates that the weapon and/or the players using it are performing better than expected. A negative skill offset indicates the opposite. A weapon with a high pick rate and low skill offset indicates that the weapon is carrying players to the Top 500. A weapon with a low pick rate and high skill offset indicates that the weapon is being used by a few highly skilled players. Data here will change frequently as the Top 500 weapon picks will update even if the player isn't playing X Battles. Use this information with caution."
   }
 }

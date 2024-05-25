@@ -129,3 +129,7 @@ start-react-app-dev:
 format:
 	black src/
 	isort src/
+
+.PHONY: update-i18n
+update-i18n:
+	python scripts/i18n.py
