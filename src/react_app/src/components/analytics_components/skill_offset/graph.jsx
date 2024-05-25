@@ -153,7 +153,7 @@ const SkillOffsetGraph = ({ data, weaponTranslations, logarithmic }) => {
         ?
       </button>
       {showTooltip && (
-        <div className="tooltip absolute right-0 mt-1 bg-gray-800 text-white text-xs rounded p-2">
+        <div className="tooltip absolute right-0 mt-1 bg-gray-800 text-white text-xs rounded p-2 z-50">
           {t("skill_offset.tooltip")}
         </div>
       )}
