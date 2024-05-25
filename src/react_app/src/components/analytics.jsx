@@ -55,6 +55,7 @@ const Analytics = () => {
               <Graph
                 data={data}
                 weaponTranslations={weaponTranslations[p("data_lang_key")]}
+                logarithmic={true}
               />
             ) : (
               <div className="text-center">{t("no_data")}</div>

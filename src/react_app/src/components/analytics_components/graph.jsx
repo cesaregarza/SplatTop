@@ -3,7 +3,7 @@ import HighchartsReact from "highcharts-react-official";
 import Highcharts from "highcharts";
 import { useTranslation } from "react-i18next";
 
-const Graph = ({ data, weaponTranslations }) => {
+const Graph = ({ data, weaponTranslations, logarithmic }) => {
   const { t } = useTranslation("analytics");
   const [showTooltip, setShowTooltip] = useState(false);
   const imageSize = 32;
@@ -17,6 +17,7 @@ const Graph = ({ data, weaponTranslations }) => {
   );
   const xMin = 1;
   const xMax = data.reduce((acc, item) => Math.max(acc, item.count), 0);
+  const xOffset = logarithmic ? 50 : 10;
 
   const chartOptions = {
     chart: {
@@ -65,7 +66,7 @@ const Graph = ({ data, weaponTranslations }) => {
       },
     },
     xAxis: {
-      type: "logarithmic",
+      type: logarithmic ? "logarithmic" : "linear",
       title: {
         text: t("skill_offset.xaxis.title"),
         style: {
@@ -80,7 +81,7 @@ const Graph = ({ data, weaponTranslations }) => {
         },
       },
       min: xMin - 0.1,
-      max: xMax + 50,
+      max: xMax + xOffset,
       gridLineColor: "#444444",
     },
     yAxis: {
