@@ -1,4 +1,5 @@
-import os
+from __future__ import annotations
+
 from typing import TYPE_CHECKING
 
 import orjson
@@ -158,6 +159,10 @@ def process_weapon_data(preprocessed_data: dict[int, dict]) -> dict[int, dict]:
             "special": extract_sub_special(value["SpecialWeapon"]),
             **process_rowid(row_id),
         }
+    # Find the reverse mapping for each weapon and add it
+    reverse_map = {v["reference_kit"]: k for k, v in out.items()}
+    for _, weapon_data in out.items():
+        weapon_data["reference_id"] = reverse_map[weapon_data["reference_kit"]]
     return out
 
 
