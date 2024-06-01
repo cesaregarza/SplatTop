@@ -3,7 +3,7 @@ import logging
 from celery import Celery
 
 from celery_app.connections import Session, redis_conn
-from celery_app.tasks.analytics import compute_skill_offset
+from celery_app.tasks.analytics.skill_offset import compute_skill_offset
 from celery_app.tasks.front_page import pull_data
 from celery_app.tasks.misc import pull_aliases, update_weapon_info
 from celery_app.tasks.player_detail import fetch_player_data

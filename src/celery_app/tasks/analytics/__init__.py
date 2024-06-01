@@ -1,0 +1,1 @@
+from celery_app.tasks.analytics.skill_offset import compute_skill_offset

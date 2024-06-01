@@ -1,4 +1,4 @@
-SKILL_OFFSET_QUERY = """
+ANALYTICS_QUERY = """
 WITH MaxTimestamp AS (
     SELECT MAX(timestamp) AS max_timestamp
     FROM xscraper.players
