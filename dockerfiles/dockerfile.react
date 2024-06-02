@@ -21,6 +21,9 @@ RUN npm install -D tailwindcss@latest postcss@latest autoprefixer@latest
 ###############################
 FROM dependencies AS build
 
+ARG REACT_APP_VERSION
+ENV REACT_APP_VERSION=$REACT_APP_VERSION
+
 COPY src/react_app/src ./src
 COPY src/react_app/public ./public
 

@@ -180,19 +180,26 @@ jobs:
       - name: Build and push Celery Dockerfile
         if: (needs.check.outputs.python_changed == 'true') || (github.event.inputs.override-check == 'true')
         run: |
-          docker build -t registry.digitalocean.com/sendouq/celery:latest -f dockerfiles/dockerfile.celery .
+          docker build \
+            -t registry.digitalocean.com/sendouq/celery:latest \
+            -f dockerfiles/dockerfile.celery .
           docker push registry.digitalocean.com/sendouq/celery:latest
 
       - name: Build and push FastAPI Dockerfile
         if: (needs.check.outputs.python_changed == 'true') || (github.event.inputs.override-check == 'true')
         run: |
-          docker build -t registry.digitalocean.com/sendouq/fast-api:latest -f dockerfiles/dockerfile.fast-api .
+          docker build \
+            -t registry.digitalocean.com/sendouq/fast-api:latest \
+            -f dockerfiles/dockerfile.fast-api .
           docker push registry.digitalocean.com/sendouq/fast-api:latest
 
       - name: Build and push React Dockerfile
         if: (needs.check.outputs.react_changed == 'true') || (github.event.inputs.override-check == 'true')
         run: |
-          docker build -t registry.digitalocean.com/sendouq/react:latest -f dockerfiles/dockerfile.react .
+          docker build \
+            --build-arg REACT_APP_VERSION=${{ steps.calculate_version.outputs.next_version }} \
+            -t registry.digitalocean.com/sendouq/react:latest \
+            -f dockerfiles/dockerfile.react .
           docker push registry.digitalocean.com/sendouq/react:latest
 
   update-deployment:
