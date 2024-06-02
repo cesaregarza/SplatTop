@@ -44,7 +44,10 @@ const PlayerDetail = () => {
         const response = await axios.get(endpoint);
         setData(response.data);
         if (response.data && response.data.length > 0) {
-          document.title = t("document_title_loaded").replace("%PLAYER%", response.data[0].splashtag);
+          document.title = t("document_title_loaded").replace(
+            "%PLAYER%",
+            response.data[0].splashtag
+          );
         }
 
         const translationsResponse = await axios.get(translationEndpoint);
@@ -89,7 +92,15 @@ const PlayerDetail = () => {
       }
 
       const localData = localStorage.getItem("weaponReferenceData");
-      if (localData) {
+      const cacheExpiration = localStorage.getItem(
+        "weaponReferenceDataExpiration"
+      );
+      const now = new Date();
+      const midnightUTC = new Date(
+        Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate() + 1)
+      );
+
+      if (localData && cacheExpiration && new Date(cacheExpiration) > now) {
         setWeaponReferenceData(JSON.parse(localData));
       } else {
         try {
@@ -100,6 +111,10 @@ const PlayerDetail = () => {
           localStorage.setItem(
             "weaponReferenceData",
             JSON.stringify(referenceResponse.data)
+          );
+          localStorage.setItem(
+            "weaponReferenceDataExpiration",
+            midnightUTC.toISOString()
           );
         } catch (error) {
           console.error("Error fetching weapon reference data:", error);
