@@ -3,9 +3,16 @@ build:
 	docker rmi fast-api-app:latest || true
 	docker rmi celery-worker:latest || true
 	docker rmi react-app:latest || true
-	docker build -t fast-api-app:latest -f dockerfiles/dockerfile.fast-api .
-	docker build -t celery-worker:latest -f dockerfiles/dockerfile.celery .
-	docker build -t react-app:latest -f dockerfiles/dockerfile.react .
+	docker build \
+		-t fast-api-app:latest \
+		-f dockerfiles/dockerfile.fast-api .
+	docker build \
+		-t celery-worker:latest \
+		-f dockerfiles/dockerfile.celery .
+	docker build \
+		--build-arg REACT_APP_VERSION="1.0.0" \
+		-t react-app:latest \
+		-f dockerfiles/dockerfile.react .
 	kind load docker-image fast-api-app:latest
 	kind load docker-image celery-worker:latest
 	kind load docker-image react-app:latest

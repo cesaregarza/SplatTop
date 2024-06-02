@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import axios from "axios";
 import LZString from "lz-string";
+import { setCache, getCache } from "../utils/cache_utils";
 
 const MAX_CACHE_ITEMS = 100;
 const MAX_BACKOFF_TIME = 60000; // 1 minute in milliseconds
@@ -17,7 +18,7 @@ const useFetchWithCache = (endpoint, cacheAge = 10, cacheOffset = 6) => {
   useEffect(() => {
     const fetchData = async (retryCount = 0) => {
       setIsLoading(true);
-      const cachedData = localStorage.getItem(endpoint);
+      const cachedData = getCache(endpoint);
       if (cachedData) {
         try {
           const decompressedData = LZString.decompressFromUTF16(cachedData);
@@ -51,17 +52,17 @@ const useFetchWithCache = (endpoint, cacheAge = 10, cacheOffset = 6) => {
         const compressedData = LZString.compressToUTF16(
           JSON.stringify({ data: response.data, timestamp: Date.now() })
         );
-        localStorage.setItem(endpoint, compressedData);
+        setCache(endpoint, compressedData);
 
         // Implement cache eviction strategy
         const cacheKeys = Object.keys(localStorage);
         if (cacheKeys.length > MAX_CACHE_ITEMS) {
           cacheKeys.sort((a, b) => {
             const timeA = JSON.parse(
-              LZString.decompressFromUTF16(localStorage.getItem(a))
+              LZString.decompressFromUTF16(getCache(a))
             ).timestamp;
             const timeB = JSON.parse(
-              LZString.decompressFromUTF16(localStorage.getItem(b))
+              LZString.decompressFromUTF16(getCache(b))
             ).timestamp;
             return timeA - timeB;
           });

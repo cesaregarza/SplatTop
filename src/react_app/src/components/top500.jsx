@@ -7,6 +7,7 @@ import {
 } from "./top500_components/columns_config";
 import { getBaseApiUrl } from "./utils";
 import { useTranslation } from "react-i18next";
+import { setCache, getCache, deleteCache } from "./utils/cache_utils";
 
 const PlayerTable = React.lazy(() =>
   import("./top500_components/player_table")
@@ -33,38 +34,44 @@ const modeNameMap = {
   "All Modes": "AM",
 };
 
+const defaultColumns = columnsConfig.reduce((acc, column) => {
+  acc[column.id] = column.isVisible;
+  return acc;
+}, {});
+
 const Top500 = () => {
   const { t } = useTranslation("main_page");
 
   const [searchQuery, setSearchQuery] = useState(
-    localStorage.getItem("searchQuery") || ""
+    getCache("searchQuery", 60) || ""
   );
   const [currentPage, setCurrentPage] = useState(
-    parseInt(localStorage.getItem("currentPage"), 10) || 1
+    parseInt(getCache("currentPage", 300), 10) || 1
   );
   const itemsPerPage = 100;
   const [selectedRegion, setSelectedRegion] = useState(
-    localStorage.getItem("selectedRegion") || "Tentatek"
+    getCache("selectedRegion") || "Tentatek"
   );
   const [selectedMode, setSelectedMode] = useState(
-    localStorage.getItem("selectedMode") || "Splat Zones"
+    getCache("selectedMode") || "Splat Zones"
   );
 
   const [columnVisibility, setColumnVisibility] = useState(
-    JSON.parse(localStorage.getItem("columnVisibility")) ||
-      columnsConfig.reduce((acc, column) => {
-        acc[column.id] = column.isVisible;
-        return acc;
-      }, {})
+    getCache("columnVisibility", 60 * 60 * 24 * 365) || defaultColumns
   );
 
   useEffect(() => {
     document.title = `splat.top - ${selectedRegion} ${modeNameMap[selectedMode]}`;
-    localStorage.setItem("searchQuery", searchQuery);
-    localStorage.setItem("currentPage", currentPage.toString());
-    localStorage.setItem("selectedRegion", selectedRegion);
-    localStorage.setItem("selectedMode", selectedMode);
-    localStorage.setItem("columnVisibility", JSON.stringify(columnVisibility));
+    setCache("searchQuery", searchQuery, 60);
+    setCache("currentPage", currentPage.toString(), 300);
+    setCache("selectedRegion", selectedRegion);
+    setCache("selectedMode", selectedMode, 60 * 60 * 24);
+    if (Object.keys(columnVisibility).length === columnsConfig.length) {
+      setCache("columnVisibility", columnVisibility);
+    } else {
+      deleteCache("columnVisibility");
+      setCache("columnVisibility", defaultColumns, 60 * 60 * 24 * 365);
+    }
   }, [
     searchQuery,
     currentPage,
