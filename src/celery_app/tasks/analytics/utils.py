@@ -50,3 +50,14 @@ def append_weapon_data(df: pd.DataFrame) -> pd.DataFrame:
         .add(".png")
     )
     return df
+
+
+def find_missing_weapon_ids(df: pd.DataFrame) -> list:
+    response = requests.get(WEAPON_INFO_URL)
+    weapon_info: dict = orjson.loads(response.text)
+    unique_weapon_ids = set()
+    for _, value in weapon_info.items():
+        unique_weapon_ids.add(value["reference_id"])
+
+    ref_ids = df["weapon_id"].astype(str).map(weapon_info).str["reference_id"]
+    return list(unique_weapon_ids - set(ref_ids))

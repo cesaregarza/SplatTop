@@ -131,7 +131,7 @@ def create_interpolator(df_melted: pd.DataFrame) -> RegularGridInterpolator:
     return RegularGridInterpolator((y_values, k_values), data, method="linear")
 
 
-def compute_skill_offset() -> pd.DataFrame:
+def compute_skill_offset() -> None:
     df = pull_all_latest_data()
     df = append_weapon_data(df)
     df = map_indices_to_data(df)

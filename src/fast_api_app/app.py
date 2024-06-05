@@ -33,6 +33,7 @@ async def lifespan(app: FastAPI):
     celery.send_task("tasks.update_weapon_info")
     celery.send_task("tasks.pull_aliases")
     celery.send_task("tasks.update_skill_offset")
+    celery.send_task("tasks.update_lorenz_and_gini")
 
     start_pubsub_listener()
     asyncio.create_task(background_runner.run())
