@@ -18,8 +18,8 @@ logger = logging.getLogger(__name__)
 def compute_lorenz_curve(df: pd.DataFrame) -> pd.Series:
     df = df.copy()
     lorenz_raw = (
-        df.groupby("weapon_id")
-        .size()
+        df.groupby("weapon_id")["xp_scaled"]
+        .sum()
         .sort_values(ascending=True)
         .rename("count")
     )
@@ -62,6 +62,7 @@ def compute_lorenz_and_gini() -> None:
     lorenz_curve = append_missing_weapon_data(lorenz_curve)
     gini_coefficient = compute_gini_coefficient(lorenz_curve)
     lorenz_df = lorenz_curve.reset_index().pipe(append_weapon_data)
+    lorenz_df["diff"] = lorenz_df["count"].diff().fillna(0)
 
     redis_conn.set(GINI_COEFF_REDIS_KEY, str(gini_coefficient))
     redis_conn.set(

@@ -137,9 +137,6 @@ const SkillOffsetGraph = ({ data, weaponTranslations, logarithmic }) => {
         },
       },
     },
-    credits: {
-      enabled: false,
-    },
   };
 
   return (

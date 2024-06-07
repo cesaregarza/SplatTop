@@ -14,5 +14,22 @@
   "skill_offset.controller.title": "Controls",
   "skill_offset.controller.linlog.label": "X Axis Scale",
   "skill_offset.controller.linear": "Linear",
-  "skill_offset.controller.logarithmic": "Logarithmic"
+  "skill_offset.controller.logarithmic": "Logarithmic",
+  "lorenz.tab_name": "Lorenz Curve",
+  "lorenz.graph_label": "Lorenz Curve and Gini Coefficient",
+  "lorenz.graph_subtitle": "The Lorenz Curve and Gini Coefficient together represent the health of the meta. - Gini: %GINI%",
+  "lorenz.xaxis.title": "Weapon",
+  "lorenz.yaxis.title": "Share of X Power",
+  "lorenz.marker.format": "<b><span style=\"color:#ab5ab7\">{point.name}</span></b><br><b>Cumulative Share of X Power</b>: {point.y_percent:.2f}%<br><b>Share of X Power</b>: {point.diff:.2f}%",
+  "lorenz.tooltip": "The Lorenz Curve is a graphical representation of wealth distribution. In this case, it represents the distribution of X Power in the Top 500. The Gini Coefficient is a measure of inequality and shows the health of the meta by indicating how evenly distributed weapons are in their success. A Gini Coefficient of 0 represents perfect equality, meaning all weapons are equally successful, indicating a perfectly balanced meta. Conversely, a Gini Coefficient of 1 represents perfect inequality, where one weapon dominates entirely, indicating a highly imbalanced meta.",
+  "lorenz.marker.label": "Lorenz Curve",
+  "lorenz.equality.label": "Perfectly Balanced Meta",
+  "lorenz.gini.very_low": "Highly Balanced Meta",
+  "lorenz.gini.low": "Well-Balanced Meta",
+  "lorenz.gini.low_medium": "Balanced Meta",
+  "lorenz.gini.medium": "Moderately Balanced Meta",
+  "lorenz.gini.high": "Slightly Imbalanced Meta",
+  "lorenz.gini.very_high": "Imbalanced Meta",
+  "lorenz.gini.very_very_high": "Highly Imbalanced Meta",
+  "lorenz.gini.extremely_high": "Extremely Imbalanced Meta"
 }
