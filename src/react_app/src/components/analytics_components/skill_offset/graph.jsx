@@ -51,6 +51,9 @@ const SkillOffsetGraph = ({ data, weaponTranslations, logarithmic }) => {
         },
       },
     },
+    accessibility: {
+      enabled: false,
+    },
     title: {
       text: t("skill_offset.graph_label"),
       style: {
