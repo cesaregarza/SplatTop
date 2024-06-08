@@ -11,6 +11,8 @@ const LorenzGraph = ({ data, weaponTranslations }) => {
   const yMin = 0;
 
   const giniHealthCutoffs = {
+    0.0: t("lorenz.gini.equality"),
+    0.1: t("lorenz.gini.very_very_low"),
     0.2: t("lorenz.gini.very_low"),
     0.3: t("lorenz.gini.low"),
     0.4: t("lorenz.gini.low_medium"),
@@ -19,21 +21,12 @@ const LorenzGraph = ({ data, weaponTranslations }) => {
     0.7: t("lorenz.gini.very_high"),
     0.8: t("lorenz.gini.very_very_high"),
     0.9: t("lorenz.gini.extremely_high"),
+    1.0: t("lorenz.gini.unequal"),
   };
 
-  let healthCutoff = "";
-  for (const cutoff in giniHealthCutoffs) {
-    if (data.gini <= parseFloat(cutoff)) {
-      healthCutoff = giniHealthCutoffs[cutoff];
-      break;
-    }
-  }
+  const subtitle = t("lorenz.graph_subtitle");
 
-  const subtitle = t("lorenz.graph_subtitle")
-    .replace("%GINI%", data.gini.toFixed(2))
-    .concat(` - ${healthCutoff}`);
-
-  const chartOptions = {
+  const lorenzChartOptions = {
     chart: {
       type: "area",
       backgroundColor: "#1a202c",
@@ -43,6 +36,9 @@ const LorenzGraph = ({ data, weaponTranslations }) => {
       zoomType: "xy",
       plotBorderColor: null,
       plotBorderWidth: 0,
+    },
+    accessibility: {
+      enabled: false,
     },
     title: {
       text: t("lorenz.graph_label"),
@@ -112,7 +108,7 @@ const LorenzGraph = ({ data, weaponTranslations }) => {
         color: "#ab5ab7",
       },
       {
-        name: t("lorenz.equality.label"),
+        name: t("lorenz.gini.equality"),
         data: data.lorenz.map(
           (item, index) => index / (data.lorenz.length - 1)
         ),
@@ -145,9 +141,126 @@ const LorenzGraph = ({ data, weaponTranslations }) => {
     },
   };
 
+  const giniChartOptions = {
+    chart: {
+      type: "scatter",
+      backgroundColor: "#1a202c",
+      style: {
+        fontFamily: "'Roboto', sans-serif",
+      },
+      height: 200,
+      marginTop: 20,
+      marginBottom: 100,
+    },
+    accessibility: {
+      enabled: false,
+    },
+    title: {
+      text: t("lorenz.gini.title"),
+      style: {
+        color: "#ffffff",
+        fontSize: "16px",
+      },
+      floating: true,
+    },
+    xAxis: {
+      title: {
+        text: "",
+        style: {
+          color: "#ffffff",
+          fontSize: "16px",
+        },
+      },
+      min: 0,
+      max: 1,
+      tickInterval: 0.1,
+      startOnTick: true,
+      endOnTick: true,
+      showLastLabel: true,
+      labels: {
+        style: {
+          color: "#ffffff",
+        },
+        formatter: function () {
+          const tick_fixed = this.value.toFixed(1);
+          return giniHealthCutoffs[tick_fixed];
+        },
+      },
+    },
+    yAxis: {
+      title: {
+        text: "",
+      },
+      min: 0,
+      max: 1,
+      tickPositions: [0.1],
+      labels: {
+        enabled: false,
+      },
+      gridLineWidth: 0,
+    },
+    series: [
+      {
+        name: t("lorenz.gini.indicator"),
+        data: [[parseFloat(data.gini), 0.5]],
+        marker: {
+          symbol: "diamond",
+          radius: 8,
+        },
+        color: "#ffcc00",
+        tooltip: {
+          pointFormat: t("lorenz.gini.indicator_format"),
+        },
+      },
+    ],
+    plotOptions: {
+      scatter: {
+        marker: {
+          radius: 8,
+          states: {
+            hover: {
+              enabled: true,
+              lineColor: "rgb(100,100,100)",
+            },
+          },
+        },
+      },
+    },
+    legend: {
+      enabled: false,
+    },
+    credits: {
+      enabled: false,
+    },
+    responsive: {
+      rules: [
+        {
+          condition: {
+            maxWidth: 1000,
+          },
+          chartOptions: {
+            xAxis: {
+              style: {
+                fontSize: "10px",
+              },
+              tickInterval: 0.2,
+              labels: {
+                style: {
+                  fontSize: "10px",
+                },
+                rotation: -60,
+              },
+            },
+          },
+        },
+      ],
+    },
+  };
+
   return (
     <div className="graph-container relative" style={{ padding: "20px" }}>
-      <HighchartsReact highcharts={Highcharts} options={chartOptions} />
+      <HighchartsReact highcharts={Highcharts} options={lorenzChartOptions} />
+      <HighchartsReact highcharts={Highcharts} options={giniChartOptions} />
       <button
         className="absolute top-0 right-0 mt-2 mr-2 bg-blue-500 text-white rounded-full p-2 focus:outline-none"
         onMouseEnter={() => setShowTooltip(true)}

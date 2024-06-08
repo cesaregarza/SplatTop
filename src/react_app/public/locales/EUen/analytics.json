@@ -31,5 +31,13 @@
   "lorenz.gini.high": "Unhealthy Meta",
   "lorenz.gini.very_high": "Very Unhealthy Meta",
   "lorenz.gini.very_very_high": "Extremely Unhealthy Meta",
-  "lorenz.gini.extremely_high": "Extremely Unbalanced Meta"
+  "lorenz.gini.extremely_high": "Extremely Unbalanced Meta",
+  "lorenz.gini.meta": "Meta",
+  "lorenz.gini.equality": "Perfectly Balanced",
+  "lorenz.gini.unequal": "Perfectly Imbalanced",
+  "lorenz.gini.health_format": "%HEALTH% %META%",
+  "lorenz.gini.very_very_low": "Extremely Balanced",
+  "lorenz.gini.title": "Meta Health",
+  "lorenz.gini.indicator": "Gini Coefficient",
+  "lorenz.gini.indicator_format": "Gini: {point.y: .4f}"
 }
