@@ -51,6 +51,9 @@ const SkillOffsetGraph = ({ data, weaponTranslations, logarithmic }) => {
         },
       },
     },
+    accessibility: {
+      enabled: false,
+    },
     title: {
       text: t("skill_offset.graph_label"),
       style: {
@@ -136,9 +139,6 @@ const SkillOffsetGraph = ({ data, weaponTranslations, logarithmic }) => {
           pointFormat: t("skill_offset.marker.format"),
         },
       },
-    },
-    credits: {
-      enabled: false,
     },
   };
 

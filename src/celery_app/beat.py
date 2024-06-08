@@ -22,4 +22,8 @@ celery.conf.beat_schedule = {
         "task": "tasks.update_skill_offset",
         "schedule": crontab(minute="*/10"),
     },
+    "update-lorenz-and-gini-ten-minutes": {
+        "task": "tasks.update_lorenz_and_gini",
+        "schedule": crontab(minute="*/10"),
+    },
 }
