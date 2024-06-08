@@ -26,6 +26,43 @@ const LorenzGraph = ({ data, weaponTranslations }) => {
 
   const subtitle = t("lorenz.graph_subtitle");
 
+  const generateSeries = (isResponsive) => [
+    {
+      name: t("lorenz.marker.label"),
+      data: data.lorenz.map((item) => ({
+        y: parseFloat(item.count),
+        y_percent: parseFloat(item.count) * 100,
+        name:
+          weaponTranslations["WeaponName_Main"][item.weapon_name] ||
+          item.weapon_name,
+        marker: isResponsive
+          ? "circle"
+          : {
+              symbol: `url(${item.weapon_image})`,
+              width: imageSize,
+              height: imageSize,
+            },
+        diff: parseFloat(item.diff) * 100,
+      })),
+      color: "#ab5ab7",
+    },
+    {
+      name: t("lorenz.gini.equality"),
+      data: data.lorenz.map((item, index) => index / (data.lorenz.length - 1)),
+      marker: {
+        enabled: false,
+        states: {
+          hover: {
+            enabled: false,
+          },
+        },
+      },
+      color: "rgba(255, 255, 255, 0.2)",
+      zIndex: -1,
+      enableMouseTracking: false,
+    },
+  ];
+
   const lorenzChartOptions = {
     chart: {
       type: "area",
@@ -89,42 +126,7 @@ const LorenzGraph = ({ data, weaponTranslations }) => {
       min: yMin,
       max: yMax,
     },
-    series: [
-      {
-        name: t("lorenz.marker.label"),
-        data: data.lorenz.map((item) => ({
-          y: parseFloat(item.count),
-          y_percent: parseFloat(item.count) * 100,
-          name:
-            weaponTranslations["WeaponName_Main"][item.weapon_name] ||
-            item.weapon_name,
-          marker: {
-            symbol: `url(${item.weapon_image})`,
-            width: imageSize,
-            height: imageSize,
-          },
-          diff: parseFloat(item.diff) * 100,
-        })),
-        color: "#ab5ab7",
-      },
-      {
-        name: t("lorenz.gini.equality"),
-        data: data.lorenz.map(
-          (item, index) => index / (data.lorenz.length - 1)
-        ),
-        marker: {
-          enabled: false,
-          states: {
-            hover: {
-              enabled: false,
-            },
-          },
-        },
-        color: "rgba(255, 255, 255, 0.2)",
-        zIndex: -1,
-        enableMouseTracking: false,
-      },
-    ],
+    series: generateSeries(false),
     plotOptions: {
       area: {
         enableMouseTracking: true,
@@ -138,6 +140,21 @@ const LorenzGraph = ({ data, weaponTranslations }) => {
       itemStyle: {
         color: "#ffffff",
       },
+    },
+    credits: {
+      enabled: false,
+    },
+    responsive: {
+      rules: [
+        {
+          condition: {
+            maxWidth: 1000,
+          },
+          chartOptions: {
+            series: generateSeries(true),
+          },
+        },
+      ],
     },
   };
 
@@ -227,9 +244,6 @@ const LorenzGraph = ({ data, weaponTranslations }) => {
       },
     },
     legend: {
-      enabled: false,
-    },
-    credits: {
       enabled: false,
     },
     responsive: {
