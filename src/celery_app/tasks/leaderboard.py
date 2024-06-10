@@ -10,7 +10,6 @@ from shared_lib.queries.leaderboard_queries import (
     LIVE_WEAPON_LEADERBOARD_QUERY,
     WEAPON_LEADERBOARD_QUERY,
 )
-from shared_lib.utils import get_weapon_image
 
 logger = logging.getLogger(__name__)
 
@@ -28,7 +27,7 @@ def fetch_past_weapon_leaderboard_data() -> pd.DataFrame:
     with Session() as session:
         result = session.execute(query).fetchall()
         weapon_leaderboard = pd.DataFrame(
-            [dict(row) for row in result]
+            [{**row._asdict()} for row in result]
         ).set_index(idx_columns)
 
     return weapon_leaderboard
@@ -45,7 +44,7 @@ def fetch_live_weapon_leaderboard_data() -> pd.DataFrame:
     with Session() as session:
         result = session.execute(query).fetchall()
         weapon_leaderboard = pd.DataFrame(
-            [dict(row) for row in result]
+            [{**row._asdict()} for row in result]
         ).set_index(idx_columns)
 
     total_games_df = (
@@ -72,11 +71,9 @@ def fetch_weapon_leaderboard() -> pd.DataFrame:
     ).sort_index()
     del past_weapon_leaderboard, live_weapon_leaderboard
 
-    weapon_leaderboard["weapon_image"] = weapon_leaderboard["weapon_id"].apply(
-        get_weapon_image
-    )
-
     redis_conn.set(
         WEAPON_LEADERBOARD_REDIS_KEY,
-        orjson.dumps(weapon_leaderboard.to_dict(orient="records")),
+        orjson.dumps(
+            weapon_leaderboard.reset_index().to_dict(orient="records")
+        ),
     )

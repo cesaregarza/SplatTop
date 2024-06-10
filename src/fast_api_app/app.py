@@ -17,6 +17,7 @@ from fast_api_app.routes import (
     player_detail_router,
     search_router,
     weapon_info_router,
+    weapon_leaderboard_router,
 )
 
 # Setup basic logging
@@ -34,6 +35,7 @@ async def lifespan(app: FastAPI):
     celery.send_task("tasks.pull_aliases")
     celery.send_task("tasks.update_skill_offset")
     celery.send_task("tasks.update_lorenz_and_gini")
+    celery.send_task("tasks.fetch_weapon_leaderboard")
 
     start_pubsub_listener()
     asyncio.create_task(background_runner.run())
@@ -63,6 +65,7 @@ app.include_router(front_page_router)
 app.include_router(player_detail_router)
 app.include_router(search_router)
 app.include_router(weapon_info_router)
+app.include_router(weapon_leaderboard_router)
 
 
 # Base route that lists all available routes
