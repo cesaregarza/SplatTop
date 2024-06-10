@@ -199,3 +199,35 @@ class Aliases(Base):
         Index("idx_aliases_splashtag", "splashtag"),
         {"schema": "xscraper"},
     )
+
+
+class WeaponLeaderboard(Base):
+    __tablename__ = "weapon_leaderboard"
+
+    player_id = Column(String, primary_key=True, nullable=False)
+    season_number = Column(Integer, primary_key=True, nullable=False)
+    mode = Column(
+        ENUM(
+            "Splat Zones",
+            "Clam Blitz",
+            "Rainmaker",
+            "Tower Control",
+            name="mode_name",
+        ),
+        primary_key=True,
+        nullable=False,
+    )
+    region = Column(Boolean, primary_key=True, nullable=False)
+    weapon_id = Column(Integer, primary_key=True, nullable=False)
+    max_x_power = Column(Float, nullable=False)
+    games_played = Column(Integer, nullable=False)
+    percent_games_played = Column(Float, nullable=False)
+
+    __table_args__ = (
+        Index("idx_weapon_leaderboard_player_id", "player_id"),
+        Index("idx_weapon_leaderboard_season_number", "season_number"),
+        Index("idx_weapon_leaderboard_mode", "mode"),
+        Index("idx_weapon_leaderboard_region", "region"),
+        Index("idx_weapon_leaderboard_weapon_id", "weapon_id"),
+        {"schema": "xscraper"},
+    )
