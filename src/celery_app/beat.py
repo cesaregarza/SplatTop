@@ -26,4 +26,8 @@ celery.conf.beat_schedule = {
         "task": "tasks.update_lorenz_and_gini",
         "schedule": crontab(minute="*/10"),
     },
+    "fetch-weapon-leaderboard-every-ten-minutes": {
+        "task": "tasks.fetch_weapon_leaderboard",
+        "schedule": crontab(minute="5-59/10"),
+    },
 }
