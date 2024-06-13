@@ -30,4 +30,8 @@ celery.conf.beat_schedule = {
         "task": "tasks.fetch_weapon_leaderboard",
         "schedule": crontab(minute="5-59/10"),
     },
+    "fetch-season-results-every-hour": {
+        "task": "tasks.fetch_season_results",
+        "schedule": crontab(minute=30, hour="*"),
+    },
 }

@@ -31,3 +31,10 @@ ORDER BY
     region,
     weapon_id;
 """
+
+SEASON_RESULTS_QUERY = """
+SELECT 
+    *
+FROM
+    xscraper.season_results
+"""

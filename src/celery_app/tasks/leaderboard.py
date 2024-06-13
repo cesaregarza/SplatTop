@@ -5,9 +5,13 @@ import pandas as pd
 from sqlalchemy import text
 
 from celery_app.connections import Session, redis_conn
-from shared_lib.constants import WEAPON_LEADERBOARD_REDIS_KEY
+from shared_lib.constants import (
+    SEASON_RESULTS_REDIS_KEY,
+    WEAPON_LEADERBOARD_PEAK_REDIS_KEY,
+)
 from shared_lib.queries.leaderboard_queries import (
     LIVE_WEAPON_LEADERBOARD_QUERY,
+    SEASON_RESULTS_QUERY,
     WEAPON_LEADERBOARD_QUERY,
 )
 
@@ -72,8 +76,21 @@ def fetch_weapon_leaderboard() -> pd.DataFrame:
     del past_weapon_leaderboard, live_weapon_leaderboard
 
     redis_conn.set(
-        WEAPON_LEADERBOARD_REDIS_KEY,
+        WEAPON_LEADERBOARD_PEAK_REDIS_KEY,
         orjson.dumps(
             weapon_leaderboard.reset_index().to_dict(orient="records")
         ),
+    )
+
+
+def fetch_season_results() -> pd.DataFrame:
+    logger.info("Fetching season results")
+    query = text(SEASON_RESULTS_QUERY)
+    with Session() as session:
+        result = session.execute(query).fetchall()
+        season_results = pd.DataFrame([{**row._asdict()} for row in result])
+
+    redis_conn.set(
+        SEASON_RESULTS_REDIS_KEY,
+        orjson.dumps(season_results.to_dict(orient="records")),
     )
