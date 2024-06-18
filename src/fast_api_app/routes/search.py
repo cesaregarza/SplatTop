@@ -2,8 +2,7 @@ import logging
 
 from fastapi import APIRouter, HTTPException, Request
 
-from fast_api_app.connections import limiter, redis_conn
-from fast_api_app.memory_sqlite import search_data
+from fast_api_app.connections import limiter, redis_conn, sqlite_cursor
 from shared_lib.constants import AUTOMATON_IS_VALID_REDIS_KEY
 
 router = APIRouter()
@@ -20,4 +19,10 @@ async def search(query: str, request: Request):
         )
 
     logger.info(f"Searching for: {query}")
-    return search_data(query)[:10]
+    formatted_key = f"%{query}%"
+    sqlite_cursor.execute(
+        "SELECT key, value FROM player_data WHERE key LIKE ? LIMIT 10",
+        (formatted_key,),
+    )
+    logger.info(f"Search complete for: {query}")
+    return sqlite_cursor.fetchall()

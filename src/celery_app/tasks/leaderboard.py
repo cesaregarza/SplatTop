@@ -14,6 +14,7 @@ from shared_lib.queries.leaderboard_queries import (
     SEASON_RESULTS_QUERY,
     WEAPON_LEADERBOARD_QUERY,
 )
+from shared_lib.utils import get_all_alt_kits
 
 logger = logging.getLogger(__name__)
 
@@ -51,6 +52,13 @@ def fetch_live_weapon_leaderboard_data() -> pd.DataFrame:
             [{**row._asdict()} for row in result]
         ).set_index(idx_columns)
 
+    weapon_leaderboard["weapon_id"] = (
+        weapon_leaderboard["weapon_id"]
+        .astype(str)
+        .map(get_all_alt_kits())
+        .fillna(weapon_leaderboard["weapon_id"])
+    )
+
     total_games_df = (
         weapon_leaderboard.reset_index()
         .groupby(idx_columns)["games_played"]
@@ -63,6 +71,7 @@ def fetch_live_weapon_leaderboard_data() -> pd.DataFrame:
     weapon_leaderboard["percent_games_played"] = weapon_leaderboard[
         "games_played"
     ].div(weapon_leaderboard["total_games_played"])
+
     return weapon_leaderboard.drop(columns="total_games_played")
 
 

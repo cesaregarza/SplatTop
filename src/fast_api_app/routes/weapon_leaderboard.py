@@ -1,3 +1,5 @@
+import logging
+
 import orjson
 from fastapi import APIRouter, HTTPException, Query
 
@@ -8,6 +10,8 @@ from shared_lib.constants import (
     WEAPON_LEADERBOARD_PEAK_REDIS_KEY,
 )
 from shared_lib.utils import get_weapon_image
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter()
 
@@ -29,6 +33,16 @@ async def weapon_leaderboard(
         False, description="Whether to show final results or not"
     ),
 ):
+    logger.info(
+        "Fetching weapon leaderboard for weapon_id: %d, mode: %s, region: %s, additional_weapon_id: %s, min_threshold: %d, final_results: %s",
+        weapon_id,
+        mode,
+        region,
+        additional_weapon_id,
+        min_threshold,
+        final_results,
+    )
+
     out_cols = [
         "player_id",
         "season_number",
@@ -41,12 +55,14 @@ async def weapon_leaderboard(
     if final_results:
         results = redis_conn.get(SEASON_RESULTS_REDIS_KEY)
         if results is None:
+            logger.error("Season results data is not available yet.")
             raise HTTPException(
                 status_code=503,
                 detail="Data is not available yet, please wait.",
             )
 
     if players is None:
+        logger.error("Weapon leaderboard data is not available yet.")
         raise HTTPException(
             status_code=503,
             detail="Data is not available yet, please wait.",
@@ -54,6 +70,7 @@ async def weapon_leaderboard(
 
     aliases = redis_conn.get(ALIASES_REDIS_KEY)
     if aliases is None:
+        logger.error("Aliases data is not available yet.")
         raise HTTPException(
             status_code=503,
             detail="Data is not available yet, please wait.",
@@ -133,6 +150,9 @@ async def weapon_leaderboard(
                 out["splashtag"] = []
             out["splashtag"].append(aliases.get(player["player_id"], ""))
 
+    logger.info(
+        "Successfully fetched weapon leaderboard for weapon_id: %d", weapon_id
+    )
     return {
         "players": out,
         "region": region,
