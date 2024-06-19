@@ -86,6 +86,7 @@ class WeaponLeaderboardManager(TableManager):
         sqlite_conn.commit()
 
     def update_database(self) -> None:
+        logger.info("Updating SQLite table %s", self.table_name)
         weapon_leaderboard_peak_data = redis_conn.get(self.redis_key)
         if weapon_leaderboard_peak_data:
             weapon_leaderboard_peak = orjson.loads(weapon_leaderboard_peak_data)
@@ -94,7 +95,9 @@ class WeaponLeaderboardManager(TableManager):
                 self.insert_data(player_dict)
             sqlite_conn.commit()
             logger.info(
-                "SQLite database updated with new weapon leaderboard peak data"
+                "SQLite database updated with new weapon leaderboard peak data "
+                "with %d rows",
+                len(weapon_leaderboard_peak),
             )
         else:
             logger.warning("Weapon leaderboard peak data not found in Redis")
@@ -173,9 +176,9 @@ class SeasonResultsManager(TableManager):
                 data["rank"],
             ),
         )
-        sqlite_conn.commit()
 
     def update_database(self) -> None:
+        logger.info("Updating SQLite table %s", self.table_name)
         season_results_data = redis_conn.get(self.redis_key)
         if season_results_data:
             season_results = orjson.loads(season_results_data)
@@ -183,7 +186,11 @@ class SeasonResultsManager(TableManager):
             for player_dict in season_results:
                 self.insert_data(player_dict)
             sqlite_conn.commit()
-            logger.info("SQLite database updated with new season results data")
+            logger.info(
+                "SQLite database updated with new season results data with "
+                "%d rows",
+                len(season_results),
+            )
         else:
             logger.warning("Season results data not found in Redis")
             raise Exception("Season results data not found in Redis")

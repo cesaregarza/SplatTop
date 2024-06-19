@@ -43,11 +43,14 @@ async def weapon_leaderboard(
         final_results,
     )
 
+    region_bool = region.lower() == "takoroka"
+    min_threshold /= 1000
+
     if final_results:
         query = SEASON_RESULTS_SQLITE_QUERY
         params = {
             "mode": mode,
-            "region": region,
+            "region": int(region_bool),
             "min_threshold": min_threshold,
             "weapon_id": weapon_id,
             "additional_weapon_id": additional_weapon_id,
@@ -56,7 +59,7 @@ async def weapon_leaderboard(
         query = WEAPON_LEADERBOARD_SQLITE_QUERY
         params = {
             "mode": mode,
-            "region": region,
+            "region": int(region_bool),
             "min_threshold": min_threshold,
             "weapon_id": weapon_id,
             "additional_weapon_id": additional_weapon_id,
