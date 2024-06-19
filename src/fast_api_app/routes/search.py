@@ -21,7 +21,7 @@ async def search(query: str, request: Request):
     logger.info(f"Searching for: {query}")
     formatted_key = f"%{query}%"
     sqlite_cursor.execute(
-        "SELECT key, value FROM player_data WHERE key LIKE ? LIMIT 10",
+        "SELECT alias, player_id FROM aliases WHERE alias LIKE ? LIMIT 10",
         (formatted_key,),
     )
     logger.info(f"Search complete for: {query}")

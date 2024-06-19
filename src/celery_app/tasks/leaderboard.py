@@ -57,6 +57,7 @@ def fetch_live_weapon_leaderboard_data() -> pd.DataFrame:
         .astype(str)
         .map(get_all_alt_kits())
         .fillna(weapon_leaderboard["weapon_id"])
+        .astype(str)
     )
 
     total_games_df = (
@@ -72,7 +73,18 @@ def fetch_live_weapon_leaderboard_data() -> pd.DataFrame:
         "games_played"
     ].div(weapon_leaderboard["total_games_played"])
 
-    return weapon_leaderboard.drop(columns="total_games_played")
+    return (
+        weapon_leaderboard.groupby(idx_columns + ["weapon_id"])
+        .agg(
+            {
+                "max_x_power": "max",
+                "games_played": "sum",
+                "percent_games_played": "sum",
+            }
+        )
+        .reset_index()
+        .set_index(idx_columns)
+    )
 
 
 def fetch_weapon_leaderboard() -> pd.DataFrame:

@@ -3,11 +3,13 @@ import logging
 
 from fast_api_app.sqlite_tables import (
     AliasManager,
+    SeasonResultsManager,
     TableManager,
-    WeaponLeaderboardPeakManager,
+    WeaponLeaderboardManager,
 )
 from shared_lib.constants import (
     ALIASES_REDIS_KEY,
+    SEASON_RESULTS_REDIS_KEY,
     WEAPON_LEADERBOARD_PEAK_REDIS_KEY,
 )
 
@@ -46,14 +48,20 @@ class BackgroundRunner:
 background_runner = BackgroundRunner(
     [
         AliasManager(
-            "alias",
+            "aliases",
             ALIASES_REDIS_KEY,
             cadence=600,
             retry_cadence=60,
         ),
-        WeaponLeaderboardPeakManager(
+        WeaponLeaderboardManager(
             "weapon_leaderboard_peak",
             WEAPON_LEADERBOARD_PEAK_REDIS_KEY,
+            cadence=600,
+            retry_cadence=60,
+        ),
+        SeasonResultsManager(
+            "season_results",
+            SEASON_RESULTS_REDIS_KEY,
             cadence=600,
             retry_cadence=60,
         ),

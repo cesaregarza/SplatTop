@@ -1,13 +1,11 @@
 import logging
 
-import orjson
 from fastapi import APIRouter, HTTPException, Query
 
-from fast_api_app.connections import redis_conn
-from shared_lib.constants import (
-    ALIASES_REDIS_KEY,
-    SEASON_RESULTS_REDIS_KEY,
-    WEAPON_LEADERBOARD_PEAK_REDIS_KEY,
+from fast_api_app.connections import sqlite_cursor
+from shared_lib.queries.leaderboard_queries import (
+    SEASON_RESULTS_SQLITE_QUERY,
+    WEAPON_LEADERBOARD_SQLITE_QUERY,
 )
 from shared_lib.utils import get_weapon_image
 
@@ -34,7 +32,9 @@ async def weapon_leaderboard(
     ),
 ):
     logger.info(
-        "Fetching weapon leaderboard for weapon_id: %d, mode: %s, region: %s, additional_weapon_id: %s, min_threshold: %d, final_results: %s",
+        "Fetching weapon leaderboard for weapon_id: %d, "
+        "mode: %s, region: %s, additional_weapon_id: %s, min_threshold: %d, "
+        "final_results: %s",
         weapon_id,
         mode,
         region,
@@ -43,120 +43,49 @@ async def weapon_leaderboard(
         final_results,
     )
 
-    out_cols = [
-        "player_id",
-        "season_number",
-        "max_x_power",
-        "games_played",
-        "percent_games_played",
-    ]
-    region_bool = region == "Takoroka"
-    players = redis_conn.get(WEAPON_LEADERBOARD_PEAK_REDIS_KEY)
     if final_results:
-        results = redis_conn.get(SEASON_RESULTS_REDIS_KEY)
-        if results is None:
-            logger.error("Season results data is not available yet.")
-            raise HTTPException(
-                status_code=503,
-                detail="Data is not available yet, please wait.",
-            )
+        query = SEASON_RESULTS_SQLITE_QUERY
+        params = {
+            "mode": mode,
+            "region": region,
+            "min_threshold": min_threshold,
+            "weapon_id": weapon_id,
+            "additional_weapon_id": additional_weapon_id,
+        }
+    else:
+        query = WEAPON_LEADERBOARD_SQLITE_QUERY
+        params = {
+            "mode": mode,
+            "region": region,
+            "min_threshold": min_threshold,
+            "weapon_id": weapon_id,
+            "additional_weapon_id": additional_weapon_id,
+        }
 
-    if players is None:
-        logger.error("Weapon leaderboard data is not available yet.")
+    results = sqlite_cursor.execute(query, params)
+    result = results.fetchall()
+    if not result:
+        logger.error(
+            "No data found for weapon_id: %d, mode: %s, region: %s, "
+            "additional_weapon_id: %s, min_threshold: %d, final_results: %s",
+            weapon_id,
+            mode,
+            region,
+            additional_weapon_id,
+            min_threshold,
+            final_results,
+        )
         raise HTTPException(
             status_code=503,
             detail="Data is not available yet, please wait.",
         )
-
-    aliases = redis_conn.get(ALIASES_REDIS_KEY)
-    if aliases is None:
-        logger.error("Aliases data is not available yet.")
-        raise HTTPException(
-            status_code=503,
-            detail="Data is not available yet, please wait.",
-        )
-    aliases = orjson.loads(aliases)
-    latest_aliases = {}
-    for alias in aliases:
-        player_id = alias["player_id"]
-        if (
-            player_id not in latest_aliases
-            or alias["last_seen"] > latest_aliases[player_id]["last_seen"]
-        ):
-            latest_aliases[player_id] = alias
-    aliases = {
-        alias["player_id"]: alias["splashtag"]
-        for alias in latest_aliases.values()
-    }
-    del latest_aliases
-
-    players: list[dict] = orjson.loads(players)
-    out: dict[str, list] = {}
-    player_xref: dict[tuple[str, ...], dict] = {}
-
-    def skip_row_conditions(player: dict) -> bool:
-        return not (
-            player["weapon_id"] in (weapon_id, additional_weapon_id)
-            and player["mode"] == mode
-            and (player["region"] is region_bool or region == "Any")
-            and player["percent_games_played"] >= (min_threshold / 1000)
-        )
-
-    for player in players:
-        player_xref[
-            (
-                player["player_id"],
-                player["mode"],
-                player["region"],
-                player["season_number"],
-            )
-        ] = player
-        if final_results:
-            continue
-        if skip_row_conditions(player):
-            continue
-        for key, value in player.items():
-            if key not in out_cols:
-                continue
-            if key not in out:
-                out[key] = []
-            out[key].append(value)
-        if "splashtag" not in out:
-            out["splashtag"] = []
-        out["splashtag"].append(aliases.get(player["player_id"], ""))
-
-    if final_results:
-        results: list[dict] = orjson.loads(results)
-        for result in results:
-            player_id = result["player_id"]
-            mode = result["mode"]
-            region = result["region"]
-            season_number = result["season_number"]
-            player = player_xref.get(
-                (player_id, mode, region, season_number), {}
-            )
-            if not player or skip_row_conditions(player):
-                continue
-            for key, value in result.items():
-                if key not in out_cols:
-                    continue
-                if key not in out:
-                    out[key] = []
-                out[key].append(value)
-            if "percent_games_played" not in out:
-                out["percent_games_played"] = []
-            out["percent_games_played"].append(player["percent_games_played"])
-            if "splashtag" not in out:
-                out["splashtag"] = []
-            out["splashtag"].append(aliases.get(player["player_id"], ""))
-
-    logger.info(
-        "Successfully fetched weapon leaderboard for weapon_id: %d", weapon_id
-    )
-    return {
-        "players": out,
-        "region": region,
-        "mode": mode,
-        "weapon_id": weapon_id,
-        "weapon_image": get_weapon_image(weapon_id),
-    }
+    columns = [desc[0] for desc in sqlite_cursor.description]
+    out = {}
+    for column in columns:
+        out[column] = [row[columns.index(column)] for row in result]
+    out["weapon_image"] = get_weapon_image(weapon_id)
+    if additional_weapon_id:
+        out["additional_weapon_image"] = get_weapon_image(additional_weapon_id)
+    out["mode"] = mode
+    out["region"] = region
+    return out
