@@ -3,6 +3,7 @@ import Loading from "./misc_components/loading";
 import { getBaseApiUrl, buildEndpointWithQueryParams } from "./utils";
 import { useTranslation } from "react-i18next";
 import useFetchWithCache from "./top500_components/fetch_with_cache";
+import WeaponLeaderboardTable from "./leaderboards_components/weapon_leaderboard_table";
 
 const TopWeapons = () => {
   const { t } = useTranslation("main_page");
@@ -34,10 +35,10 @@ const TopWeapons = () => {
 
   return (
     <div className="container mx-auto px-4 py-8 bg-gray-900 text-white min-h-screen">
-      <h1 className="text-3xl font-bold mb-4 text-center">
-        {t("title")}
-      </h1>
-      <p>{t("api_endpoint")}: {endpoint}</p>
+      <h1 className="text-3xl font-bold mb-4 text-center">{t("title")}</h1>
+      <p>
+        {t("api_endpoint")}: {endpoint}
+      </p>
       {isLoading ? (
         <div className="text-center py-4">
           <Loading text={t("loading")} />
@@ -45,15 +46,7 @@ const TopWeapons = () => {
       ) : error ? (
         <div className="text-red-500 text-center py-4">{error.message}</div>
       ) : (
-        <div>
-          {/* Render finalResults here */}
-          {finalResults.map((result, index) => (
-            <div key={index}>
-              {/* Customize the rendering of each result as needed */}
-              <p>{result.weaponName}</p>
-            </div>
-          ))}
-        </div>
+        <WeaponLeaderboardTable players={finalResults} columnVisibility={{}} />
       )}
     </div>
   );

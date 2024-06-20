@@ -45,7 +45,7 @@ FROM
     weapon_leaderboard_peak
 WHERE
     mode = :mode
-    AND region = :region
+    AND (region = :region OR :region IS NULL)
     AND percent_games_played >= :min_threshold
     AND (
         weapon_id = :weapon_id
@@ -78,7 +78,7 @@ filtered_weapons AS (
         weapon_leaderboard_peak
     WHERE
         mode = :mode
-        AND region = :region
+        AND (region = :region OR :region IS NULL)
         AND percent_games_played >= :min_threshold
         AND (
             weapon_id = :weapon_id
@@ -108,5 +108,5 @@ ON
     AND (s.season_number - 1) = w.season_number
 WHERE
     s.mode = :mode
-    AND s.region = :region;
+    AND (s.region = :region OR :region IS NULL);
 """
