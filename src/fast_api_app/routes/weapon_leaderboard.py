@@ -83,12 +83,14 @@ async def weapon_leaderboard(
             detail="Data is not available yet, please wait.",
         )
     columns = [desc[0] for desc in sqlite_cursor.description]
-    out = {}
+    out = {"players": {}}
     for column in columns:
-        out[column] = [row[columns.index(column)] for row in result]
+        if column in ["mode", "region"]:
+            continue
+        out["players"][column] = [row[columns.index(column)] for row in result]
     out["weapon_image"] = get_weapon_image(weapon_id)
     if additional_weapon_id:
         out["additional_weapon_image"] = get_weapon_image(additional_weapon_id)
     out["mode"] = mode
-    out["region"] = region
+    out["region"] = bool(region)
     return out

@@ -11,7 +11,6 @@ const TopWeapons = () => {
   const [selectedRegion, setSelectedRegion] = useState("Tentatek");
   const [selectedMode, setSelectedMode] = useState("Splat Zones");
   const [weaponId, setWeaponId] = useState(40);
-  const [finalResults, setFinalResults] = useState([]);
 
   useEffect(() => {
     document.title = `splat.top - ${selectedRegion} ${selectedMode}`;
@@ -26,12 +25,15 @@ const TopWeapons = () => {
 
   const { data, error, isLoading } = useFetchWithCache(endpoint);
 
-  useEffect(() => {
-    if (data) {
-      setFinalResults(data);
-    }
-  }, [data]);
-  console.log(data);
+  const players = data
+    ? Object.keys(data.players).reduce((acc, key) => {
+        data.players[key].forEach((value, index) => {
+          if (!acc[index]) acc[index] = {};
+          acc[index][key] = value;
+        });
+        return acc;
+      }, [])
+    : [];
 
   return (
     <div className="container mx-auto px-4 py-8 bg-gray-900 text-white min-h-screen">
@@ -46,7 +48,7 @@ const TopWeapons = () => {
       ) : error ? (
         <div className="text-red-500 text-center py-4">{error.message}</div>
       ) : (
-        <WeaponLeaderboardTable players={finalResults} columnVisibility={{}} />
+        <WeaponLeaderboardTable players={players} />
       )}
     </div>
   );

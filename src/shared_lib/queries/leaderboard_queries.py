@@ -39,17 +39,39 @@ FROM
 """
 
 WEAPON_LEADERBOARD_SQLITE_QUERY = """
+WITH latest_aliases AS (
+    SELECT
+        player_id,
+        alias
+    FROM
+        aliases
+    WHERE
+        (player_id, last_seen) IN (
+            SELECT
+                player_id,
+                MAX(last_seen) AS last_seen
+            FROM
+                aliases
+            GROUP BY
+                player_id
+        )
+)
 SELECT
-    *
+    w.*,
+    a.alias
 FROM
-    weapon_leaderboard_peak
+    weapon_leaderboard_peak w
+LEFT JOIN
+    latest_aliases a
+ON
+    w.player_id = a.player_id
 WHERE
-    mode = :mode
-    AND (region = :region OR :region IS NULL)
-    AND percent_games_played >= :min_threshold
+    w.mode = :mode
+    AND (w.region = :region OR :region IS NULL)
+    AND w.percent_games_played >= :min_threshold
     AND (
-        weapon_id = :weapon_id
-        OR weapon_id = :additional_weapon_id
+        w.weapon_id = :weapon_id
+        OR w.weapon_id = :additional_weapon_id
     );
 """
 

@@ -4,12 +4,9 @@ import { useTranslation } from "react-i18next";
 
 import { columnsConfig } from "./columns_config";
 
-const WeaponLeaderboardTable = ({ players, columnVisibility }) => {
+const WeaponLeaderboardTable = ({ players }) => {
   const { t } = useTranslation();
   const navigate = useNavigate();
-  const visibleColumns = columnsConfig.filter(
-    (column) => columnVisibility[column.id]
-  );
 
   const defaultHeaderClasses = "w-20 px-4 py-2 text-center";
   const defaultCellClasses = "w-20 px-4 py-2 text-center";
@@ -18,12 +15,17 @@ const WeaponLeaderboardTable = ({ players, columnVisibility }) => {
     navigate(`/player/${playerId}`);
     window.scrollTo(0, 0);
   };
+  console.log(players);
+  // sort players
+  players.sort((a, b) => {
+    return b.max_x_power - a.max_x_power;
+  });
 
   return (
     <table className="table-auto w-full bg-gray-800">
       <thead>
         <tr className="bg-gray-700">
-          {visibleColumns.map((column, index) => (
+          {columnsConfig.map((column, index) => (
             <th
               key={index}
               className={column.headerClasses || defaultHeaderClasses}
@@ -36,11 +38,11 @@ const WeaponLeaderboardTable = ({ players, columnVisibility }) => {
       <tbody>
         {players.map((player) => (
           <tr
-            key={player.player_id}
+            key={`${player.player_id}_${player.season_number}`}
             className="border-b border-gray-700 hover:bg-purpledark cursor-pointer"
             onClick={() => handleRowClick(player.player_id)}
           >
-            {visibleColumns.map((column, index) => (
+            {columnsConfig.map((column, index) => (
               <td
                 key={index}
                 className={column.cellClasses || defaultCellClasses}
