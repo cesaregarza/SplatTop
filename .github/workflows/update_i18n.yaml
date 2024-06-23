@@ -21,8 +21,8 @@ jobs:
       - name: Check if push is from GitHub Actions
         id: check_ci_step
         run: |
-          if [ "$GITHUB_ACTOR" = "github-actions" ]; then
-            echo "Prevent infinite loop by CI"
+          LAST_COMMITTER=$(git log -1 --pretty=format:'%an')
+          if [ "$LAST_COMMITTER" = "GitHub Actions" ]; then
             exit 0
           fi
 
