@@ -1,4 +1,10 @@
-import React, { useEffect, useState, Suspense } from "react";
+import React, {
+  useEffect,
+  useState,
+  Suspense,
+  useMemo,
+  useCallback,
+} from "react";
 import Loading from "./misc_components/loading";
 import { getBaseApiUrl, buildEndpointWithQueryParams } from "./utils";
 import { useTranslation } from "react-i18next";
@@ -8,6 +14,7 @@ import {
   WeaponAndTranslationProvider,
   useWeaponAndTranslation,
 } from "./utils/weaponAndTranslation";
+import { getImageFromId } from "./player_components/weapon_helper_functions";
 
 const WeaponLeaderboardTable = React.lazy(() =>
   import("./leaderboards_components/weapon_leaderboard_table")
@@ -23,46 +30,13 @@ const WeaponSelector = React.lazy(() =>
   import("./leaderboards_components/weapon_selector")
 );
 
-const TopWeaponsContent = () => {
-  const { t } = useTranslation("main_page");
-  const { t: pl } = useTranslation("player");
-  const {
-    weaponTranslations,
-    weaponReferenceData,
-    isLoading: isWeaponDataLoading,
-    error: weaponDataError,
-  } = useWeaponAndTranslation();
-
-  const weaponReferenceDataById = React.useMemo(() => {
-    if (!weaponReferenceData) return {};
-    return Object.entries(weaponReferenceData).reduce((acc, [key, value]) => {
-      if (key === value.reference_id.toString()) {
-        acc[key] = value;
-      }
-      return acc;
-    }, {});
-  }, [weaponReferenceData]);
-
-  const [selectedRegion, setSelectedRegion] = useState(
-    getCache("selectedRegion") || "Tentatek"
-  );
-  const [selectedMode, setSelectedMode] = useState(
-    getCache("selectedMode") || "Splat Zones"
-  );
-  const [weaponId, setWeaponId] = useState(40);
-  const [additionalWeaponId, setAdditionalWeaponId] = useState(null);
-  const [currentPage, setCurrentPage] = useState(
-    parseInt(getCache("currentPage", 300), 10) || 1
-  );
-  const itemsPerPage = 100;
-
-  useEffect(() => {
-    document.title = `splat.top - ${selectedRegion} ${selectedMode}`;
-    setCache("selectedRegion", selectedRegion);
-    setCache("selectedMode", selectedMode);
-    setCache("currentPage", currentPage.toString(), 300);
-  }, [selectedRegion, selectedMode, currentPage]);
-
+const useWeaponLeaderboardData = (
+  selectedRegion,
+  selectedMode,
+  weaponId,
+  additionalWeaponId,
+  weaponReferenceData
+) => {
   const apiUrl = getBaseApiUrl();
   const pathUrl = `/api/weapon_leaderboard/${weaponId}`;
   const queryParams = {
@@ -78,43 +52,107 @@ const TopWeaponsContent = () => {
 
   const { data, error, isLoading } = useFetchWithCache(endpoint);
 
-  const players = React.useMemo(() => {
+
+  const players = useMemo(() => {
     if (!data) return [];
-    return Object.keys(data.players).reduce((acc, key) => {
+    const playersArray = Object.keys(data.players).reduce((acc, key) => {
       data.players[key].forEach((value, index) => {
         if (!acc[index]) acc[index] = {};
         acc[index][key] = value;
       });
       return acc;
     }, []);
-  }, [data]);
 
-  React.useEffect(() => {
-    if (data && players.length > 0) {
-      players.forEach((player) => {
-        player.weapon_image =
-          player.weapon_id === weaponId
-            ? data.weapon_image
-            : data.additional_weapon_image;
-      });
+    const additionalWeaponImage =
+      data.additional_weapon_image === null ||
+      data.additional_weapon_image === undefined
+        ? getImageFromId(additionalWeaponId, weaponReferenceData)
+        : data.additional_weapon_image;
 
-      players.sort((a, b) => b.max_x_power - a.max_x_power);
-      players.forEach((player, index) => {
-        player.rank = index + 1;
-      });
-    }
-  }, [data, players, weaponId]);
+    playersArray.forEach((player) => {
+      player.weapon_image =
+        player.weapon_id === weaponId
+          ? data.weapon_image
+          : additionalWeaponImage;
+    });
+
+    playersArray.sort((a, b) => b.max_x_power - a.max_x_power);
+    playersArray.forEach((player, index) => {
+      player.rank = index + 1;
+    });
+
+    return playersArray;
+  }, [data, weaponId, additionalWeaponId, weaponReferenceData]);
+
+  return { players, error, isLoading };
+};
+
+const TopWeaponsContent = () => {
+  const { t } = useTranslation("main_page");
+  const { t: pl } = useTranslation("player");
+  const {
+    weaponTranslations,
+    weaponReferenceData,
+    isLoading: isWeaponDataLoading,
+    error: weaponDataError,
+  } = useWeaponAndTranslation();
+
+  const weaponReferenceDataById = useMemo(() => {
+    if (!weaponReferenceData) return {};
+    return Object.entries(weaponReferenceData).reduce((acc, [key, value]) => {
+      if (key === value.reference_id.toString()) {
+        acc[key] = value;
+      }
+      return acc;
+    }, {});
+  }, [weaponReferenceData]);
+
+  const [selectedRegion, setSelectedRegion] = useState(() => {
+    const cached = getCache("selectedRegion");
+    return cached || "Tentatek";
+  });
+  const [selectedMode, setSelectedMode] = useState(
+    () => getCache("selectedMode") || "Splat Zones"
+  );
+  const [weaponId, setWeaponId] = useState(
+    () => parseInt(getCache("weaponId")) || 40
+  );
+  const [additionalWeaponId, setAdditionalWeaponId] = useState(() => {
+    const cached = getCache("additionalWeaponId");
+    return cached ? parseInt(cached) : null;
+  });
+  const [currentPage, setCurrentPage] = useState(
+    () => parseInt(getCache("currentPage")) || 1
+  );
+  const itemsPerPage = 100;
+
+  useEffect(() => {
+    document.title = `splat.top - ${selectedRegion} ${selectedMode}`;
+    setCache("selectedRegion", selectedRegion);
+    setCache("selectedMode", selectedMode);
+    setCache("weaponId", weaponId.toString());
+    setCache("additionalWeaponId", additionalWeaponId?.toString());
+    setCache("currentPage", currentPage.toString());
+  }, [selectedRegion, selectedMode, weaponId, additionalWeaponId, currentPage]);
+
+  const { players, error, isLoading } = useWeaponLeaderboardData(
+    selectedRegion,
+    selectedMode,
+    weaponId,
+    additionalWeaponId,
+    weaponReferenceData
+  );
 
   const indexOfLastItem = currentPage * itemsPerPage;
   const indexOfFirstItem = indexOfLastItem - itemsPerPage;
   const currentItems = players.slice(indexOfFirstItem, indexOfLastItem);
 
-  const paginate = (pageNumber) => {
+  const paginate = useCallback((pageNumber) => {
     setCurrentPage(pageNumber);
     window.scrollTo({ top: 0, behavior: "smooth" });
-  };
+  }, []);
 
-  if (isLoading || isWeaponDataLoading) {
+  if (isWeaponDataLoading) {
     return (
       <div className="text-center py-4">
         <Loading text={t("loading")} />
@@ -122,10 +160,10 @@ const TopWeaponsContent = () => {
     );
   }
 
-  if (error || weaponDataError) {
+  if (weaponDataError) {
     return (
       <div className="text-red-500 text-center py-4">
-        {(error || weaponDataError).message}
+        {weaponDataError.message}
       </div>
     );
   }
@@ -155,11 +193,13 @@ const TopWeaponsContent = () => {
                 onWeaponSelect={setWeaponId}
                 weaponReferenceData={weaponReferenceDataById}
                 weaponTranslations={weaponTranslations[pl("data_lang_key")]}
+                initialWeaponId={weaponId}
               />
               <WeaponSelector
                 onWeaponSelect={setAdditionalWeaponId}
                 weaponReferenceData={weaponReferenceDataById}
                 weaponTranslations={weaponTranslations[pl("data_lang_key")]}
+                initialWeaponId={additionalWeaponId}
               />
             </>
           )}
@@ -175,7 +215,15 @@ const TopWeaponsContent = () => {
         />
       </Suspense>
       <Suspense fallback={<div>{t("loading")}</div>}>
-        <WeaponLeaderboardTable players={currentItems} />
+        {isLoading ? (
+          <div className="text-center py-4">
+            <Loading text={t("loading")} />
+          </div>
+        ) : error ? (
+          <div className="text-red-500 text-center py-4">{error.message}</div>
+        ) : (
+          <WeaponLeaderboardTable players={currentItems} />
+        )}
       </Suspense>
       <Suspense fallback={<div>{t("loading")}</div>}>
         <Pagination

@@ -16,7 +16,6 @@ const WeaponLeaderboardTable = ({ players }) => {
     navigate(`/player/${playerId}`);
     window.scrollTo(0, 0);
   };
-  console.log(players);
 
   return (
     <table className="table-auto w-full bg-gray-800">

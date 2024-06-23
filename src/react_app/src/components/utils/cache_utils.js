@@ -24,7 +24,7 @@ export const getCache = (key) => {
   const cacheExpiration = localStorage.getItem(`${key}Expiration`);
   const cacheVersion = localStorage.getItem(`${key}Version`);
   const currentVersion = process.env.REACT_APP_VERSION;
-  
+
   if (
     localData &&
     cacheExpiration &&
@@ -32,8 +32,16 @@ export const getCache = (key) => {
     new Date(cacheExpiration) > new Date() &&
     cacheVersion === currentVersion
   ) {
-    return JSON.parse(localData);
-  } else if (cacheVersion !== currentVersion) {
+    try {
+      return JSON.parse(localData);
+    } catch (error) {
+      // If parsing fails, remove the invalid cache entry
+      localStorage.removeItem(key);
+      localStorage.removeItem(`${key}Expiration`);
+      localStorage.removeItem(`${key}Version`);
+      return null;
+    }
+  } else if (cacheVersion !== null && cacheVersion !== currentVersion) {
     clearInvalidVersionCache();
   }
 
