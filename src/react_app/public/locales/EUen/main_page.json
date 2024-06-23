@@ -16,5 +16,8 @@
   "select_columns": "Select columns",
   "modes": "Modes",
   "region": "Region",
-  "column_total_x_power_title": "Total X Power"
+  "column_total_x_power_title": "Total X Power",
+  "column_peak_xpower_title": "Peak X Power",
+  "column_percent_games_played_title": "% Games Played",
+  "column_season_number_title": "Season"
 }
