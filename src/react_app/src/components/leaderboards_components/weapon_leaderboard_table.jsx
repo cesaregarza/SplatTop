@@ -17,13 +17,6 @@ const WeaponLeaderboardTable = ({ players }) => {
     window.scrollTo(0, 0);
   };
   console.log(players);
-  players.sort((a, b) => {
-    return b.max_x_power - a.max_x_power;
-  });
-
-  players.forEach((player, index) => {
-    player.rank = index + 1;
-  });
 
   return (
     <table className="table-auto w-full bg-gray-800">
