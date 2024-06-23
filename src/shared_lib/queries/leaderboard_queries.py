@@ -115,7 +115,8 @@ SELECT
     s.x_power,
     w.max_x_power,
     w.percent_games_played,
-    w.games_played
+    w.games_played,
+    w.weapon_id
 FROM
     season_results s
 LEFT JOIN

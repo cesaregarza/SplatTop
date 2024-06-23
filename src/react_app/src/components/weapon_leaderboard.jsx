@@ -11,6 +11,7 @@ const TopWeapons = () => {
   const [selectedRegion, setSelectedRegion] = useState("Tentatek");
   const [selectedMode, setSelectedMode] = useState("Splat Zones");
   const [weaponId, setWeaponId] = useState(40);
+  const [additionalWeaponId, setAdditionalWeaponId] = useState(null);
 
   useEffect(() => {
     document.title = `splat.top - ${selectedRegion} ${selectedMode}`;
@@ -34,6 +35,15 @@ const TopWeapons = () => {
         return acc;
       }, [])
     : [];
+
+  if (data) {
+    players.forEach((player) => {
+      player.weapon_image =
+        player.weapon_id === weaponId
+          ? data.weapon_image
+          : data.additional_weapon_image;
+    });
+  }
 
   return (
     <div className="container mx-auto px-4 py-8 bg-gray-900 text-white min-h-screen">

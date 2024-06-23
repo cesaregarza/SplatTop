@@ -6,6 +6,7 @@ import { columnsConfig } from "./columns_config";
 
 const WeaponLeaderboardTable = ({ players }) => {
   const { t } = useTranslation();
+  const { t: g } = useTranslation("game");
   const navigate = useNavigate();
 
   const defaultHeaderClasses = "w-20 px-4 py-2 text-center";
@@ -16,9 +17,12 @@ const WeaponLeaderboardTable = ({ players }) => {
     window.scrollTo(0, 0);
   };
   console.log(players);
-  // sort players
   players.sort((a, b) => {
     return b.max_x_power - a.max_x_power;
+  });
+
+  players.forEach((player, index) => {
+    player.rank = index + 1;
   });
 
   return (
@@ -47,7 +51,9 @@ const WeaponLeaderboardTable = ({ players }) => {
                 key={index}
                 className={column.cellClasses || defaultCellClasses}
               >
-                {column.render(player, t)}
+                {column.id === "season_number"
+                  ? column.render(player, g)
+                  : column.render(player, t)}
               </td>
             ))}
           </tr>
