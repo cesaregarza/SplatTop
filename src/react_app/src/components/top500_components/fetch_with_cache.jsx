@@ -69,9 +69,6 @@ const useFetchWithCache = (endpoint, cacheAge = 10, cacheOffset = 6) => {
           localStorage.removeItem(cacheKeys[0]);
         }
       } catch (fetchError) {
-        console.error("Error fetching data:", fetchError);
-        setError(fetchError);
-
         const backoffTime = Math.min(2 ** retryCount * 1000, MAX_BACKOFF_TIME);
         setTimeout(() => fetchData(retryCount + 1), backoffTime);
       } finally {

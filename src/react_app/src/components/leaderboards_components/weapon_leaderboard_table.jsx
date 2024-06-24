@@ -34,7 +34,7 @@ const WeaponLeaderboardTable = ({ players }) => {
       <tbody>
         {players.map((player) => (
           <tr
-            key={`${player.player_id}_${player.season_number}`}
+            key={`${player.player_id}_${player.season_number}_${player.weapon_id}`}
             className="border-b border-gray-700 hover:bg-purpledark cursor-pointer"
             onClick={() => handleRowClick(player.player_id)}
           >

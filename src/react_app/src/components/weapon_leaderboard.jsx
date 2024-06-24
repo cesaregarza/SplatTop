@@ -29,19 +29,24 @@ const ModeSelector = React.lazy(() =>
 const WeaponSelector = React.lazy(() =>
   import("./leaderboards_components/weapon_selector")
 );
+const ThresholdSelector = React.lazy(() =>
+  import("./leaderboards_components/threshold_selector")
+);
 
 const useWeaponLeaderboardData = (
   selectedRegion,
   selectedMode,
   weaponId,
   additionalWeaponId,
-  weaponReferenceData
+  weaponReferenceData,
+  threshold
 ) => {
   const apiUrl = getBaseApiUrl();
   const pathUrl = `/api/weapon_leaderboard/${weaponId}`;
   const queryParams = {
     mode: selectedMode,
     region: selectedRegion,
+    min_threshold: threshold,
   };
 
   if (additionalWeaponId !== null) {
@@ -121,6 +126,9 @@ const TopWeaponsContent = () => {
     const cached = getCache("additionalWeaponId");
     return cached ? parseInt(cached) : null;
   });
+  const [threshold, setThreshold] = useState(
+    () => parseInt(getCache("threshold")) || 0
+  );
   const [currentPage, setCurrentPage] = useState(
     () => parseInt(getCache("currentPage")) || 1
   );
@@ -132,15 +140,24 @@ const TopWeaponsContent = () => {
     setCache("selectedMode", selectedMode);
     setCache("weaponId", weaponId.toString());
     setCache("additionalWeaponId", additionalWeaponId?.toString());
+    setCache("threshold", threshold.toString());
     setCache("currentPage", currentPage.toString());
-  }, [selectedRegion, selectedMode, weaponId, additionalWeaponId, currentPage]);
+  }, [
+    selectedRegion,
+    selectedMode,
+    weaponId,
+    additionalWeaponId,
+    threshold,
+    currentPage,
+  ]);
 
   const { players, error, isLoading } = useWeaponLeaderboardData(
     selectedRegion,
     selectedMode,
     weaponId,
     additionalWeaponId,
-    weaponReferenceData
+    weaponReferenceData,
+    threshold
   );
 
   const indexOfLastItem = currentPage * itemsPerPage;
@@ -170,27 +187,29 @@ const TopWeaponsContent = () => {
 
   return (
     <>
-      <h1 className="text-3xl font-bold mb-4 text-center">
+      <h1 className="text-3xl font-bold mb-6 text-center text-purple-300">
         {t("weapon_title")}
       </h1>
-      <div className="flex flex-col sm:flex-row justify-between mb-4">
-        <Suspense fallback={<div>{t("loading")}</div>}>
-          <RegionSelector
-            selectedRegion={selectedRegion}
-            setSelectedRegion={setSelectedRegion}
-          />
-          <ModeSelector
-            selectedMode={selectedMode}
-            setSelectedMode={setSelectedMode}
-          />
-        </Suspense>
-      </div>
-      <div className="flex flex-col sm:flex-row justify-between mb-4">
-        <Suspense fallback={<div>{t("loading")}</div>}>
+      <Suspense fallback={<Loading text={t("loading")} />}>
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-6">
+          <div className="flex flex-col items-center">
+            <RegionSelector
+              selectedRegion={selectedRegion}
+              setSelectedRegion={setSelectedRegion}
+            />
+          </div>
+          <div className="flex flex-col items-center">
+            <ModeSelector
+              selectedMode={selectedMode}
+              setSelectedMode={setSelectedMode}
+            />
+          </div>
+        </div>
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-6">
           {weaponReferenceDataById && weaponTranslations && (
             <>
               <div className="flex flex-col items-center">
-                <span className="mb-2 text-center text-lg font-semibold text-purple">
+                <span className="mb-2 text-center text-lg font-semibold text-purple-400">
                   {t("weapon_select_main")}
                 </span>
                 <WeaponSelector
@@ -201,7 +220,7 @@ const TopWeaponsContent = () => {
                 />
               </div>
               <div className="flex flex-col items-center">
-                <span className="mb-2 text-center text-lg font-semibold text-purple">
+                <span className="mb-2 text-center text-lg font-semibold text-purple-400">
                   {t("weapon_select_alt")}
                 </span>
                 <WeaponSelector
@@ -214,9 +233,8 @@ const TopWeaponsContent = () => {
               </div>
             </>
           )}
-        </Suspense>
-      </div>
-      <Suspense fallback={<div>{t("loading")}</div>}>
+        </div>
+        <ThresholdSelector threshold={threshold} setThreshold={setThreshold} />
         <Pagination
           totalItems={players.length}
           itemsPerPage={itemsPerPage}
@@ -224,8 +242,6 @@ const TopWeaponsContent = () => {
           onPageChange={paginate}
           isTopOfPage={true}
         />
-      </Suspense>
-      <Suspense fallback={<div>{t("loading")}</div>}>
         {isLoading ? (
           <div className="text-center py-4">
             <Loading text={t("loading")} />
@@ -235,8 +251,6 @@ const TopWeaponsContent = () => {
         ) : (
           <WeaponLeaderboardTable players={currentItems} />
         )}
-      </Suspense>
-      <Suspense fallback={<div>{t("loading")}</div>}>
         <Pagination
           totalItems={players.length}
           itemsPerPage={itemsPerPage}
