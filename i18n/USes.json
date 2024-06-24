@@ -91,7 +91,10 @@
     "column_total_x_power_title": "Fuerza X Total",
     "column_peak_xpower_title": "Peak X Power",
     "column_percent_games_played_title": "% Games Played",
-    "column_season_number_title": "Season"
+    "column_season_number_title": "Season",
+    "weapon_select_main": "Weapon Select",
+    "weapon_select_alt": "Weapon Select (Alt)",
+    "weapon_title": "Top Weapon Wielders"
   },
   "navigation": {
     "top500": "Top 500",

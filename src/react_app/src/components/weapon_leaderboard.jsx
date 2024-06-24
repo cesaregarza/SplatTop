@@ -52,7 +52,6 @@ const useWeaponLeaderboardData = (
 
   const { data, error, isLoading } = useFetchWithCache(endpoint);
 
-
   const players = useMemo(() => {
     if (!data) return [];
     const playersArray = Object.keys(data.players).reduce((acc, key) => {
@@ -64,8 +63,9 @@ const useWeaponLeaderboardData = (
     }, []);
 
     const additionalWeaponImage =
-      data.additional_weapon_image === null ||
-      data.additional_weapon_image === undefined
+      additionalWeaponId !== null &&
+      (data.additional_weapon_image === null ||
+        data.additional_weapon_image === undefined)
         ? getImageFromId(additionalWeaponId, weaponReferenceData)
         : data.additional_weapon_image;
 
@@ -189,18 +189,29 @@ const TopWeaponsContent = () => {
         <Suspense fallback={<div>{t("loading")}</div>}>
           {weaponReferenceDataById && weaponTranslations && (
             <>
-              <WeaponSelector
-                onWeaponSelect={setWeaponId}
-                weaponReferenceData={weaponReferenceDataById}
-                weaponTranslations={weaponTranslations[pl("data_lang_key")]}
-                initialWeaponId={weaponId}
-              />
-              <WeaponSelector
-                onWeaponSelect={setAdditionalWeaponId}
-                weaponReferenceData={weaponReferenceDataById}
-                weaponTranslations={weaponTranslations[pl("data_lang_key")]}
-                initialWeaponId={additionalWeaponId}
-              />
+              <div className="flex flex-col items-center">
+                <span className="mb-2 text-center text-lg font-semibold text-purple">
+                  {t("weapon_select_main")}
+                </span>
+                <WeaponSelector
+                  onWeaponSelect={setWeaponId}
+                  weaponReferenceData={weaponReferenceDataById}
+                  weaponTranslations={weaponTranslations[pl("data_lang_key")]}
+                  initialWeaponId={weaponId}
+                />
+              </div>
+              <div className="flex flex-col items-center">
+                <span className="mb-2 text-center text-lg font-semibold text-purple">
+                  {t("weapon_select_alt")}
+                </span>
+                <WeaponSelector
+                  onWeaponSelect={setAdditionalWeaponId}
+                  weaponReferenceData={weaponReferenceDataById}
+                  weaponTranslations={weaponTranslations[pl("data_lang_key")]}
+                  initialWeaponId={additionalWeaponId}
+                  allowNull={true}
+                />
+              </div>
             </>
           )}
         </Suspense>
