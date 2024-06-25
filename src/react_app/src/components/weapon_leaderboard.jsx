@@ -33,13 +33,13 @@ const ThresholdSelector = React.lazy(() =>
   import("./leaderboards_components/threshold_selector")
 );
 
-const useWeaponLeaderboardData = (
+const useFetchWeaponLeaderboardData = (
   selectedRegion,
   selectedMode,
   weaponId,
   additionalWeaponId,
-  weaponReferenceData,
-  threshold
+  threshold,
+  finalResults = false
 ) => {
   const apiUrl = getBaseApiUrl();
   const pathUrl = `/api/weapon_leaderboard/${weaponId}`;
@@ -47,6 +47,7 @@ const useWeaponLeaderboardData = (
     mode: selectedMode,
     region: selectedRegion,
     min_threshold: threshold,
+    final_results: finalResults,
   };
 
   if (additionalWeaponId !== null) {
@@ -55,39 +56,72 @@ const useWeaponLeaderboardData = (
 
   const endpoint = buildEndpointWithQueryParams(apiUrl, pathUrl, queryParams);
 
-  const { data, error, isLoading } = useFetchWithCache(endpoint);
+  return useFetchWithCache(endpoint);
+};
 
-  const players = useMemo(() => {
-    if (!data) return [];
-    const playersArray = Object.keys(data.players).reduce((acc, key) => {
-      data.players[key].forEach((value, index) => {
-        if (!acc[index]) acc[index] = {};
-        acc[index][key] = value;
-      });
-      return acc;
-    }, []);
-
-    const additionalWeaponImage =
-      additionalWeaponId !== null &&
-      (data.additional_weapon_image === null ||
-        data.additional_weapon_image === undefined)
-        ? getImageFromId(additionalWeaponId, weaponReferenceData)
-        : data.additional_weapon_image;
-
-    playersArray.forEach((player) => {
-      player.weapon_image =
-        player.weapon_id === weaponId
-          ? data.weapon_image
-          : additionalWeaponImage;
+const processWeaponLeaderboardData = (
+  data,
+  weaponId,
+  additionalWeaponId,
+  weaponReferenceData,
+  finalResults = false
+) => {
+  if (!data) return [];
+  const playersArray = Object.keys(data.players).reduce((acc, key) => {
+    data.players[key].forEach((value, index) => {
+      if (!acc[index]) acc[index] = {};
+      acc[index][key] = value;
     });
+    return acc;
+  }, []);
 
-    playersArray.sort((a, b) => b.max_x_power - a.max_x_power);
-    playersArray.forEach((player, index) => {
-      player.rank = index + 1;
-    });
+  const additionalWeaponImage =
+    additionalWeaponId !== null &&
+    (data.additional_weapon_image === null ||
+      data.additional_weapon_image === undefined)
+      ? getImageFromId(additionalWeaponId, weaponReferenceData)
+      : data.additional_weapon_image;
 
-    return playersArray;
-  }, [data, weaponId, additionalWeaponId, weaponReferenceData]);
+  playersArray.forEach((player) => {
+    player.weapon_image =
+      player.weapon_id === weaponId ? data.weapon_image : additionalWeaponImage;
+    if (finalResults) {
+      player.season_number -= 1;
+    }
+  });
+
+  playersArray.sort((a, b) => b.max_x_power - a.max_x_power);
+  playersArray.forEach((player, index) => {
+    player.rank = index + 1;
+  });
+
+  return playersArray;
+};
+
+const useWeaponLeaderboardData = (
+  selectedRegion,
+  selectedMode,
+  weaponId,
+  additionalWeaponId,
+  weaponReferenceData,
+  threshold,
+  finalResults = false
+) => {
+  const { data, error, isLoading } = useFetchWeaponLeaderboardData(
+    selectedRegion,
+    selectedMode,
+    weaponId,
+    additionalWeaponId,
+    threshold,
+    finalResults
+  );
+
+  const players = processWeaponLeaderboardData(
+    data,
+    weaponId,
+    additionalWeaponId,
+    weaponReferenceData
+  );
 
   return { players, error, isLoading };
 };
@@ -132,6 +166,7 @@ const TopWeaponsContent = () => {
   const [currentPage, setCurrentPage] = useState(
     () => parseInt(getCache("currentPage")) || 1
   );
+  const [finalResults, setFinalResults] = useState(false);
   const itemsPerPage = 100;
 
   useEffect(() => {
@@ -157,7 +192,8 @@ const TopWeaponsContent = () => {
     weaponId,
     additionalWeaponId,
     weaponReferenceData,
-    threshold
+    threshold,
+    finalResults
   );
 
   const indexOfLastItem = currentPage * itemsPerPage;
@@ -167,6 +203,10 @@ const TopWeaponsContent = () => {
   const paginate = useCallback((pageNumber) => {
     setCurrentPage(pageNumber);
     window.scrollTo({ top: 0, behavior: "smooth" });
+  }, []);
+
+  const toggleFinalResults = useCallback(() => {
+    setFinalResults((prev) => !prev);
   }, []);
 
   if (isWeaponDataLoading) {
@@ -191,7 +231,7 @@ const TopWeaponsContent = () => {
         {t("weapon_title")}
       </h1>
       <Suspense fallback={<Loading text={t("loading")} />}>
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-6">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <div className="flex flex-col items-center">
             <RegionSelector
               selectedRegion={selectedRegion}
@@ -205,7 +245,7 @@ const TopWeaponsContent = () => {
             />
           </div>
         </div>
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-6">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           {weaponReferenceDataById && weaponTranslations && (
             <>
               <div className="flex flex-col items-center">
@@ -235,6 +275,43 @@ const TopWeaponsContent = () => {
           )}
         </div>
         <ThresholdSelector threshold={threshold} setThreshold={setThreshold} />
+        <div className="flex flex-col justify-center items-center mb-6">
+          <label
+            htmlFor="toggleFinalResults"
+            className="inline-flex items-center cursor-pointer flex-col"
+          >
+            <div className="flex items-center">
+              <span
+                className={`text-sm font-medium mr-2 ${
+                  !finalResults ? "highlighted-option" : ""
+                }`}
+              >
+                {t("weapon_leaderboard.peak_x_power")}
+              </span>
+              <div className="relative" title="Change the scale type">
+                <input
+                  type="checkbox"
+                  id="toggleFinalResults"
+                  className="sr-only peer"
+                  checked={finalResults}
+                  onChange={toggleFinalResults}
+                />
+                <div
+                  className={`w-11 h-6 rounded-full peer peer-focus:ring-4 peer-focus:ring-purple-300 dark:peer-focus:ring-purple-800 after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:after:translate-x-5 ${
+                    finalResults ? "bg-purple" : "bg-gray-600"
+                  }`}
+                ></div>
+              </div>
+              <span
+                className={`text-sm font-medium ml-2 ${
+                  finalResults ? "highlighted-option" : ""
+                }`}
+              >
+                {t("weapon_leaderboard.final_x_power")}
+              </span>
+            </div>
+          </label>
+        </div>
         <Pagination
           totalItems={players.length}
           itemsPerPage={itemsPerPage}
@@ -249,7 +326,10 @@ const TopWeaponsContent = () => {
         ) : error ? (
           <div className="text-red-500 text-center py-4">{error.message}</div>
         ) : (
-          <WeaponLeaderboardTable players={currentItems} />
+          <WeaponLeaderboardTable
+            players={currentItems}
+            isFinal={finalResults}
+          />
         )}
         <Pagination
           totalItems={players.length}

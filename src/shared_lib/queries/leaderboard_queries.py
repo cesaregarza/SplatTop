@@ -109,27 +109,27 @@ filtered_weapons AS (
 )
 SELECT
     s.player_id,
-    a.alias,
+    MAX(a.alias) AS alias,
     s.season_number,
-    s.rank,
-    s.x_power,
-    w.max_x_power,
-    w.percent_games_played,
-    w.games_played,
-    w.weapon_id
+    MAX(s.rank) AS rank,
+    MAX(s.x_power) AS x_power,
+    MAX(w.max_x_power) AS max_x_power,
+    MAX(w.percent_games_played) AS percent_games_played,
+    MAX(w.games_played) AS games_played,
+    s.weapon_id
 FROM
     season_results s
 LEFT JOIN
-    latest_aliases a
-ON
-    s.player_id = a.player_id
+    latest_aliases a ON s.player_id = a.player_id
 INNER JOIN
-    filtered_weapons w
-ON
-    s.player_id = w.player_id
-    AND s.weapon_id = w.weapon_id
-    AND (s.season_number - 1) = w.season_number
+    filtered_weapons w ON s.player_id = w.player_id
+                       AND s.weapon_id = w.weapon_id
+                       AND (s.season_number - 1) = w.season_number
 WHERE
     s.mode = :mode
-    AND (s.region = :region OR :region IS NULL);
+    AND (s.region = :region OR :region IS NULL)
+GROUP BY
+    s.player_id, s.season_number, s.weapon_id
+ORDER BY
+    x_power DESC;
 """

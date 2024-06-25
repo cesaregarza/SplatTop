@@ -95,7 +95,9 @@
     "weapon_select_main": "Weapon Select",
     "weapon_select_alt": "Weapon Select (Alt)",
     "weapon_title": "Top Weapon Wielders",
-    "threshold_select": "Minimum Percent Usage"
+    "threshold_select": "Minimum Percent Usage",
+    "weapon_leaderboard.peak_x_power": "Peak X Power",
+    "weapon_leaderboard.final_x_power": "Season End X Power"
   },
   "navigation": {
     "top500": "Top 500",

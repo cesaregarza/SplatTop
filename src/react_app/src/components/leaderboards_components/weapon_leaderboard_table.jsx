@@ -4,7 +4,7 @@ import { useTranslation } from "react-i18next";
 
 import { columnsConfig } from "./columns_config";
 
-const WeaponLeaderboardTable = ({ players }) => {
+const WeaponLeaderboardTable = ({ players, isFinal }) => {
   const { t } = useTranslation();
   const { t: g } = useTranslation("game");
   const navigate = useNavigate();
@@ -16,6 +16,8 @@ const WeaponLeaderboardTable = ({ players }) => {
     navigate(`/player/${playerId}`);
     window.scrollTo(0, 0);
   };
+
+  const keyMap = new Map();
 
   return (
     <table className="table-auto w-full bg-gray-800">
@@ -32,24 +34,36 @@ const WeaponLeaderboardTable = ({ players }) => {
         </tr>
       </thead>
       <tbody>
-        {players.map((player) => (
-          <tr
-            key={`${player.player_id}_${player.season_number}_${player.weapon_id}`}
-            className="border-b border-gray-700 hover:bg-purpledark cursor-pointer"
-            onClick={() => handleRowClick(player.player_id)}
-          >
-            {columnsConfig.map((column, index) => (
-              <td
-                key={index}
-                className={column.cellClasses || defaultCellClasses}
-              >
-                {column.id === "season_number"
-                  ? column.render(player, g)
-                  : column.render(player, t)}
-              </td>
-            ))}
-          </tr>
-        ))}
+        {players.map((player, playerIndex) => {
+          const key = `${player.player_id}_${player.season_number}_${
+            player.weapon_id
+          }_${isFinal ? "final" : "peak"}`;
+
+          if (keyMap.has(key)) {
+            console.warn(`Duplicate key found: ${key}`);
+          } else {
+            keyMap.set(key, player);
+          }
+
+          return (
+            <tr
+              key={key}
+              className="border-b border-gray-700 hover:bg-purpledark cursor-pointer"
+              onClick={() => handleRowClick(player.player_id)}
+            >
+              {columnsConfig.map((column, index) => (
+                <td
+                  key={index}
+                  className={column.cellClasses || defaultCellClasses}
+                >
+                  {column.id === "season_number"
+                    ? column.render(player, g)
+                    : column.render(player, t)}
+                </td>
+              ))}
+            </tr>
+          );
+        })}
       </tbody>
     </table>
   );
