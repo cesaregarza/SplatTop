@@ -19,6 +19,23 @@ const WeaponLeaderboardTable = ({ players, isFinal }) => {
 
   const keyMap = new Map();
 
+  if (players.length === 0) {
+    return (
+      <table className="table-auto w-full bg-gray-800">
+        <tbody>
+          <tr>
+            <td
+              className="px-4 py-2 text-center text-lg"
+              colSpan={columnsConfig.length}
+            >
+              No results
+            </td>
+          </tr>
+        </tbody>
+      </table>
+    );
+  }
+
   return (
     <table className="table-auto w-full bg-gray-800">
       <thead>

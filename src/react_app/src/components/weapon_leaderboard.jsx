@@ -258,7 +258,9 @@ const TopWeaponsContent = () => {
             <Loading text={t("loading")} />
           </div>
         ) : error ? (
-          <div className="text-red-500 text-center py-4">{error.message}</div>
+          <div className="text-red-500 text-center py-4">
+            {error.response.status === 503 ? t("errors.503") : error.message}
+          </div>
         ) : (
           <div className="overflow-x-auto">
             <WeaponLeaderboardTable

@@ -68,20 +68,28 @@ async def weapon_leaderboard(
     results = sqlite_cursor.execute(query, params)
     result = results.fetchall()
     if not result:
-        logger.error(
-            "No data found for weapon_id: %d, mode: %s, region: %s, "
-            "additional_weapon_id: %s, min_threshold: %d, final_results: %s",
-            weapon_id,
-            mode,
-            region,
-            additional_weapon_id,
-            min_threshold,
-            final_results,
+        check_if_data_available = sqlite_cursor.execute(
+            "SELECT COUNT(*) FROM weapon_leaderboard_peak"
         )
-        raise HTTPException(
-            status_code=503,
-            detail="Data is not available yet, please wait.",
-        )
+        if not check_if_data_available.fetchone()[0]:
+            logger.error(
+                "No data found for weapon_id: %d, mode: %s, region: %s, "
+                "additional_weapon_id: %s, min_threshold: %d, final_results: %s",
+                weapon_id,
+                mode,
+                region,
+                additional_weapon_id,
+                min_threshold,
+                final_results,
+            )
+            raise HTTPException(
+                status_code=503,
+                detail="Data is not available yet, please wait.",
+            )
+        else:
+            logger.info("No data found for weapon_id: %d", weapon_id)
+            return {"players": {}, "mode": mode, "region": bool(region)}
+
     columns = [desc[0] for desc in sqlite_cursor.description]
     out = {"players": {}}
     for column in columns:
