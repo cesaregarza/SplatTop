@@ -99,7 +99,9 @@
     "weapon_leaderboard.peak_x_power": "Peak X Power",
     "weapon_leaderboard.final_x_power": "Season End X Power",
     "select_weapon": "Select Weapon",
-    "null_selection": "No Alt Weapon"
+    "null_selection": "No Alt Weapon",
+    "no_data": "No data available",
+    "errors.503": "Service Unavailable, please try again later."
   },
   "navigation": {
     "top500": "Top 500",
@@ -107,7 +109,8 @@
     "footer.contact": "Contacto",
     "footer.rights": "%DATE% splat.top. Todos los derechos reservados.",
     "navbar.faq": "FAQ",
-    "navbar.analytics": "Analítica"
+    "navbar.analytics": "Analítica",
+    "navbar.top_weapons": "Top Weapons"
   },
   "player": {
     "data_lang_key": "USes",
