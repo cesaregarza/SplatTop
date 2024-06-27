@@ -25,5 +25,7 @@
   "weapon_title": "Top Weapon Wielders",
   "threshold_select": "Minimum Percent Usage",
   "weapon_leaderboard.peak_x_power": "Peak X Power",
-  "weapon_leaderboard.final_x_power": "Season End X Power"
+  "weapon_leaderboard.final_x_power": "Season End X Power",
+  "select_weapon": "Select Weapon",
+  "null_selection": "No Alt Weapon"
 }

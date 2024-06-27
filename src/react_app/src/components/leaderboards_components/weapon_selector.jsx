@@ -13,7 +13,7 @@ const WeaponSelector = ({
   initialWeaponId,
   allowNull = false,
 }) => {
-  const { t } = useTranslation("main");
+  const { t } = useTranslation("main_page");
   const [selectedWeapon, setSelectedWeapon] = useState(
     initialWeaponId !== undefined && initialWeaponId !== null
       ? initialWeaponId.toString()
