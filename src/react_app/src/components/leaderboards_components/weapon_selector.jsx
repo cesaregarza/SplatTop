@@ -92,6 +92,19 @@ const WeaponSelector = ({
     };
   }, []);
 
+  useEffect(() => {
+    const handleKeyDown = (event) => {
+      if (event.key === "Escape") {
+        setIsOpen(false);
+      }
+    };
+
+    document.addEventListener("keydown", handleKeyDown);
+    return () => {
+      document.removeEventListener("keydown", handleKeyDown);
+    };
+  }, []);
+
   const handleInputFocus = () => {
     setIsOpen(true);
   };
@@ -147,7 +160,7 @@ const WeaponSelector = ({
           <input
             ref={inputRef}
             type="text"
-            className="bg-transparent outline-none flex-grow"
+            className="bg-transparent outline-none flex-grow h-10"
             placeholder={t("select_weapon")}
             value={searchTerm}
             onChange={handleInputChange}
