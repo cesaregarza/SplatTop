@@ -12,13 +12,23 @@ const useFetchWithCache = (endpoint, cacheAge = 10, cacheOffset = 6) => {
   const [isLoading, setIsLoading] = useState(true);
 
   const clearLocalCache = () => {
-    localStorage.clear();
+    localStorage.removeItem("endpoints");
   };
 
   useEffect(() => {
+    const deleteHttpCacheKeys = () => {
+      Object.keys(localStorage).forEach((key) => {
+        if (key.startsWith("http")) {
+          localStorage.removeItem(key);
+        }
+      });
+    };
+
     const fetchData = async (retryCount = 0) => {
       setIsLoading(true);
-      const cachedData = getCache(endpoint);
+      deleteHttpCacheKeys();
+      const endpointsCache = getCache("endpoints") || {};
+      const cachedData = endpointsCache[endpoint];
       if (cachedData) {
         try {
           const decompressedData = LZString.decompressFromUTF16(cachedData);
@@ -33,14 +43,16 @@ const useFetchWithCache = (endpoint, cacheAge = 10, cacheOffset = 6) => {
             setIsLoading(false);
             return;
           } else {
-            localStorage.removeItem(endpoint);
+            delete endpointsCache[endpoint];
+            setCache("endpoints", endpointsCache);
           }
         } catch (error) {
           console.error(
             "Invalid JSON data in localStorage. Clearing the key:",
             endpoint
           );
-          localStorage.removeItem(endpoint);
+          delete endpointsCache[endpoint];
+          setCache("endpoints", endpointsCache);
         }
       }
 
@@ -52,21 +64,23 @@ const useFetchWithCache = (endpoint, cacheAge = 10, cacheOffset = 6) => {
         const compressedData = LZString.compressToUTF16(
           JSON.stringify({ data: response.data, timestamp: Date.now() })
         );
-        setCache(endpoint, compressedData);
+        endpointsCache[endpoint] = compressedData;
+        setCache("endpoints", endpointsCache);
 
         // Implement cache eviction strategy
-        const cacheKeys = Object.keys(localStorage);
+        const cacheKeys = Object.keys(endpointsCache);
         if (cacheKeys.length > MAX_CACHE_ITEMS) {
-          cacheKeys.sort((a, b) => {
+          const sortedKeys = cacheKeys.sort((a, b) => {
             const timeA = JSON.parse(
-              LZString.decompressFromUTF16(getCache(a))
+              LZString.decompressFromUTF16(endpointsCache[a])
             ).timestamp;
             const timeB = JSON.parse(
-              LZString.decompressFromUTF16(getCache(b))
+              LZString.decompressFromUTF16(endpointsCache[b])
             ).timestamp;
             return timeA - timeB;
           });
-          localStorage.removeItem(cacheKeys[0]);
+          delete endpointsCache[sortedKeys[0]];
+          setCache("endpoints", endpointsCache);
         }
       } catch (fetchError) {
         console.error("Error fetching data:", fetchError);

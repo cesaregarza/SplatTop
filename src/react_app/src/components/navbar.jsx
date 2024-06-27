@@ -59,6 +59,14 @@ const Navbar = () => {
             </li>
             <li>
               <Link
+                to="/top_weapons"
+                className="block py-2 px-4 text-white hover:bg-ab5ab7 rounded-md transition duration-300"
+              >
+                {t("navbar.top_weapons")}
+              </Link>
+            </li>
+            <li>
+              <Link
                 to="/analytics"
                 className="block py-2 px-4 text-white hover:bg-ab5ab7 rounded-md transition duration-300"
               >

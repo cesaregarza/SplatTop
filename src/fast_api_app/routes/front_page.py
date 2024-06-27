@@ -2,7 +2,6 @@ import orjson
 from fastapi import APIRouter, HTTPException, Query
 
 from fast_api_app.connections import redis_conn
-from shared_lib.constants import MODES
 
 router = APIRouter()
 
@@ -14,9 +13,7 @@ async def leaderboard(
     ),
     region: str = Query("Tentatek", description="Region for the leaderboard"),
 ):
-    region_bool = "Takoroka" if region == "Takoroka" else "Tentatek"
-
-    redis_key = f"leaderboard_data:{mode}:{region_bool}"
+    redis_key = f"leaderboard_data:{mode}:{region}"
     players = redis_conn.get(redis_key)
 
     if players is None:

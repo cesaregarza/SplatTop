@@ -11,4 +11,17 @@ const getBaseWebsocketUrl = () => {
     : `${wsProtocol}://${window.location.host}`;
 };
 
-export { getBaseApiUrl, getBaseWebsocketUrl };
+const buildEndpointWithQueryParams = (baseUrl, endpoint, params) => {
+  let url;
+  if (baseUrl.startsWith("http")) {
+    url = new URL(endpoint, baseUrl);
+  } else {
+    url = new URL(endpoint, window.location.origin + baseUrl);
+  }
+  Object.keys(params).forEach((key) =>
+    url.searchParams.append(key, params[key])
+  );
+  return baseUrl.startsWith("http") ? url.href : url.pathname + url.search;
+};
+
+export { getBaseApiUrl, getBaseWebsocketUrl, buildEndpointWithQueryParams };

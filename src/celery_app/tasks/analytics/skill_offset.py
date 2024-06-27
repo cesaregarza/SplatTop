@@ -92,7 +92,9 @@ def compute_probability_map(sorted_xp_scaled: pd.Series) -> pd.DataFrame:
     prob_df.columns = [int(x) * 2 + 1 for x in range(prob_df.shape[1])]
     prob_df["y"] = sorted_xp_scaled.values
     prob_df["y_bin"] = pd.cut(prob_df["y"], bins=NUM_BINS)
-    prob_df_binned = prob_df.groupby("y_bin").sum().drop(columns="y")
+    prob_df_binned = (
+        prob_df.groupby("y_bin", observed=False).sum().drop(columns="y")
+    )
     df_sums = prob_df_binned.sum(axis=0)
     prob_df_logbin: pd.DataFrame = (
         prob_df_binned.div(df_sums, axis=1)
@@ -144,7 +146,7 @@ def compute_skill_offset() -> None:
             input_df[label]
             .sub(input_df["mode_bin_center"])
             .gt(0)
-            .replace({True: 1, False: -1})
+            .map({True: 1, False: -1})
             .mul(diff)
         )
 

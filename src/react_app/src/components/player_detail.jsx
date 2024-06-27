@@ -6,6 +6,10 @@ import { modes } from "./constants";
 import { getBaseApiUrl, getBaseWebsocketUrl } from "./utils";
 import pako from "pako";
 import { useTranslation } from "react-i18next";
+import {
+  WeaponAndTranslationProvider,
+  useWeaponAndTranslation,
+} from "./utils/weaponAndTranslation";
 
 const ChartController = React.lazy(() =>
   import("./player_components/chart_controller")
@@ -18,7 +22,7 @@ const Achievements = React.lazy(() =>
   import("./player_components/achievements")
 );
 
-const PlayerDetail = () => {
+const PlayerDetailContent = () => {
   const { t } = useTranslation("player");
   const location = useLocation();
   const player_id = location.pathname.split("/")[2];
@@ -26,9 +30,14 @@ const PlayerDetail = () => {
   const [chartData, setChartData] = useState(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState(null);
-  const [weaponTranslations, setWeaponTranslations] = useState(null);
   const [socket, setSocket] = useState(null);
-  const [weaponReferenceData, setWeaponReferenceData] = useState(null);
+
+  const {
+    weaponTranslations,
+    weaponReferenceData,
+    isLoading: isWeaponDataLoading,
+    error: weaponDataError,
+  } = useWeaponAndTranslation();
 
   useEffect(() => {
     const fetchData = async () => {
@@ -36,7 +45,6 @@ const PlayerDetail = () => {
       document.title = t("document_title_loading");
       const apiUrl = getBaseApiUrl();
       const endpoint = `${apiUrl}/api/player/${player_id}`;
-      const translationEndpoint = `${apiUrl}/api/game_translation`;
       const baseWebsocketUrl = getBaseWebsocketUrl();
       const websocketEndpoint = `${baseWebsocketUrl}/ws/player/${player_id}`;
 
@@ -49,9 +57,6 @@ const PlayerDetail = () => {
             response.data[0].splashtag
           );
         }
-
-        const translationsResponse = await axios.get(translationEndpoint);
-        setWeaponTranslations(translationsResponse.data);
 
         if (socket) {
           socket.close();
@@ -90,36 +95,6 @@ const PlayerDetail = () => {
       } finally {
         setIsLoading(false);
       }
-
-      const localData = localStorage.getItem("weaponReferenceData");
-      const cacheExpiration = localStorage.getItem(
-        "weaponReferenceDataExpiration"
-      );
-      const now = new Date();
-      const midnightUTC = new Date(
-        Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate() + 1)
-      );
-
-      if (localData && cacheExpiration && new Date(cacheExpiration) > now) {
-        setWeaponReferenceData(JSON.parse(localData));
-      } else {
-        try {
-          const referenceResponse = await axios.get(
-            `${apiUrl}/api/weapon_info`
-          );
-          setWeaponReferenceData(referenceResponse.data);
-          localStorage.setItem(
-            "weaponReferenceData",
-            JSON.stringify(referenceResponse.data)
-          );
-          localStorage.setItem(
-            "weaponReferenceDataExpiration",
-            midnightUTC.toISOString()
-          );
-        } catch (error) {
-          console.error("Error fetching weapon reference data:", error);
-        }
-      }
     };
 
     fetchData();
@@ -129,60 +104,76 @@ const PlayerDetail = () => {
         socket.close();
       }
     };
-  }, [player_id]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [player_id, t]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  if (isLoading || isWeaponDataLoading) {
+    return (
+      <div className="flex justify-center items-center h-full">
+        <Loading text={t("load_page")} />
+      </div>
+    );
+  }
+
+  if (error || weaponDataError) {
+    return (
+      <div className="text-red-500 text-center">
+        {(error || weaponDataError).message}
+      </div>
+    );
+  }
 
   return (
-    <div className="flex flex-col min-h-screen">
-      <header className="text-3xl font-bold mb-4 text-center text-white">
-        {t("page_title")}
-      </header>
-      <main className="flex-grow container mx-auto px-4 py-8 bg-gray-900 text-white overflow-auto">
-        {isLoading ? (
-          <div className="flex justify-center items-center h-full">
-            <Loading text={t("load_page")} />
-          </div>
-        ) : error ? (
-          <div className="text-red-500 text-center">{error.message}</div>
-        ) : (
-          <Suspense fallback={<Loading text={t("load_component")} />}>
-            {data && data.length > 0 ? (
-              <div className="flex flex-col md:flex-row">
-                <div className="md:w-2/5 md:pr-8">
-                  <Aliases data={data} />
-                  {chartData ? (
-                    <>
-                      <SeasonResults
-                        data={chartData}
-                        weaponReferenceData={weaponReferenceData}
-                      />
-                      <Achievements data={chartData} />
-                    </>
-                  ) : (
-                    <Loading text={t("load_results")} />
-                  )}
-                </div>
-                <div className="md:w-3/5 mt-8 md:mt-0">
-                  {chartData ? (
-                    <ChartController
-                      data={chartData}
-                      modes={modes}
-                      weaponTranslations={
-                        weaponTranslations[t("data_lang_key")]
-                      }
-                      weaponReferenceData={weaponReferenceData}
-                    />
-                  ) : (
-                    <Loading text={t("load_chart")} />
-                  )}
-                </div>
-              </div>
+    <Suspense fallback={<Loading text={t("load_component")} />}>
+      {data && data.length > 0 ? (
+        <div className="flex flex-col md:flex-row">
+          <div className="md:w-2/5 md:pr-8">
+            <Aliases data={data} />
+            {chartData ? (
+              <>
+                <SeasonResults
+                  data={chartData}
+                  weaponReferenceData={weaponReferenceData}
+                />
+                <Achievements data={chartData} />
+              </>
             ) : (
-              <div className="text-center">{t("no_data")}</div>
+              <Loading text={t("load_results")} />
             )}
-          </Suspense>
-        )}
-      </main>
-    </div>
+          </div>
+          <div className="md:w-3/5 mt-8 md:mt-0">
+            {chartData ? (
+              <ChartController
+                data={chartData}
+                modes={modes}
+                weaponTranslations={weaponTranslations[t("data_lang_key")]}
+                weaponReferenceData={weaponReferenceData}
+              />
+            ) : (
+              <Loading text={t("load_chart")} />
+            )}
+          </div>
+        </div>
+      ) : (
+        <div className="text-center">{t("no_data")}</div>
+      )}
+    </Suspense>
+  );
+};
+
+const PlayerDetail = () => {
+  const { t } = useTranslation("player");
+
+  return (
+    <WeaponAndTranslationProvider>
+      <div className="flex flex-col min-h-screen">
+        <header className="text-3xl font-bold mb-4 text-center text-white">
+          {t("page_title")}
+        </header>
+        <main className="flex-grow container mx-auto px-4 py-8 bg-gray-900 text-white overflow-auto">
+          <PlayerDetailContent />
+        </main>
+      </div>
+    </WeaponAndTranslationProvider>
   );
 };
 

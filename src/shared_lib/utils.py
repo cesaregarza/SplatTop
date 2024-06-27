@@ -1,13 +1,20 @@
 import datetime as dt
-from functools import cache
 
+import orjson
 import requests
+from cachetools import TTLCache, cached
 
 from shared_lib.constants import BASE_CDN_URL
 
 WEAPON_XREF_PATH = "assets/weapon_flat/WeaponInfoMain.json"
 BADGE_XREF_PATH = "assets/badge/BadgeInfo.json"
 BANNER_XREF_PATH = "assets/npl/NamePlateBgInfo.json"
+WEAPON_PROCESSED_PATH = "https://splat.top/api/weapon_info"
+
+weapon_cache = TTLCache(maxsize=100, ttl=3600)
+badge_cache = TTLCache(maxsize=100, ttl=3600)
+banner_cache = TTLCache(maxsize=100, ttl=3600)
+alt_weapon_cache = TTLCache(maxsize=100, ttl=3600)
 
 
 def get_seasons(now_date: dt.datetime) -> list[tuple[dt.datetime, str]]:
@@ -61,17 +68,17 @@ def calculate_cache_refresh(
     return False
 
 
-@cache
-def get_weapon_xref() -> dict:
+@cached(weapon_cache)
+def get_weapon_xref() -> list[dict]:
     return requests.get(f"{BASE_CDN_URL}{WEAPON_XREF_PATH}").json()
 
 
-@cache
+@cached(badge_cache)
 def get_badge_xref() -> dict:
     return requests.get(f"{BASE_CDN_URL}{BADGE_XREF_PATH}").json()
 
 
-@cache
+@cached(banner_cache)
 def get_banner_xref() -> dict:
     return requests.get(f"{BASE_CDN_URL}{BANNER_XREF_PATH}").json()
 
@@ -114,3 +121,14 @@ def get_badge_image(badge_id: int | str | None) -> str:
 def get_banner_image(banner_id: int) -> str:
     name = get_banner_name(banner_id)
     return f"{BASE_CDN_URL}assets/npl/Npl_{name}.png"
+
+
+@cached(alt_weapon_cache)
+def get_all_alt_kits() -> dict[str, str]:
+    response = requests.get(WEAPON_PROCESSED_PATH)
+    weapon_xref: dict[str, dict] = orjson.loads(response.content)
+    return {
+        key: str(value["reference_id"])
+        for key, value in weapon_xref.items()
+        if str(value["reference_id"]) != str(key)
+    }
