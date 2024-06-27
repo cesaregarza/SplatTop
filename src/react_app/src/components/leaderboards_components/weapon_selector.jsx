@@ -4,6 +4,7 @@ import {
   getImageFromId,
   createTranslator,
 } from "../player_components/weapon_helper_functions";
+import { FaTimes } from "react-icons/fa";
 
 const WeaponSelector = ({
   onWeaponSelect,
@@ -12,7 +13,7 @@ const WeaponSelector = ({
   initialWeaponId,
   allowNull = false,
 }) => {
-  const { t } = useTranslation();
+  const { t } = useTranslation("main");
   const [selectedWeapon, setSelectedWeapon] = useState(
     initialWeaponId !== undefined && initialWeaponId !== null
       ? initialWeaponId.toString()
@@ -33,6 +34,12 @@ const WeaponSelector = ({
     onWeaponSelect(weaponId);
     setIsOpen(false);
     setSearchTerm("");
+  };
+
+  const handleClearWeapon = (e) => {
+    e.stopPropagation();
+    setSelectedWeapon(null);
+    onWeaponSelect(null);
   };
 
   useEffect(() => {
@@ -126,6 +133,15 @@ const WeaponSelector = ({
               />
             </div>
             <span>{translateWeaponId(selectedWeapon)}</span>
+            {allowNull && (
+              <button
+                onClick={handleClearWeapon}
+                className="ml-auto p-1 hover:bg-gray-700 rounded"
+                aria-label="Clear weapon selection"
+              >
+                <FaTimes size={14} />
+              </button>
+            )}
           </div>
         ) : (
           <input
@@ -151,7 +167,10 @@ const WeaponSelector = ({
         </svg>
       </div>
       {isOpen && (
-        <div ref={scrollRef} className="absolute z-10 w-full mt-1 bg-gray-800 border border-gray-700 rounded shadow-lg max-h-60 overflow-y-auto">
+        <div
+          ref={scrollRef}
+          className="absolute z-10 w-full mt-1 bg-gray-800 border border-gray-700 rounded shadow-lg max-h-60 overflow-y-auto"
+        >
           {allowNull && (
             <div
               className="flex items-center px-3 py-2 cursor-pointer hover:bg-gray-700"

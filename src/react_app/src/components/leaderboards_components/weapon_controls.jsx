@@ -2,6 +2,7 @@ import React, { Suspense } from "react";
 import { useTranslation } from "react-i18next";
 import Loading from "../misc_components/loading";
 import { useWeaponAndTranslation } from "../utils/weaponAndTranslation";
+import { FaExchangeAlt } from "react-icons/fa";
 
 const RegionSelector = React.lazy(() =>
   import("../top500_components/selectors/region_selector")
@@ -25,6 +26,7 @@ const WeaponLeaderboardControls = ({
   setThreshold,
   finalResults,
   toggleFinalResults,
+  handleSwapWeapons,
 }) => {
   const { t } = useTranslation("main_page");
   const { t: pl } = useTranslation("player");
@@ -69,7 +71,7 @@ const WeaponLeaderboardControls = ({
           />
         </div>
       </div>
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-4">
+      <div className="flex flex-col sm:flex-row items-center justify-center gap-4 mb-2 sm:mb-4">
         {weaponReferenceDataById && weaponTranslations && (
           <>
             <div className="flex flex-col items-center">
@@ -83,6 +85,18 @@ const WeaponLeaderboardControls = ({
                 initialWeaponId={weaponId}
               />
             </div>
+            <button
+              onClick={handleSwapWeapons}
+              className={`bg-purple-500 hover:bg-purple-700 text-white font-bold p-2 rounded my-2 sm:my-0 ${
+                additionalWeaponId === null
+                  ? "opacity-50 cursor-not-allowed"
+                  : ""
+              }`}
+              aria-label="Swap weapons"
+              disabled={additionalWeaponId === null}
+            >
+              <FaExchangeAlt />
+            </button>
             <div className="flex flex-col items-center">
               <span className="mb-2 text-center text-lg font-semibold text-purple-400">
                 {t("weapon_select_alt")}
@@ -99,7 +113,7 @@ const WeaponLeaderboardControls = ({
         )}
       </div>
       <ThresholdSelector threshold={threshold} setThreshold={setThreshold} />
-      <div className="flex flex-col justify-center items-center mb-6">
+      <div className="flex flex-col justify-center items-center mb-4 sm:mb-6">
         <label
           htmlFor="toggleFinalResults"
           className="inline-flex items-center cursor-pointer flex-col"

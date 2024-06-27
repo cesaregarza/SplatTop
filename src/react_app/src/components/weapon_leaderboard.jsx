@@ -1,10 +1,19 @@
-import React, { useEffect, useState, Suspense, useCallback } from "react";
+import React, {
+  useEffect,
+  useState,
+  Suspense,
+  useCallback,
+  useMemo,
+} from "react";
 import Loading from "./misc_components/loading";
 import { getBaseApiUrl, buildEndpointWithQueryParams } from "./utils";
 import { useTranslation } from "react-i18next";
 import useFetchWithCache from "./top500_components/fetch_with_cache";
 import { setCache, getCache } from "./utils/cache_utils";
-import { WeaponAndTranslationProvider } from "./utils/weaponAndTranslation";
+import {
+  WeaponAndTranslationProvider,
+  useWeaponAndTranslation,
+} from "./utils/weaponAndTranslation";
 import { getImageFromId } from "./player_components/weapon_helper_functions";
 
 const WeaponLeaderboardTable = React.lazy(() =>
@@ -38,7 +47,12 @@ const useFetchWeaponLeaderboardData = (
 
   const endpoint = buildEndpointWithQueryParams(apiUrl, pathUrl, queryParams);
 
-  return useFetchWithCache(endpoint);
+  const weaponSetKey = useMemo(() => {
+    const weaponSet = new Set([weaponId, additionalWeaponId]);
+    return Array.from(weaponSet).sort().join(",");
+  }, [weaponId, additionalWeaponId]);
+
+  return useFetchWithCache(endpoint, weaponSetKey);
 };
 
 const processWeaponLeaderboardData = (
@@ -77,7 +91,7 @@ const processWeaponLeaderboardData = (
     player.rank = index + 1;
   });
 
-  return playersArray;
+  return playersArray.slice(0, 500);
 };
 
 const useWeaponLeaderboardData = (
@@ -89,6 +103,11 @@ const useWeaponLeaderboardData = (
   threshold,
   finalResults = false
 ) => {
+  const weaponSetKey = useMemo(() => {
+    const weaponSet = new Set([weaponId, additionalWeaponId]);
+    return Array.from(weaponSet).sort().join(",");
+  }, [weaponId, additionalWeaponId]);
+
   const { data, error, isLoading } = useFetchWeaponLeaderboardData(
     selectedRegion,
     selectedMode,
@@ -98,11 +117,16 @@ const useWeaponLeaderboardData = (
     finalResults
   );
 
-  const players = processWeaponLeaderboardData(
-    data,
-    weaponId,
-    additionalWeaponId,
-    weaponReferenceData
+  const players = useMemo(
+    () =>
+      processWeaponLeaderboardData(
+        data,
+        weaponId,
+        additionalWeaponId,
+        weaponReferenceData,
+        finalResults
+      ),
+    [data, weaponSetKey, weaponReferenceData, finalResults] // eslint-disable-line react-hooks/exhaustive-deps
   );
 
   return { players, error, isLoading };
@@ -110,6 +134,13 @@ const useWeaponLeaderboardData = (
 
 const TopWeaponsContent = () => {
   const { t } = useTranslation("main_page");
+  const {
+    weaponReferenceData,
+    weaponTranslations,
+    isLoading: isWeaponDataLoading,
+    error: weaponDataError,
+  } = useWeaponAndTranslation();
+
   const [selectedRegion, setSelectedRegion] = useState(
     () => getCache("selectedRegion") || "Tentatek"
   );
@@ -154,14 +185,16 @@ const TopWeaponsContent = () => {
     selectedMode,
     weaponId,
     additionalWeaponId,
-    null, // We'll pass weaponReferenceData through WeaponLeaderboardControls
+    weaponReferenceData,
     threshold,
     finalResults
   );
 
   const indexOfLastItem = currentPage * itemsPerPage;
   const indexOfFirstItem = indexOfLastItem - itemsPerPage;
-  const currentItems = players.slice(indexOfFirstItem, indexOfLastItem);
+  const currentItems = useMemo(() => {
+    return players.slice(indexOfFirstItem, indexOfLastItem);
+  }, [players, indexOfFirstItem, indexOfLastItem]);
 
   const paginate = useCallback((pageNumber) => {
     setCurrentPage(pageNumber);
@@ -171,6 +204,24 @@ const TopWeaponsContent = () => {
   const toggleFinalResults = useCallback(() => {
     setFinalResults((prev) => !prev);
   }, []);
+
+  const handleSwapWeapons = () => {
+    const tempWeaponId = weaponId;
+    setWeaponId(additionalWeaponId);
+    setAdditionalWeaponId(tempWeaponId);
+  };
+
+  if (isWeaponDataLoading) {
+    return <Loading text={t("loading")} />;
+  }
+
+  if (weaponDataError) {
+    return (
+      <div className="text-red-500 text-center py-4">
+        {weaponDataError.message}
+      </div>
+    );
+  }
 
   return (
     <>
@@ -191,6 +242,9 @@ const TopWeaponsContent = () => {
           setThreshold={setThreshold}
           finalResults={finalResults}
           toggleFinalResults={toggleFinalResults}
+          weaponReferenceData={weaponReferenceData}
+          weaponTranslations={weaponTranslations}
+          handleSwapWeapons={handleSwapWeapons}
         />
         <Pagination
           totalItems={players.length}
@@ -206,10 +260,12 @@ const TopWeaponsContent = () => {
         ) : error ? (
           <div className="text-red-500 text-center py-4">{error.message}</div>
         ) : (
-          <WeaponLeaderboardTable
-            players={currentItems}
-            isFinal={finalResults}
-          />
+          <div className="overflow-x-auto">
+            <WeaponLeaderboardTable
+              players={currentItems}
+              isFinal={finalResults}
+            />
+          </div>
         )}
         <Pagination
           totalItems={players.length}
