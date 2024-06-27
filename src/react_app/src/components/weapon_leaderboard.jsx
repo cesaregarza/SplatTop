@@ -142,35 +142,38 @@ const TopWeaponsContent = () => {
   } = useWeaponAndTranslation();
 
   const [selectedRegion, setSelectedRegion] = useState(
-    () => getCache("selectedRegion") || "Tentatek"
+    () => getCache("weapons.selectedRegion") || "Tentatek"
   );
   const [selectedMode, setSelectedMode] = useState(
-    () => getCache("selectedMode") || "Splat Zones"
+    () => getCache("weapons.selectedMode") || "Splat Zones"
   );
   const [weaponId, setWeaponId] = useState(
-    () => parseInt(getCache("weaponId")) || 40
+    () => parseInt(getCache("weapons.weaponId")) || 40
   );
   const [additionalWeaponId, setAdditionalWeaponId] = useState(() => {
-    const cached = getCache("additionalWeaponId");
+    const cached = getCache("weapons.additionalWeaponId");
     return cached ? parseInt(cached) : null;
   });
   const [threshold, setThreshold] = useState(
-    () => parseInt(getCache("threshold")) || 0
+    () => parseInt(getCache("weapons.threshold")) || 0
   );
   const [currentPage, setCurrentPage] = useState(
-    () => parseInt(getCache("currentPage")) || 1
+    () => parseInt(getCache("weapons.currentPage")) || 1
   );
-  const [finalResults, setFinalResults] = useState(false);
+  const [finalResults, setFinalResults] = useState(
+    () => getCache("weapons.finalResults") === "true"
+  );
   const itemsPerPage = 100;
 
   useEffect(() => {
     document.title = `splat.top - ${selectedRegion} ${selectedMode}`;
-    setCache("selectedRegion", selectedRegion);
-    setCache("selectedMode", selectedMode);
-    setCache("weaponId", weaponId.toString());
-    setCache("additionalWeaponId", additionalWeaponId?.toString());
-    setCache("threshold", threshold.toString());
-    setCache("currentPage", currentPage.toString());
+    setCache("weapons.selectedRegion", selectedRegion);
+    setCache("weapons.selectedMode", selectedMode);
+    setCache("weapons.weaponId", weaponId.toString());
+    setCache("weapons.additionalWeaponId", additionalWeaponId?.toString());
+    setCache("weapons.threshold", threshold.toString());
+    setCache("weapons.currentPage", currentPage.toString());
+    setCache("weapons.finalResults", finalResults.toString());
   }, [
     selectedRegion,
     selectedMode,
@@ -178,6 +181,7 @@ const TopWeaponsContent = () => {
     additionalWeaponId,
     threshold,
     currentPage,
+    finalResults,
   ]);
 
   const { players, error, isLoading } = useWeaponLeaderboardData(
