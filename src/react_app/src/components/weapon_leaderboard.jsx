@@ -1,36 +1,18 @@
-import React, {
-  useEffect,
-  useState,
-  Suspense,
-  useMemo,
-  useCallback,
-} from "react";
+import React, { useEffect, useState, Suspense, useCallback } from "react";
 import Loading from "./misc_components/loading";
 import { getBaseApiUrl, buildEndpointWithQueryParams } from "./utils";
 import { useTranslation } from "react-i18next";
 import useFetchWithCache from "./top500_components/fetch_with_cache";
 import { setCache, getCache } from "./utils/cache_utils";
-import {
-  WeaponAndTranslationProvider,
-  useWeaponAndTranslation,
-} from "./utils/weaponAndTranslation";
+import { WeaponAndTranslationProvider } from "./utils/weaponAndTranslation";
 import { getImageFromId } from "./player_components/weapon_helper_functions";
 
 const WeaponLeaderboardTable = React.lazy(() =>
   import("./leaderboards_components/weapon_leaderboard_table")
 );
 const Pagination = React.lazy(() => import("./top500_components/pagination"));
-const RegionSelector = React.lazy(() =>
-  import("./top500_components/selectors/region_selector")
-);
-const ModeSelector = React.lazy(() =>
-  import("./top500_components/selectors/mode_selector")
-);
-const WeaponSelector = React.lazy(() =>
-  import("./leaderboards_components/weapon_selector")
-);
-const ThresholdSelector = React.lazy(() =>
-  import("./leaderboards_components/threshold_selector")
+const WeaponLeaderboardControls = React.lazy(() =>
+  import("./leaderboards_components/weapon_controls")
 );
 
 const useFetchWeaponLeaderboardData = (
@@ -128,28 +110,9 @@ const useWeaponLeaderboardData = (
 
 const TopWeaponsContent = () => {
   const { t } = useTranslation("main_page");
-  const { t: pl } = useTranslation("player");
-  const {
-    weaponTranslations,
-    weaponReferenceData,
-    isLoading: isWeaponDataLoading,
-    error: weaponDataError,
-  } = useWeaponAndTranslation();
-
-  const weaponReferenceDataById = useMemo(() => {
-    if (!weaponReferenceData) return {};
-    return Object.entries(weaponReferenceData).reduce((acc, [key, value]) => {
-      if (key === value.reference_id.toString()) {
-        acc[key] = value;
-      }
-      return acc;
-    }, {});
-  }, [weaponReferenceData]);
-
-  const [selectedRegion, setSelectedRegion] = useState(() => {
-    const cached = getCache("selectedRegion");
-    return cached || "Tentatek";
-  });
+  const [selectedRegion, setSelectedRegion] = useState(
+    () => getCache("selectedRegion") || "Tentatek"
+  );
   const [selectedMode, setSelectedMode] = useState(
     () => getCache("selectedMode") || "Splat Zones"
   );
@@ -191,7 +154,7 @@ const TopWeaponsContent = () => {
     selectedMode,
     weaponId,
     additionalWeaponId,
-    weaponReferenceData,
+    null, // We'll pass weaponReferenceData through WeaponLeaderboardControls
     threshold,
     finalResults
   );
@@ -209,109 +172,26 @@ const TopWeaponsContent = () => {
     setFinalResults((prev) => !prev);
   }, []);
 
-  if (isWeaponDataLoading) {
-    return (
-      <div className="text-center py-4">
-        <Loading text={t("loading")} />
-      </div>
-    );
-  }
-
-  if (weaponDataError) {
-    return (
-      <div className="text-red-500 text-center py-4">
-        {weaponDataError.message}
-      </div>
-    );
-  }
-
   return (
     <>
       <h1 className="text-3xl font-bold mb-6 text-center text-purple-300">
         {t("weapon_title")}
       </h1>
       <Suspense fallback={<Loading text={t("loading")} />}>
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-          <div className="flex flex-col items-center">
-            <RegionSelector
-              selectedRegion={selectedRegion}
-              setSelectedRegion={setSelectedRegion}
-            />
-          </div>
-          <div className="flex flex-col items-center">
-            <ModeSelector
-              selectedMode={selectedMode}
-              setSelectedMode={setSelectedMode}
-            />
-          </div>
-        </div>
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-          {weaponReferenceDataById && weaponTranslations && (
-            <>
-              <div className="flex flex-col items-center">
-                <span className="mb-2 text-center text-lg font-semibold text-purple-400">
-                  {t("weapon_select_main")}
-                </span>
-                <WeaponSelector
-                  onWeaponSelect={setWeaponId}
-                  weaponReferenceData={weaponReferenceDataById}
-                  weaponTranslations={weaponTranslations[pl("data_lang_key")]}
-                  initialWeaponId={weaponId}
-                />
-              </div>
-              <div className="flex flex-col items-center">
-                <span className="mb-2 text-center text-lg font-semibold text-purple-400">
-                  {t("weapon_select_alt")}
-                </span>
-                <WeaponSelector
-                  onWeaponSelect={setAdditionalWeaponId}
-                  weaponReferenceData={weaponReferenceDataById}
-                  weaponTranslations={weaponTranslations[pl("data_lang_key")]}
-                  initialWeaponId={additionalWeaponId}
-                  allowNull={true}
-                />
-              </div>
-            </>
-          )}
-        </div>
-        <ThresholdSelector threshold={threshold} setThreshold={setThreshold} />
-        <div className="flex flex-col justify-center items-center mb-6">
-          <label
-            htmlFor="toggleFinalResults"
-            className="inline-flex items-center cursor-pointer flex-col"
-          >
-            <div className="flex items-center">
-              <span
-                className={`text-sm font-medium mr-2 ${
-                  !finalResults ? "highlighted-option" : ""
-                }`}
-              >
-                {t("weapon_leaderboard.peak_x_power")}
-              </span>
-              <div className="relative" title="Change the scale type">
-                <input
-                  type="checkbox"
-                  id="toggleFinalResults"
-                  className="sr-only peer"
-                  checked={finalResults}
-                  onChange={toggleFinalResults}
-                />
-                <div
-                  className={`w-11 h-6 rounded-full peer peer-focus:ring-4 peer-focus:ring-purple-300 dark:peer-focus:ring-purple-800 after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:after:translate-x-5 ${
-                    finalResults ? "bg-purple" : "bg-gray-600"
-                  }`}
-                ></div>
-              </div>
-              <span
-                className={`text-sm font-medium ml-2 ${
-                  finalResults ? "highlighted-option" : ""
-                }`}
-              >
-                {t("weapon_leaderboard.final_x_power")}
-              </span>
-            </div>
-          </label>
-        </div>
+        <WeaponLeaderboardControls
+          selectedRegion={selectedRegion}
+          setSelectedRegion={setSelectedRegion}
+          selectedMode={selectedMode}
+          setSelectedMode={setSelectedMode}
+          weaponId={weaponId}
+          setWeaponId={setWeaponId}
+          additionalWeaponId={additionalWeaponId}
+          setAdditionalWeaponId={setAdditionalWeaponId}
+          threshold={threshold}
+          setThreshold={setThreshold}
+          finalResults={finalResults}
+          toggleFinalResults={toggleFinalResults}
+        />
         <Pagination
           totalItems={players.length}
           itemsPerPage={itemsPerPage}
