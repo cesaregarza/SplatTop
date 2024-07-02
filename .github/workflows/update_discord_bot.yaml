@@ -55,6 +55,7 @@ jobs:
           TF_VAR_do_token: ${{ secrets.DIGITALOCEAN_ACCESS_TOKEN }}
           TF_VAR_source_ip: ${{ steps.self_ip.outputs.self_ip }}
           TF_VAR_joy_ip: ${{ secrets.JOY_IP }}
+          TF_VAR_digitalocean_database_cluster: ${{ secrets.DIGITALOCEAN_DATABASE_CLUSTER }}
 
       - name: Terraform Apply
         id: terraform_apply
