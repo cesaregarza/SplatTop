@@ -1,0 +1,92 @@
+name: Build and Update discord bot
+
+on:
+  push:
+    branches:
+      - main
+      - feature/discord-bot
+    paths:
+      - "src/discord_bot/**"
+
+jobs:
+  discord_bot:
+    runs-on: ubuntu-latest
+    environment: SplatTop
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v3
+        with:
+          token: ${{ secrets.CI_SPLATTOP_TOKEN }}
+
+      - name: Install doctl
+        uses: digitalocean/action-doctl@v2
+        with:
+          token: ${{ secrets.DIGITALOCEAN_ACCESS_TOKEN }}
+
+      - name: Install Terraform
+        uses: hashicorp/setup-terraform@v3
+
+      - name: Login to DigitalOcean Container Registry
+        run: doctl registry login --expiry-seconds 600
+
+      - name: Build and push Docker image
+        run: |
+          docker build \
+            -t registry.digitalocean.com/sendouq/discord-bot:latest \
+            -f dockerfiles/dockerfile.discord .
+          docker push registry.digitalocean.com/sendouq/discord-bot:latest
+
+      - name: Get self IP
+        id: self_ip
+        run: |
+          SELF_IP=$(curl -s https://api.ipify.org)
+          echo $SELF_IP
+          echo "self_ip=$SELF_IP" >> $GITHUB_OUTPUT
+
+      - name: Terraform Init
+        working-directory: terraform/discord
+        run: terraform init
+
+      - name: Terraform Plan
+        working-directory: terraform/discord
+        run: terraform plan -out=tfplan -input=false
+        env:
+          TF_VAR_do_token: ${{ secrets.DIGITALOCEAN_ACCESS_TOKEN }}
+          TF_VAR_source_ip: ${{ steps.self_ip.outputs.self_ip }}
+          TF_VAR_joy_ip: ${{ secrets.JOY_IP }}
+
+      - name: Terraform Apply
+        id: terraform_apply
+        working-directory: terraform/discord
+        run: |
+          terraform apply -auto-approve tfplan
+          BOT_HOST_IP=$(terraform output -raw bot_host_ip)
+          BOT_HOST_ID=$(terraform output -raw bot_host_id)
+          echo "bot_host_ip=$BOT_HOST_IP" >> $GITHUB_OUTPUT
+          echo "bot_host_id=$BOT_HOST_ID" >> $GITHUB_OUTPUT
+
+      - name: Wait for Droplet to come online
+        run: |
+          sleep 90
+
+      - name: SSH to Droplet
+        id: ssh
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ steps.self_ip.outputs.self_ip }}
+          username: root
+          key: ${{ secrets.DIGITALOCEAN_SSH_KEY_ED }}
+          script: |
+            export PATH=$PATH:/usr/sbin
+            export DISCORD_BOT_TOKEN=${{ secrets.DISCORD_BOT_TOKEN }}
+            export DO_API_TOKEN=${{ secrets.DIGITALOCEAN_ACCESS_TOKEN }}
+            sudo apt-get update
+            sudo apt-get install -y docker.io
+            docker login -u $DO_API_TOKEN \
+              -p $DO_API_TOKEN registry.digitalocean.com/sendouq
+            docker pull registry.digitalocean.com/sendouq/discord-bot:latest
+            docker run -d --name discord-bot \
+              -e DISCORD_BOT_TOKEN=$DISCORD_BOT_TOKEN \
+              --entrypoint poetry \
+              registry.digitalocean.com/sendouq/discord-bot:latest \
+              run start_discord_bot

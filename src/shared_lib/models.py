@@ -64,7 +64,8 @@ class Player(Base):
             "Rainmaker",
             "Tower Control",
             name="mode_name",
-        )
+        ),
+        primary_key=True,
     )
     region = Column(Boolean, nullable=False)
     rotation_start = Column(DateTime(timezone=True))

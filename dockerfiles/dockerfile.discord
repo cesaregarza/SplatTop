@@ -31,7 +31,7 @@ RUN poetry config virtualenvs.create false
 FROM base AS dependencies
 
 COPY pyproject.toml poetry.lock ./
-RUN poetry install --no-root --no-dev --without scripts --without discord
+RUN poetry install --no-root --no-dev --without scripts
 
 ###############################
 #        Build Image          #
@@ -39,11 +39,13 @@ RUN poetry install --no-root --no-dev --without scripts --without discord
 FROM dependencies AS build
 
 ARG BUILD_VERSION
+ARG DISCORD_TOKEN
+
+ENV DISCORD_TOKEN=$DISCORD_TOKEN
 
 COPY README.md /app/
 COPY pyproject.toml poetry.lock /app/
-COPY src/fast_api_app /app/src/fast_api_app
-COPY src/celery_app /app/src/celery_app
+COPY src/discord_bot /app/src/discord_bot
 COPY src/shared_lib /app/src/shared_lib
 
 # Build the application
@@ -52,4 +54,4 @@ RUN poetry version $BUILD_VERSION && \
     poetry install --no-dev --without scripts && \
     poetry update
 
-CMD ["poetry", "run", "celery", "-A", "celery_app.app", "worker", "--loglevel=info"]
+CMD ["poetry", "run", "start_discord_bot"]

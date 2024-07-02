@@ -31,7 +31,7 @@ RUN poetry config virtualenvs.create false
 FROM base AS dependencies
 
 COPY pyproject.toml poetry.lock ./
-RUN poetry install --no-root --no-dev --without scripts
+RUN poetry install --no-root --no-dev --without scripts --without discord
 
 ###############################
 #        Build Image          #
