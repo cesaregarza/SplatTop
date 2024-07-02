@@ -10,6 +10,7 @@ terraform {
 variable "source_ip" {}
 variable "joy_ip" {}
 variable "do_token" {}
+variable "database_cluster_name" {}
 
 provider "digitalocean" {
   token = var.do_token
