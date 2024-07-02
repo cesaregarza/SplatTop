@@ -44,6 +44,7 @@ COPY README.md /app/
 COPY pyproject.toml poetry.lock /app/
 COPY src/fast_api_app /app/src/fast_api_app
 COPY src/celery_app /app/src/celery_app
+COPY src/discord_bot /app/src/discord_bot
 COPY src/shared_lib /app/src/shared_lib
 
 # Build the application
