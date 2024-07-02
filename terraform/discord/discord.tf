@@ -18,6 +18,7 @@ provider "digitalocean" {
 module "digitalocean_infra" {
   source   = "../digitalocean_infra"
   do_token = var.do_token
+  database_cluster_name = var.database_cluster_name
 }
 
 resource "digitalocean_droplet" "splattop_discord" {
