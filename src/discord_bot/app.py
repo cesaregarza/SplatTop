@@ -22,7 +22,7 @@ async def on_message(message: discord.Message):
         return
 
     if message.content.startswith("!hello"):
-        await message.channel.send("Hello!")
+        await message.channel.send("Hello! I'm alive!")
 
 
 client.run(os.getenv("DISCORD_BOT_TOKEN"))
