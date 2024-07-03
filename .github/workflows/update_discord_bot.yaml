@@ -73,6 +73,7 @@ jobs:
 
       - name: SSH to Droplet
         id: ssh
+        continue-on-error: true
         uses: appleboy/ssh-action@v1.0.3
         with:
           host: ${{ steps.self_ip.outputs.self_ip }}
