@@ -92,3 +92,40 @@ jobs:
               --entrypoint poetry \
               registry.digitalocean.com/sendouq/discord-bot:latest \
               run start_discord_bot
+
+      - name: Sleep if droplet is still not ready
+        id: resleep
+        if: ${{ steps.ssh.outcome == 'failure' }}
+        run: |
+          sleep 60
+
+      - name: SSH to Droplet
+        id: ressh
+        if: ${{ steps.ssh.outcome == 'failure' }}
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ steps.self_ip.outputs.self_ip }}
+          username: root
+          key: ${{ secrets.DIGITALOCEAN_SSH_KEY_ED }}
+          script: |
+            export PATH=$PATH:/usr/sbin
+            export DISCORD_BOT_TOKEN=${{ secrets.DISCORD_BOT_TOKEN }}
+            export DO_API_TOKEN=${{ secrets.DIGITALOCEAN_ACCESS_TOKEN }}
+            sudo apt-get update
+            sudo apt-get install -y docker.io
+            docker login -u $DO_API_TOKEN \
+              -p $DO_API_TOKEN registry.digitalocean.com/sendouq
+            docker pull registry.digitalocean.com/sendouq/discord-bot:latest
+            docker run -d --name discord-bot \
+              -e DISCORD_BOT_TOKEN=$DISCORD_BOT_TOKEN \
+              --entrypoint poetry \
+              registry.digitalocean.com/sendouq/discord-bot:latest \
+              run start_discord_bot
+
+      - name: kill droplet if fail
+        if: ${{ failure() && steps.terraform_apply.outcome == 'success' }}
+        run: |
+          DROPLET_ID=${{ steps.terraform_apply.outputs.bot_host_id }}
+          curl -X DELETE "https://api.digitalocean.com/v2/droplets/$DROPLET_ID" \
+          -H "Authorization: Bearer ${{ secrets.DIGITALOCEAN_ACCESS_TOKEN }}" \
+          -H "Content-Type: application/json"
