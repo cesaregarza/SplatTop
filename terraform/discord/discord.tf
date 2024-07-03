@@ -30,18 +30,6 @@ resource "digitalocean_droplet" "splattop_discord" {
     ssh_keys = module.digitalocean_infra.ssh_key_ids
 }
 
-resource "digitalocean_database_firewall" "splattop_discord" {
-    cluster_id = module.digitalocean_infra.database_cluster_id
-    rule {
-        type = "ip_addr"
-        value = digitalocean_droplet.splattop_discord.ipv4_address
-    }
-    rule {
-        type = "ip_addr"
-        value = var.joy_ip
-    }
-}
-
 output "bot_host_ip" {
     value = digitalocean_droplet.splattop_discord.ipv4_address
 }
