@@ -69,7 +69,7 @@ jobs:
 
       - name: Wait for Droplet to come online
         run: |
-          sleep 180
+          sleep 90
 
       - name: SSH to Droplet
         id: ssh

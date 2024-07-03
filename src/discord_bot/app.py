@@ -25,4 +25,7 @@ async def on_message(message: discord.Message):
         await message.channel.send("Hello! I'm alive!")
 
 
+logger.info("Starting discord bot")
+logger.debug(f"Token: {os.getenv('DISCORD_BOT_TOKEN')}") # Not accessible to anyone anyway
+
 client.run(os.getenv("DISCORD_BOT_TOKEN"))
