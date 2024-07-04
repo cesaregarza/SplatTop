@@ -33,7 +33,7 @@ async def on_message(message: discord.Message):
         return
 
     if message.content.startswith("!hello"):
-        await message.channel.send("Hello! I'm alive!!")
+        await message.channel.send("Hello! I'm alive!")
 
 
 logger.info("Starting discord bot")
