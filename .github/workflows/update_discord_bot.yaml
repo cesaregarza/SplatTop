@@ -116,7 +116,14 @@ jobs:
 
       - name: Save tfplan to S3
         if: ${{ steps.terraform_apply.outcome == 'success' }}
-        run: s3cmd put tfplan s3://splat-top/discord/tfplan
+        run: |
+          if [ -f tfplan ]; then
+            s3cmd put tfplan s3://splat-top/discord/tfplan
+          else
+            echo "tfplan file not found. Listing current directory:"
+            ls -la
+            exit 0
+          fi
 
       - name: Wait for Droplet to come online
         run: |
