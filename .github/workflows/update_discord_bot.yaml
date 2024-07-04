@@ -62,14 +62,31 @@ jobs:
 
       - name: Get existing tfplan from S3 if exists
         id: get_tfplan
+        working-directory: terraform/discord
         run: |
-          s3cmd get s3://splat-top/discord/tfplan tfplan  || true
-          if [ -f tfplan ]; then
-            echo "tfplan exists"
+          # Check S3CMD configuration
+          echo "S3CMD Configuration:"
+          s3cmd --dump-config | grep -v -e secret_key -e access_key
+
+          # Attempt to list bucket contents
+          echo "Attempting to list bucket contents:"
+          s3cmd ls s3://splat-top/discord/ || echo "Failed to list bucket contents"
+
+          # Attempt to get the tfplan file
+          echo "Attempting to get tfplan file:"
+          if s3cmd get s3://splat-top/discord/tfplan tfplan; then
+            echo "Successfully retrieved tfplan from S3"
             echo "tfplan_exists=true" >> $GITHUB_OUTPUT
           else
-            echo "tfplan does not exist"
+            echo "Failed to retrieve tfplan from S3"
             echo "tfplan_exists=false" >> $GITHUB_OUTPUT
+          fi
+
+          # Check if file exists locally
+          if [ -f tfplan ]; then
+            echo "tfplan file exists locally"
+          else
+            echo "tfplan file does not exist locally"
           fi
 
       - name: Terraform Plan
