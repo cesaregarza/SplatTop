@@ -10,7 +10,9 @@ logging.basicConfig(level=logging.DEBUG)
 # Add a handler to stdout
 handler = logging.StreamHandler()
 handler.setLevel(logging.DEBUG)
-formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
+formatter = logging.Formatter(
+    "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
+)
 handler.setFormatter(formatter)
 logger.addHandler(handler)
 
@@ -35,6 +37,8 @@ async def on_message(message: discord.Message):
 
 
 logger.info("Starting discord bot")
-logger.debug(f"Token: {os.getenv('DISCORD_BOT_TOKEN')}") # Not accessible to anyone anyway
+logger.debug(
+    f"Token: {os.getenv('DISCORD_BOT_TOKEN')}"
+)  # Not accessible to anyone anyway
 
 client.run(os.getenv("DISCORD_BOT_TOKEN"))
