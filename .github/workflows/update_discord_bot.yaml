@@ -27,6 +27,18 @@ jobs:
       - name: Install Terraform
         uses: hashicorp/setup-terraform@v3
 
+      - name: Install s3cmd
+        run: sudo apt-get install s3cmd
+
+      - name: Configure s3cmd to use DigitalOcean Spaces
+        run: |
+          echo "[default]
+          access_key = ${{ secrets.DO_SPACES_KEY }}
+          secret_key = ${{ secrets.DO_SPACES_SECRET }}
+          host_base = ${{ secrets.DO_SPACES_ENDPOINT }}
+          host_bucket = %(bucket)s.${{ secrets.DO_SPACES_ENDPOINT }}
+          use_https = True" > ~/.s3cfg
+
       - name: Login to DigitalOcean Container Registry
         run: doctl registry login --expiry-seconds 600
 
@@ -48,9 +60,27 @@ jobs:
         working-directory: terraform/discord
         run: terraform init
 
+      - name: Get existing tfplan from S3 if exists
+        id: get_tfplan
+        run: |
+          s3cmd get s3://splat-top/discord/tfplan tfplan  || true
+          if [ -f tfplan ]; then
+            echo "tfplan exists"
+            echo "tfplan_exists=true" >> $GITHUB_OUTPUT
+          else
+            echo "tfplan does not exist"
+            echo "tfplan_exists=false" >> $GITHUB_OUTPUT
+          fi
+
       - name: Terraform Plan
         working-directory: terraform/discord
-        run: terraform plan -out=tfplan -input=false
+        run: |
+          if [ "${{ steps.get_tfplan.outputs.tfplan_exists }}" = "true" ]; then
+            terraform show -json tfplan > tfplan.json
+            terraform plan -out=tfplan -input=false
+          else
+            terraform plan -out=tfplan -input=false
+          fi
         env:
           TF_VAR_do_token: ${{ secrets.DIGITALOCEAN_ACCESS_TOKEN }}
           TF_VAR_source_ip: ${{ steps.self_ip.outputs.self_ip }}
@@ -66,6 +96,10 @@ jobs:
           BOT_HOST_ID=$(terraform output -raw bot_host_id)
           echo "bot_host_ip=$BOT_HOST_IP" >> $GITHUB_OUTPUT
           echo "bot_host_id=$BOT_HOST_ID" >> $GITHUB_OUTPUT
+
+      - name: Save tfplan to S3
+        if: ${{ steps.terraform_apply.outcome == 'success' }}
+        run: s3cmd put tfplan s3://splat-top/discord/tfplan
 
       - name: Wait for Droplet to come online
         run: |
