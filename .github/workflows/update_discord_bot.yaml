@@ -35,8 +35,8 @@ jobs:
           echo "[default]
           access_key = ${{ secrets.DO_SPACES_KEY }}
           secret_key = ${{ secrets.DO_SPACES_SECRET }}
-          host_base = ${{ secrets.DO_SPACES_ENDPOINT }}
-          host_bucket = %(bucket)s.${{ secrets.DO_SPACES_ENDPOINT }}
+          host_base = nyc3.digitaloceanspaces.com
+          host_bucket = %(bucket)s.nyc3.digitaloceanspaces.com
           use_https = True" > ~/.s3cfg
 
       - name: Login to DigitalOcean Container Registry
