@@ -3,11 +3,12 @@ import os
 
 import discord
 
+from discord_bot.events.on_message import on_message as on_message_fn
+
 logger = logging.getLogger(__name__)
 
 logging.basicConfig(level=logging.DEBUG)
 
-# Add a handler to stdout
 handler = logging.StreamHandler()
 handler.setLevel(logging.DEBUG)
 formatter = logging.Formatter(
@@ -29,16 +30,11 @@ async def on_ready():
 
 @client.event
 async def on_message(message: discord.Message):
-    if message.author == client.user:
-        return
-
-    if message.content.startswith("!hello"):
-        await message.channel.send("Hello! I'm alive!!")
+    await on_message_fn(client, message)
 
 
 logger.info("Starting discord bot")
-logger.debug(
-    f"Token: {os.getenv('DISCORD_BOT_TOKEN')}"
-)  # Not accessible to anyone anyway
 
-client.run(os.getenv("DISCORD_BOT_TOKEN"))
+
+def run():
+    client.run(os.getenv("DISCORD_BOT_TOKEN"))

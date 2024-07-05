@@ -47,7 +47,7 @@ anthropic = "^0.30.0"
 
 [tool.poetry.scripts]
 run_dev = "fast_api_app.app:run_dev"
-start_discord_bot = "discord_bot.app:start_discord_bot"
+start_discord_bot = "discord_bot.app:run"
 
 [build-system]
 requires = ["poetry-core"]

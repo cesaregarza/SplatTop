@@ -64,8 +64,11 @@ jobs:
             -backend-config="secret_key=${{ secrets.DO_SPACES_SECRET_DISCORD }}"
 
       - name: Terraform Plan
+        id: tf_plan
         working-directory: terraform/discord
-        run: terraform plan -out=tfplan
+        run: |
+          terraform plan -out=tfplan -detailed-exitcode
+          echo "exitcode=$?" >> $GITHUB_OUTPUT
         env:
           TF_VAR_do_token: ${{ secrets.DIGITALOCEAN_ACCESS_TOKEN }}
           TF_VAR_source_ip: ${{ steps.self_ip.outputs.self_ip }}
@@ -74,6 +77,7 @@ jobs:
 
       - name: Terraform Apply
         id: terraform_apply
+        if: steps.tf_plan.outputs.exitcode == '2'
         working-directory: terraform/discord
         run: |
           terraform apply -auto-approve tfplan
@@ -83,11 +87,13 @@ jobs:
           echo "bot_host_id=$BOT_HOST_ID" >> $GITHUB_OUTPUT
 
       - name: Wait for Droplet to come online
+        if: steps.tf_plan.outputs.exitcode == '2'
         run: |
           sleep 90
 
-      - name: SSH to Droplet
-        id: ssh
+      - name: SSH to Droplet (New Infrastructure)
+        id: ssh_new
+        if: steps.tf_plan.outputs.exitcode == '2'
         continue-on-error: true
         uses: appleboy/ssh-action@v1.0.3
         with:
@@ -98,6 +104,7 @@ jobs:
             export PATH=$PATH:/usr/sbin
             export DISCORD_BOT_TOKEN=${{ secrets.DISCORD_BOT_TOKEN }}
             export DO_API_TOKEN=${{ secrets.DIGITALOCEAN_ACCESS_TOKEN }}
+            export ANTHROPIC_API_TOKEN=${{ secrets.DISCORD_ANTHROPIC_API_KEY }}
             sudo apt-get update
             sudo apt-get install -y docker.io
             docker login -u $DO_API_TOKEN \
@@ -111,13 +118,13 @@ jobs:
 
       - name: Sleep if droplet is still not ready
         id: resleep
-        if: ${{ steps.ssh.outcome == 'failure' }}
+        if: ${{ steps.tf_plan.outputs.exitcode == '2' && steps.ssh_new.outcome == 'failure' }}
         run: |
           sleep 60
 
-      - name: SSH to Droplet
-        id: ressh
-        if: ${{ steps.ssh.outcome == 'failure' }}
+      - name: SSH to Droplet (Retry New Infrastructure)
+        id: ressh_new
+        if: ${{ steps.tf_plan.outputs.exitcode == '2' && steps.ssh_new.outcome == 'failure' }}
         uses: appleboy/ssh-action@v1.0.3
         with:
           host: ${{ steps.terraform_apply.outputs.bot_host_ip }}
@@ -127,11 +134,42 @@ jobs:
             export PATH=$PATH:/usr/sbin
             export DISCORD_BOT_TOKEN=${{ secrets.DISCORD_BOT_TOKEN }}
             export DO_API_TOKEN=${{ secrets.DIGITALOCEAN_ACCESS_TOKEN }}
+            export ANTHROPIC_API_TOKEN=${{ secrets.DISCORD_ANTHROPIC_API_KEY }}
             sudo apt-get update
             sudo apt-get install -y docker.io
             docker login -u $DO_API_TOKEN \
               -p $DO_API_TOKEN registry.digitalocean.com/sendouq
             docker pull registry.digitalocean.com/sendouq/discord-bot:latest
+            docker run -d --name discord-bot \
+              -e DISCORD_BOT_TOKEN=$DISCORD_BOT_TOKEN \
+              --entrypoint poetry \
+              registry.digitalocean.com/sendouq/discord-bot:latest \
+              run start_discord_bot
+
+      - name: Fetch Droplet IP
+        id: fetch_droplet_ip
+        if: steps.tf_plan.outputs.exitcode == '0'
+        run: |
+          BOT_HOST_IP=$(doctl compute droplet list --format "PublicIPv4" --no-header --filter "name=discord-bot")
+          echo "bot_host_ip=$BOT_HOST_IP" >> $GITHUB_OUTPUT
+
+      - name: SSH to Existing Droplet (No Infrastructure Changes)
+        if: steps.tf_plan.outputs.exitcode == '0'
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ steps.fetch_droplet_ip.outputs.bot_host_ip }}
+          username: root
+          key: ${{ secrets.DIGITALOCEAN_SSH_KEY_ED }}
+          script: |
+            export PATH=$PATH:/usr/sbin
+            export DISCORD_BOT_TOKEN=${{ secrets.DISCORD_BOT_TOKEN }}
+            export DO_API_TOKEN=${{ secrets.DIGITALOCEAN_ACCESS_TOKEN }}
+            export ANTHROPIC_API_TOKEN=${{ secrets.DISCORD_ANTHROPIC_API_KEY }}
+            docker login -u $DO_API_TOKEN \
+              -p $DO_API_TOKEN registry.digitalocean.com/sendouq
+            docker pull registry.digitalocean.com/sendouq/discord-bot:latest
+            docker stop discord-bot || true
+            docker rm discord-bot || true
             docker run -d --name discord-bot \
               -e DISCORD_BOT_TOKEN=$DISCORD_BOT_TOKEN \
               --entrypoint poetry \
