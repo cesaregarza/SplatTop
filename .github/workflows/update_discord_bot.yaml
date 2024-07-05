@@ -150,7 +150,11 @@ jobs:
         id: fetch_droplet_ip
         if: steps.tf_plan.outputs.exitcode == '0'
         run: |
-          BOT_HOST_IP=$(doctl compute droplet list --format "PublicIPv4" --no-header --filter "name=discord-bot")
+          BOT_HOST_IP=$(doctl compute droplet list \
+            --format "PublicIPv4,Name" \
+            --no-header | \
+            grep "splattop-discord" | \
+            awk '{print $1}')
           echo "bot_host_ip=$BOT_HOST_IP" >> $GITHUB_OUTPUT
 
       - name: SSH to Existing Droplet (No Infrastructure Changes)
