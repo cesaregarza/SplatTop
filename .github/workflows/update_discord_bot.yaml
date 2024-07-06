@@ -2,12 +2,12 @@ name: Build and Update discord bot
 
 on:
   workflow_dispatch:
-  push:
-    branches:
-      - main
-      - feature/discord-bot
-    paths:
-      - "src/discord_bot/**"
+  # push:
+  #   branches:
+  #     - main
+  #     - feature/discord-bot
+  #   paths:
+  #     - "src/discord_bot/**"
 
 jobs:
   discord_bot:

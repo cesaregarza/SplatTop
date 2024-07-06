@@ -71,3 +71,29 @@ def locked_function(
         return wrapper
 
     return decorator
+
+
+def extract_from_message(message: str, tag: str) -> str:
+    """Given a message and a tag, extract the value associated with the tag.
+
+    For example, given the following message:
+    ```
+    <tag1>value1</tag1>
+    <tag2>value2</tag2>
+    ```
+
+    Calling `extract_from_message(message, "tag1")` would return
+    `"value1"`, and calling `extract_from_message(message, "tag2")`
+    would return `"value2"`.
+
+    Args:
+        message (str): The message to extract the value from.
+        tag (str): The tag to extract the value for.
+
+    Returns:
+        str: The extracted value.
+    """
+    start_tag = f"<{tag}>"
+    end_tag = f"</{tag}>"
+
+    return message.split(start_tag)[1].split(end_tag)[0].strip()
