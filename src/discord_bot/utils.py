@@ -1,4 +1,5 @@
 import asyncio
+from discord.ext import commands
 from functools import wraps
 from typing import Awaitable, Callable, ParamSpec, TypeVar
 
@@ -8,12 +9,12 @@ P = ParamSpec("P")
 locks: dict[str, asyncio.Lock] = {}
 
 
-def locked_function(
+def locked_check(
     locking_group: str,
 ) -> Callable[[Callable[P, Awaitable[T]]], Callable[P, Awaitable[T]]]:
-    """A decorator that provides a locking mechanism for asynchronous functions.
+    """A decorator that provides a locking mechanism check for Discord commands.
 
-    This decorator ensures that only one execution of the decorated function
+    This decorator ensures that only one execution of the decorated command
     can occur at a time for a given locking_group. If the lock is already
     active, subsequent calls will be rejected.
 
@@ -22,14 +23,44 @@ def locked_function(
 
     Returns:
         Callable[[Callable[P, Awaitable[T]]], Callable[P, Awaitable[T]]]:
-            A decorator function.
+            A decorator that can be applied to a command.
 
     Example:
-        @lock("my_lock_group")
-        async def my_function():
-            # This function will be locked under "my_lock_group"
+        @commands.command(name="my_command)
+        @locked_check("my_lock_group")
+        async def my_function(ctx: commands.Context, ...):
+            # This command will be locked under "my_lock_group"
             ...
     """
+
+    async def predicate(*args) -> bool:
+        """The predicate for the command.
+
+        Args:
+            *args: Arguments for Discord compatibility (unused).
+
+        Returns:
+            bool: Whether the lock is available.
+        """
+        return locking_group not in locks or not locks[locking_group].locked()
+
+    async def before_invoke(*args) -> None:
+        """Function to be run before invocation.
+
+        Args:
+            *args: Arguments for Discord compatibility (unused).
+        """
+        if locking_group not in locks:
+            locks[locking_group] = asyncio.Lock()
+        await locks[locking_group].acquire()
+
+    async def after_invoke(*args) -> None:
+        """Function to be run after invocation.
+
+        Args:
+            *args: Arguments for Discord compatibility (unused).
+        """
+        locks[locking_group].release()
 
     def decorator(func: Callable[P, Awaitable[T]]) -> Callable[P, Awaitable[T]]:
         """The actual decorator applied to the function.
@@ -41,34 +72,11 @@ def locked_function(
         Returns:
             Callable[P, Awaitable[T]]: The wrapped function.
         """
-
-        @wraps(func)
-        async def wrapper(*args: P.args, **kwargs: P.kwargs) -> T:
-            """The wrapper function that applies the locking mechanism.
-
-            Args:
-                *args: Positional arguments to pass to the decorated function.
-                **kwargs: Keyword arguments to pass to the decorated function.
-
-            Returns:
-                T: The return value of the decorated function.
-
-            Raises:
-                RuntimeError: If the lock is already active.
-            """
-            if locking_group not in locks:
-                locks[locking_group] = asyncio.Lock()
-
-            if locks[locking_group].locked():
-                raise RuntimeError(
-                    f"Lock for '{locking_group}' is already active. Function "
-                    "execution rejected."
-                )
-
-            async with locks[locking_group]:
-                return await func(*args, **kwargs)
-
-        return wrapper
+        return commands.check(predicate)(
+            commands.before_invoke(before_invoke)(
+                commands.after_invoke(after_invoke)(func)
+            )
+        )
 
     return decorator
 

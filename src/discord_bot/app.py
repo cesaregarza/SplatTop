@@ -2,8 +2,9 @@ import logging
 import os
 
 import discord
+from discord.ext import commands
 
-from discord_bot.events.on_message import on_message as on_message_fn
+from discord_bot.bot import MyBot
 
 logger = logging.getLogger(__name__)
 
@@ -17,24 +18,9 @@ formatter = logging.Formatter(
 handler.setFormatter(formatter)
 logger.addHandler(handler)
 
-intents = discord.Intents.default()
-intents.message_content = True
-
-client = discord.Client(intents=intents)
-
-
-@client.event
-async def on_ready():
-    logger.info(f"Logged in as {client.user}")
-
-
-@client.event
-async def on_message(message: discord.Message):
-    await on_message_fn(client, message)
-
+bot = MyBot()
 
 logger.info("Starting discord bot")
 
-
 def run():
-    client.run(os.getenv("DISCORD_BOT_TOKEN"))
+    bot.run(os.getenv("DISCORD_BOT_TOKEN"))
