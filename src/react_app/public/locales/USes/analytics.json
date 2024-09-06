@@ -24,7 +24,6 @@
   "lorenz.tooltip": "La Curva de Lorenz es una representación gráfica de la distribución de la riqueza. En este caso, representa la distribución de la Fuerza X en el Top 500. El Coeficiente de Gini es una medida de desigualdad y muestra la salud del meta indicando qué tan uniformemente distribuidas están las armas en su éxito. Un Coeficiente de Gini de 0 representa una igualdad perfecta, lo que significa que todas las armas tienen el mismo éxito, indicando un meta perfectamente equilibrado. Al contrario, un Coeficiente de Gini de 1 representa una desigualdad perfecta, donde un arma domina por completo, indicando un meta altamente desequilibrado.",
   "lorenz.marker.label": "Curva de Lorenz",
   "lorenz.gini.health_format": "%META% %HEALTH%",
-  "lorenz.gini.meta": "Meta",
   "lorenz.gini.title": "Salud del Meta",
   "lorenz.gini.equality": "Igualdad",
   "lorenz.gini.very_very_low": "Súper Equilibrado",
