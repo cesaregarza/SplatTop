@@ -77,21 +77,24 @@ def align_lists(
 
 
 def update_dict_with_new_keys(reference_dict: dict, target_dict: dict) -> dict:
+    updated_dict = {}
     for key in reference_dict:
         if key not in target_dict:
             print(f"Adding new key: {key}")
-            target_dict[key] = reference_dict[key]
-            continue
-        refval = reference_dict[key]
-        if isinstance(refval, dict):
-            print(f"Updating nested dictionary for key: {key}")
-            target_dict[key] = update_dict_with_new_keys(
-                refval, target_dict[key]
-            )
-        elif isinstance(refval, list):
-            print(f"Aligning lists for key: {key}")
-            target_dict[key] = align_lists(refval, target_dict[key])
-    return target_dict
+            updated_dict[key] = reference_dict[key]
+        else:
+            refval = reference_dict[key]
+            if isinstance(refval, dict):
+                print(f"Updating nested dictionary for key: {key}")
+                updated_dict[key] = update_dict_with_new_keys(
+                    refval, target_dict[key]
+                )
+            elif isinstance(refval, list):
+                print(f"Aligning lists for key: {key}")
+                updated_dict[key] = align_lists(refval, target_dict[key])
+            else:
+                updated_dict[key] = target_dict[key]
+    return updated_dict
 
 
 def save_updated_languages(language_data: dict, lang_metadata: dict) -> None:
