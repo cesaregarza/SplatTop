@@ -1,8 +1,8 @@
 import logging
 
 import discord
-from discord.ext import commands
 import orjson
+from discord.ext import commands
 
 from discord_bot.clients import anthropic_client
 from discord_bot.prompts import agent_prompts
@@ -13,7 +13,6 @@ logger = logging.getLogger(__name__)
 
 
 class AgentCog(commands.Cog):
-    
     def __init__(self, bot):
         self.bot = bot
 
@@ -35,7 +34,9 @@ class AgentCog(commands.Cog):
             logger.debug(response)
             while response.stop_reason == "tool_use":
                 tool_to_use = next(
-                    block for block in response.content if block.type == "tool_use"
+                    block
+                    for block in response.content
+                    if block.type == "tool_use"
                 )
                 logger.info("Using tool %s", tool_to_use.name)
                 tool = TOOL_FUNCTIONS[tool_to_use.name]
@@ -43,7 +44,10 @@ class AgentCog(commands.Cog):
                 tool_response = tool(**tool_inputs)
                 running_messages.extend(
                     [
-                        {"role": "assistant", "content": response.content[0].text},
+                        {
+                            "role": "assistant",
+                            "content": response.content[0].text,
+                        },
                         {
                             "role": "user",
                             "content": (
@@ -63,8 +67,11 @@ class AgentCog(commands.Cog):
                     tools=TOOLS,
                 )
 
-            return_value = extract_from_message(response.content[0].text, "ANSWER")
+            return_value = extract_from_message(
+                response.content[0].text, "ANSWER"
+            )
         await ctx.send(return_value)
+
 
 async def setup(bot: commands.Bot):
     await bot.add_cog(AgentCog(bot))

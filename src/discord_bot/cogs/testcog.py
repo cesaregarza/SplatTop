@@ -8,11 +8,11 @@ from discord_bot.utils import locked_check
 
 logger = logging.getLogger(__name__)
 
-class TestCog(commands.Cog):
 
+class TestCog(commands.Cog):
     def __init__(self, bot: commands.Bot):
         self.bot = bot
-    
+
     @commands.command(name="test")
     @locked_check("anthropic")
     async def testfxn(self, ctx: commands.Context, *, message: str):
@@ -32,6 +32,7 @@ class TestCog(commands.Cog):
             )
             logger.debug(out_message)
         await ctx.send(out_message.content[0].text)
+
 
 async def setup(bot: commands.Bot):
     await bot.add_cog(TestCog(bot))

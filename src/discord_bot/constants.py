@@ -1,4 +1,4 @@
-extensions = [
+EXTENSIONS = [
     "discord_bot.cogs.testcog",
     "discord_bot.cogs.agent",
 ]

@@ -1,6 +1,4 @@
-from discord_bot.tools.splattop_api import (
-    WEAPON_XREF_DEFINITION,
-)
+from discord_bot.tools.splattop_api import WEAPON_XREF_DEFINITION
 
 DEFINITIONS = [
     WEAPON_XREF_DEFINITION,

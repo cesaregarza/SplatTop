@@ -1,7 +1,8 @@
 import asyncio
-from discord.ext import commands
 from functools import wraps
 from typing import Awaitable, Callable, ParamSpec, TypeVar
+
+from discord.ext import commands
 
 T = TypeVar("T")
 P = ParamSpec("P")
@@ -42,7 +43,9 @@ def locked_check(
         Returns:
             bool: Whether the lock is available.
         """
-        return locking_group not in locks or not locks[locking_group].locked()
+        return (locking_group not in locks) or (
+            not locks[locking_group].locked()
+        )
 
     async def before_invoke(*args) -> None:
         """Function to be run before invocation.
