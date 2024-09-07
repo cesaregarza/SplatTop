@@ -12,6 +12,7 @@ const ModeSelector = React.lazy(() =>
 );
 const WeaponSelector = React.lazy(() => import("./weapon_selector"));
 const ThresholdSelector = React.lazy(() => import("./threshold_selector"));
+const SeasonSelector = React.lazy(() => import("./season_selector"));
 
 const WeaponLeaderboardControls = ({
   selectedRegion,
@@ -29,8 +30,10 @@ const WeaponLeaderboardControls = ({
   handleSwapWeapons,
   dedupePlayers,
   toggleDedupePlayers,
+  selectedSeason,
+  setSelectedSeason,
 }) => {
-  const { t } = useTranslation("main_page");
+  const { t } = useTranslation("weapon_leaderboard");
   const { t: pl } = useTranslation("player");
   const {
     weaponTranslations,
@@ -128,7 +131,7 @@ const WeaponLeaderboardControls = ({
                 !finalResults ? "highlighted-option" : ""
               }`}
             >
-              {t("weapon_leaderboard.peak_x_power")}
+              {t("peak_x_power")}
             </span>
             <div className="relative mx-2" title="Change the scale type">
               <input
@@ -149,7 +152,7 @@ const WeaponLeaderboardControls = ({
                 finalResults ? "highlighted-option" : ""
               }`}
             >
-              {t("weapon_leaderboard.final_x_power")}
+              {t("final_x_power")}
             </span>
           </div>
         </label>
@@ -163,7 +166,7 @@ const WeaponLeaderboardControls = ({
                 !dedupePlayers ? "highlighted-option" : ""
               }`}
             >
-              {t("weapon_leaderboard.show_all")}
+              {t("show_all")}
             </span>
             <div className="relative mx-2" title="Toggle data deduplication">
               <input
@@ -184,10 +187,16 @@ const WeaponLeaderboardControls = ({
                 dedupePlayers ? "highlighted-option" : ""
               }`}
             >
-              {t("weapon_leaderboard.dedupe_data")}
+              {t("dedupe_data")}
             </span>
           </div>
         </label>
+      </div>
+      <div className="flex flex-col items-center mb-4">
+        <SeasonSelector
+          selectedSeason={selectedSeason}
+          setSelectedSeason={setSelectedSeason}
+        />
       </div>
     </Suspense>
   );

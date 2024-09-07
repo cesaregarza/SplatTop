@@ -30,7 +30,8 @@ const useFetchWeaponLeaderboardData = (
   weaponId,
   additionalWeaponId,
   threshold,
-  finalResults = false
+  finalResults = false,
+  selectedSeason
 ) => {
   const apiUrl = getBaseApiUrl();
   const pathUrl = `/api/weapon_leaderboard/${weaponId}`;
@@ -39,6 +40,7 @@ const useFetchWeaponLeaderboardData = (
     region: selectedRegion,
     min_threshold: threshold,
     final_results: finalResults,
+    season: selectedSeason,
   };
 
   if (additionalWeaponId !== null) {
@@ -116,7 +118,8 @@ const useWeaponLeaderboardData = (
   weaponReferenceData,
   threshold,
   finalResults = false,
-  dedupePlayers = false
+  dedupePlayers = false,
+  selectedSeason
 ) => {
   const weaponSetKey = useMemo(() => {
     const weaponSet = new Set([weaponId, additionalWeaponId]);
@@ -129,7 +132,8 @@ const useWeaponLeaderboardData = (
     weaponId,
     additionalWeaponId,
     threshold,
-    finalResults
+    finalResults,
+    selectedSeason
   );
 
   const players = useMemo(
@@ -149,7 +153,7 @@ const useWeaponLeaderboardData = (
 };
 
 const TopWeaponsContent = () => {
-  const { t } = useTranslation("main_page");
+  const { t } = useTranslation("weapon_leaderboard");
   const {
     weaponReferenceData,
     weaponTranslations,
@@ -183,6 +187,10 @@ const TopWeaponsContent = () => {
   const [dedupePlayers, setDedupePlayers] = useState(() => {
     return getCache("weapons.dedupePlayers") === "true";
   });
+  const [selectedSeason, setSelectedSeason] = useState(() => {
+    const cachedSeason = getCache("weapons.selectedSeason");
+    return cachedSeason !== null ? parseInt(cachedSeason) : null;
+  });
   const itemsPerPage = 100;
 
   useEffect(() => {
@@ -195,6 +203,7 @@ const TopWeaponsContent = () => {
     setCache("weapons.currentPage", currentPage.toString());
     setCache("weapons.finalResults", finalResults.toString());
     setCache("weapons.dedupePlayers", dedupePlayers.toString());
+    setCache("weapons.selectedSeason", selectedSeason?.toString());
   }, [
     selectedRegion,
     selectedMode,
@@ -204,6 +213,7 @@ const TopWeaponsContent = () => {
     currentPage,
     finalResults,
     dedupePlayers,
+    selectedSeason,
   ]);
 
   const { players, error, isLoading } = useWeaponLeaderboardData(
@@ -214,7 +224,8 @@ const TopWeaponsContent = () => {
     weaponReferenceData,
     threshold,
     finalResults,
-    dedupePlayers
+    dedupePlayers,
+    selectedSeason
   );
 
   const indexOfLastItem = currentPage * itemsPerPage;
@@ -278,6 +289,8 @@ const TopWeaponsContent = () => {
           handleSwapWeapons={handleSwapWeapons}
           dedupePlayers={dedupePlayers}
           toggleDedupePlayers={toggleDedupePlayers}
+          selectedSeason={selectedSeason}
+          setSelectedSeason={setSelectedSeason}
         />
         <Pagination
           totalItems={players.length}

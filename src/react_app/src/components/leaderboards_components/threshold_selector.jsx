@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef } from "react";
 import { useTranslation } from "react-i18next";
 
 const ThresholdSelector = ({ threshold, setThreshold }) => {
-  const { t } = useTranslation();
+  const { t } = useTranslation("weapon_leaderboard");
   const [isDragging, setIsDragging] = useState(false);
   const [dragValue, setDragValue] = useState(threshold);
   const containerRef = useRef(null);
