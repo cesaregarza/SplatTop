@@ -63,7 +63,8 @@ const processWeaponLeaderboardData = (
   additionalWeaponId,
   weaponReferenceData,
   finalResults = false,
-  dedupePlayers = false
+  dedupePlayers = false,
+  selectedSeason
 ) => {
   if (!data) return [];
   const playersArray = Object.keys(data.players).reduce((acc, key) => {
@@ -89,12 +90,17 @@ const processWeaponLeaderboardData = (
     }
   });
 
-  playersArray.sort((a, b) => b.max_x_power - a.max_x_power);
+  // Filter players based on the selected season if it's not null
+  const filteredPlayers = selectedSeason !== null
+    ? playersArray.filter((player) => player.season_number === selectedSeason)
+    : playersArray;
 
-  let processedPlayers = playersArray;
+  filteredPlayers.sort((a, b) => b.max_x_power - a.max_x_power);
+
+  let processedPlayers = filteredPlayers;
   if (dedupePlayers) {
     const seenPlayerIds = new Set();
-    processedPlayers = playersArray.filter((player) => {
+    processedPlayers = filteredPlayers.filter((player) => {
       if (seenPlayerIds.has(player.player_id)) {
         return false;
       }
@@ -144,9 +150,10 @@ const useWeaponLeaderboardData = (
         additionalWeaponId,
         weaponReferenceData,
         finalResults,
-        dedupePlayers
+        dedupePlayers,
+        selectedSeason
       ),
-    [data, weaponSetKey, weaponReferenceData, finalResults, dedupePlayers] // eslint-disable-line react-hooks/exhaustive-deps
+    [data, weaponSetKey, weaponReferenceData, finalResults, dedupePlayers, selectedSeason] // eslint-disable-line react-hooks/exhaustive-deps
   );
 
   return { players, error, isLoading };
