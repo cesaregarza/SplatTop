@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from "react";
-import { calculateSeasonNow, getSeasonName } from "./xchart_helper_functions";
+import { calculateSeasonNow, getSeasonName } from "../utils/season_utils";
 import { useTranslation } from "react-i18next";
 
 function SeasonSelector({ data, mode, onSeasonChange }) {

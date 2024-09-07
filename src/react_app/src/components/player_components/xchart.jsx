@@ -1,10 +1,9 @@
 import React, { useState, useEffect } from "react";
 import HighchartsReact from "highcharts-react-official";
 import Highcharts from "highcharts/highstock";
+import { getPercentageInSeason, getSeasonName } from "../utils/season_utils";
 import {
-  getPercentageInSeason,
   filterAndProcessData,
-  getSeasonName,
   getSeasonColor,
   getAccessibleColor,
   getDefaultWidth,

@@ -12,6 +12,7 @@ const ModeSelector = React.lazy(() =>
 );
 const WeaponSelector = React.lazy(() => import("./weapon_selector"));
 const ThresholdSelector = React.lazy(() => import("./threshold_selector"));
+const SeasonSelector = React.lazy(() => import("./season_selector"));
 
 const WeaponLeaderboardControls = ({
   selectedRegion,
@@ -27,8 +28,12 @@ const WeaponLeaderboardControls = ({
   finalResults,
   toggleFinalResults,
   handleSwapWeapons,
+  dedupePlayers,
+  toggleDedupePlayers,
+  selectedSeason,
+  setSelectedSeason,
 }) => {
-  const { t } = useTranslation("main_page");
+  const { t } = useTranslation("weapon_leaderboard");
   const { t: pl } = useTranslation("player");
   const {
     weaponTranslations,
@@ -126,7 +131,7 @@ const WeaponLeaderboardControls = ({
                 !finalResults ? "highlighted-option" : ""
               }`}
             >
-              {t("weapon_leaderboard.peak_x_power")}
+              {t("peak_x_power")}
             </span>
             <div className="relative mx-2" title="Change the scale type">
               <input
@@ -147,10 +152,51 @@ const WeaponLeaderboardControls = ({
                 finalResults ? "highlighted-option" : ""
               }`}
             >
-              {t("weapon_leaderboard.final_x_power")}
+              {t("final_x_power")}
             </span>
           </div>
         </label>
+        <label
+          htmlFor="toggleDedupePlayers"
+          className="inline-flex items-center cursor-pointer flex-col"
+        >
+          <div className="flex items-center justify-center">
+            <span
+              className={`text-sm font-medium w-40 text-right pr-4 ${
+                !dedupePlayers ? "highlighted-option" : ""
+              }`}
+            >
+              {t("show_all")}
+            </span>
+            <div className="relative mx-2" title="Toggle data deduplication">
+              <input
+                type="checkbox"
+                id="toggleDedupePlayers"
+                className="sr-only peer"
+                checked={dedupePlayers}
+                onChange={toggleDedupePlayers}
+              />
+              <div
+                className={`w-11 h-6 rounded-full peer peer-focus:ring-4 peer-focus:ring-purple-300 dark:peer-focus:ring-purple-800 after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:after:translate-x-5 ${
+                  dedupePlayers ? "bg-purple" : "bg-gray-600"
+                }`}
+              ></div>
+            </div>
+            <span
+              className={`text-sm font-medium w-40 text-left pl-4 ${
+                dedupePlayers ? "highlighted-option" : ""
+              }`}
+            >
+              {t("dedupe_data")}
+            </span>
+          </div>
+        </label>
+      </div>
+      <div className="flex flex-col items-center mb-4">
+        <SeasonSelector
+          selectedSeason={selectedSeason}
+          setSelectedSeason={setSelectedSeason}
+        />
       </div>
     </Suspense>
   );

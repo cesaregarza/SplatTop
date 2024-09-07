@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { getSeasonName, calculateSeasonNow } from "./xchart_helper_functions";
+import { getSeasonName, calculateSeasonNow } from "../utils/season_utils";
 import { getImageFromId } from "./weapon_helper_functions";
 import { useTranslation } from "react-i18next";
 import SplatZonesIcon from "../../assets/icons/splat_zones.png";
