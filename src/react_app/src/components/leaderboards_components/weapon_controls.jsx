@@ -112,21 +112,23 @@ const WeaponLeaderboardControls = ({
           </>
         )}
       </div>
-      <ThresholdSelector threshold={threshold} setThreshold={setThreshold} />
+      <div className="w-full max-w-[95%] mx-auto">
+        <ThresholdSelector threshold={threshold} setThreshold={setThreshold} />
+      </div>
       <div className="flex flex-col justify-center items-center mb-4 sm:mb-6">
         <label
           htmlFor="toggleFinalResults"
           className="inline-flex items-center cursor-pointer flex-col"
         >
-          <div className="flex items-center">
+          <div className="flex items-center justify-center">
             <span
-              className={`text-sm font-medium mr-2 ${
+              className={`text-sm font-medium w-40 text-right pr-4 ${
                 !finalResults ? "highlighted-option" : ""
               }`}
             >
               {t("weapon_leaderboard.peak_x_power")}
             </span>
-            <div className="relative" title="Change the scale type">
+            <div className="relative mx-2" title="Change the scale type">
               <input
                 type="checkbox"
                 id="toggleFinalResults"
@@ -141,7 +143,7 @@ const WeaponLeaderboardControls = ({
               ></div>
             </div>
             <span
-              className={`text-sm font-medium ml-2 ${
+              className={`text-sm font-medium w-40 text-left pl-4 ${
                 finalResults ? "highlighted-option" : ""
               }`}
             >

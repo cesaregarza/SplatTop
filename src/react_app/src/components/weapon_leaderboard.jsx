@@ -141,28 +141,29 @@ const TopWeaponsContent = () => {
     error: weaponDataError,
   } = useWeaponAndTranslation();
 
-  const [selectedRegion, setSelectedRegion] = useState(
-    () => getCache("weapons.selectedRegion") || "Tentatek"
-  );
-  const [selectedMode, setSelectedMode] = useState(
-    () => getCache("weapons.selectedMode") || "Splat Zones"
-  );
-  const [weaponId, setWeaponId] = useState(
-    () => parseInt(getCache("weapons.weaponId")) || 40
-  );
+  const [selectedRegion, setSelectedRegion] = useState(() => {
+    return getCache("weapons.selectedRegion") || "Tentatek";
+  });
+  const [selectedMode, setSelectedMode] = useState(() => {
+    return getCache("weapons.selectedMode") || "Splat Zones";
+  });
+  const [weaponId, setWeaponId] = useState(() => {
+    const cachedWeaponId = getCache("weapons.weaponId");
+    return cachedWeaponId !== null ? parseInt(cachedWeaponId) : 40;
+  });
   const [additionalWeaponId, setAdditionalWeaponId] = useState(() => {
     const cached = getCache("weapons.additionalWeaponId");
     return cached ? parseInt(cached) : null;
   });
-  const [threshold, setThreshold] = useState(
-    () => parseInt(getCache("weapons.threshold")) || 0
-  );
-  const [currentPage, setCurrentPage] = useState(
-    () => parseInt(getCache("weapons.currentPage")) || 1
-  );
-  const [finalResults, setFinalResults] = useState(
-    () => getCache("weapons.finalResults") === "true"
-  );
+  const [threshold, setThreshold] = useState(() => {
+    return parseInt(getCache("weapons.threshold")) || 0;
+  });
+  const [currentPage, setCurrentPage] = useState(() => {
+    return parseInt(getCache("weapons.currentPage")) || 1;
+  });
+  const [finalResults, setFinalResults] = useState(() => {
+    return getCache("weapons.finalResults") === "true";
+  });
   const itemsPerPage = 100;
 
   useEffect(() => {
