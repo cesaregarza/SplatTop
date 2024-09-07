@@ -112,7 +112,9 @@ const WeaponLeaderboardControls = ({
           </>
         )}
       </div>
-      <ThresholdSelector threshold={threshold} setThreshold={setThreshold} />
+      <div className="w-full max-w-[95%] mx-auto">
+        <ThresholdSelector threshold={threshold} setThreshold={setThreshold} />
+      </div>
       <div className="flex flex-col justify-center items-center mb-4 sm:mb-6">
         <label
           htmlFor="toggleFinalResults"
