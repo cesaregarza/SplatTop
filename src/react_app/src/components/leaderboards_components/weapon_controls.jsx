@@ -27,6 +27,8 @@ const WeaponLeaderboardControls = ({
   finalResults,
   toggleFinalResults,
   handleSwapWeapons,
+  dedupePlayers,
+  toggleDedupePlayers,
 }) => {
   const { t } = useTranslation("main_page");
   const { t: pl } = useTranslation("player");
@@ -148,6 +150,41 @@ const WeaponLeaderboardControls = ({
               }`}
             >
               {t("weapon_leaderboard.final_x_power")}
+            </span>
+          </div>
+        </label>
+        <label
+          htmlFor="toggleDedupePlayers"
+          className="inline-flex items-center cursor-pointer flex-col"
+        >
+          <div className="flex items-center justify-center">
+            <span
+              className={`text-sm font-medium w-40 text-right pr-4 ${
+                !dedupePlayers ? "highlighted-option" : ""
+              }`}
+            >
+              {t("weapon_leaderboard.show_all")}
+            </span>
+            <div className="relative mx-2" title="Toggle data deduplication">
+              <input
+                type="checkbox"
+                id="toggleDedupePlayers"
+                className="sr-only peer"
+                checked={dedupePlayers}
+                onChange={toggleDedupePlayers}
+              />
+              <div
+                className={`w-11 h-6 rounded-full peer peer-focus:ring-4 peer-focus:ring-purple-300 dark:peer-focus:ring-purple-800 after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:after:translate-x-5 ${
+                  dedupePlayers ? "bg-purple" : "bg-gray-600"
+                }`}
+              ></div>
+            </div>
+            <span
+              className={`text-sm font-medium w-40 text-left pl-4 ${
+                dedupePlayers ? "highlighted-option" : ""
+              }`}
+            >
+              {t("weapon_leaderboard.dedupe_data")}
             </span>
           </div>
         </label>

@@ -60,7 +60,8 @@ const processWeaponLeaderboardData = (
   weaponId,
   additionalWeaponId,
   weaponReferenceData,
-  finalResults = false
+  finalResults = false,
+  dedupePlayers = false
 ) => {
   if (!data) return [];
   const playersArray = Object.keys(data.players).reduce((acc, key) => {
@@ -87,11 +88,24 @@ const processWeaponLeaderboardData = (
   });
 
   playersArray.sort((a, b) => b.max_x_power - a.max_x_power);
-  playersArray.forEach((player, index) => {
+
+  let processedPlayers = playersArray;
+  if (dedupePlayers) {
+    const seenPlayerIds = new Set();
+    processedPlayers = playersArray.filter((player) => {
+      if (seenPlayerIds.has(player.player_id)) {
+        return false;
+      }
+      seenPlayerIds.add(player.player_id);
+      return true;
+    });
+  }
+
+  processedPlayers.forEach((player, index) => {
     player.rank = index + 1;
   });
 
-  return playersArray.slice(0, 500);
+  return processedPlayers.slice(0, 500);
 };
 
 const useWeaponLeaderboardData = (
@@ -101,7 +115,8 @@ const useWeaponLeaderboardData = (
   additionalWeaponId,
   weaponReferenceData,
   threshold,
-  finalResults = false
+  finalResults = false,
+  dedupePlayers = false
 ) => {
   const weaponSetKey = useMemo(() => {
     const weaponSet = new Set([weaponId, additionalWeaponId]);
@@ -124,9 +139,10 @@ const useWeaponLeaderboardData = (
         weaponId,
         additionalWeaponId,
         weaponReferenceData,
-        finalResults
+        finalResults,
+        dedupePlayers
       ),
-    [data, weaponSetKey, weaponReferenceData, finalResults] // eslint-disable-line react-hooks/exhaustive-deps
+    [data, weaponSetKey, weaponReferenceData, finalResults, dedupePlayers] // eslint-disable-line react-hooks/exhaustive-deps
   );
 
   return { players, error, isLoading };
@@ -152,8 +168,8 @@ const TopWeaponsContent = () => {
     return cachedWeaponId !== null ? parseInt(cachedWeaponId) : 40;
   });
   const [additionalWeaponId, setAdditionalWeaponId] = useState(() => {
-    const cached = getCache("weapons.additionalWeaponId");
-    return cached ? parseInt(cached) : null;
+    const cachedWeaponId = getCache("weapons.additionalWeaponId");
+    return cachedWeaponId !== null ? parseInt(cachedWeaponId) : null;
   });
   const [threshold, setThreshold] = useState(() => {
     return parseInt(getCache("weapons.threshold")) || 0;
@@ -163,6 +179,9 @@ const TopWeaponsContent = () => {
   });
   const [finalResults, setFinalResults] = useState(() => {
     return getCache("weapons.finalResults") === "true";
+  });
+  const [dedupePlayers, setDedupePlayers] = useState(() => {
+    return getCache("weapons.dedupePlayers") === "true";
   });
   const itemsPerPage = 100;
 
@@ -175,6 +194,7 @@ const TopWeaponsContent = () => {
     setCache("weapons.threshold", threshold.toString());
     setCache("weapons.currentPage", currentPage.toString());
     setCache("weapons.finalResults", finalResults.toString());
+    setCache("weapons.dedupePlayers", dedupePlayers.toString());
   }, [
     selectedRegion,
     selectedMode,
@@ -183,6 +203,7 @@ const TopWeaponsContent = () => {
     threshold,
     currentPage,
     finalResults,
+    dedupePlayers,
   ]);
 
   const { players, error, isLoading } = useWeaponLeaderboardData(
@@ -192,7 +213,8 @@ const TopWeaponsContent = () => {
     additionalWeaponId,
     weaponReferenceData,
     threshold,
-    finalResults
+    finalResults,
+    dedupePlayers
   );
 
   const indexOfLastItem = currentPage * itemsPerPage;
@@ -208,6 +230,10 @@ const TopWeaponsContent = () => {
 
   const toggleFinalResults = useCallback(() => {
     setFinalResults((prev) => !prev);
+  }, []);
+
+  const toggleDedupePlayers = useCallback(() => {
+    setDedupePlayers((prev) => !prev);
   }, []);
 
   const handleSwapWeapons = () => {
@@ -250,6 +276,8 @@ const TopWeaponsContent = () => {
           weaponReferenceData={weaponReferenceData}
           weaponTranslations={weaponTranslations}
           handleSwapWeapons={handleSwapWeapons}
+          dedupePlayers={dedupePlayers}
+          toggleDedupePlayers={toggleDedupePlayers}
         />
         <Pagination
           totalItems={players.length}
