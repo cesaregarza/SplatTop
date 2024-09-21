@@ -1,113 +1,114 @@
 {
   "metadata": {
-    "key": "USen",
-    "splatoonLanguageKey": "USen",
+    "key": "JPja",
+    "splatoonLanguageKey": "JPja",
     "languageNames": {
       "USen": "English (US)",
       "USes": "Spanish (NA)",
-      "EUen": "English (UK)"
+      "EUen": "English (UK)",
+      "JPja": "日本語 (JP)(Beta)"
     }
   },
   "faq": {
-    "title": "Frequently Asked Questions",
+    "title": "FAQ - よくある質問",
     "questions": [
       {
         "key": "what_is_splat_top",
-        "question": "What is splat.top?",
-        "answer": "<p class='text-white'><span class='text-purplelight'>splat.top</span> is a website that tracks the <span class='text-purplelight'>Top 500</span> players in Splatoon 3 as reported by SplatNet3. The website also provides a history for each player's entire Top 500 journey and analytics on the state of the game via the Top 500. For more details, visit our <a href='https://github.com/cesaregarza/SplatTop' class='text-purplelight underline'>GitHub repository</a>.</p>"
+        "question": "splat.top とは？",
+        "answer": "<p class='text-white'><span class='text-purplelight'>splat.top</span> は、イカリング3が発表する Xランキングの<span class='text-purplelight'>トップ 500</span> ユーザーを分析する Web サイトです。 この Web サイトでは、各プレイヤーのトップ 500 までの履歴や、トップ 500 を介したゲーム環境の分析も提供しています。詳細は <a href='https://github.com/cesaregarza/SplatTop' class='text-purplelight underline'>GitHub リポジトリ</a> をご覧ください。</p>"
       },
       {
         "key": "why_cant_i_find_myself",
-        "question": "Why can't I find myself?",
-        "answer": "<p class='text-white'>If you can't find yourself in the history, there's two possible reasons:<ul class='text-white list-disc pl-5'><li><span class='text-purplelight'>Just entered the Top 500:</span> The system updates every 10 minutes, so if you've just entered the Top 500, your history may not be immediately available.</li><li><span class='text-purplelight'>Brief appearance:</span> If you were in the Top 500 for a short time, you may not find your history.</li></ul></p>"
+        "question": "ランキングに載りましたが、自分の履歴が見つけられません。",
+        "answer": "<p class='text-white'>履歴が見つからない場合、2 つの理由が考えられます:<ul class='text-white list-disc pl-5'><li><span class='text-purplelight'>新規でトップ 500 に入った:</span> 情報は 10 分毎に更新されるため、トップ 500 に入った直後は、すぐに履歴が利用できない場合があります。</li><li><span class='text-purplelight'>短時間だけランクインした:</span> トップ 500 に掲載されていた時間が短い場合、履歴が見つからない場合があります。</li></ul></p>"
       },
       {
         "key": "how_often_are_rankings_updated",
-        "question": "How often are the rankings updated?",
-        "answer": "<ul class='text-white list-disc pl-5'><li><span class='text-purplelight'>February 2023-August 2023:</span> Data was updated hourly. Special thanks to <a href='https://splatoon3.ink' class='text-purplelight underline'>splatoon3.ink</a> for providing the data.</li><li><span class='text-purplelight'>August 2023-March 2024:</span> Updates occurred every fifteen minutes.</li><li><span class='text-purplelight'>March 2024-present:</span> Data is now updated every ten minutes.</li></ul>"
+        "question": "ランキングはどのくらいの頻度で更新されますか？",
+        "answer": "<ul class='text-white list-disc pl-5'><li><span class='text-purplelight'>2023年2月～2023年8月:</span> データは1時間ごとに更新されていました。データを提供していただいた <a href='https://splatoon3.ink' class='text-purplelight underline'>splatoon3.ink</a> に感謝いたします。</li><li><span class='text-purplelight'>2023年8月～2024年3月:</span> データは15分ごとに更新されていました。</li><li><span class='text-purplelight'>2024年3月～ 現在:</span>データは10分ごとに更新されています。</li></ul>"
       },
       {
         "key": "can_i_see_my_own_ranking",
-        "question": "Can I see my own ranking?",
-        "answer": "<p class='text-white'>Yes, you can view your ranking if you've been in the Top 500. Search using any in-game name you had when you reached the Top 500. Alternatively, if you have your NPLN ID you can access your page directly via <span class='text-purplelight'>splat.top/player/npln_id_goes_here</span>. Note: If you were briefly in the Top 500 and missed by our data collection, you won't find your ranking.</p>"
+        "question": "私のランキングを見ることができますか？",
+        "answer": "<p class='text-white'>はい。トップ 500 に入ったことがあれば、ランキングを見ることができます。この時に使用していたゲーム内の名前で検索してください。また、自身の NPLN ID を使って <span class='text-purplelight'>splat.top/player/npln_id_goes_here</span> から直接アクセスすることができます。 ※トップ 500 に入った時間が短く、データの収集に含まれなかった場合、ランキングには表示されません。</p>"
       },
       {
         "key": "my_weapon_data_is_incorrect",
-        "question": "My weapon data is incorrect. Can you fix it?",
-        "answer": "<p class='text-white'><span class='text-purplelight'>Weapon data</span> is calculated based on the snapshot appearances in the Top 500 as maintained by SplatNet3. While the methodology tends to be more accurate than not, there are edge cases where the weapon data may be incorrect. This is not something we can fix without massive effort, as it would require at least doubling the scraping cadence to minimize errors. If you believe the data is incorrect, feel free to contact us with the details. We can't guarantee a fix, but the knowledge helps us improve the system for everyone.</p>"
+        "question": "使用していたブキが間違っています。修正できますか？",
+        "answer": "<p class='text-white'><span class='text-purplelight'>ブキのデータ</span>は、イカリング3 が管理するトップ 500 の結果に基づいて集計されます。この集計方法は概ね正確になる傾向にありますが、ブキデータが正しく表示されないエッジケースとなる可能性があります。これを正しく集計するためのデータ収集回数を少なくとも2倍以上にする必要がありますが、これは難しい問題になるでしょう。なお、データが間違っていると思われる場合は、詳細を添えてお気軽にお問い合わせください。修正を保証することはできませんが、提供されたデータは今後の集計方法の改善に役立てることができます。</p>"
       },
       {
         "key": "can_i_have_access_to_the_data",
-        "question": "Can I have access to the data? I want to analyze it myself.",
-        "answer": "<p class='text-white'><b class='text-purplelight'>Access to the full dataset is limited.</b> Request access by contacting us with your intended use. Contributions to splat.top or the Splatoon community are key criteria for access. Being a top player or content creator is not enough.</p><p class='text-white'><b class='text-purplelight'>For students:</b> Academic projects can receive an anonymized data subset. Contact us on Discord or Twitter with project details.</p>"
+        "question": "自分で分析を行いたいのですが、収集されたデータは取得できますか？",
+        "answer": "<p class='text-white'><b class='text-purplelight'>完全なデータセットへのアクセスは制限されています。</b> データへのアクセスを希望する場合は、使用目的を明記してお問い合わせください。データへのアクセスには splat.top または Splatoon community への貢献が重要な基準となります。 あなたが トッププレイヤーであること や コンテンツ制作者であること だけでは、十分ではありません。</p><p class='text-white'><b class='text-purplelight'>For students:</b> Academic projects can receive an anonymized data subset. Contact us on Discord or Twitter with project details.</p>"
       },
       {
         "key": "i_own_a_website_and_want_to_use_your_data",
-        "question": "I own a website and I want to use your data. Can I?",
-        "answer": "<p class='text-white'>We may provide an API endpoint for your data needs. Contact us on Discord, Twitter, or via a GitHub issue on our <a href='https://github.com/cesaregarza/SplatTop' class='text-purplelight underline'>GitHub repository</a>. Pull requests greatly increase the chance of support.</p>"
+        "question": "自分の Web サイトにあなたのデータを使用したいと考えています。どのようにすれば良いですか？",
+        "answer": "<p class='text-white'>データのニーズに応じて、API エンドポイントを提供する場合があります。Discord、 X(Twitter)、または <a href='https://github.com/cesaregarza/SplatTop' class='text-purplelight underline'>GitHub のリポジトリ </a>にある issue からお問い合わせください。リポジトリへの Pull requests によってサポートされる可能性が大幅に高まります。</p>"
       },
       {
         "key": "im_a_content_creator_and_want_to_feature_your_website",
-        "question": "I'm a content creator and I want to feature your website. Can I?",
-        "answer": "<p class='text-white'>Yes, using data or analytics from <span class='text-purplelight'>splat.top</span> is fine as long as you credit the website. We appreciate a mention or link to the site. If you'd like to collaborate, have a special data request, or would just like the analytics explained in more detail for a younger audience, contact us.</p>"
+        "question": "私はコンテンツ制作者です。あなたの Web サイトを紹介したいと思います。良いですか？",
+        "answer": "<p class='text-white'>はい。<span class='text-purplelight'>splat.top</span> のデータや分析結果は、Web サイトのクレジットを記載することで、使用することができます。このサイトへの言及やリンクをしていただければ幸いです。また、何かを貢献したり、特別なデータセットのリクエストがある場合、もしくは、初心者向けに分析の詳細を説明してほしい場合は、お問い合わせください。</p>"
       },
       {
         "key": "the_line_cuts_off_randomly",
-        "question": "The line cuts off randomly, what happened?",
-        "answer": "<p class='text-white'>It's probably a data outage caused by Nintendo. The scraper is designed to be highly robust, but it can't handle every situation. There are times when the data is simply not available. We try our best to make sure the data pipeline is uninterrupted, but sometimes Nintendo's decisions are out of our control. We apologize for the inconvenience.</p>"
+        "question": "記録が途切れたりすることがありますが、なぜですか？",
+        "answer": "<p class='text-white'>おそらくゲームサーバー側の障害です。データ収集システムは非常に堅牢な設計を行っていますが、あらゆる状況に対応できるわけではありません。障害が長引くことで集計結果を全く利用できない場合もあります。集計結果が途切れないように最善を尽くしていますが、事情により手に負えない場合もあります。その際はご容赦ください。</p>"
       }
     ]
   },
   "game": {
-    "winter": "Chill",
-    "spring": "Fresh",
-    "summer": "Sizzle",
-    "autumn": "Drizzle",
-    "format": "%SEASON% Season %YEAR%",
-    "format_short": "%SEASON% %YEAR%",
-    "sz": "Splat Zones",
-    "tc": "Tower Control",
-    "rm": "Rainmaker",
-    "cb": "Clam Blitz"
+    "winter": "冬 Chill",
+    "spring": "春 Fresh",
+    "summer": "夏 Sizzle",
+    "autumn": "秋 Drizzle",
+    "format": "%YEAR% %SEASON% Season",
+    "format_short": "%YEAR% %SEASON%",
+    "sz": "ガチエリア",
+    "tc": "ガチヤグラ",
+    "rm": "ガチホコバトル",
+    "cb": "ガチアサリ"
   },
   "main_page": {
-    "title": "Top 500",
+    "title": "トップ 500",
     "search_placeholder": "Search...",
-    "loading_top500": "Loading Top 500...",
-    "loading": "Loading...",
-    "no_results": "No results!",
-    "search_needs_3_chars": "Search needs at least 3 characters!",
-    "player_was_in_takoroka_last_season": "Player was in Takoroka last season",
-    "player_was_in_tentatek_last_season": "Player was in Tentatek last season",
-    "column_badge_title": "Badge",
-    "column_rank_title": "Rank",
-    "column_splashtag_title": "Splashtag",
-    "column_weapon_title": "Weapon",
+    "loading_top500": "プレイヤーデータを取得中...",
+    "loading": "読み込み中...",
+    "no_results": "結果が見つかりません",
+    "search_needs_3_chars": "3文字以上 入力してください",
+    "player_was_in_takoroka_last_season": "前シーズン: グループ ヤコ",
+    "player_was_in_tentatek_last_season": "前シーズン: グループ アロメ",
+    "column_badge_title": "バッジ",
+    "column_rank_title": "順位",
+    "column_splashtag_title": "名前",
+    "column_weapon_title": "ブキ",
     "column_weapon_not_supported": "Weapon name not yet supported",
-    "column_xpower_title": "X Power",
-    "column_peak_xpower_title": "Peak X Power",
+    "column_xpower_title": "Xパワー",
+    "column_peak_xpower_title": "最高XP",
     "column_percent_games_played_title": "Est. % Usage",
     "column_season_number_title": "Season",
-    "select_columns": "Select columns",
-    "modes": "Modes",
-    "region": "Region",
-    "column_total_x_power_title": "Total X Power",
-    "no_data": "No data available",
-    "errors.503": "Service Unavailable, please try again later."
+    "select_columns": "列の表示",
+    "modes": "ルール",
+    "region": "グループ",
+    "column_total_x_power_title": "合計XP",
+    "no_data": "データなし",
+    "errors.503": "サーバーエラーです。暫く経ってから再読み込みしてください。"
   },
   "weapon_leaderboard": {
-    "weapon_select_main": "Weapon Select",
-    "weapon_select_alt": "Weapon Select (Alt)",
+    "weapon_select_main": "ブキを選択",
+    "weapon_select_alt": "ブキを選択 (Alt)",
     "weapon_title": "Top Weapon Wielders",
-    "threshold_select": "Minimum Percent Usage",
-    "peak_x_power": "Peak X Power",
-    "final_x_power": "Season End X Power",
+    "threshold_select": "最小使用率",
+    "peak_x_power": "最高XP",
+    "final_x_power": "最終XP",
     "show_all": "Multiple Entries Per Player",
     "dedupe_data": "Best Entry Per Player",
-    "select_season": "Select Season",
-    "all_seasons": "All Seasons",
-    "select_weapon": "Select Weapon",
-    "null_selection": "No Alt Weapon"
+    "select_season": "シーズンの選択",
+    "all_seasons": "全期間",
+    "select_weapon": "ブキを選択",
+    "null_selection": "(選択なし)"
   },
   "navigation": {
     "top500": "Top 500",
@@ -115,11 +116,11 @@
     "footer.contact": "Contact",
     "footer.rights": "%DATE% splat.top. All rights reserved.",
     "navbar.faq": "FAQ",
-    "navbar.analytics": "Analytics",
-    "navbar.top_weapons": "Top Weapons"
+    "navbar.analytics": "分析",
+    "navbar.top_weapons": "ブキ使用率"
   },
   "player": {
-    "data_lang_key": "USen",
+    "data_lang_key": "JPja",
     "document_title_loading": "splat.top - Player Page",
     "document_title_loaded": "splat.top - %PLAYER%",
     "page_title": "Player Page",
@@ -127,59 +128,59 @@
     "load_component": "Loading components...",
     "load_results": "Loading season results...",
     "load_chart": "Loading chart...",
-    "no_data": "No data available",
-    "xchart.title": "%MODE% X Power",
+    "no_data": "データがありません",
+    "xchart.title": "%MODE% Xパワー",
     "xchart.xaxis.title": "% of Season Elapsed",
     "xchart.xaxis.start": "Start",
     "xchart.xaxis.end": "End",
     "xchart.yaxis.title": "X Power",
-    "xchart.live_indicator": "(Live)",
-    "xchart.now": "Now",
-    "weaponchart.title": "%MODE% Weapon Usage",
-    "weaponchart.subtitle": "All weapon data is approximate",
+    "xchart.live_indicator": "(今季)",
+    "xchart.now": "現在",
+    "weaponchart.title": "%MODE% ブキ使用率",
+    "weaponchart.subtitle": "すべてのブキデータは概算値です",
     "weaponchart.other": "Other",
-    "weaponchart.inner.title": "Total Weapon Usage",
-    "weaponchart.outer.title": "Detailed Weapon Usage",
+    "weaponchart.inner.title": "ブキ種の使用率",
+    "weaponchart.outer.title": "ブキの使用率",
     "weaponchart.point.format": "<span style=\"color:{point.classColor}\">{point.name}</span>: <b>{point.y:.2f}%</b> of total<br>",
     "controller.seasonal": "Seasonal",
     "controller.accessible": "Accessible",
     "controller.select_season": "Select Seasons (Weapons)",
-    "aliases.title": "Aliases",
-    "aliases.splashtag": "Splashtag",
-    "aliases.last_seen": "Last Seen",
-    "achievements.title": "Achievements",
-    "achievements.table.season": "Season",
-    "achievements.table.region": "Region",
-    "achievements.table.total": "Total",
-    "results.title": "Season Results",
-    "results.table.mode": "Mode",
-    "results.table.rank": "Rank",
-    "results.table.current_xp": "Current XP",
-    "results.table.final_xp": "Final XP",
-    "results.table.peak_xp": "Peak XP",
-    "results.table.current_weapon": "Current Weapon",
-    "results.table.final_weapon": "Final Weapon",
-    "results.table.most_used_weapon": "Most Used Weapon"
+    "aliases.title": "プレイヤーの別名",
+    "aliases.splashtag": "名",
+    "aliases.last_seen": "最終確認",
+    "achievements.title": "実績",
+    "achievements.table.season": "シーズン",
+    "achievements.table.region": "グループ",
+    "achievements.table.total": "計",
+    "results.title": "シーズンごとの結果",
+    "results.table.mode": "ルール",
+    "results.table.rank": "順位",
+    "results.table.current_xp": "現在XP",
+    "results.table.final_xp": "最終XP",
+    "results.table.peak_xp": "最高XP",
+    "results.table.current_weapon": "現在",
+    "results.table.final_weapon": "最後に使った",
+    "results.table.most_used_weapon": "よく使う"
   },
   "analytics": {
     "document_title": "splat.top - Analytics",
-    "page_title": "Analytics",
-    "load_page": "Loading page...",
+    "page_title": "分析",
+    "load_page": "読み込み中...",
     "load_component": "Loading components...",
-    "no_data": "No data available",
+    "no_data": "データがありません",
     "skill_offset.tab_name": "Skill Offset (Beta)",
     "skill_offset.graph_label": "Skill Offset",
     "skill_offset.graph_subtitle": "Skill Offset is a correlation, not a cause.",
     "skill_offset.xaxis.title": "Appearance Count (Top 500)",
     "skill_offset.yaxis.title": "Skill Offset",
     "skill_offset.marker.format": "<b><span style=\"color:#ab5ab7\">{point.weaponName}</span></b><br><b>Count</b>:{point.x}<br><b>Skill Offset</b>: {point.y:.2f}",
-    "skill_offset.tooltip": "Skill Offset is a measure of how well a weapon performs in the Top 500 as compared to the expected value at that appearance rate. A positive skill offset indicates that the weapon and/or the players using it are performing better than expected. A negative skill offset indicates the opposite. A weapon with a high pick rate and low skill offset indicates that the weapon is carrying players to the Top 500. A weapon with a low pick rate and high skill offset indicates that the weapon is being used by a few highly skilled players. Data here will change frequently as the Top 500 weapon picks will update even if the player isn't playing X Battles. Use this information with caution. Future updates will include time lag and other factors to reduce the influence of these changes.",
+    "skill_offset.tooltip": "スキルオフセットは、ブキの出現率における期待値と比較して、トップ500におけるブキのパフォーマンスを示す指標です。値がプラスの場合、ブキまたはプレイヤーのパフォーマンスが期待以上であることを示します。値がマイナスの場合は、その逆を示します。使用率が高く、スキルオフセットが低いブキは、そのブキがプレイヤーをトップ500へ導いていることを示します。使用率が低く、スキルオフセットが高いブキは、そのブキが少数の熟練したプレイヤーによって使用されていることを示します。プレイヤーがXマッチをプレイしていなくてもトップ500のブキ選択が更新されるため、このデータは頻繁に更新されます。この情報は注意して使用してください。今後のアップデートで、精度の調整、タイムラグの軽減、その他の要素を含める予定です。",
     "skill_offset.controller.title": "Controls",
     "skill_offset.controller.linlog.label": "X Axis Scale",
     "skill_offset.controller.linear": "Linear",
     "skill_offset.controller.logarithmic": "Logarithmic",
-    "lorenz.tab_name": "Lorenz Curve",
-    "lorenz.graph_label": "Lorenz Curve and Gini Coefficient",
+    "lorenz.tab_name": "ローレンツ曲線",
+    "lorenz.graph_label": "ローレンツ曲線とジニ係数",
     "lorenz.graph_subtitle": "The Lorenz Curve and Gini Coefficient together represent the health of the meta.",
     "lorenz.xaxis.title": "Weapon",
     "lorenz.yaxis.title": "Share of X Power",
