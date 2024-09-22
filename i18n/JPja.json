@@ -1,0 +1,206 @@
+{
+  "metadata": {
+    "key": "JPja",
+    "splatoonLanguageKey": "JPja",
+    "languageNames": {
+      "USen": "English (US)",
+      "USes": "Spanish (NA)",
+      "EUen": "English (UK)",
+      "JPja": "日本語 (JP)(Beta)"
+    }
+  },
+  "faq": {
+    "title": "FAQ - よくある質問",
+    "questions": [
+      {
+        "key": "what_is_splat_top",
+        "question": "splat.top とは？",
+        "answer": "<p class='text-white'><span class='text-purplelight'>splat.top</span> は、イカリング3が発表する Xランキングの<span class='text-purplelight'>トップ 500</span> ユーザーを分析する Web サイトです。 この Web サイトでは、各プレイヤーのトップ 500 までの履歴や、トップ 500 を介したゲーム環境の分析も提供しています。詳細は <a href='https://github.com/cesaregarza/SplatTop' class='text-purplelight underline'>GitHub リポジトリ</a> をご覧ください。</p>"
+      },
+      {
+        "key": "why_cant_i_find_myself",
+        "question": "ランキングに載りましたが、自分の履歴が見つけられません。",
+        "answer": "<p class='text-white'>履歴が見つからない場合、2 つの理由が考えられます:<ul class='text-white list-disc pl-5'><li><span class='text-purplelight'>新規でトップ 500 に入った:</span> 情報は 10 分毎に更新されるため、トップ 500 に入った直後は、すぐに履歴が利用できない場合があります。</li><li><span class='text-purplelight'>短時間だけランクインした:</span> トップ 500 に掲載されていた時間が短い場合、履歴が見つからない場合があります。</li></ul></p>"
+      },
+      {
+        "key": "how_often_are_rankings_updated",
+        "question": "ランキングはどのくらいの頻度で更新されますか？",
+        "answer": "<ul class='text-white list-disc pl-5'><li><span class='text-purplelight'>2023年2月～2023年8月:</span> データは1時間ごとに更新されていました。データを提供していただいた <a href='https://splatoon3.ink' class='text-purplelight underline'>splatoon3.ink</a> に感謝いたします。</li><li><span class='text-purplelight'>2023年8月～2024年3月:</span> データは15分ごとに更新されていました。</li><li><span class='text-purplelight'>2024年3月～ 現在:</span>データは10分ごとに更新されています。</li></ul>"
+      },
+      {
+        "key": "can_i_see_my_own_ranking",
+        "question": "私のランキングを見ることができますか？",
+        "answer": "<p class='text-white'>はい。トップ 500 に入ったことがあれば、ランキングを見ることができます。この時に使用していたゲーム内の名前で検索してください。また、自身の NPLN ID を使って <span class='text-purplelight'>splat.top/player/npln_id_goes_here</span> から直接アクセスすることができます。 ※トップ 500 に入った時間が短く、データの収集に含まれなかった場合、ランキングには表示されません。</p>"
+      },
+      {
+        "key": "my_weapon_data_is_incorrect",
+        "question": "使用していたブキが間違っています。修正できますか？",
+        "answer": "<p class='text-white'><span class='text-purplelight'>ブキのデータ</span>は、イカリング3 が管理するトップ 500 の結果に基づいて集計されます。この集計方法は概ね正確になる傾向にありますが、ブキデータが正しく表示されないエッジケースとなる可能性があります。これを正しく集計するためのデータ収集回数を少なくとも2倍以上にする必要がありますが、これは難しい問題になるでしょう。なお、データが間違っていると思われる場合は、詳細を添えてお気軽にお問い合わせください。修正を保証することはできませんが、提供されたデータは今後の集計方法の改善に役立てることができます。</p>"
+      },
+      {
+        "key": "can_i_have_access_to_the_data",
+        "question": "自分で分析を行いたいのですが、収集されたデータは取得できますか？",
+        "answer": "<p class='text-white'><b class='text-purplelight'>完全なデータセットへのアクセスは制限されています。</b> データへのアクセスを希望する場合は、使用目的を明記してお問い合わせください。データへのアクセスには splat.top または Splatoon community への貢献が重要な基準となります。 あなたが トッププレイヤーであること や コンテンツ制作者であること だけでは、十分ではありません。</p><p class='text-white'><b class='text-purplelight'>For students:</b> Academic projects can receive an anonymized data subset. Contact us on Discord or Twitter with project details.</p>"
+      },
+      {
+        "key": "i_own_a_website_and_want_to_use_your_data",
+        "question": "自分の Web サイトにあなたのデータを使用したいと考えています。どのようにすれば良いですか？",
+        "answer": "<p class='text-white'>データのニーズに応じて、API エンドポイントを提供する場合があります。Discord、 X(Twitter)、または <a href='https://github.com/cesaregarza/SplatTop' class='text-purplelight underline'>GitHub のリポジトリ </a>にある issue からお問い合わせください。リポジトリへの Pull requests によってサポートされる可能性が大幅に高まります。</p>"
+      },
+      {
+        "key": "im_a_content_creator_and_want_to_feature_your_website",
+        "question": "私はコンテンツ制作者です。あなたの Web サイトを紹介したいと思います。良いですか？",
+        "answer": "<p class='text-white'>はい。<span class='text-purplelight'>splat.top</span> のデータや分析結果は、Web サイトのクレジットを記載することで、使用することができます。このサイトへの言及やリンクをしていただければ幸いです。また、何かを貢献したり、特別なデータセットのリクエストがある場合、もしくは、初心者向けに分析の詳細を説明してほしい場合は、お問い合わせください。</p>"
+      },
+      {
+        "key": "the_line_cuts_off_randomly",
+        "question": "記録が途切れたりすることがありますが、なぜですか？",
+        "answer": "<p class='text-white'>おそらくゲームサーバー側の障害です。データ収集システムは非常に堅牢な設計を行っていますが、あらゆる状況に対応できるわけではありません。障害が長引くことで集計結果を全く利用できない場合もあります。集計結果が途切れないように最善を尽くしていますが、事情により手に負えない場合もあります。その際はご容赦ください。</p>"
+      }
+    ]
+  },
+  "game": {
+    "winter": "冬 Chill",
+    "spring": "春 Fresh",
+    "summer": "夏 Sizzle",
+    "autumn": "秋 Drizzle",
+    "format": "%YEAR% %SEASON% Season",
+    "format_short": "%YEAR% %SEASON%",
+    "sz": "ガチエリア",
+    "tc": "ガチヤグラ",
+    "rm": "ガチホコバトル",
+    "cb": "ガチアサリ"
+  },
+  "main_page": {
+    "title": "トップ 500",
+    "search_placeholder": "Search...",
+    "loading_top500": "プレイヤーデータを取得中...",
+    "loading": "読み込み中...",
+    "no_results": "結果が見つかりません",
+    "search_needs_3_chars": "3文字以上 入力してください",
+    "player_was_in_takoroka_last_season": "前シーズン: グループ ヤコ",
+    "player_was_in_tentatek_last_season": "前シーズン: グループ アロメ",
+    "column_badge_title": "バッジ",
+    "column_rank_title": "順位",
+    "column_splashtag_title": "名前",
+    "column_weapon_title": "ブキ",
+    "column_weapon_not_supported": "Weapon name not yet supported",
+    "column_xpower_title": "Xパワー",
+    "column_peak_xpower_title": "最高XP",
+    "column_percent_games_played_title": "Est. % Usage",
+    "column_season_number_title": "Season",
+    "select_columns": "列の表示",
+    "modes": "ルール",
+    "region": "グループ",
+    "column_total_x_power_title": "合計XP",
+    "no_data": "データなし",
+    "errors.503": "サーバーエラーです。暫く経ってから再読み込みしてください。"
+  },
+  "weapon_leaderboard": {
+    "weapon_select_main": "ブキを選択",
+    "weapon_select_alt": "ブキを選択 (Alt)",
+    "weapon_title": "Top Weapon Wielders",
+    "threshold_select": "最小使用率",
+    "peak_x_power": "最高XP",
+    "final_x_power": "最終XP",
+    "show_all": "Multiple Entries Per Player",
+    "dedupe_data": "Best Entry Per Player",
+    "select_season": "シーズンの選択",
+    "all_seasons": "全期間",
+    "select_weapon": "ブキを選択",
+    "null_selection": "(選択なし)"
+  },
+  "navigation": {
+    "top500": "Top 500",
+    "footer.about": "About",
+    "footer.contact": "Contact",
+    "footer.rights": "%DATE% splat.top. All rights reserved.",
+    "navbar.faq": "FAQ",
+    "navbar.analytics": "分析",
+    "navbar.top_weapons": "ブキ使用率"
+  },
+  "player": {
+    "data_lang_key": "JPja",
+    "document_title_loading": "splat.top - Player Page",
+    "document_title_loaded": "splat.top - %PLAYER%",
+    "page_title": "Player Page",
+    "load_page": "Loading page...",
+    "load_component": "Loading components...",
+    "load_results": "Loading season results...",
+    "load_chart": "Loading chart...",
+    "no_data": "データがありません",
+    "xchart.title": "%MODE% Xパワー",
+    "xchart.xaxis.title": "% of Season Elapsed",
+    "xchart.xaxis.start": "Start",
+    "xchart.xaxis.end": "End",
+    "xchart.yaxis.title": "X Power",
+    "xchart.live_indicator": "(今季)",
+    "xchart.now": "現在",
+    "weaponchart.title": "%MODE% ブキ使用率",
+    "weaponchart.subtitle": "すべてのブキデータは概算値です",
+    "weaponchart.other": "Other",
+    "weaponchart.inner.title": "ブキ種の使用率",
+    "weaponchart.outer.title": "ブキの使用率",
+    "weaponchart.point.format": "<span style=\"color:{point.classColor}\">{point.name}</span>: <b>{point.y:.2f}%</b> of total<br>",
+    "controller.seasonal": "Seasonal",
+    "controller.accessible": "Accessible",
+    "controller.select_season": "Select Seasons (Weapons)",
+    "aliases.title": "プレイヤーの別名",
+    "aliases.splashtag": "名",
+    "aliases.last_seen": "最終確認",
+    "achievements.title": "実績",
+    "achievements.table.season": "シーズン",
+    "achievements.table.region": "グループ",
+    "achievements.table.total": "計",
+    "results.title": "シーズンごとの結果",
+    "results.table.mode": "ルール",
+    "results.table.rank": "順位",
+    "results.table.current_xp": "現在XP",
+    "results.table.final_xp": "最終XP",
+    "results.table.peak_xp": "最高XP",
+    "results.table.current_weapon": "現在",
+    "results.table.final_weapon": "最後に使った",
+    "results.table.most_used_weapon": "よく使う"
+  },
+  "analytics": {
+    "document_title": "splat.top - Analytics",
+    "page_title": "分析",
+    "load_page": "読み込み中...",
+    "load_component": "Loading components...",
+    "no_data": "データがありません",
+    "skill_offset.tab_name": "Skill Offset (Beta)",
+    "skill_offset.graph_label": "Skill Offset",
+    "skill_offset.graph_subtitle": "Skill Offset is a correlation, not a cause.",
+    "skill_offset.xaxis.title": "Appearance Count (Top 500)",
+    "skill_offset.yaxis.title": "Skill Offset",
+    "skill_offset.marker.format": "<b><span style=\"color:#ab5ab7\">{point.weaponName}</span></b><br><b>Count</b>:{point.x}<br><b>Skill Offset</b>: {point.y:.2f}",
+    "skill_offset.tooltip": "スキルオフセットは、ブキの出現率における期待値と比較して、トップ500におけるブキのパフォーマンスを示す指標です。値がプラスの場合、ブキまたはプレイヤーのパフォーマンスが期待以上であることを示します。値がマイナスの場合は、その逆を示します。使用率が高く、スキルオフセットが低いブキは、そのブキがプレイヤーをトップ500へ導いていることを示します。使用率が低く、スキルオフセットが高いブキは、そのブキが少数の熟練したプレイヤーによって使用されていることを示します。プレイヤーがXマッチをプレイしていなくてもトップ500のブキ選択が更新されるため、このデータは頻繁に更新されます。この情報は注意して使用してください。今後のアップデートで、精度の調整、タイムラグの軽減、その他の要素を含める予定です。",
+    "skill_offset.controller.title": "Controls",
+    "skill_offset.controller.linlog.label": "X Axis Scale",
+    "skill_offset.controller.linear": "Linear",
+    "skill_offset.controller.logarithmic": "Logarithmic",
+    "lorenz.tab_name": "ローレンツ曲線",
+    "lorenz.graph_label": "ローレンツ曲線とジニ係数",
+    "lorenz.graph_subtitle": "The Lorenz Curve and Gini Coefficient together represent the health of the meta.",
+    "lorenz.xaxis.title": "Weapon",
+    "lorenz.yaxis.title": "Share of X Power",
+    "lorenz.marker.format": "<b><span style=\"color:#ab5ab7\">{point.name}</span></b><br><b>Cumulative Share of X Power</b>: {point.y_percent:.2f}%<br><b>Share of X Power</b>: {point.diff:.2f}%",
+    "lorenz.tooltip": "The Lorenz Curve is a graphical representation of wealth distribution. In this case, it represents the distribution of X Power in the Top 500. The Gini Coefficient is a measure of inequality and shows the health of the meta by indicating how evenly distributed weapons are in their success. A Gini Coefficient of 0 represents perfect equality, meaning all weapons are equally successful, indicating a perfectly balanced meta. Conversely, a Gini Coefficient of 1 represents perfect inequality, where one weapon dominates entirely, indicating a highly imbalanced meta.",
+    "lorenz.marker.label": "Lorenz Curve",
+    "lorenz.gini.health_format": "%HEALTH% %META%",
+    "lorenz.gini.title": "Meta Health",
+    "lorenz.gini.equality": "Perfectly Balanced",
+    "lorenz.gini.very_very_low": "Extremely Balanced",
+    "lorenz.gini.very_low": "Highly Balanced",
+    "lorenz.gini.low": "Well-Balanced",
+    "lorenz.gini.low_medium": "Balanced",
+    "lorenz.gini.medium": "Moderately Balanced",
+    "lorenz.gini.high": "Slightly Imbalanced",
+    "lorenz.gini.very_high": "Imbalanced",
+    "lorenz.gini.very_very_high": "Highly Imbalanced",
+    "lorenz.gini.extremely_high": "Extremely Imbalanced",
+    "lorenz.gini.unequal": "Perfectly Imbalanced",
+    "lorenz.gini.indicator": "Gini Coefficient",
+    "lorenz.gini.indicator_format": "Gini: {point.x: .4f}"
+  }
+}
