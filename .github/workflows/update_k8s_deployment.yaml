@@ -247,6 +247,8 @@ jobs:
           DO_SPACES_SECRET: ${{ secrets.DO_SPACES_SECRET }}
           DO_SPACES_REGION: ${{ secrets.DO_SPACES_REGION }}
           DO_SPACES_ENDPOINT: ${{ secrets.DO_SPACES_ENDPOINT }}
+          DO_SPACES_ML_ENDPOINT: ${{ secrets.DO_SPACES_ML_ENDPOINT }}
+          DO_SPACES_ML_DIR: ${{ vars.DO_SPACES_ML_DIR }}
         run: |
           mv k8s/secrets.template k8s/secrets.yaml
           sed -i "s|%DB_HOST%|${DB_HOST}|g" k8s/secrets.yaml
