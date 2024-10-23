@@ -1,0 +1,50 @@
+{
+  "title": "FAQ - よくある質問",
+  "questions": [
+    {
+      "key": "what_is_splat_top",
+      "question": "splat.top とは？",
+      "answer": "<p class='text-white'><span class='text-purplelight'>splat.top</span> は、イカリング3が発表する Xランキングの<span class='text-purplelight'>トップ 500</span> ユーザーを分析する Web サイトです。 この Web サイトでは、各プレイヤーのトップ 500 までの履歴や、トップ 500 を介したゲーム環境の分析も提供しています。詳細は <a href='https://github.com/cesaregarza/SplatTop' class='text-purplelight underline'>GitHub リポジトリ</a> をご覧ください。</p>"
+    },
+    {
+      "key": "why_cant_i_find_myself",
+      "question": "ランキングに載りましたが、自分の履歴が見つけられません。",
+      "answer": "<p class='text-white'>履歴が見つからない場合、2 つの理由が考えられます:<ul class='text-white list-disc pl-5'><li><span class='text-purplelight'>新規でトップ 500 に入った:</span> 情報は 10 分毎に更新されるため、トップ 500 に入った直後は、すぐに履歴が利用できない場合があります。</li><li><span class='text-purplelight'>短時間だけランクインした:</span> トップ 500 に掲載されていた時間が短い場合、履歴が見つからない場合があります。</li></ul></p>"
+    },
+    {
+      "key": "how_often_are_rankings_updated",
+      "question": "ランキングはどのくらいの頻度で更新されますか？",
+      "answer": "<ul class='text-white list-disc pl-5'><li><span class='text-purplelight'>2023年2月～2023年8月:</span> データは1時間ごとに更新されていました。データを提供していただいた <a href='https://splatoon3.ink' class='text-purplelight underline'>splatoon3.ink</a> に感謝いたします。</li><li><span class='text-purplelight'>2023年8月～2024年3月:</span> データは15分ごとに更新されていました。</li><li><span class='text-purplelight'>2024年3月～ 現在:</span>データは10分ごとに更新されています。</li></ul>"
+    },
+    {
+      "key": "can_i_see_my_own_ranking",
+      "question": "私のランキングを見ることができますか？",
+      "answer": "<p class='text-white'>はい。トップ 500 に入ったことがあれば、ランキングを見ることができます。この時に使用していたゲーム内の名前で検索してください。また、自身の NPLN ID を使って <span class='text-purplelight'>splat.top/player/npln_id_goes_here</span> から直接アクセスすることができます。 ※トップ 500 に入った時間が短く、データの収集に含まれなかった場合、ランキングには表示されません。</p>"
+    },
+    {
+      "key": "my_weapon_data_is_incorrect",
+      "question": "使用していたブキが間違っています。修正できますか？",
+      "answer": "<p class='text-white'><span class='text-purplelight'>ブキのデータ</span>は、イカリング3 が管理するトップ 500 の結果に基づいて集計されます。この集計方法は概ね正確になる傾向にありますが、ブキデータが正しく表示されないエッジケースとなる可能性があります。これを正しく集計するためのデータ収集回数を少なくとも2倍以上にする必要がありますが、これは難しい問題になるでしょう。なお、データが間違っていると思われる場合は、詳細を添えてお気軽にお問い合わせください。修正を保証することはできませんが、提供されたデータは今後の集計方法の改善に役立てることができます。</p>"
+    },
+    {
+      "key": "can_i_have_access_to_the_data",
+      "question": "自分で分析を行いたいのですが、収集されたデータは取得できますか？",
+      "answer": "<p class='text-white'><b class='text-purplelight'>完全なデータセットへのアクセスは制限されています。</b> データへのアクセスを希望する場合は、使用目的を明記してお問い合わせください。データへのアクセスには splat.top または Splatoon community への貢献が重要な基準となります。 あなたが トッププレイヤーであること や コンテンツ制作者であること だけでは、十分ではありません。</p><p class='text-white'><b class='text-purplelight'>For students:</b> Academic projects can receive an anonymized data subset. Contact us on Discord or Twitter with project details.</p>"
+    },
+    {
+      "key": "i_own_a_website_and_want_to_use_your_data",
+      "question": "自分の Web サイトにあなたのデータを使用したいと考えています。どのようにすれば良いですか？",
+      "answer": "<p class='text-white'>データのニーズに応じて、API エンドポイントを提供する場合があります。Discord、 X(Twitter)、または <a href='https://github.com/cesaregarza/SplatTop' class='text-purplelight underline'>GitHub のリポジトリ </a>にある issue からお問い合わせください。リポジトリへの Pull requests によってサポートされる可能性が大幅に高まります。</p>"
+    },
+    {
+      "key": "im_a_content_creator_and_want_to_feature_your_website",
+      "question": "私はコンテンツ制作者です。あなたの Web サイトを紹介したいと思います。良いですか？",
+      "answer": "<p class='text-white'>はい。<span class='text-purplelight'>splat.top</span> のデータや分析結果は、Web サイトのクレジットを記載することで、使用することができます。このサイトへの言及やリンクをしていただければ幸いです。また、何かを貢献したり、特別なデータセットのリクエストがある場合、もしくは、初心者向けに分析の詳細を説明してほしい場合は、お問い合わせください。</p>"
+    },
+    {
+      "key": "the_line_cuts_off_randomly",
+      "question": "記録が途切れたりすることがありますが、なぜですか？",
+      "answer": "<p class='text-white'>おそらくゲームサーバー側の障害です。データ収集システムは非常に堅牢な設計を行っていますが、あらゆる状況に対応できるわけではありません。障害が長引くことで集計結果を全く利用できない場合もあります。集計結果が途切れないように最善を尽くしていますが、事情により手に負えない場合もあります。その際はご容赦ください。</p>"
+    }
+  ]
+}

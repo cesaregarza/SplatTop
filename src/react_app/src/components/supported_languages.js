@@ -4,15 +4,21 @@ const SUPPORTED_LANGUAGES = {
     "USes": "Spanish (NA)",
     "EUen": "English (UK)"
   },
-  "EUen": {
+  "JPja": {
     "USen": "English (US)",
     "USes": "Spanish (NA)",
-    "EUen": "English (UK)"
+    "EUen": "English (UK)",
+    "JPja": "日本語 (JP)(Beta)"
   },
   "USes": {
     "USen": "Inglés (EEUU)",
     "USes": "Español (LATAM)",
     "EUen": "Inglés (RU)"
+  },
+  "EUen": {
+    "USen": "English (US)",
+    "USes": "Spanish (NA)",
+    "EUen": "English (UK)"
   }
 };
 

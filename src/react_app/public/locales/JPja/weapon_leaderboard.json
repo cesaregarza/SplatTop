@@ -1,0 +1,14 @@
+{
+  "weapon_select_main": "ブキを選択",
+  "weapon_select_alt": "ブキを選択 (Alt)",
+  "weapon_title": "Top Weapon Wielders",
+  "threshold_select": "最小使用率",
+  "peak_x_power": "最高XP",
+  "final_x_power": "最終XP",
+  "show_all": "Multiple Entries Per Player",
+  "dedupe_data": "Best Entry Per Player",
+  "select_season": "シーズンの選択",
+  "all_seasons": "全期間",
+  "select_weapon": "ブキを選択",
+  "null_selection": "(選択なし)"
+}

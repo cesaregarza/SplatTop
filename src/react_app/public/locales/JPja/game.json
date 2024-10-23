@@ -1,0 +1,12 @@
+{
+  "winter": "冬 Chill",
+  "spring": "春 Fresh",
+  "summer": "夏 Sizzle",
+  "autumn": "秋 Drizzle",
+  "format": "%YEAR% %SEASON% Season",
+  "format_short": "%YEAR% %SEASON%",
+  "sz": "ガチエリア",
+  "tc": "ガチヤグラ",
+  "rm": "ガチホコバトル",
+  "cb": "ガチアサリ"
+}
