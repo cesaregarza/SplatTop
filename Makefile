@@ -46,6 +46,7 @@ stop-port-forward:
 
 .PHONY: deploy-core
 deploy-core:
+	kubectl config use-context kind-kind
 	kubectl apply -f k8s/secrets.yaml
 	kubectl apply -f k8s/redis/redis-deployment.yaml
 	kubectl apply -f k8s/redis/redis-service.yaml
