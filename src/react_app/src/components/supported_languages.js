@@ -2,7 +2,8 @@ const SUPPORTED_LANGUAGES = {
   "USen": {
     "USen": "English (US)",
     "USes": "Spanish (NA)",
-    "EUen": "English (UK)"
+    "EUen": "English (UK)",
+    "JPjp": "Japanese"
   },
   "JPja": {
     "USen": "English (US)",
@@ -13,12 +14,14 @@ const SUPPORTED_LANGUAGES = {
   "USes": {
     "USen": "Inglés (EEUU)",
     "USes": "Español (LATAM)",
-    "EUen": "Inglés (RU)"
+    "EUen": "Inglés (RU)",
+    "JPjp": "Japonés"
   },
   "EUen": {
     "USen": "English (US)",
     "USes": "Spanish (NA)",
-    "EUen": "English (UK)"
+    "EUen": "English (UK)",
+    "JPja": "Japanese"
   }
 };
 
