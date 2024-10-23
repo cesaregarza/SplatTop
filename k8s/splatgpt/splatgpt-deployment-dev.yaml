@@ -1,0 +1,33 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: splatnlp
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: splatnlp
+  template:
+    metadata:
+      labels:
+        app: splatnlp
+    spec:
+      containers:
+        - name: splatnlp
+          image: splatnlp:latest
+          imagePullPolicy: Never
+          ports:
+            - containerPort: 9000
+          env:
+            - name: ENV
+              value: "development"
+            - name: DO_SPACES_ML_ENDPOINT
+              valueFrom:
+                secretKeyRef:
+                  name: db-secrets
+                  key: DO_SPACES_ML_ENDPOINT
+            - name: DO_SPACES_ML_DIR
+              valueFrom:
+                secretKeyRef:
+                  name: db-secrets
+                  key: DO_SPACES_ML_DIR

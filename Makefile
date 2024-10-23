@@ -55,6 +55,8 @@ deploy-core:
 	kubectl apply -f k8s/celery-beat/celery-beat-deployment-dev.yaml
 	kubectl apply -f k8s/react/react-deployment-dev.yaml
 	kubectl apply -f k8s/react/react-service-dev.yaml
+	kubectl apply -f k8s/splatgpt/splatgpt-deployment.yaml
+	kubectl apply -f k8s/splatgpt/splatgpt-service.yaml
 	kubectl apply -f https://raw.githubusercontent.com/kubernetes/ingress-nginx/controller-v1.0.0/deploy/static/provider/cloud/deploy.yaml
 
 .PHONY: deploy
@@ -140,3 +142,7 @@ format:
 .PHONY: update-i18n
 update-i18n:
 	python scripts/i18n.py
+
+.PHONY: load-splatgpt
+load-splatgpt:
+	kind load docker-image splatnlp:latest

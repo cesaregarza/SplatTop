@@ -1,7 +1,9 @@
+import asyncio
 import logging
 import sqlite3
 import zlib
 
+import httpx
 import redis
 from celery import Celery
 from fastapi import WebSocket
@@ -123,3 +125,48 @@ sqlite_cursor = sqlite_conn.cursor()
 
 # Create slowapi limiter
 limiter = Limiter(key_func=get_remote_address)
+
+
+# Model Queue for SplatGPT
+class ModelQueue:
+    def __init__(self, cache_expiration: int = 60 * 10):
+        self.queue = asyncio.Queue()
+        self.processing = False
+        self.client = httpx.AsyncClient()
+        self.cache_key_prefix = "splatgpt"
+        self.cache_expiration = cache_expiration
+
+    async def process_queue(self):
+        if self.processing:
+            return
+
+        self.processing = True
+        try:
+            while True:
+                request, future = await self.queue.get()
+                try:
+                    response = await self.client.post(
+                        "http://splatnlp-service:9000/infer",
+                        json=request,
+                    )
+                    response.raise_for_status()
+                    result = response.json()
+                    future.set_result(result)
+                except Exception as e:
+                    future.set_exception(e)
+                finally:
+                    self.queue.task_done()
+
+                if self.queue.empty():
+                    break
+        finally:
+            self.processing = False
+
+    async def add_to_queue(self, request: dict) -> dict:
+        future = asyncio.Future()
+        await self.queue.put((request, future))
+        asyncio.create_task(self.process_queue())
+        return await future
+
+
+model_queue = ModelQueue()

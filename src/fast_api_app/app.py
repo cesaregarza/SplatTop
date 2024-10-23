@@ -14,6 +14,7 @@ from fast_api_app.connections import celery, limiter
 from fast_api_app.pubsub import start_pubsub_listener
 from fast_api_app.routes import (
     front_page_router,
+    infer_router,
     player_detail_router,
     search_router,
     weapon_info_router,
@@ -67,6 +68,7 @@ app.include_router(player_detail_router)
 app.include_router(search_router)
 app.include_router(weapon_info_router)
 app.include_router(weapon_leaderboard_router)
+app.include_router(infer_router)
 
 
 # Base route that lists all available routes

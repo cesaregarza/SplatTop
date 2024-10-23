@@ -1,0 +1,12 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: splatnlp-service
+spec:
+  selector:
+    app: splatnlp
+  ports:
+    - port: 9000
+      targetPort: 9000
+      name: http
+  type: ClusterIP
