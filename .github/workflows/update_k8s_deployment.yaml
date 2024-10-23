@@ -258,6 +258,8 @@ jobs:
           sed -i "s|%DO_SPACES_SECRET%|${DO_SPACES_SECRET}|g" k8s/secrets.yaml
           sed -i "s|%DO_SPACES_REGION%|${DO_SPACES_REGION}|g" k8s/secrets.yaml
           sed -i "s|%DO_SPACES_ENDPOINT%|${DO_SPACES_ENDPOINT}|g" k8s/secrets.yaml
+          sed -i "s|%DO_SPACES_ML_ENDPOINT%|${DO_SPACES_ML_ENDPOINT}|g" k8s/secrets.yaml
+          sed -i "s|%DO_SPACES_ML_DIR%|${DO_SPACES_ML_DIR}|g" k8s/secrets.yaml
           kubectl apply -f k8s/secrets.yaml
 
       - name: Create docker registry secret
@@ -310,6 +312,11 @@ jobs:
         run: |
           kubectl apply -f k8s/react/react-deployment.yaml
           kubectl apply -f k8s/react/react-service.yaml
+
+      - name: Apply SplatGPT configuration
+        run: |
+          kubectl apply -f k8s/splatgpt/splatgpt-deployment.yaml
+          kubectl apply -f k8s/splatgpt/splatgpt-service.yaml
 
       - name: Apply Ingress configuration
         run: kubectl apply -f k8s/ingress.yaml
