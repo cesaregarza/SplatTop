@@ -16,6 +16,7 @@ build:
 	kind load docker-image fast-api-app:latest
 	kind load docker-image celery-worker:latest
 	kind load docker-image react-app:latest
+	kind load docker-image splatnlp:latest
 
 .PHONY: build-no-cache
 build-no-cache:
@@ -56,7 +57,7 @@ deploy-core:
 	kubectl apply -f k8s/celery-beat/celery-beat-deployment-dev.yaml
 	kubectl apply -f k8s/react/react-deployment-dev.yaml
 	kubectl apply -f k8s/react/react-service-dev.yaml
-	kubectl apply -f k8s/splatgpt/splatgpt-deployment.yaml
+	kubectl apply -f k8s/splatgpt/splatgpt-deployment-dev.yaml
 	kubectl apply -f k8s/splatgpt/splatgpt-service.yaml
 	kubectl apply -f https://raw.githubusercontent.com/kubernetes/ingress-nginx/controller-v1.0.0/deploy/static/provider/cloud/deploy.yaml
 
@@ -84,6 +85,8 @@ undeploy-core:
 	kubectl delete -f k8s/celery-beat/celery-beat-deployment-dev.yaml
 	kubectl delete -f k8s/react/react-deployment-dev.yaml
 	kubectl delete -f k8s/react/react-service-dev.yaml
+	kubectl delete -f k8s/splatgpt/splatgpt-deployment-dev.yaml
+	kubectl delete -f k8s/splatgpt/splatgpt-service.yaml
 
 .PHONY: undeploy
 undeploy:
@@ -126,6 +129,10 @@ react-logs:
 .PHONY: redis-logs
 redis-logs:
 	kubectl logs -f `kubectl get pods -l app=redis -o jsonpath='{.items[0].metadata.name}'`
+
+.PHONY: splatgpt-logs
+splatgpt-logs:
+	kubectl logs -f `kubectl get pods -l app=splatnlp -o jsonpath='{.items[0].metadata.name}'`
 
 .PHONY: ingress-logs
 ingress-logs:
