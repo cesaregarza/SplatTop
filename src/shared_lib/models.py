@@ -1,14 +1,21 @@
+import uuid
+
 from sqlalchemy import (
+    UUID,
+    BigInteger,
     Boolean,
     Column,
     DateTime,
     Float,
     Index,
     Integer,
+    SmallInteger,
     String,
+    Text,
     UniqueConstraint,
+    text,
 )
-from sqlalchemy.dialects.postgresql import ENUM
+from sqlalchemy.dialects.postgresql import ENUM, INET, JSONB
 from sqlalchemy.ext.declarative import declarative_base
 
 Base = declarative_base()
@@ -231,3 +238,25 @@ class WeaponLeaderboard(Base):
         Index("idx_weapon_leaderboard_weapon_id", "weapon_id"),
         {"schema": "xscraper"},
     )
+
+
+class ModelInferenceLog(Base):
+    __tablename__ = "model_inference_logs"
+    __table_args__ = {"schema": "splatgpt"}
+
+    id = Column(BigInteger, primary_key=True)
+    request_id = Column(UUID(as_uuid=True), default=uuid.uuid4)
+    timestamp = Column(
+        DateTime(timezone=True), server_default=text("CURRENT_TIMESTAMP")
+    )
+    ip_address = Column(INET)
+    user_agent = Column(Text)
+    http_method = Column(String)
+    endpoint = Column(String)
+    client_id = Column(String)
+    input_data = Column(JSONB)
+    model_version = Column(String)
+    processing_time_ms = Column(Integer)
+    status_code = Column(SmallInteger)
+    output_data = Column(JSONB)
+    error_message = Column(Text)

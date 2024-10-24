@@ -9,12 +9,18 @@ from fastapi import APIRouter, HTTPException, Request
 from fastapi.responses import HTMLResponse
 from pydantic import BaseModel
 
-from fast_api_app.connections import limiter, model_queue, redis_conn, async_session
+from fast_api_app.connections import (
+    async_session,
+    limiter,
+    model_queue,
+    redis_conn,
+)
 from shared_lib.constants import (
     BUCKET_THRESHOLDS,
     MAIN_ONLY_ABILITIES,
     STANDARD_ABILITIES,
 )
+from shared_lib.models import ModelInferenceLog
 
 router = APIRouter()
 
@@ -298,29 +304,21 @@ async def log_inference_request(
                 )
             else:
                 async with async_session() as session:
-                    await session.execute(
-                        """
-                        INSERT INTO splatgpt.model_inference_logs (
-                            request_id, ip_address, user_agent, http_method,
-                            endpoint, input_data, model_version,
-                            processing_time_ms, status_code, error_message,
-                            output_data
-                        ) VALUES (
-                            $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11
-                        )
-                    """,
-                        request_id,
-                        log_entry["ip_address"],
-                        log_entry["user_agent"],
-                        log_entry["http_method"],
-                        log_entry["endpoint"],
-                        log_entry["input_data"],
-                        log_entry["model_version"],
-                        log_entry["processing_time_ms"],
-                        log_entry["status_code"],
-                        log_entry["error_message"],
-                        log_entry.get("output_data"),
+                    new_log_entry = ModelInferenceLog(
+                        request_id=request_id,
+                        ip_address=log_entry["ip_address"],
+                        user_agent=log_entry["user_agent"],
+                        http_method=log_entry["http_method"],
+                        endpoint=log_entry["endpoint"],
+                        input_data=log_entry["input_data"],
+                        model_version=log_entry["model_version"],
+                        processing_time_ms=log_entry["processing_time_ms"],
+                        status_code=log_entry["status_code"],
+                        error_message=log_entry["error_message"],
+                        output_data=log_entry.get("output_data"),
                     )
+                    session.add(new_log_entry)
+                    await session.commit()
         except Exception as db_error:
             logger.error(f"Failed to log inference request: {db_error}")
 
