@@ -257,6 +257,7 @@ class ModelInferenceLog(Base):
     input_data = Column(JSONB)
     model_version = Column(String)
     processing_time_ms = Column(Integer)
+    inference_time_ms = Column(Integer)
     status_code = Column(SmallInteger)
     output_data = Column(JSONB)
     error_message = Column(Text)

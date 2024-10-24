@@ -341,63 +341,53 @@ async def infer(inference_request: InferenceRequest, request: Request):
     cache_status = "miss"
     model_response = None
 
-    async with log_inference_request(request, inference_request) as request_id:
-        logger.info(
-            f"Received inference request {request_id}: {inference_request}"
-        )
+    processing_start = time.time()
 
-        redis_key = "splatgpt"
-        abilities_str = sorted(
-            [
-                f"{ability}:{value}"
-                for ability, value in inference_request.abilities.items()
-                if value > 0
-            ]
-        )
-        abilities_str.append(f"weapon_id:{inference_request.weapon_id}")
-        abilities_str = ",".join(abilities_str)
-        abilities_hash = hash(abilities_str)
-        cached_result = redis_conn.hget(redis_key, abilities_hash)
+    redis_key = "splatgpt"
+    abilities_str = sorted(
+        [
+            f"{ability}:{value}"
+            for ability, value in inference_request.abilities.items()
+            if value > 0
+        ]
+    )
+    abilities_str.append(f"weapon_id:{inference_request.weapon_id}")
+    abilities_str = ",".join(abilities_str)
+    abilities_hash = hash(abilities_str)
+    cached_result = redis_conn.hget(redis_key, abilities_hash)
 
-        processing_start = time.time()
+    if cached_result:
+        logger.info(f"Cache hit, hash: {abilities_hash}")
+        cache_status = "hit"
+        predictions = eval(cached_result)
+    else:
+        logger.info(f"Cache miss, hash: {abilities_hash}")
+        model_request = {
+            "target": inference_request.abilities,
+            "weapon_id": inference_request.weapon_id,
+        }
 
-        if cached_result:
-            logger.info(
-                f"Cache hit for request {request_id}, hash: {abilities_hash}"
+        try:
+            raw_result = await model_queue.add_to_queue(model_request)
+            model_response = ModelResponse(**raw_result)
+            predictions = model_response.predictions
+
+            redis_conn.hset(redis_key, abilities_hash, str(predictions))
+            redis_conn.expire(redis_key, model_queue.cache_expiration)
+
+        except Exception as e:
+            logger.error(f"Error sending request to model server: {e}")
+            raise HTTPException(
+                status_code=503,
+                detail="Error sending request to model server",
             )
-            cache_status = "hit"
-            predictions = eval(cached_result)
-        else:
-            logger.info(
-                f"Cache miss for request {request_id}, hash: {abilities_hash}"
-            )
-            model_request = {
-                "target": inference_request.abilities,
-                "weapon_id": inference_request.weapon_id,
-            }
 
-            logger.info(
-                f"Sending request {request_id} to model server: {model_request}"
-            )
-            try:
-                raw_result = await model_queue.add_to_queue(model_request)
-                model_response = ModelResponse(**raw_result)
-                predictions = model_response.predictions
+    processing_time = int((time.time() - processing_start) * 1000)
 
-                redis_conn.hset(redis_key, abilities_hash, str(predictions))
-                redis_conn.expire(redis_key, model_queue.cache_expiration)
-
-            except Exception as e:
-                logger.error(
-                    f"Error sending request {request_id} to model server: {e}"
-                )
-                raise HTTPException(
-                    status_code=503,
-                    detail="Error sending request to model server",
-                )
-
-        processing_time = int((time.time() - processing_start) * 1000)
-
+    # Now wrap the response generation with the context manager, passing model_response
+    async with log_inference_request(
+        request, inference_request, model_response
+    ) as request_id:
         return InferenceResponse(
             predictions=predictions,
             metadata={
