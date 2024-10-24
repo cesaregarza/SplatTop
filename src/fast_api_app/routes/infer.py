@@ -1,4 +1,8 @@
 import logging
+import os
+import time
+import uuid
+from contextlib import asynccontextmanager
 
 import httpx
 from fastapi import APIRouter, HTTPException, Request
@@ -18,13 +22,29 @@ router = APIRouter()
 logger = logging.getLogger(__name__)
 
 
+class ModelResponse(BaseModel):
+    predictions: list[tuple[str, float]]
+    splatgpt_info: dict
+    api_version: str = "0.1.0"
+    inference_time: float
+
+
 class InferenceRequest(BaseModel):
     abilities: dict[str, int]
     weapon_id: int
 
 
+class MetaData(BaseModel):
+    request_id: str
+    api_version: str
+    splatgpt_version: str
+    cache_status: str
+    processing_time_ms: int
+
+
 class InferenceResponse(BaseModel):
     predictions: list[tuple[str, float]]
+    metadata: MetaData
 
 
 # Create a persistent client
@@ -113,8 +133,12 @@ async def infer_instructions():
         <ul>
             <li><strong>Method:</strong> POST</li>
             <li><strong>Endpoint:</strong> <code>/api/infer</code></li>
+            <li><strong>Header:</strong> A custom User-Agent is required</li>
         </ul>
     </div>
+
+    <h2>Request Headers</h2>
+    <p>A custom User-Agent header is required for all requests to this endpoint. Requests without a custom User-Agent will be rejected.</p>
 
     <h2>Request Body</h2>
     
@@ -145,10 +169,23 @@ async def infer_instructions():
 }</pre>
 
     <h2>Response</h2>
-    <p>A list of tuples, each containing:</p>
+    <p>The response contains two main parts:</p>
     <ol>
-        <li>An ability token (string)</li>
-        <li>The predicted value for that token (float)</li>
+        <li><strong>predictions:</strong> A list of tuples, each containing:
+            <ul>
+                <li>An ability token (string)</li>
+                <li>The predicted value for that token (float)</li>
+            </ul>
+        </li>
+        <li><strong>metadata:</strong> Additional information about the request and response, including:
+            <ul>
+                <li>request_id: A unique identifier for the request</li>
+                <li>api_version: The version of the API used</li>
+                <li>splatgpt_version: The version of the model used for prediction</li>
+                <li>cache_status: Whether the result was retrieved from cache ("hit") or newly computed ("miss")</li>
+                <li>processing_time_ms: The time taken to process the request, in milliseconds</li>
+            </ul>
+        </li>
     </ol>
     
     <p>Ability tokens are formatted as follows:</p>
@@ -199,45 +236,183 @@ async def infer_instructions():
     )
 
 
+@asynccontextmanager
+async def log_inference_request(
+    request: Request,
+    inference_request: InferenceRequest,
+    model_response: ModelResponse | None = None,
+):
+    """Context manager to handle logging of inference requests"""
+    request_id = uuid.uuid4()
+    start_time = time.time()
+
+    try:
+        yield request_id
+        status_code = 200
+        error_message = None
+    except Exception as e:
+        status_code = getattr(e, "status_code", 500)
+        error_message = str(e)
+        raise
+    finally:
+        processing_time = int(
+            (time.time() - start_time) * 1000
+        )  # Convert to ms
+
+        # Prepare log entry
+        log_entry = {
+            "request_id": request_id,
+            "ip_address": request.client.host,
+            "user_agent": request.headers.get("user-agent"),
+            "http_method": request.method,
+            "endpoint": str(request.url.path),
+            "input_data": {
+                "abilities": inference_request.abilities,
+                "weapon_id": inference_request.weapon_id,
+            },
+            "splatgpt_version": model_response.splatgpt_info.get(
+                "version", "unknown"
+            )
+            if model_response
+            else "unknown",
+            "processing_time_ms": processing_time,
+            "status_code": status_code,
+            "error_message": error_message,
+        }
+
+        # Add model-specific information if available
+        if model_response:
+            log_entry["output_data"] = {
+                "predictions": model_response.predictions,
+                "splatgpt_info": model_response.splatgpt_info,
+                "api_version": model_response.api_version,
+                "inference_time": model_response.inference_time,
+            }
+
+        # Log to database
+        try:
+            if os.environ.get("ENV") == "development":
+                logger.info(
+                    "Not logging inference request in development environment"
+                )
+                logger.info(log_entry)
+            else:
+                async with request.app.state.db_pool.acquire() as conn:
+                    await conn.execute(
+                        """
+                        INSERT INTO splatgpt.model_inference_logs (
+                            request_id, ip_address, user_agent, http_method,
+                            endpoint, input_data, model_version,
+                            processing_time_ms, status_code, error_message,
+                            output_data
+                        ) VALUES (
+                            $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11
+                        )
+                    """,
+                        request_id,
+                        log_entry["ip_address"],
+                        log_entry["user_agent"],
+                        log_entry["http_method"],
+                        log_entry["endpoint"],
+                        log_entry["input_data"],
+                        log_entry["model_version"],
+                        log_entry["processing_time_ms"],
+                        log_entry["status_code"],
+                        log_entry["error_message"],
+                        log_entry.get("output_data"),
+                    )
+        except Exception as db_error:
+            logger.error(f"Failed to log inference request: {db_error}")
+
+
 @router.post("/api/infer")
 @limiter.limit("10/minute")
 async def infer(inference_request: InferenceRequest, request: Request):
-    logger.info(f"Received inference request: {inference_request}")
-    redis_key = "splatgpt"
-    # Sort abilities by key, remove 0 and null values, and convert to string
-    # for purposes of caching
-    abilities_str = sorted(
-        [
-            f"{ability}:{value}"
-            for ability, value in inference_request.abilities.items()
-            if value > 0
-        ]
-    )
-    abilities_str.append(f"weapon_id:{inference_request.weapon_id}")
-    abilities_str = ",".join(abilities_str)
-    abilities_hash = hash(abilities_str)
-    cached_result = redis_conn.hget(redis_key, abilities_hash)
-    if cached_result:
-        logger.info(f"Cache hit for hash: {abilities_hash}")
-        return InferenceResponse(predictions=eval(cached_result))
-
-    logger.info(f"Cache miss for hash: {abilities_hash}")
-    model_request = {
-        "target": inference_request.abilities,
-        "weapon_id": inference_request.weapon_id,
-    }
-
-    # Request to the model server using the persistent client
-    logger.info(f"Sending request to model server: {model_request}")
-    try:
-        result = await model_queue.add_to_queue(model_request)
-    except Exception as e:
-        logger.error(f"Error sending request to model server: {e}")
+    # Check for custom User-Agent
+    user_agent = request.headers.get("User-Agent")
+    if not user_agent or user_agent in ["Mozilla/5.0", "PostmanRuntime/7.32.2"]:
         raise HTTPException(
-            status_code=503, detail="Error sending request to model server"
+            status_code=400, detail="Custom User-Agent header is required"
         )
 
-    logger.info(f"Received response from model server: {result}")
-    redis_conn.hset(redis_key, abilities_hash, str(result["predictions"]))
-    redis_conn.expire(redis_key, model_queue.cache_expiration)
-    return InferenceResponse(predictions=result["predictions"])
+    # Check request size
+    content_length = request.headers.get("content-length")
+    if content_length and int(content_length) > 1024:
+        raise HTTPException(status_code=413, detail="Request too large")
+
+    cache_status = "miss"
+    model_response = None
+
+    async with log_inference_request(request, inference_request) as request_id:
+        logger.info(
+            f"Received inference request {request_id}: {inference_request}"
+        )
+
+        redis_key = "splatgpt"
+        abilities_str = sorted(
+            [
+                f"{ability}:{value}"
+                for ability, value in inference_request.abilities.items()
+                if value > 0
+            ]
+        )
+        abilities_str.append(f"weapon_id:{inference_request.weapon_id}")
+        abilities_str = ",".join(abilities_str)
+        abilities_hash = hash(abilities_str)
+        cached_result = redis_conn.hget(redis_key, abilities_hash)
+
+        processing_start = time.time()
+
+        if cached_result:
+            logger.info(
+                f"Cache hit for request {request_id}, hash: {abilities_hash}"
+            )
+            cache_status = "hit"
+            predictions = eval(cached_result)
+        else:
+            logger.info(
+                f"Cache miss for request {request_id}, hash: {abilities_hash}"
+            )
+            model_request = {
+                "target": inference_request.abilities,
+                "weapon_id": inference_request.weapon_id,
+            }
+
+            logger.info(
+                f"Sending request {request_id} to model server: {model_request}"
+            )
+            try:
+                raw_result = await model_queue.add_to_queue(model_request)
+                model_response = ModelResponse(**raw_result)
+                predictions = model_response.predictions
+
+                redis_conn.hset(redis_key, abilities_hash, str(predictions))
+                redis_conn.expire(redis_key, model_queue.cache_expiration)
+
+            except Exception as e:
+                logger.error(
+                    f"Error sending request {request_id} to model server: {e}"
+                )
+                raise HTTPException(
+                    status_code=503,
+                    detail="Error sending request to model server",
+                )
+
+        processing_time = int((time.time() - processing_start) * 1000)
+
+        return InferenceResponse(
+            predictions=predictions,
+            metadata={
+                "request_id": str(request_id),
+                "api_version": model_response.api_version
+                if model_response
+                else "0.1.0",
+                "splatgpt_version": model_response.splatgpt_info.get(
+                    "version", "unknown"
+                )
+                if model_response
+                else "unknown",
+                "cache_status": cache_status,
+                "processing_time_ms": processing_time,
+            },
+        )
