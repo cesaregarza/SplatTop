@@ -270,7 +270,7 @@ async def log_inference_request(
                 "abilities": inference_request.abilities,
                 "weapon_id": inference_request.weapon_id,
             },
-            "splatgpt_version": model_response.splatgpt_info.get(
+            "model_version": model_response.splatgpt_info.get(
                 "version", "unknown"
             )
             if model_response
@@ -290,12 +290,12 @@ async def log_inference_request(
             }
 
         # Log to database
+        logger.info(log_entry)
         try:
             if os.environ.get("ENV") == "development":
                 logger.info(
                     "Not logging inference request in development environment"
                 )
-                logger.info(log_entry)
             else:
                 async with async_session() as session:
                     await session.execute(
