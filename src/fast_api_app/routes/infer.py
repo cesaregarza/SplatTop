@@ -9,7 +9,7 @@ from fastapi import APIRouter, HTTPException, Request
 from fastapi.responses import HTMLResponse
 from pydantic import BaseModel
 
-from fast_api_app.connections import limiter, model_queue, redis_conn
+from fast_api_app.connections import limiter, model_queue, redis_conn, async_session
 from shared_lib.constants import (
     BUCKET_THRESHOLDS,
     MAIN_ONLY_ABILITIES,
@@ -297,8 +297,8 @@ async def log_inference_request(
                 )
                 logger.info(log_entry)
             else:
-                async with request.app.state.db_pool.acquire() as conn:
-                    await conn.execute(
+                async with async_session() as session:
+                    await session.execute(
                         """
                         INSERT INTO splatgpt.model_inference_logs (
                             request_id, ip_address, user_agent, http_method,
