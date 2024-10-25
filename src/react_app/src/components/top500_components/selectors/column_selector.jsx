@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useRef, useEffect } from "react";
 import { useTranslation } from "react-i18next";
 
 const ColumnSelector = ({
@@ -9,6 +9,8 @@ const ColumnSelector = ({
 }) => {
   const { t } = useTranslation();
   const [isOpen, setIsOpen] = useState(false);
+  const dropdownRef = useRef(null);
+  const buttonRef = useRef(null);
 
   const handleToggle = (columnId) => {
     if (disabled) return;
@@ -18,10 +20,38 @@ const ColumnSelector = ({
     }));
   };
 
+  useEffect(() => {
+    const handleResize = () => {
+      if (isOpen && dropdownRef.current && buttonRef.current) {
+        const dropdownRect = dropdownRef.current.getBoundingClientRect();
+        const buttonRect = buttonRef.current.getBoundingClientRect();
+        const windowWidth = window.innerWidth;
+
+        if (dropdownRect.right > windowWidth) {
+          const overflowAmount = dropdownRect.right - windowWidth;
+          const newLeftPosition = Math.max(0, buttonRect.left - overflowAmount);
+          dropdownRef.current.style.left = `${newLeftPosition}px`;
+          dropdownRef.current.style.right = "auto";
+        } else {
+          dropdownRef.current.style.left = `${buttonRect.left}px`;
+          dropdownRef.current.style.right = "auto";
+        }
+      }
+    };
+
+    window.addEventListener("resize", handleResize);
+    handleResize();
+
+    return () => {
+      window.removeEventListener("resize", handleResize);
+    };
+  }, [isOpen]);
+
   return (
     <div className="relative inline-block text-left mb-4">
       <div>
         <button
+          ref={buttonRef}
           type="button"
           onClick={() => !disabled && setIsOpen(!isOpen)}
           className={`inline-flex justify-center w-full rounded-md border border-gray-700 px-4 py-2 bg-gray-800 text-sm font-medium text-white ${
@@ -49,7 +79,11 @@ const ColumnSelector = ({
       </div>
 
       {!disabled && isOpen && (
-        <div className="origin-top-right absolute right-0 mt-2 w-56 rounded-md shadow-lg bg-gray-800 ring-1 ring-black ring-opacity-5 focus:outline-none">
+        <div
+          ref={dropdownRef}
+          className="absolute mt-2 w-56 rounded-md shadow-lg bg-gray-800 ring-1 ring-black ring-opacity-5 focus:outline-none"
+          style={{ zIndex: 10 }}
+        >
           <div className="py-1">
             {columnsConfig.map((column) => (
               <label
