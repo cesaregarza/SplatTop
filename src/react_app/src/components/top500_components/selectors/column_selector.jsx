@@ -27,15 +27,28 @@ const ColumnSelector = ({
         const buttonRect = buttonRef.current.getBoundingClientRect();
         const windowWidth = window.innerWidth;
 
-        if (dropdownRect.right > windowWidth) {
-          const overflowAmount = dropdownRect.right - windowWidth;
-          const newLeftPosition = Math.max(0, buttonRect.left - overflowAmount);
-          dropdownRef.current.style.left = `${newLeftPosition}px`;
-          dropdownRef.current.style.right = "auto";
+        // Calculate the right edge of the dropdown
+        const dropdownRightEdge = buttonRect.left + dropdownRect.width;
+
+        if (dropdownRightEdge > windowWidth) {
+          // If dropdown extends beyond the right edge of the window
+          const overflowAmount = dropdownRightEdge - windowWidth;
+          dropdownRef.current.style.left = `${
+            buttonRect.left - overflowAmount
+          }px`;
         } else {
+          // Position dropdown aligned with the left edge of the button
           dropdownRef.current.style.left = `${buttonRect.left}px`;
-          dropdownRef.current.style.right = "auto";
         }
+
+        // Ensure the dropdown doesn't extend beyond the left edge of the window
+        if (parseFloat(dropdownRef.current.style.left) < 0) {
+          dropdownRef.current.style.left = "0px";
+        }
+
+        dropdownRef.current.style.top = `${
+          buttonRect.bottom + window.scrollY
+        }px`;
       }
     };
 
@@ -81,7 +94,7 @@ const ColumnSelector = ({
       {!disabled && isOpen && (
         <div
           ref={dropdownRef}
-          className="absolute mt-2 w-56 rounded-md shadow-lg bg-gray-800 ring-1 ring-black ring-opacity-5 focus:outline-none"
+          className="fixed mt-2 w-56 rounded-md shadow-lg bg-gray-800 ring-1 ring-black ring-opacity-5 focus:outline-none"
           style={{ zIndex: 10 }}
         >
           <div className="py-1">
