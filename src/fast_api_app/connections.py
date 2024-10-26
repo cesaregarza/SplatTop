@@ -8,11 +8,11 @@ import redis
 from celery import Celery
 from fastapi import WebSocket
 from slowapi import Limiter
-from slowapi.util import get_remote_address
 from sqlalchemy import create_engine
 from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine
 from sqlalchemy.orm import scoped_session, sessionmaker
 
+from fast_api_app.utils import get_client_ip
 from shared_lib.constants import REDIS_HOST, REDIS_PORT
 from shared_lib.db import create_uri
 
@@ -124,7 +124,7 @@ sqlite_conn = sqlite3.connect(":memory:")
 sqlite_cursor = sqlite_conn.cursor()
 
 # Create slowapi limiter
-limiter = Limiter(key_func=get_remote_address)
+limiter = Limiter(key_func=get_client_ip)
 
 
 # Model Queue for SplatGPT

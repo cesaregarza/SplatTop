@@ -15,6 +15,7 @@ from fast_api_app.connections import (
     model_queue,
     redis_conn,
 )
+from fast_api_app.utils import get_client_ip
 from shared_lib.constants import (
     BUCKET_THRESHOLDS,
     MAIN_ONLY_ABILITIES,
@@ -268,7 +269,7 @@ async def log_inference_request(
         # Prepare log entry
         log_entry = {
             "request_id": request_id,
-            "ip_address": request.client.host,
+            "ip_address": get_client_ip(request),
             "user_agent": request.headers.get("user-agent"),
             "http_method": request.method,
             "endpoint": str(request.url.path),
