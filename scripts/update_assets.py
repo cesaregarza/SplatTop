@@ -145,7 +145,9 @@ def process_rowid(row_id: str) -> dict[str, str]:
     return {
         "class": weapon_class,
         "kit": f"{weapon_main}_{weapon_suffix}",
-        "reference_kit": f"{weapon_main}_{weapon_reference_suffix}",
+        "reference_kit": (
+            f"{weapon_class}_{weapon_main}_{weapon_reference_suffix}"
+        ),
     }
 
 
@@ -160,9 +162,18 @@ def process_weapon_data(preprocessed_data: dict[int, dict]) -> dict[int, dict]:
             **process_rowid(row_id),
         }
     # Find the reverse mapping for each weapon and add it
-    reverse_map = {v["reference_kit"]: k for k, v in out.items()}
+    reverse_map = {
+        v["reference_kit"]: k
+        for k, v in out.items()
+        if (v["reference_kit"] == (v["class"] + "_" + v["kit"]))
+    }
     for _, weapon_data in out.items():
         weapon_data["reference_id"] = reverse_map[weapon_data["reference_kit"]]
+
+    for _, weapon_data in out.items():
+        weapon_data["reference_kit"] = "_".join(
+            weapon_data["reference_kit"].split("_")[1:]
+        )
     return out
 
 
