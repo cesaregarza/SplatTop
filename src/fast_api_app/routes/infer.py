@@ -75,7 +75,7 @@ async def infer_instructions():
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>SplatGPT Inference API Instructions</title>
+    <title>SplatGPT API Documentation</title>
     <style>
         body {
             font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
@@ -136,41 +136,55 @@ async def infer_instructions():
             font-family: monospace;
             color: #6c757d;
         }
+
+        .section {
+            border: 1px solid #e1e4e8;
+            border-radius: 6px;
+            margin: 2rem 0;
+            padding: 1rem;
+        }
+
+        .implementation-details {
+            background-color: #f8f9fa;
+            margin-top: 3rem;
+            padding: 1.5rem;
+            border-radius: 8px;
+        }
     </style>
 </head>
 <body>
-    <h1>SplatGPT Inference API Instructions</h1>
+    <h1>SplatGPT API Documentation</h1>
     
-    <p>This endpoint provides detailed instructions on how to use the inference API for Splatoon 3 gear ability predictions.</p>
-    
-    <div class="endpoint">
-        <h2>Endpoint Details</h2>
+    <div class="section">
+        <h2>Core API Endpoints</h2>
+
+        <h3>1. Inference Endpoint</h3>
+        <div class="endpoint">
+            <h4>Endpoint Details</h4>
+            <ul>
+                <li><strong>Method:</strong> POST</li>
+                <li><strong>Endpoint:</strong> <code>/api/infer</code></li>
+                <li><strong>Header:</strong> A custom User-Agent is required</li>
+            </ul>
+        </div>
+
+        <h4>Request Headers</h4>
+        <p>A custom User-Agent header is required for all requests to this endpoint. Requests without a custom User-Agent will be rejected.</p>
+
+        <h4>Request Body</h4>
+        <h5>abilities</h5>
+        <p>A dictionary of ability names and their corresponding Ability Point (AP) values. Each ability is represented by an integer AP value, where:</p>
         <ul>
-            <li><strong>Method:</strong> POST</li>
-            <li><strong>Endpoint:</strong> <code>/api/infer</code></li>
-            <li><strong>Header:</strong> A custom User-Agent is required</li>
+            <li>A main slot ability has a weight of <code>10 AP</code></li>
+            <li>A sub slot ability has a weight of <code>3 AP</code></li>
+            <li>Main-Slot-Only abilities should always be represented as <code>10 AP</code></li>
         </ul>
-    </div>
 
-    <h2>Request Headers</h2>
-    <p>A custom User-Agent header is required for all requests to this endpoint. Requests without a custom User-Agent will be rejected.</p>
+        <h5>weapon_id</h5>
+        <p>An integer representing the unique identifier for a specific weapon in Splatoon 3. The internal ID, where 50 is the ID for 52 gal.</p>
 
-    <h2>Request Body</h2>
-    
-    <h3>abilities</h3>
-    <p>A dictionary of ability names and their corresponding Ability Point (AP) values. Each ability is represented by an integer AP value, where:</p>
-    <ul>
-        <li>A main slot ability has a weight of <code>10 AP</code></li>
-        <li>A sub slot ability has a weight of <code>3 AP</code></li>
-        <li>Main-Slot-Only abilities should always be represented as <code>10 AP</code></li>
-    </ul>
-    <p>The total AP for an ability is the sum of its main and sub slot values. For example, one main (10 AP) and three subs (3 AP each) of Swim Speed Up would be represented as 19 AP.</p>
-
-    <h3>weapon_id</h3>
-    <p>An integer representing the unique identifier for a specific weapon in Splatoon 3. The internal ID, where 50 is the ID for 52 gal.</p>
-
-    <h2>Example Request</h2>
-    <pre>{
+        <h4>Example Inference Request</h4>
+        <pre>{
     "abilities": {
         "swim_speed_up": 19,
         "ninja_squid": 10,
@@ -183,68 +197,97 @@ async def infer_instructions():
     "weapon_id": 50
 }</pre>
 
-    <h2>Response</h2>
-    <p>The response contains two main parts:</p>
-    <ol>
-        <li><strong>predictions:</strong> A list of tuples, each containing:
-            <ul>
-                <li>An ability token (string)</li>
-                <li>The predicted value for that token (float)</li>
-            </ul>
-        </li>
-        <li><strong>metadata:</strong> Additional information about the request and response, including:
-            <ul>
-                <li>request_id: A unique identifier for the request</li>
-                <li>api_version: The version of the API used</li>
-                <li>splatgpt_version: The version of the model used for prediction</li>
-                <li>cache_status: Whether the result was retrieved from cache ("hit") or newly computed ("miss")</li>
-                <li>processing_time_ms: The time taken to process the request, in milliseconds</li>
-            </ul>
-        </li>
-    </ol>
-    
-    <p>Ability tokens are formatted as follows:</p>
-    <ul>
-        <li>For main-slot-only abilities: the ability name (e.g., <code>ninja_squid</code>)</li>
-        <li>For standard abilities: the ability name followed by a number representing the AP breakpoint (e.g., <code>swim_speed_up_3</code>, <code>swim_speed_up_6</code>, etc.)</li>
-    </ul>
-    <p>The number in the token represents the minimum AP value for that prediction. For instance, <code>swim_speed_up_3</code> represents the effect of Swim Speed Up with at least 3 AP.</p>
+        <h4>Inference Response</h4>
+        <p>The response contains two main parts:</p>
+        <ol>
+            <li><strong>predictions:</strong> A list of tuples, each containing:
+                <ul>
+                    <li>An ability token (string)</li>
+                    <li>The predicted value for that token (float)</li>
+                </ul>
+            </li>
+            <li><strong>metadata:</strong> Additional information about the request and response, including:
+                <ul>
+                    <li>request_id: A unique identifier for the request</li>
+                    <li>api_version: The version of the API used</li>
+                    <li>splatgpt_version: The version of the model used for prediction</li>
+                    <li>cache_status: Whether the result was retrieved from cache ("hit") or newly computed ("miss")</li>
+                    <li>processing_time_ms: The time taken to process the request, in milliseconds</li>
+                </ul>
+            </li>
+        </ol>
 
-    <div class="note">
-        <h2>Note</h2>
-        <p>This endpoint is rate-limited to 10 requests per minute to ensure fair usage and system stability.</p>
+        <div class="note">
+            <p>The inference endpoint is rate-limited to 10 requests per minute to ensure fair usage and system stability.</p>
+        </div>
+
+        <h3>2. Feedback Endpoint</h3>
+        <div class="endpoint">
+            <h4>Endpoint Details</h4>
+            <ul>
+                <li><strong>Method:</strong> POST</li>
+                <li><strong>Endpoint:</strong> <code>/api/feedback</code></li>
+            </ul>
+        </div>
+
+        <p>The feedback endpoint allows users to provide feedback on inference predictions.</p>
+
+        <h4>Feedback Request Body</h4>
+        <pre>{
+    "request_id": "string",  // The request_id from the inference response
+    "user_agent": "string",  // The User-Agent used in the request
+    "feedback": boolean      // true for positive feedback, false for negative
+}</pre>
+
+        <h4>Feedback Response</h4>
+        <p>Upon successful submission, the endpoint returns a status message indicating whether the feedback was inserted or updated:</p>
+        <pre>{
+    "status": "Feedback updated successfully" // or "New feedback inserted successfully"
+}</pre>
     </div>
 
-    <h2>Ability Lists</h2>
-    <h3>Main-Only Abilities</h3>
-    <ul>
-        """
+    <div class="implementation-details">
+        <h2>Implementation Details</h2>
+
+        <h3>Token Format</h3>
+        <p>Ability tokens in the response follow these formatting rules:</p>
+        <ul>
+            <li>For main-slot-only abilities: the ability name (e.g., <code>ninja_squid</code>)</li>
+            <li>For standard abilities: the ability name followed by a number representing the AP breakpoint (e.g., <code>swim_speed_up_3</code>, <code>swim_speed_up_6</code>, etc.)</li>
+        </ul>
+        <p>The number in the token represents the minimum AP value for that prediction. For instance, <code>swim_speed_up_3</code> represents the effect of Swim Speed Up with at least 3 AP.</p>
+
+        <h3>Special Tokens</h3>
+        <p>These special tokens may appear in the output with near-zero probability:</p>
+        <ul>
+            <li><span class="special-token">&lt;NULL&gt;</span>: Placeholder token to build from no input, safe to ignore</li>
+            <li><span class="special-token">&lt;PAD&gt;</span>: Padding token used in training, safe to ignore</li>
+        </ul>
+
+        <h3>Available Abilities</h3>
+        <h4>Main-Only Abilities</h4>
+        <ul>
+            """
         + "".join([f"<li>{ability}</li>" for ability in MAIN_ONLY_ABILITIES])
         + """
-    </ul>
+        </ul>
 
-    <h3>Standard Abilities</h3>
-    <ul>
-        """
+        <h4>Standard Abilities</h4>
+        <ul>
+            """
         + "".join([f"<li>{ability}</li>" for ability in STANDARD_ABILITIES])
         + """
-    </ul>
+        </ul>
 
-    <h3>Special Tokens</h3>
-    <p>There are special tokens that will be returned that should be close to zero probability in the output, here are the meanings:</p>
-    <ul>
-        <li><span class="special-token">&lt;NULL&gt;</span>: Placeholder token to build from no input, safe to ignore</li>
-        <li><span class="special-token">&lt;PAD&gt;</span>: Padding token used in training, safe to ignore</li>
-    </ul>
-
-    <h2>AP Breakpoints</h2>
-    <ul>
-        """
+        <h3>AP Breakpoints</h3>
+        <ul>
+            """
         + "".join(
             [f"<li>{breakpoint}</li>" for breakpoint in BUCKET_THRESHOLDS]
         )
         + """
-    </ul>
+        </ul>
+    </div>
 </body>
 </html>
     """
