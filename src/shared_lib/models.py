@@ -7,6 +7,7 @@ from sqlalchemy import (
     Column,
     DateTime,
     Float,
+    ForeignKeyConstraint,
     Index,
     Integer,
     SmallInteger,
@@ -242,10 +243,15 @@ class WeaponLeaderboard(Base):
 
 class ModelInferenceLog(Base):
     __tablename__ = "model_inference_logs"
-    __table_args__ = {"schema": "splatgpt"}
+    __table_args__ = (
+        UniqueConstraint(
+            "request_id", name="uq_model_inference_logs_request_id"
+        ),
+        {"schema": "splatgpt"},
+    )
 
     id = Column(BigInteger, primary_key=True)
-    request_id = Column(UUID(as_uuid=True), default=uuid.uuid4)
+    request_id = Column(UUID(as_uuid=True), default=uuid.uuid4, unique=True)
     timestamp = Column(
         DateTime(timezone=True), server_default=text("CURRENT_TIMESTAMP")
     )
@@ -261,3 +267,22 @@ class ModelInferenceLog(Base):
     status_code = Column(SmallInteger)
     output_data = Column(JSONB)
     error_message = Column(Text)
+
+
+class FeedbackLog(Base):
+    __tablename__ = "feedback_logs"
+    __table_args__ = (
+        ForeignKeyConstraint(
+            ["request_id"],
+            ["splatgpt.model_inference_logs.request_id"],
+            name="fk_request_id",
+            ondelete="CASCADE",
+        ),
+        UniqueConstraint("request_id", name="uq_feedback_logs_request_id"),
+        {"schema": "splatgpt"},
+    )
+
+    id = Column(BigInteger, primary_key=True)
+    request_id = Column(UUID(as_uuid=True), nullable=False)
+    user_agent = Column(Text)
+    feedback = Column(Boolean)
