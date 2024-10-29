@@ -1,6 +1,7 @@
 import logging
 import os
 import time
+import traceback
 import uuid
 from contextlib import asynccontextmanager
 
@@ -8,6 +9,7 @@ import httpx
 from fastapi import APIRouter, HTTPException, Request
 from fastapi.responses import HTMLResponse
 from pydantic import BaseModel
+from sqlalchemy.dialects.postgresql import insert as pg_insert
 
 from fast_api_app.connections import (
     async_session,
@@ -21,7 +23,7 @@ from shared_lib.constants import (
     MAIN_ONLY_ABILITIES,
     STANDARD_ABILITIES,
 )
-from shared_lib.models import ModelInferenceLog
+from shared_lib.models import FeedbackLog, ModelInferenceLog
 
 router = APIRouter()
 
@@ -52,6 +54,12 @@ class MetaData(BaseModel):
 class InferenceResponse(BaseModel):
     predictions: list[tuple[str, float]]
     metadata: MetaData
+
+
+class FeedbackRequest(BaseModel):
+    request_id: str
+    user_agent: str
+    feedback: bool
 
 
 # Create a persistent client
@@ -405,3 +413,34 @@ async def infer(inference_request: InferenceRequest, request: Request):
                 "processing_time_ms": processing_time,
             },
         )
+
+
+@router.post("/api/feedback")
+async def feedback(feedback_request: FeedbackRequest):
+    try:
+        async with async_session() as session:
+            stmt = (
+                pg_insert(FeedbackLog)
+                .values(
+                    request_id=feedback_request.request_id,
+                    user_agent=feedback_request.user_agent,
+                    feedback=feedback_request.feedback,
+                )
+                .on_conflict_do_update(
+                    index_elements=["request_id"],
+                    set_={"feedback": feedback_request.feedback},
+                )
+            )
+            result = await session.execute(stmt)
+            await session.commit()
+
+        status_message = (
+            "Feedback updated"
+            if result.rowcount > 0
+            else "New feedback inserted"
+        )
+        return {"status": f"{status_message} successfully"}
+
+    except Exception as e:
+        logger.error(f"Error logging feedback: {e}")
+        raise HTTPException(status_code=500, detail="Error logging feedback")
