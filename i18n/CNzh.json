@@ -3,10 +3,11 @@
     "key": "CNzh",
     "splatoonLanguageKey": "CNzh",
     "languageNames": {
-      "USen": "English (US)",
-      "USes": "Spanish (NA)",
-      "EUen": "English (UK)",
-      "CNzh": "简体中文 (CN)"
+      "USen": "英文 (US)",
+      "USes": "西班牙文 (NA)",
+      "EUen": "英文 (UK)",
+      "JPja": "日文 (JP) (Beta)",
+      "CNzh": "简体中文 (CN) (Beta)"
     }
   },
   "faq": {
