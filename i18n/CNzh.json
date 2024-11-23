@@ -14,48 +14,48 @@
     "questions": [
       {
         "key": "what_is_splat_top",
-        "question": "What is splat.top?",
-        "answer": "<p class='text-white'><span class='text-purplelight'>splat.top</span> is a website that tracks the <span class='text-purplelight'>Top 500</span> players in Splatoon 3 as reported by SplatNet3. The website also provides a history for each player's entire Top 500 journey and analytics on the state of the game via the Top 500. For more details, visit our <a href='https://github.com/cesaregarza/SplatTop' class='text-purplelight underline'>GitHub repository</a>.</p>"
+        "question": "什么是splat.top？",
+        "answer": "<p class='text-white'><span class='text-purplelight'>splat.top</span>是一个跟踪斯普拉遁3中的<span class='text-purplelight'>Top 500</span>玩家的网站，数据来源于鱿鱼圈3中公开的内容。此网站还提供了每位玩家的Top 500历程的历史记录，并通过Top 500数据分析游戏现状。请访问我们的<a href='https://github.com/cesaregarza/SplatTop' class='text-purplelight underline'>GitHub仓库</a>以获取更多信息。</p>"
       },
       {
         "key": "why_cant_i_find_myself",
-        "question": "Why can't I find myself?",
-        "answer": "<p class='text-white'>If you can't find yourself in the history, there's two possible reasons:<ul class='text-white list-disc pl-5'><li><span class='text-purplelight'>Just entered the Top 500:</span> The system updates every 10 minutes, so if you've just entered the Top 500, your history may not be immediately available.</li><li><span class='text-purplelight'>Brief appearance:</span> If you were in the Top 500 for a short time, you may not find your history.</li></ul></p>"
+        "question": "为什么我找不到自己？",
+        "answer": "<p class='text-white'>如果您在记录中找不到自己，可能有两种原因：<ul class='text-white list-disc pl-5'><li><span class='text-purplelight'>刚刚成为Top 500：</span>本系统每10分钟更新一次，所以如果您刚刚成为Top 500，记录可能不会立即显示。</li><li><span class='text-purplelight'>短暂成为Top 500：</span>如果您仅短暂成为Top 500，您可能无法找到您的记录。</li></ul></p>"
       },
       {
         "key": "how_often_are_rankings_updated",
-        "question": "How often are the rankings updated?",
-        "answer": "<ul class='text-white list-disc pl-5'><li><span class='text-purplelight'>February 2023-August 2023:</span> Data was updated hourly. Special thanks to <a href='https://splatoon3.ink' class='text-purplelight underline'>splatoon3.ink</a> for providing the data.</li><li><span class='text-purplelight'>August 2023-March 2024:</span> Updates occurred every fifteen minutes.</li><li><span class='text-purplelight'>March 2024-present:</span> Data is now updated every ten minutes.</li></ul>"
+        "question": "名次多久更新一次？",
+        "answer": "<ul class='text-white list-disc pl-5'><li><span class='text-purplelight'>2023年2月–2023年8月：</span>数据每小时更新一次。特别感谢<a href='https://splatoon3.ink' class='text-purplelight underline'>splatoon3.ink</a>提供的数据。</li><li><span class='text-purplelight'>2023年8月–2024年3月：</span>数据每十五分钟更新一次。</li><li><span class='text-purplelight'>2024年3月至今：</span>数据每十分钟更新一次。</li></ul>"
       },
       {
         "key": "can_i_see_my_own_ranking",
-        "question": "Can I see my own ranking?",
-        "answer": "<p class='text-white'>Yes, you can view your ranking if you've been in the Top 500. Search using any in-game name you had when you reached the Top 500. Alternatively, if you have your NPLN ID you can access your page directly via <span class='text-purplelight'>splat.top/player/npln_id_goes_here</span>. Note: If you were briefly in the Top 500 and missed by our data collection, you won't find your ranking.</p>"
+        "question": "我可以看到我的名次吗？",
+        "answer": "<p class='text-white'>是的，如果您曾是Top 500，您就可以查看您的排名。您可以使用任何你成为Top 500时的游戏内名字进行搜索。此外，如果您有NPLN ID，您可以通过<span class='text-purplelight'>splat.top/player/npln_id_goes_here</span>直接访问您的页面。注意，如果您仅短暂成为Top 500，您可能无法找到您的名次。</p>"
       },
       {
         "key": "my_weapon_data_is_incorrect",
-        "question": "My weapon data is incorrect. Can you fix it?",
-        "answer": "<p class='text-white'><span class='text-purplelight'>Weapon data</span> is calculated based on the snapshot appearances in the Top 500 as maintained by SplatNet3. While the methodology tends to be more accurate than not, there are edge cases where the weapon data may be incorrect. This is not something we can fix without massive effort, as it would require at least doubling the scraping cadence to minimise errors. If you believe the data is incorrect, feel free to contact us with the details. We can't guarantee a fix, but the knowledge helps us improve the system for everyone.</p>"
+        "question": "我的武器数据并不正确。你可以修复它吗？",
+        "answer": "<p class='text-white'><span class='text-purplelight'>武器数据</span>是通过鱿鱼圈3的Top 500中的武器的出现数计算得到的。尽管这一方法整体上较为准确，但在个别情况下，武器数据可能有误。要修复此类问题需要大幅度提高数据收集频率，因此并非易事。如果您认为数据并不正确，欢迎联系我们并提供详细信息。虽然我们无法保证能完成修复，但这些反馈有助于我们改进系统并帮助所有的玩家。</p>"
       },
       {
         "key": "can_i_have_access_to_the_data",
-        "question": "Can I have access to the data? I want to analyze it myself.",
-        "answer": "<p class='text-white'><b class='text-purplelight'>Access to the full dataset is limited.</b> Request access by contacting us with your intended use. Contributions to splat.top or the Splatoon community are key criteria for access. Being a top player or content creator is not enough.</p><p class='text-white'><b class='text-purplelight'>For students:</b> Academic projects can receive an anonymised data subset. Contact us on Discord or Twitter with project details.</p>"
+        "question": "我可以获取这些数据吗？我想自己进行分析。",
+        "answer": "<p class='text-white'><b class='text-purplelight'>完整数据集的访问权限是有限的。</b>如果您需访问，请联系我们并说明您的用途。对splat.top或斯普拉遁社区的贡献是获得权限的关键标准，而仅仅是顶级玩家或者内容创作者并不足以达到这一标准。</p><p class='text-white'><b class='text-purplelight'>对于学生：</b>学术项目可以获得匿名化的数据子集。请通过Discord或Twitter联系我们并提供项目的详细信息。</p>"
       },
       {
         "key": "i_own_a_website_and_want_to_use_your_data",
-        "question": "I own a website and I want to use your data. Can I?",
-        "answer": "<p class='text-white'>We may provide an API endpoint for your data needs. Contact us on Discord, Twitter, or via a GitHub issue on our <a href='https://github.com/cesaregarza/SplatTop' class='text-purplelight underline'>GitHub repository</a>. Pull requests greatly increase the chance of support.</p>"
+        "question": "我有一个网站，我可以使用你们的数据吗？",
+        "answer": "<p class='text-white'>我们可能会为您的需求提供一个API接口。请通过Discord、Twitter，或在我们的<a href='https://github.com/cesaregarza/SplatTop' class='text-purplelight underline'>GitHub仓库</a>提交一个GitHub Issue联系我们。为splat.top提交Pull Request将大大提高获得数据使用的可能性。</p>"
       },
       {
         "key": "im_a_content_creator_and_want_to_feature_your_website",
-        "question": "I'm a content creator and I want to feature your website. Can I?",
-        "answer": "<p class='text-white'>Yes, using data or analytics from <span class='text-purplelight'>splat.top</span> is fine as long as you credit the website. We appreciate a mention or link to the site. If you'd like to collaborate, have a special data request, or would just like the analytics explained in more detail for a younger audience, contact us.</p>"
+        "question": "我是一名内容创作者，我可以介绍你们的网站吗？",
+        "answer": "<p class='text-white'>可以，您只需注明数据来自<span class='text-purplelight'>splat.top</span>，您就可以使用数据或对数据进行分析。我们非常感谢您能提到我们的网站或提供到我们的网站的链接。如果您希望进行合作、有特殊的数据需求，或者希望由我们为年轻的观众提供更详细地解释数据分析的内容，请随时联系我们。</p>"
       },
       {
         "key": "the_line_cuts_off_randomly",
-        "question": "The line cuts off randomly, what happened?",
-        "answer": "<p class='text-white'>It's probably a data outage caused by Nintendo. The scraper is designed to be highly robust, but it can't handle every situation. There are times when the data is simply not available. We try our best to make sure the data pipeline is uninterrupted, but sometimes Nintendo's decisions are out of our control. We apologise for the inconvenience.</p>"
+        "question": "为什么记录会不定期地中断呢？",
+        "answer": "<p class='text-white'>这可能是任天堂的服务器故障导致的。我们的数据收集系统设计得十分健壮，但也并非能应对所有情况。我们尽最大努力来保证统计数据不会中断，但在某些情况下可能无能为力。对此带来的不便，我们深表歉意。</p>"
       }
     ]
   },
