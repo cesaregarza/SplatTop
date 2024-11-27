@@ -1,0 +1,207 @@
+{
+  "metadata": {
+    "key": "CNzh",
+    "splatoonLanguageKey": "CNzh",
+    "languageNames": {
+      "USen": "英文 (US)",
+      "USes": "西班牙文 (NA)",
+      "EUen": "英文 (UK)",
+      "JPja": "日文 (JP) (Beta)",
+      "CNzh": "简体中文 (CN) (Beta)"
+    }
+  },
+  "faq": {
+    "title": "常见问题",
+    "questions": [
+      {
+        "key": "what_is_splat_top",
+        "question": "什么是splat.top？",
+        "answer": "<p class='text-white'><span class='text-purplelight'>splat.top</span>是一个跟踪斯普拉遁3中的<span class='text-purplelight'>Top 500</span>玩家的网站，数据来源于鱿鱼圈3中公开的内容。此网站还提供了每位玩家的Top 500历程的历史记录，并通过Top 500数据分析游戏现状。请访问我们的<a href='https://github.com/cesaregarza/SplatTop' class='text-purplelight underline'>GitHub仓库</a>以获取更多信息。</p>"
+      },
+      {
+        "key": "why_cant_i_find_myself",
+        "question": "为什么我找不到自己？",
+        "answer": "<p class='text-white'>如果您在记录中找不到自己，可能有两种原因：<ul class='text-white list-disc pl-5'><li><span class='text-purplelight'>刚刚成为Top 500：</span>本系统每10分钟更新一次，所以如果您刚刚成为Top 500，记录可能不会立即显示。</li><li><span class='text-purplelight'>短暂成为Top 500：</span>如果您仅短暂成为Top 500，您可能无法找到您的记录。</li></ul></p>"
+      },
+      {
+        "key": "how_often_are_rankings_updated",
+        "question": "名次多久更新一次？",
+        "answer": "<ul class='text-white list-disc pl-5'><li><span class='text-purplelight'>2023年2月–2023年8月：</span>数据每小时更新一次。特别感谢<a href='https://splatoon3.ink' class='text-purplelight underline'>splatoon3.ink</a>提供的数据。</li><li><span class='text-purplelight'>2023年8月–2024年3月：</span>数据每十五分钟更新一次。</li><li><span class='text-purplelight'>2024年3月至今：</span>数据每十分钟更新一次。</li></ul>"
+      },
+      {
+        "key": "can_i_see_my_own_ranking",
+        "question": "我可以看到我的名次吗？",
+        "answer": "<p class='text-white'>是的，如果您曾是Top 500，您就可以查看您的名次。您可以使用任何你成为Top 500时的游戏内名字进行搜索。此外，如果您有NPLN ID，您可以通过<span class='text-purplelight'>splat.top/player/npln_id_goes_here</span>直接访问您的页面。注意，如果您仅短暂成为Top 500，您可能无法找到您的名次。</p>"
+      },
+      {
+        "key": "my_weapon_data_is_incorrect",
+        "question": "我的武器数据并不正确。你可以修复它吗？",
+        "answer": "<p class='text-white'><span class='text-purplelight'>武器数据</span>是通过鱿鱼圈3的Top 500中的武器的出现数计算得到的。尽管这一方法整体上较为准确，但在个别情况下，武器数据可能有误。要修复此类问题需要大幅度提高数据收集频率，因此并非易事。如果您认为数据并不正确，欢迎联系我们并提供详细信息。虽然我们无法保证能完成修复，但这些反馈有助于我们改进系统并帮助所有的玩家。</p>"
+      },
+      {
+        "key": "can_i_have_access_to_the_data",
+        "question": "我可以获取这些数据吗？我想自己进行分析。",
+        "answer": "<p class='text-white'><b class='text-purplelight'>完整数据集的访问权限是有限的。</b>如果您需访问，请联系我们并说明您的用途。对splat.top或斯普拉遁社区的贡献是获得权限的关键标准，而仅仅是顶级玩家或者内容创作者并不足以达到这一标准。</p><p class='text-white'><b class='text-purplelight'>对于学生：</b>学术项目可以获得匿名化的数据子集。请通过Discord或Twitter联系我们并提供项目的详细信息。</p>"
+      },
+      {
+        "key": "i_own_a_website_and_want_to_use_your_data",
+        "question": "我有一个网站，我可以使用你们的数据吗？",
+        "answer": "<p class='text-white'>我们可能会为您的需求提供一个API接口。请通过Discord、Twitter，或在我们的<a href='https://github.com/cesaregarza/SplatTop' class='text-purplelight underline'>GitHub仓库</a>提交一个GitHub Issue联系我们。为splat.top提交Pull Request将大大提高获得数据使用的可能性。</p>"
+      },
+      {
+        "key": "im_a_content_creator_and_want_to_feature_your_website",
+        "question": "我是一名内容创作者，我可以介绍你们的网站吗？",
+        "answer": "<p class='text-white'>可以，您只需注明数据来自<span class='text-purplelight'>splat.top</span>，您就可以使用数据或对数据进行分析。我们非常感谢您能提到我们的网站或提供到我们的网站的链接。如果您希望进行合作、有特殊的数据需求，或者希望由我们为年轻的观众提供更详细地解释数据分析的内容，请随时联系我们。</p>"
+      },
+      {
+        "key": "the_line_cuts_off_randomly",
+        "question": "为什么记录会不定期地中断呢？",
+        "answer": "<p class='text-white'>这可能是任天堂的服务器故障导致的。我们的数据收集系统设计得十分健壮，但也并非能应对所有情况。我们尽最大努力来保证统计数据不会中断，但在某些情况下可能无能为力。对此带来的不便，我们深表歉意。</p>"
+      }
+    ]
+  },
+  "game": {
+    "winter": "冬 Chill",
+    "spring": "春 Fresh",
+    "summer": "夏 Sizzle",
+    "autumn": "秋 Drizzle",
+    "format": "%YEAR%%SEASON% Season",
+    "format_short": "%YEAR%%SEASON%",
+    "sz": "真格区域",
+    "tc": "真格塔楼",
+    "rm": "真格鱼虎对战",
+    "cb": "真格蛤蜊"
+  },
+  "main_page": {
+    "title": "Top 500",
+    "search_placeholder": "搜索...",
+    "loading_top500": "加载Top 500中...",
+    "loading": "加载中...",
+    "no_results": "没有找到相关信息",
+    "search_needs_3_chars": "请输入至少3个字符",
+    "player_was_in_takoroka_last_season": "此玩家上赛季位于暇古组别",
+    "player_was_in_tentatek_last_season": "此玩家上赛季位于艾洛眼组别",
+    "column_badge_title": "徽章",
+    "column_rank_title": "名次",
+    "column_splashtag_title": "名牌",
+    "column_weapon_title": "武器",
+    "column_weapon_not_supported": "武器名称尚未支持",
+    "column_xpower_title": "X战力",
+    "column_peak_xpower_title": "最高X战力",
+    "column_percent_games_played_title": "使用率",
+    "column_season_number_title": "赛季",
+    "select_columns": "选择列",
+    "modes": "规则",
+    "region": "组别",
+    "column_total_x_power_title": "合计X战力",
+    "no_data": "无可用数据",
+    "errors.503": "服务不可用，请稍后再试。"
+  },
+  "weapon_leaderboard": {
+    "weapon_select_main": "选择武器",
+    "weapon_select_alt": "选择另一武器",
+    "weapon_title": "顶级武器玩家",
+    "threshold_select": "最低使用率",
+    "peak_x_power": "最高X战力",
+    "final_x_power": "赛季末X战力",
+    "show_all": "显示玩家的所有名次",
+    "dedupe_data": "仅显示玩家的最高名次",
+    "select_season": "选择赛季",
+    "all_seasons": "全部赛季",
+    "select_weapon": "选择武器",
+    "null_selection": "取消选择"
+  },
+  "navigation": {
+    "top500": "Top 500",
+    "footer.about": "关于",
+    "footer.contact": "联系我们",
+    "footer.rights": "%DATE% splat.top. All rights reserved.",
+    "navbar.faq": "常见问题",
+    "navbar.analytics": "分析",
+    "navbar.top_weapons": "顶级武器"
+  },
+  "player": {
+    "data_lang_key": "CNzh",
+    "document_title_loading": "splat.top - 玩家",
+    "document_title_loaded": "splat.top - %PLAYER%",
+    "page_title": "玩家",
+    "load_page": "加载页面中...",
+    "load_component": "加载组件中...",
+    "load_results": "加载赛季结果中...",
+    "load_chart": "加载图表中...",
+    "no_data": "无数据",
+    "xchart.title": "%MODE%X战力",
+    "xchart.xaxis.title": "赛季经过 (%)",
+    "xchart.xaxis.start": "开始",
+    "xchart.xaxis.end": "结束",
+    "xchart.yaxis.title": "X战力",
+    "xchart.live_indicator": "(实时)",
+    "xchart.now": "当前",
+    "weaponchart.title": "%MODE%武器使用率",
+    "weaponchart.subtitle": "所有武器数据均为估算值",
+    "weaponchart.other": "其它",
+    "weaponchart.inner.title": "总计武器使用率",
+    "weaponchart.outer.title": "详细武器使用率",
+    "weaponchart.point.format": "<span style=\"color:{point.classColor}\">{point.name}</span>: <b>{point.y:.2f}%</b><br>",
+    "controller.seasonal": "默认",
+    "controller.accessible": "无障碍",
+    "controller.select_season": "选择列 (武器)",
+    "aliases.title": "别名",
+    "aliases.splashtag": "名牌",
+    "aliases.last_seen": "最近记录",
+    "achievements.title": "成就",
+    "achievements.table.season": "赛季",
+    "achievements.table.region": "组别",
+    "achievements.table.total": "总计",
+    "results.title": "赛季结果",
+    "results.table.mode": "规则",
+    "results.table.rank": "名次",
+    "results.table.current_xp": "当前XP",
+    "results.table.final_xp": "最终XP",
+    "results.table.peak_xp": "最高XP",
+    "results.table.current_weapon": "当前武器",
+    "results.table.final_weapon": "最近使用的武器",
+    "results.table.most_used_weapon": "最常使用的武器"
+  },
+  "analytics": {
+    "document_title": "splat.top - 分析",
+    "page_title": "分析",
+    "load_page": "加载页面中...",
+    "load_component": "加载组件中...",
+    "no_data": "无可用数据",
+    "skill_offset.tab_name": "Skill Offset",
+    "skill_offset.graph_label": "Skill Offset",
+    "skill_offset.graph_subtitle": "Skill Offset is the difference between a weapon's expected X Power and its actual X Power. A positive offset means the weapon is overperforming, while a negative offset means the weapon and/or players using it are underperforming.",
+    "skill_offset.xaxis.title": "出现数 (Top 500)",
+    "skill_offset.yaxis.title": "Skill Offset",
+    "skill_offset.marker.format": "<b><span style=\"color:#ab5ab7\">{point.weaponName}</span></b><br><b>出现数</b>: {point.x}<br><b>Skill Offset</b>: {point.y:.2f}",
+    "skill_offset.tooltip": "Skill Offset is a measure of how well a weapon performs in the Top 500 as compared to the expected value at that appearance rate. A positive skill offset indicates that the weapon and/or the players using it are performing better than expected. A negative skill offset indicates the opposite. A weapon with a high pick rate and low skill offset indicates that the weapon is carrying players to the Top 500. A weapon with a low pick rate and high skill offset indicates that the weapon is being used by a few highly skilled players. Data here will change frequently as the Top 500 weapon picks will update even if the player isn't playing X Battles. Use this information with caution.",
+    "skill_offset.controller.title": "控件",
+    "skill_offset.controller.linlog.label": "横轴刻度",
+    "skill_offset.controller.linear": "线性",
+    "skill_offset.controller.logarithmic": "对数",
+    "lorenz.tab_name": "洛伦兹曲线",
+    "lorenz.graph_label": "洛伦兹曲线与基尼系数",
+    "lorenz.graph_subtitle": "The Lorenz Curve and Gini Coefficient together represent the health of the meta.",
+    "lorenz.xaxis.title": "武器",
+    "lorenz.yaxis.title": "X战力占比",
+    "lorenz.marker.format": "<b><span style=\"color:#ab5ab7\">{point.name}</span></b><br><b>累计X战力占比</b>: {point.y_percent:.2f}%<br><b>X战力占比</b>: {point.diff:.2f}%",
+    "lorenz.tooltip": "The Lorenz Curve is a graphical representation of wealth distribution. In this case, it represents the distribution of X Power in the Top 500. The Gini Coefficient is a measure of inequality and shows the health of the meta by indicating how evenly distributed weapons are in their success. A Gini Coefficient of 0 represents perfect equality, meaning all weapons are equally successful, indicating a perfectly balanced meta. Conversely, a Gini Coefficient of 1 represents perfect inequality, where one weapon dominates entirely, indicating a highly imbalanced meta.",
+    "lorenz.marker.label": "洛伦兹曲线",
+    "lorenz.gini.health_format": "%HEALTH% %META%",
+    "lorenz.gini.title": "Meta Health",
+    "lorenz.gini.equality": "Perfectly Balanced",
+    "lorenz.gini.very_very_low": "Extremely Balanced",
+    "lorenz.gini.very_low": "Highly Balanced",
+    "lorenz.gini.low": "Well-Balanced",
+    "lorenz.gini.low_medium": "Balanced",
+    "lorenz.gini.medium": "Moderately Balanced",
+    "lorenz.gini.high": "Slightly Imbalanced",
+    "lorenz.gini.very_high": "Imbalanced",
+    "lorenz.gini.very_very_high": "Highly Imbalanced",
+    "lorenz.gini.extremely_high": "Extremely Imbalanced",
+    "lorenz.gini.unequal": "Perfectly Imbalanced",
+    "lorenz.gini.indicator": "基尼系数",
+    "lorenz.gini.indicator_format": "基尼系数: {point.x: .4f}"
+  }
+}
