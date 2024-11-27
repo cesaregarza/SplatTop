@@ -1,0 +1,12 @@
+{
+  "winter": "冬 Chill",
+  "spring": "春 Fresh",
+  "summer": "夏 Sizzle",
+  "autumn": "秋 Drizzle",
+  "format": "%YEAR%%SEASON% Season",
+  "format_short": "%YEAR%%SEASON%",
+  "sz": "真格区域",
+  "tc": "真格塔楼",
+  "rm": "真格鱼虎对战",
+  "cb": "真格蛤蜊"
+}

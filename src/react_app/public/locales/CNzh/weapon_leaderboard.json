@@ -1,0 +1,14 @@
+{
+  "weapon_select_main": "选择武器",
+  "weapon_select_alt": "选择另一武器",
+  "weapon_title": "顶级武器玩家",
+  "threshold_select": "最低使用率",
+  "peak_x_power": "最高X战力",
+  "final_x_power": "赛季末X战力",
+  "show_all": "显示玩家的所有名次",
+  "dedupe_data": "仅显示玩家的最高名次",
+  "select_season": "选择赛季",
+  "all_seasons": "全部赛季",
+  "select_weapon": "选择武器",
+  "null_selection": "取消选择"
+}
