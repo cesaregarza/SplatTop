@@ -1,11 +1,28 @@
-import React, { useState } from "react";
-import HighchartsReact from "highcharts-react-official";
-import Highcharts from "highcharts";
+import React, { useState, useEffect } from "react";
+
 import { useTranslation } from "react-i18next";
 
 const LorenzGraph = ({ data, weaponTranslations }) => {
   const { t } = useTranslation("analytics");
   const [showTooltip, setShowTooltip] = useState(false);
+  const [Highcharts, setHighcharts] = useState(null);
+  const [HighchartsReact, setHighchartsReact] = useState(null);
+
+  useEffect(() => {
+    let mounted = true;
+    Promise.all([
+      import("highcharts"),
+      import("highcharts-react-official"),
+    ]).then(([hc, hcr]) => {
+      if (mounted) {
+        setHighcharts(hc.default || hc);
+        setHighchartsReact(hcr.default || hcr);
+      }
+    });
+    return () => {
+      mounted = false;
+    };
+  }, []);
   const imageSize = 32;
   const yMax = 1;
   const yMin = 0;
@@ -273,8 +290,19 @@ const LorenzGraph = ({ data, weaponTranslations }) => {
 
   return (
     <div className="graph-container relative" style={{ padding: "20px" }}>
-      <HighchartsReact highcharts={Highcharts} options={lorenzChartOptions} />
-      <HighchartsReact highcharts={Highcharts} options={giniChartOptions} />
+      {Highcharts &&
+        HighchartsReact && (
+          <>
+            <HighchartsReact
+              highcharts={Highcharts}
+              options={lorenzChartOptions}
+            />
+            <HighchartsReact
+              highcharts={Highcharts}
+              options={giniChartOptions}
+            />
+          </>
+        )}
       <button
         className="absolute top-0 right-0 mt-2 mr-2 bg-blue-500 text-white rounded-full p-2 focus:outline-none"
         onMouseEnter={() => setShowTooltip(true)}

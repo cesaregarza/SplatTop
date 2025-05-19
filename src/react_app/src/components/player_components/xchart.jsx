@@ -1,6 +1,4 @@
 import React, { useState, useEffect } from "react";
-import HighchartsReact from "highcharts-react-official";
-import Highcharts from "highcharts/highstock";
 import { getPercentageInSeason, getSeasonName } from "../utils/season_utils";
 import {
   filterAndProcessData,
@@ -18,6 +16,24 @@ const XChart = (props) => {
   const { t } = useTranslation("player");
   const { t: g } = useTranslation("game");
   const [festivalDates, setFestivalDates] = useState(null);
+  const [Highcharts, setHighcharts] = useState(null);
+  const [HighchartsReact, setHighchartsReact] = useState(null);
+
+  useEffect(() => {
+    let mounted = true;
+    Promise.all([
+      import("highcharts/highstock"),
+      import("highcharts-react-official"),
+    ]).then(([hc, hcr]) => {
+      if (mounted) {
+        setHighcharts(hc.default || hc);
+        setHighchartsReact(hcr.default || hcr);
+      }
+    });
+    return () => {
+      mounted = false;
+    };
+  }, []);
 
   useEffect(() => {
     const fetchDates = async () => {
@@ -205,7 +221,10 @@ const XChart = (props) => {
 
   return (
     <div className="xchart-container">
-      <HighchartsReact highcharts={Highcharts} options={options} />
+      {Highcharts &&
+        HighchartsReact && (
+          <HighchartsReact highcharts={Highcharts} options={options} />
+        )}
     </div>
   );
 };
