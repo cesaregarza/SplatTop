@@ -43,4 +43,4 @@ const RegionSelector = ({ selectedRegion, setSelectedRegion }) => {
   );
 };
 
-export default RegionSelector;
+export default React.memo(RegionSelector);

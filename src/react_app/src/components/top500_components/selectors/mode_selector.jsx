@@ -84,4 +84,4 @@ const ModeSelector = ({
   );
 };
 
-export default ModeSelector;
+export default React.memo(ModeSelector);
