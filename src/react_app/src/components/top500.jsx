@@ -84,23 +84,34 @@ const Top500 = () => {
   const endpoint = `${apiUrl}/api/leaderboard?mode=${selectedMode}&region=${selectedRegion}`;
   const { data, error, isLoading } = useFetchWithCache(endpoint);
 
-  const players = data
-    ? Object.keys(data.players).reduce((acc, key) => {
-        data.players[key].forEach((value, index) => {
-          if (!acc[index]) acc[index] = {};
-          acc[index][key] = value;
-        });
-        return acc;
-      }, [])
-    : [];
+  const players = React.useMemo(
+    () =>
+      data
+        ? Object.keys(data.players).reduce((acc, key) => {
+            data.players[key].forEach((value, index) => {
+              if (!acc[index]) acc[index] = {};
+              acc[index][key] = value;
+            });
+            return acc;
+          }, [])
+        : [],
+    [data]
+  );
 
-  const filteredPlayers = players.filter((player) =>
-    player.splashtag.toLowerCase().includes(searchQuery.toLowerCase())
+  const filteredPlayers = React.useMemo(
+    () =>
+      players.filter((player) =>
+        player.splashtag.toLowerCase().includes(searchQuery.toLowerCase())
+      ),
+    [players, searchQuery]
   );
 
   const indexOfLastItem = currentPage * itemsPerPage;
   const indexOfFirstItem = indexOfLastItem - itemsPerPage;
-  const currentItems = filteredPlayers.slice(indexOfFirstItem, indexOfLastItem);
+  const currentItems = React.useMemo(
+    () => filteredPlayers.slice(indexOfFirstItem, indexOfLastItem),
+    [filteredPlayers, indexOfFirstItem, indexOfLastItem]
+  );
 
   const paginate = (pageNumber) => {
     setCurrentPage(pageNumber);
