@@ -17,11 +17,28 @@ const useFetchWithCache = (endpoint, cacheAge = 10, cacheOffset = 6) => {
 
   useEffect(() => {
     const deleteHttpCacheKeys = () => {
-      Object.keys(localStorage).forEach((key) => {
-        if (key.startsWith("http")) {
-          localStorage.removeItem(key);
+      const endpointsCache = getCache("endpoints") || {};
+      const now = Date.now();
+      let cacheModified = false;
+
+      Object.keys(endpointsCache).forEach((key) => {
+        try {
+          const { timestamp } = JSON.parse(
+            LZString.decompressFromUTF16(endpointsCache[key])
+          );
+          if (now - timestamp > cacheAge * 60 * 1000) {
+            delete endpointsCache[key];
+            cacheModified = true;
+          }
+        } catch (err) {
+          delete endpointsCache[key];
+          cacheModified = true;
         }
       });
+
+      if (cacheModified) {
+        setCache("endpoints", endpointsCache);
+      }
     };
 
     const fetchData = async (retryCount = 0) => {
