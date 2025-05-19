@@ -1,10 +1,9 @@
-import React, { useState, useEffect, Suspense } from "react";
+import React, { useState, useEffect, Suspense, useRef } from "react";
 import { useLocation } from "react-router-dom";
 import axios from "axios";
 import Loading from "./misc_components/loading";
 import { modes } from "./constants";
 import { getBaseApiUrl, getBaseWebsocketUrl } from "./utils";
-import pako from "pako";
 import { useTranslation } from "react-i18next";
 import {
   WeaponAndTranslationProvider,
@@ -31,6 +30,7 @@ const PlayerDetailContent = () => {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState(null);
   const [socket, setSocket] = useState(null);
+  const workerRef = useRef(null);
 
   const {
     weaponTranslations,
@@ -40,6 +40,15 @@ const PlayerDetailContent = () => {
   } = useWeaponAndTranslation();
 
   useEffect(() => {
+    const worker = new Worker(
+      new URL("../workers/chartDataWorker.js", import.meta.url),
+      { type: "module" }
+    );
+    worker.onmessage = (e) => {
+      setChartData(e.data);
+    };
+    workerRef.current = worker;
+
     const fetchData = async () => {
       setIsLoading(true);
       document.title = t("document_title_loading");
@@ -65,20 +74,7 @@ const PlayerDetailContent = () => {
         const newSocket = new WebSocket(websocketEndpoint);
 
         newSocket.onmessage = (event) => {
-          if (event.data instanceof Blob) {
-            const reader = new FileReader();
-            reader.onload = () => {
-              const decompressedData = pako.inflate(reader.result, {
-                to: "string",
-              });
-              const newData = JSON.parse(decompressedData);
-              setChartData(newData);
-            };
-            reader.readAsArrayBuffer(event.data);
-          } else {
-            const newData = JSON.parse(event.data);
-            setChartData(newData);
-          }
+          worker.postMessage(event.data);
         };
 
         newSocket.onerror = (event) => {
@@ -102,6 +98,10 @@ const PlayerDetailContent = () => {
     return () => {
       if (socket) {
         socket.close();
+      }
+      if (workerRef.current) {
+        workerRef.current.terminate();
+        workerRef.current = null;
       }
     };
   }, [player_id, t]); // eslint-disable-line react-hooks/exhaustive-deps
