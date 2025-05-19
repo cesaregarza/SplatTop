@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useMemo } from "react";
 import HighchartsReact from "highcharts-react-official";
 import Highcharts from "highcharts/highstock";
 import { getPercentageInSeason, getSeasonName } from "../utils/season_utils";
@@ -34,12 +34,11 @@ const XChart = (props) => {
 
   const { data, mode, colorMode } = props;
   const modeName = g(modeKeyMap[mode]);
-  const { currentSeason, processedData } = filterAndProcessData(
-    data,
-    mode,
-    true,
-    festivalDates
+  const memoizedData = useMemo(
+    () => filterAndProcessData(data, mode, true, festivalDates),
+    [data, mode, festivalDates]
   );
+  const { currentSeason, processedData } = memoizedData;
 
   const currentPercentage = getPercentageInSeason(new Date(), currentSeason);
 
