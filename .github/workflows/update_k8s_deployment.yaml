@@ -249,6 +249,8 @@ jobs:
           DO_SPACES_ENDPOINT: ${{ secrets.DO_SPACES_ENDPOINT }}
           DO_SPACES_ML_ENDPOINT: ${{ secrets.DO_SPACES_ML_ENDPOINT }}
           DO_SPACES_ML_DIR: ${{ vars.DO_SPACES_ML_DIR }}
+          API_TOKEN_PEPPER: ${{ secrets.API_TOKEN_PEPPER }}
+          ADMIN_API_TOKENS: ${{ secrets.ADMIN_API_TOKENS }}
         run: |
           mv k8s/secrets.template k8s/secrets.yaml
           sed -i "s|%DB_HOST%|${DB_HOST}|g" k8s/secrets.yaml
@@ -262,6 +264,8 @@ jobs:
           sed -i "s|%DO_SPACES_ENDPOINT%|${DO_SPACES_ENDPOINT}|g" k8s/secrets.yaml
           sed -i "s|%DO_SPACES_ML_ENDPOINT%|${DO_SPACES_ML_ENDPOINT}|g" k8s/secrets.yaml
           sed -i "s|%DO_SPACES_ML_DIR%|${DO_SPACES_ML_DIR}|g" k8s/secrets.yaml
+          sed -i "s|%API_TOKEN_PEPPER%|${API_TOKEN_PEPPER}|g" k8s/secrets.yaml
+          sed -i "s|%ADMIN_API_TOKENS%|${ADMIN_API_TOKENS}|g" k8s/secrets.yaml
           kubectl apply -f k8s/secrets.yaml
 
       - name: Create docker registry secret

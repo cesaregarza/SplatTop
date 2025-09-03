@@ -25,6 +25,16 @@ spec:
           env:
             - name: ENV
               value: "production"
+            - name: API_TOKEN_PEPPER
+              valueFrom:
+                secretKeyRef:
+                  name: db-secrets
+                  key: API_TOKEN_PEPPER
+            - name: ADMIN_API_TOKENS
+              valueFrom:
+                secretKeyRef:
+                  name: db-secrets
+                  key: ADMIN_API_TOKENS
             - name: DB_HOST
               valueFrom:
                 secretKeyRef:
