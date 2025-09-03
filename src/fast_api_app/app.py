@@ -16,6 +16,7 @@ from fast_api_app.routes import (
     front_page_router,
     infer_router,
     player_detail_router,
+    ripple_router,
     search_router,
     weapon_info_router,
     weapon_leaderboard_router,
@@ -69,6 +70,7 @@ app.include_router(search_router)
 app.include_router(weapon_info_router)
 app.include_router(weapon_leaderboard_router)
 app.include_router(infer_router)
+app.include_router(ripple_router)
 
 
 # Base route that lists all available routes
