@@ -31,7 +31,7 @@ RUN poetry config virtualenvs.create false
 FROM base AS dependencies
 
 COPY pyproject.toml poetry.lock ./
-RUN poetry install --no-root --no-dev --without scripts
+RUN poetry install --no-root --without scripts,dev
 
 ###############################
 #        Build Image          #
@@ -49,7 +49,7 @@ COPY src/shared_lib /app/src/shared_lib
 # Build the application
 RUN poetry version $BUILD_VERSION && \
     poetry build && \
-    poetry install --no-dev --without scripts && \
+    poetry install --without scripts,dev && \
     poetry update
 
 CMD ["poetry", "run", "gunicorn", "fast_api_app.app:app", \
