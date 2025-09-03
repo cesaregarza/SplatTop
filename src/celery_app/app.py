@@ -6,6 +6,11 @@ from celery import Celery
 from celery_app.connections import Session, redis_conn
 from celery_app.tasks.analytics.lorenz import compute_lorenz_and_gini
 from celery_app.tasks.analytics.skill_offset import compute_skill_offset
+from celery_app.tasks.api_tokens import (
+    flush_api_usage,
+    persist_api_token,
+    revoke_api_token,
+)
 from celery_app.tasks.front_page import pull_data
 from celery_app.tasks.leaderboard import (
     fetch_season_results,
@@ -31,3 +36,6 @@ celery.task(name="tasks.update_skill_offset")(compute_skill_offset)
 celery.task(name="tasks.update_lorenz_and_gini")(compute_lorenz_and_gini)
 celery.task(name="tasks.fetch_weapon_leaderboard")(fetch_weapon_leaderboard)
 celery.task(name="tasks.fetch_season_results")(fetch_season_results)
+celery.task(name="tasks.persist_api_token")(persist_api_token)
+celery.task(name="tasks.revoke_api_token")(revoke_api_token)
+celery.task(name="tasks.flush_api_usage")(flush_api_usage)

@@ -34,4 +34,8 @@ celery.conf.beat_schedule = {
         "task": "tasks.fetch_season_results",
         "schedule": crontab(minute=30, hour="*"),
     },
+    "flush-api-usage-every-minute": {
+        "task": "tasks.flush_api_usage",
+        "schedule": crontab(minute="*"),
+    },
 }
