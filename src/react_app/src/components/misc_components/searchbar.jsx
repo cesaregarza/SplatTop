@@ -83,10 +83,10 @@ const SearchBar = () => {
           onKeyDown={handleKeyDown}
           onFocus={() => setIsFocused(true)}
           onBlur={() => setIsFocused(false)}
-          className="w-full py-2 px-4 text-gray-700 placeholder-gray-400 rounded-md focus:outline-none"
+          className="w-full py-2 px-4 text-gray-700 placeholder-gray-400 rounded-md focus:outline-hidden"
         />
         <button
-          className="text-gray-500 hover:text-gray-700 px-3 py-2 rounded-md focus:outline-none"
+          className="text-gray-500 hover:text-gray-700 px-3 py-2 rounded-md focus:outline-hidden"
           onClick={() => setSearchQuery("")}
         >
           {searchQuery || isFocused ? (

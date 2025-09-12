@@ -52,7 +52,7 @@ function SeasonSelector({ data, mode, onSeasonChange }) {
         <div>
           <button
             type="button"
-            className="inline-flex justify-center w-full rounded-md border border-gray-600 shadow-sm px-4 py-2 bg-gray-800 text-sm font-medium text-white hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-purple-500"
+            className="inline-flex justify-center w-full rounded-md border border-gray-600 shadow-xs px-4 py-2 bg-gray-800 text-sm font-medium text-white hover:bg-gray-700 focus:outline-hidden focus:ring-2 focus:ring-offset-2 focus:ring-purple-500"
             id="options-menu"
             aria-haspopup="true"
             aria-expanded={isMenuOpen}
@@ -110,7 +110,7 @@ function SeasonSelector({ data, mode, onSeasonChange }) {
                 </label>
               ))}
             </div>
-            <div className="absolute bottom-0 left-0 right-0 h-4 bg-gradient-to-t from-gray-900"></div>
+            <div className="absolute bottom-0 left-0 right-0 h-4 bg-linear-to-t from-gray-900"></div>
           </div>
         )}
       </div>

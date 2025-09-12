@@ -22,7 +22,7 @@ const Navbar = () => {
           splat.top <span className="text-purplelight">{t("top500")}</span>
         </Link>
         <button
-          className="hamburger md:hidden focus:outline-none"
+          className="hamburger md:hidden focus:outline-hidden"
           onClick={toggleNavbar}
         >
           <div className="space-y-1.5">

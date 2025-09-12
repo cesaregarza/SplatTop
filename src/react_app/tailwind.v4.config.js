@@ -1,6 +1,6 @@
 module.exports = {
-  purge: ['./src/**/*.{js,jsx,ts,tsx}', './public/index.html'],
-  darkMode: 'class', // Enable dark mode
+  content: ['./src/**/*.{js,jsx,ts,tsx}', './public/index.html'],
+  darkMode: 'class',
   theme: {
     extend: {
       colors: {
@@ -9,9 +9,6 @@ module.exports = {
         purplelight: '#c183e1',
       },
     },
-  },
-  variants: {
-    extend: {},
   },
   plugins: [],
 };

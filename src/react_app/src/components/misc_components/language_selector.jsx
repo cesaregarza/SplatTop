@@ -39,13 +39,13 @@ const LanguageSelector = () => {
     <div className="relative language-selector" ref={dropdownRef}>
       <button
         onClick={() => setIsDropdownOpen(!isDropdownOpen)}
-        className="flex items-center bg-gray-900 text-white p-2 rounded"
+        className="flex items-center bg-gray-900 text-white p-2 rounded-sm"
       >
         <FaGlobe className="mr-2" />
         {i18n.language.toUpperCase()}
       </button>
       {isDropdownOpen && (
-        <div className="absolute right-0 mt-2 w-48 bg-gray-900 text-white rounded shadow-lg z-10">
+        <div className="absolute right-0 mt-2 w-48 bg-gray-900 text-white rounded-sm shadow-lg z-10">
           <ul className="py-1">
             {Object.keys(allLanguages).map((key) => (
               <li key={key}>

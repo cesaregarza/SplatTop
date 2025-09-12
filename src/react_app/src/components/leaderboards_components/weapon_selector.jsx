@@ -133,11 +133,11 @@ const WeaponSelector = ({
   return (
     <div className="relative inline-block w-64" ref={dropdownRef}>
       <div
-        className="flex items-center justify-between w-full bg-gray-800 border border-gray-700 text-white py-2 px-3 rounded leading-tight cursor-pointer"
+        className="flex items-center justify-between w-full bg-gray-800 border border-gray-700 text-white py-2 px-3 rounded-sm leading-tight cursor-pointer"
         onClick={toggleDropdown}
       >
         {selectedWeapon !== null && !isOpen ? (
-          <div className="flex items-center flex-grow">
+          <div className="flex items-center grow">
             <div className="bg-black rounded-full flex justify-center items-center h-10 w-10 mr-2">
               <img
                 src={getImageFromId(selectedWeapon, weaponReferenceData)}
@@ -149,7 +149,7 @@ const WeaponSelector = ({
             {allowNull && (
               <button
                 onClick={handleClearWeapon}
-                className="ml-auto p-1 hover:bg-gray-700 rounded"
+                className="ml-auto p-1 hover:bg-gray-700 rounded-sm"
                 aria-label="Clear weapon selection"
               >
                 <FaTimes size={14} />
@@ -160,7 +160,7 @@ const WeaponSelector = ({
           <input
             ref={inputRef}
             type="text"
-            className="bg-transparent outline-none flex-grow h-10"
+            className="bg-transparent outline-hidden grow h-10"
             placeholder={t("select_weapon")}
             value={searchTerm}
             onChange={handleInputChange}
@@ -182,7 +182,7 @@ const WeaponSelector = ({
       {isOpen && (
         <div
           ref={scrollRef}
-          className="absolute z-10 w-full mt-1 bg-gray-800 border border-gray-700 rounded shadow-lg max-h-60 overflow-y-auto"
+          className="absolute z-10 w-full mt-1 bg-gray-800 border border-gray-700 rounded-sm shadow-lg max-h-60 overflow-y-auto"
         >
           {allowNull && (
             <div

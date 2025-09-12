@@ -169,7 +169,7 @@ const PlayerDetail = () => {
         <header className="text-3xl font-bold mb-4 text-center text-white">
           {t("page_title")}
         </header>
-        <main className="flex-grow container mx-auto px-4 py-8 bg-gray-900 text-white overflow-auto">
+        <main className="grow container mx-auto px-4 py-8 bg-gray-900 text-white overflow-auto">
           <PlayerDetailContent />
         </main>
       </div>

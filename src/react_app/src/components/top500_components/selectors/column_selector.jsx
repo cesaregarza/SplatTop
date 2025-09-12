@@ -70,7 +70,7 @@ const ColumnSelector = ({
           className={`inline-flex justify-center w-full rounded-md border border-gray-700 px-4 py-2 bg-gray-800 text-sm font-medium text-white ${
             disabled
               ? "opacity-50 cursor-not-allowed"
-              : "hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-purple"
+              : "hover:bg-gray-700 focus:outline-hidden focus:ring-2 focus:ring-offset-2 focus:ring-purple"
           }`}
           disabled={disabled}
         >
@@ -94,7 +94,7 @@ const ColumnSelector = ({
       {!disabled && isOpen && (
         <div
           ref={dropdownRef}
-          className="fixed mt-2 w-56 rounded-md shadow-lg bg-gray-800 ring-1 ring-black ring-opacity-5 focus:outline-none"
+          className="fixed mt-2 w-56 rounded-md shadow-lg bg-gray-800 ring-1 ring-black ring-opacity-5 focus:outline-hidden"
           style={{ zIndex: 10 }}
         >
           <div className="py-1">

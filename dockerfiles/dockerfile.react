@@ -1,7 +1,7 @@
 ###############################
 #         Base Image          #
 ###############################
-FROM node:14 as base
+FROM node:20 as base
 
 WORKDIR /app
 
@@ -11,10 +11,7 @@ WORKDIR /app
 FROM base AS dependencies
 
 COPY src/react_app/package*.json ./
-RUN npm install
-
-# Install Tailwind CSS and its dependencies
-RUN npm install -D tailwindcss@latest postcss@latest autoprefixer@latest
+RUN npm ci
 
 ###############################
 #        Build Image          #
@@ -26,13 +23,8 @@ ENV REACT_APP_VERSION=$REACT_APP_VERSION
 
 COPY src/react_app/src ./src
 COPY src/react_app/public ./public
-
-# Generate Tailwind CSS configuration files
-RUN npx tailwindcss init -p
-
-# Replace the content of tailwind.config.js
-COPY src/react_app/tailwind.config.js ./
-COPY src/react_app/src/index.css ./src/index.css
+COPY src/react_app/postcss.config.js ./
+COPY src/react_app/tailwind.v4.config.js ./
 
 RUN npm run build
 

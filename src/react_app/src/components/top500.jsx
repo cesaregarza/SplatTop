@@ -150,7 +150,7 @@ const Top500 = () => {
         placeholder={t("search_placeholder")}
         value={searchQuery}
         onChange={(e) => setSearchQuery(e.target.value)}
-        className="border border-gray-700 bg-gray-800 rounded-md px-4 py-2 mb-4 w-full focus:outline-none focus:ring-2 focus:ring-purple"
+        className="border border-gray-700 bg-gray-800 rounded-md px-4 py-2 mb-4 w-full focus:outline-hidden focus:ring-2 focus:ring-purple"
       />
       <div className="overflow-x-auto">
         {isLoading ? (
