@@ -6,8 +6,11 @@ from typing import Any, Dict, List, Optional
 from fastapi import APIRouter, Depends, Query
 
 from fast_api_app.auth import require_api_token
-from fast_api_app.connections import async_session
-from shared_lib.queries.ripple_queries import fetch_ripple_page
+from fast_api_app.connections import rankings_async_session
+from shared_lib.queries.ripple_queries import (
+    fetch_ripple_danger,
+    fetch_ripple_page,
+)
 
 router = APIRouter(
     prefix="/api/ripple", dependencies=[Depends(require_api_token)]
@@ -34,6 +37,16 @@ async def get_ripple_leaderboard(
     min_tournaments: Optional[int] = Query(
         3, ge=0, description="Minimum tournaments for eligibility"
     ),
+    tournament_window_days: int = Query(
+        90,
+        ge=1,
+        le=3650,
+        description="Window in days to compute tournament count (default 90)",
+    ),
+    ranked_only: bool = Query(
+        True,
+        description="Count only ranked tournaments within the window (default true)",
+    ),
     # Presentation controls
     score_multiplier: float = Query(25.0),
     score_offset: float = Query(0.0),
@@ -43,12 +56,14 @@ async def get_ripple_leaderboard(
     The default run is the latest `calculated_at_ms`. Provide `build` or `ts_ms` to override.
     """
 
-    async with async_session() as session:
+    async with rankings_async_session() as session:
         rows, total, calc_ts, build_version = await fetch_ripple_page(
             session,
             limit=limit,
             offset=offset,
             min_tournaments=min_tournaments,
+            tournament_window_days=tournament_window_days,
+            ranked_only=ranked_only,
             build=build,
             ts_ms=ts_ms,
         )
@@ -100,19 +115,75 @@ async def get_ripple_raw(
     build: Optional[str] = Query(None),
     ts_ms: Optional[int] = Query(None),
     min_tournaments: Optional[int] = Query(3, ge=0),
+    tournament_window_days: int = Query(90, ge=1, le=3650),
+    ranked_only: bool = Query(True),
 ) -> Dict[str, Any]:
     """Return raw ripple rows as stored in the DB join (token-protected)."""
-    async with async_session() as session:
+    async with rankings_async_session() as session:
         rows, total, calc_ts, build_version = await fetch_ripple_page(
             session,
             limit=limit,
             offset=offset,
             min_tournaments=min_tournaments,
+            tournament_window_days=tournament_window_days,
+            ranked_only=ranked_only,
             build=build,
             ts_ms=ts_ms,
         )
 
     items: List[Dict[str, Any]] = [dict(r) for r in rows]
+    return {
+        "build_version": build_version,
+        "calculated_at_ms": calc_ts,
+        "limit": limit,
+        "offset": offset,
+        "total": total,
+        "data": items,
+    }
+
+
+@router.get("/danger")
+async def get_ripple_danger(
+    limit: int = Query(20, ge=1, le=500),
+    offset: int = Query(0, ge=0),
+    min_tournaments: Optional[int] = Query(None, ge=0),
+    tournament_window_days: int = Query(90, ge=1, le=3650),
+    ranked_only: bool = Query(True),
+    build: Optional[str] = Query(None),
+    ts_ms: Optional[int] = Query(None),
+):
+    async with rankings_async_session() as session:
+        rows, total, calc_ts, build_version = await fetch_ripple_danger(
+            session,
+            limit=limit,
+            offset=offset,
+            min_tournaments=min_tournaments,
+            tournament_window_days=tournament_window_days,
+            ranked_only=ranked_only,
+            build=build,
+            ts_ms=ts_ms,
+        )
+
+    def to_item(r: Dict[str, Any]) -> Dict[str, Any]:
+        score = float(r.get("score") or 0.0)
+        next_expiry_ms = r.get("next_expiry_ms")
+        days_left_ms = r.get("ms_left")
+        days_left = None
+        if days_left_ms is not None:
+            days_left = float(days_left_ms) / 86400000.0
+        return {
+            "rank": r.get("player_rank"),
+            "player_id": r.get("player_id"),
+            "display_name": r.get("display_name"),
+            "score": score,
+            "display_score": _display_score(score),
+            "window_tournament_count": r.get("window_count"),
+            "oldest_in_window_ms": r.get("oldest_in_window_ms"),
+            "next_expiry_ms": next_expiry_ms,
+            "days_left": days_left,
+        }
+
+    items: List[Dict[str, Any]] = [to_item(dict(r)) for r in rows]
     return {
         "build_version": build_version,
         "calculated_at_ms": calc_ts,

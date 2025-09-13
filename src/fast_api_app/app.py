@@ -14,6 +14,7 @@ from fast_api_app.connections import celery, limiter
 from fast_api_app.middleware import APITokenUsageMiddleware
 from fast_api_app.pubsub import start_pubsub_listener
 from fast_api_app.routes import (
+    admin_tokens_router,
     front_page_router,
     infer_router,
     player_detail_router,

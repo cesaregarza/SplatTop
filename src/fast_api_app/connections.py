@@ -14,7 +14,7 @@ from sqlalchemy.orm import scoped_session, sessionmaker
 
 from fast_api_app.utils import get_client_ip
 from shared_lib.constants import REDIS_HOST, REDIS_PORT
-from shared_lib.db import create_uri
+from shared_lib.db import create_ranking_uri, create_uri
 
 # Setup logger
 logger = logging.getLogger(__name__)
@@ -22,6 +22,9 @@ logger = logging.getLogger(__name__)
 # Create both synchronous and asynchronous engines
 sync_engine = create_engine(create_uri())
 async_engine = create_async_engine(create_uri())
+
+# Separate rankings async engine/session for ripple endpoints
+rankings_async_engine = create_async_engine(create_ranking_uri())
 
 # Synchronous session
 Session = scoped_session(sessionmaker(bind=sync_engine))
@@ -31,6 +34,11 @@ async_session_factory = sessionmaker(
     bind=async_engine, class_=AsyncSession, expire_on_commit=False
 )
 async_session = scoped_session(async_session_factory)
+
+rankings_async_session_factory = sessionmaker(
+    bind=rankings_async_engine, class_=AsyncSession, expire_on_commit=False
+)
+rankings_async_session = scoped_session(rankings_async_session_factory)
 
 REDIS_URI = f"redis://{REDIS_HOST}:{REDIS_PORT}"
 celery = Celery("tasks", broker=REDIS_URI, backend=REDIS_URI)
