@@ -1,4 +1,5 @@
 import os
+
 from fastapi import Request
 
 
@@ -29,11 +30,7 @@ def get_client_ip(request: Request) -> str:
             return ip
 
         real_ip = next(
-            (
-                v
-                for k, v in request.headers.items()
-                if k.lower() == "x-real-ip"
-            ),
+            (v for k, v in request.headers.items() if k.lower() == "x-real-ip"),
             None,
         )
         if real_ip:

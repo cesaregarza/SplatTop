@@ -69,7 +69,8 @@ def require_api_token(
     raw = _get_header_token(authorization, x_api_token)
     if not raw:
         logger.warning(
-            "Missing API token on protected route", extra={"path": str(request.url.path)}
+            "Missing API token on protected route",
+            extra={"path": str(request.url.path)},
         )
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,

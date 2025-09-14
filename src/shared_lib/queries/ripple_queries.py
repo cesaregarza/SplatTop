@@ -1,12 +1,11 @@
 from __future__ import annotations
 
-from typing import Any, Mapping, Optional, Sequence
-
 import logging
 import re
+from typing import Any, Mapping, Optional, Sequence
+
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
-
 
 logger = logging.getLogger(__name__)
 
