@@ -1,15 +1,13 @@
-from __future__ import annotations
-
 import time
 import uuid
 from typing import Any, Dict, List, Optional
 
 import orjson
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Request
 from pydantic import BaseModel, Field
 
 from fast_api_app.auth import hash_secret, require_admin_token
-from fast_api_app.connections import celery, redis_conn
+from fast_api_app.connections import celery, limiter, redis_conn
 from shared_lib.constants import (
     API_TOKEN_HASH_MAP_PREFIX,
     API_TOKEN_IDS_SET,
@@ -38,8 +36,31 @@ class MintTokenResponse(BaseModel):
     created_at_ms: int
 
 
+def _safe_scard(key: str) -> int:
+    try:
+        return int(redis_conn.scard(key))
+    except Exception:
+        try:
+            return len(redis_conn.smembers(key))
+        except Exception:
+            return 0
+
+
 @router.post("", response_model=MintTokenResponse)
-def mint_token(req: MintTokenRequest):
+@limiter.limit("5/minute")
+def mint_token(req: MintTokenRequest, request: Request):
+    # Enforce a global cap to prevent unbounded token creation
+    import os
+
+    try:
+        max_tokens = int(os.getenv("ADMIN_MAX_API_TOKENS", "1000"))
+    except Exception:
+        max_tokens = 1000
+    current = _safe_scard(API_TOKEN_IDS_SET)
+    if max_tokens and current >= max_tokens:
+        raise HTTPException(
+            status_code=429, detail="API token limit reached; cannot mint more"
+        )
     token_id = str(uuid.uuid4())
     # 32 bytes -> ~43 char url-safe
     import secrets
@@ -110,10 +131,16 @@ def revoke_token(token_id: str):
 def list_tokens():
     ids = list(redis_conn.smembers(API_TOKEN_IDS_SET))
     tokens: List[Dict[str, Any]] = []
+    if not ids:
+        return {"tokens": tokens}
+
+    pipe = redis_conn.pipeline()
     for tid in ids:
-        meta = redis_conn.hgetall(f"{API_TOKEN_META_PREFIX}{tid}")
+        pipe.hgetall(f"{API_TOKEN_META_PREFIX}{tid}")
+    results = pipe.execute()
+
+    for meta in results:
         if meta:
-            # deserialize scopes
             scopes = []
             try:
                 scopes = orjson.loads(meta.get("scopes", "[]"))

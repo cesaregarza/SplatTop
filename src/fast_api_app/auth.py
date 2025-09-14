@@ -1,3 +1,4 @@
+import logging
 import os
 import re
 import time
@@ -18,12 +19,14 @@ from shared_lib.constants import (
 )
 
 TOKEN_RE = re.compile(rf"^{API_TOKEN_PREFIX}_([0-9a-fA-F-]+)_(.+)$")
+logger = logging.getLogger(__name__)
 
 
 def _pepper() -> str:
     p = os.getenv("API_TOKEN_PEPPER")
     if not p:
         # Fail closed if no tokens configured.
+        logger.error("API token system pepper missing; failing closed")
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="API token system is not configured",
@@ -65,6 +68,9 @@ def require_api_token(
 
     raw = _get_header_token(authorization, x_api_token)
     if not raw:
+        logger.warning(
+            "Missing API token on protected route", extra={"path": str(request.url.path)}
+        )
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Missing API token",
@@ -77,6 +83,7 @@ def require_api_token(
     except HTTPException:
         raise
     except Exception:
+        logger.warning("Invalid API token format")
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Invalid API token format",
@@ -84,6 +91,7 @@ def require_api_token(
         )
 
     if not redis_conn.sismember(API_TOKENS_ACTIVE_SET, token_hash):
+        logger.warning("Invalid or revoked API token")
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Invalid or revoked API token",
@@ -97,15 +105,29 @@ def require_api_token(
     return True
 
 
+def _admin_hash(raw: str) -> str:
+    pep = os.getenv("ADMIN_TOKEN_PEPPER") or os.getenv("API_TOKEN_PEPPER", "")
+    return sha256((pep + raw).encode()).hexdigest()
+
+
 def require_admin_token(
     authorization: Optional[str] = Header(default=None),
     x_admin_token: Optional[str] = Header(
         default=None, convert_underscores=False
     ),
 ):
+    # Prefer hashed admin tokens if provided, fallback to plaintext list
+    raw = _get_header_token(authorization, x_admin_token)
+    hashed_cfg = os.getenv("ADMIN_API_TOKENS_HASHED", "")
+    hashed_allowed = {t.strip() for t in hashed_cfg.split(",") if t.strip()}
+    if raw and hashed_allowed:
+        if _admin_hash(raw) in hashed_allowed:
+            return True
+
     configured = os.getenv("ADMIN_API_TOKENS", "")
     allowed = {t.strip() for t in configured.split(",") if t.strip()}
-    raw = _get_header_token(authorization, x_admin_token)
-    if not allowed or not raw or raw not in allowed:
-        raise HTTPException(status_code=401, detail="Admin token required")
-    return True
+    if raw and allowed and raw in allowed:
+        return True
+
+    logger.warning("Admin token required or invalid")
+    raise HTTPException(status_code=401, detail="Admin token required")

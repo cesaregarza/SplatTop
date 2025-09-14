@@ -10,7 +10,7 @@ from starlette.middleware.base import (
 )
 from starlette.responses import JSONResponse, Response
 
-from fast_api_app.auth import _get_header_token, hash_secret, parse_token
+from fast_api_app.auth import _get_header_token, hash_secret
 from fast_api_app.connections import redis_conn
 from fast_api_app.utils import get_client_ip
 from shared_lib.constants import API_USAGE_QUEUE_KEY
@@ -73,22 +73,30 @@ class APITokenRateLimitMiddleware(BaseHTTPMiddleware):
             self.per_min = int(os.getenv("API_RL_PER_MIN", "120"))
         except Exception:
             self.per_min = 120
+        # Fail-open toggle (default false = fail-closed)
+        self.fail_open = os.getenv("API_RL_FAIL_OPEN", "0").lower() in (
+            "1",
+            "true",
+            "yes",
+        )
 
     def _identity(self, request: Request) -> str:
-        # Prefer token-based identity when available
-        try:
-            raw = _get_header_token(
-                request.headers.get("authorization"),
-                request.headers.get("x-api-token"),
-            )
-            if raw:
-                token_id, secret = parse_token(raw)
-                if secret:
-                    th = hash_secret(secret)
-                    return f"tok:{th}"
-        except Exception:
-            # Fallback to IP
-            pass
+        # Prefer token-based identity when a token header is present.
+        # Use a stable hash of the entire provided token string so malformed
+        # tokens cannot switch identity and bypass limits.
+        raw = _get_header_token(
+            request.headers.get("authorization"),
+            request.headers.get("x-api-token"),
+        )
+        if raw:
+            try:
+                th = hash_secret(raw)
+                return f"tok:{th}"
+            except Exception:
+                import hashlib
+
+                th = hashlib.sha256(raw.encode()).hexdigest()
+                return f"tok:{th}"
         return f"ip:{get_client_ip(request)}"
 
     async def dispatch(
@@ -113,13 +121,16 @@ class APITokenRateLimitMiddleware(BaseHTTPMiddleware):
                     # Too many requests
                     return JSONResponse(
                         status_code=429,
-                        content={
-                            "detail": "Rate limit exceeded",
-                            "identity": ident.split(":", 1)[0],
-                        },
+                        content={"detail": "Rate limit exceeded"},
                     )
             except Exception:
-                # In case Redis is unavailable, fail-open
-                pass
+                # Redis unavailable: fail-closed by default (configurable)
+                if not self.fail_open:
+                    return JSONResponse(
+                        status_code=429,
+                        content={
+                            "detail": "Rate limit temporarily unavailable"
+                        },
+                    )
 
         return await call_next(request)

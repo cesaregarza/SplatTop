@@ -48,8 +48,8 @@ async def get_ripple_leaderboard(
         description="Count only ranked tournaments within the window (default true)",
     ),
     # Presentation controls
-    score_multiplier: float = Query(25.0),
-    score_offset: float = Query(0.0),
+    score_multiplier: float = Query(25.0, ge=0.0, le=1000.0),
+    score_offset: float = Query(0.0, ge=-1000000.0, le=1000000.0),
 ) -> Dict[str, Any]:
     """Return a preprocessed page of ripple rankings (token-protected).
 

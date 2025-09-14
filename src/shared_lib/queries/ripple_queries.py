@@ -2,15 +2,34 @@ from __future__ import annotations
 
 from typing import Any, Mapping, Optional, Sequence
 
+import logging
+import re
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
 
 
+logger = logging.getLogger(__name__)
+
+
+_SCHEMA_RE = re.compile(r"^[A-Za-z_][A-Za-z0-9_]*$")
+
+
 def _schema() -> str:
-    """Return the rankings schema name (env RANKINGS_DB_SCHEMA or 'rankings')."""
+    """Return a validated schema name from env.
+
+    Uses env RANKINGS_DB_SCHEMA, defaults to 'rankings'. Falls back to
+    'rankings' if validation fails.
+    """
     import os
 
-    return os.getenv("RANKINGS_DB_SCHEMA", "rankings")
+    candidate = os.getenv("RANKINGS_DB_SCHEMA", "rankings")
+    if _SCHEMA_RE.match(candidate):
+        return candidate
+    logger.warning(
+        "Invalid RANKINGS_DB_SCHEMA '%s'; falling back to 'rankings'",
+        candidate,
+    )
+    return "rankings"
 
 
 async def fetch_ripple_page(
