@@ -23,6 +23,9 @@ router = APIRouter(
 
 class MintTokenRequest(BaseModel):
     name: str = Field(..., description="Human-friendly token name")
+    note: Optional[str] = Field(
+        default=None, description="Free-form note for who/what it's for"
+    )
     scopes: Optional[List[str]] = Field(default=None)
     expires_at_ms: Optional[int] = Field(default=None)
 
@@ -30,6 +33,7 @@ class MintTokenRequest(BaseModel):
 class MintTokenResponse(BaseModel):
     id: str
     name: str
+    note: Optional[str] = None
     token: str
     scopes: Optional[List[str]] = None
     expires_at_ms: Optional[int] = None
@@ -81,6 +85,7 @@ def mint_token(req: MintTokenRequest, request: Request):
             mapping={
                 "id": token_id,
                 "name": req.name,
+                "note": (req.note or ""),
                 "hash": h,
                 "scopes": scopes_json,
                 "created_at_ms": now_ms,
@@ -96,12 +101,20 @@ def mint_token(req: MintTokenRequest, request: Request):
     # Persist asynchronously
     celery.send_task(
         "tasks.persist_api_token",
-        args=[token_id, req.name, h, req.scopes or [], req.expires_at_ms],
+        args=[
+            token_id,
+            req.name,
+            (req.note or None),
+            h,
+            req.scopes or [],
+            req.expires_at_ms,
+        ],
     )
 
     return MintTokenResponse(
         id=token_id,
         name=req.name,
+        note=req.note,
         token=token,
         scopes=req.scopes or [],
         expires_at_ms=req.expires_at_ms,
@@ -153,6 +166,7 @@ def list_tokens():
                 {
                     "id": meta.get("id"),
                     "name": meta.get("name"),
+                    "note": meta.get("note") or None,
                     "scopes": scopes,
                     "created_at_ms": int(meta.get("created_at_ms", 0) or 0),
                     "expires_at_ms": int(meta.get("expires_at_ms", 0) or 0),

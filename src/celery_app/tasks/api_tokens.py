@@ -5,54 +5,21 @@ import time
 from typing import Any, Dict, List, Optional
 
 from sqlalchemy import text
+from sqlalchemy.exc import IntegrityError
 
 from celery_app.connections import Session, redis_conn
-from shared_lib.constants import API_USAGE_QUEUE_KEY
+from shared_lib.constants import API_TOKEN_META_PREFIX, API_USAGE_QUEUE_KEY
 
 
 def _ensure_schema() -> None:
-    # Create schema and tables if they do not exist
-    with Session() as session:
-        session.execute(text("CREATE SCHEMA IF NOT EXISTS auth"))
-        session.execute(
-            text(
-                """
-                CREATE TABLE IF NOT EXISTS auth.api_tokens (
-                    id UUID PRIMARY KEY,
-                    name TEXT NOT NULL,
-                    hash TEXT NOT NULL UNIQUE,
-                    scopes TEXT[],
-                    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-                    expires_at TIMESTAMPTZ NULL,
-                    revoked_at TIMESTAMPTZ NULL,
-                    last_used_at TIMESTAMPTZ NULL,
-                    usage_count BIGINT NOT NULL DEFAULT 0
-                );
-                """
-            )
-        )
-        session.execute(
-            text(
-                """
-                CREATE TABLE IF NOT EXISTS auth.api_token_usage (
-                    id BIGSERIAL PRIMARY KEY,
-                    token_id UUID NOT NULL REFERENCES auth.api_tokens(id),
-                    ts TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-                    ip INET NULL,
-                    path TEXT NOT NULL,
-                    user_agent TEXT NULL,
-                    status SMALLINT NULL,
-                    latency_ms INTEGER NULL
-                );
-                """
-            )
-        )
-        session.commit()
+    # No-op: assume schema/tables are managed externally (migrations/admin)
+    return
 
 
 def persist_api_token(
     token_id: str,
     name: str,
+    note: Optional[str],
     token_hash: str,
     scopes: List[str],
     expires_at_ms: Optional[int],
@@ -63,10 +30,11 @@ def persist_api_token(
         session.execute(
             text(
                 """
-                INSERT INTO auth.api_tokens (id, name, hash, scopes, expires_at)
-                VALUES (:id, :name, :hash, :scopes, to_timestamp(:expires))
+                INSERT INTO auth.api_tokens (id, name, note, hash, scopes, expires_at)
+                VALUES (:id, :name, :note, :hash, :scopes, to_timestamp(:expires))
                 ON CONFLICT (id) DO UPDATE
                 SET name = EXCLUDED.name,
+                    note = EXCLUDED.note,
                     hash = EXCLUDED.hash,
                     scopes = EXCLUDED.scopes,
                     expires_at = EXCLUDED.expires_at
@@ -75,6 +43,7 @@ def persist_api_token(
             {
                 "id": token_id,
                 "name": name,
+                "note": note,
                 "hash": token_hash,
                 "scopes": scopes,
                 # Convert ms to seconds once; to_timestamp(NULL) yields NULL
@@ -128,9 +97,19 @@ def flush_api_usage(batch_size: int | None = None) -> int:
     if not events:
         return 0
 
-    try:
-        with Session() as session:
-            for e in events:
+    processed = 0
+    with Session() as session:
+        for raw, e in zip(raw_items, events):
+            params = {
+                "token_id": e.get("token_id"),
+                "ts": (e.get("ts_ms", int(time.time() * 1000)) / 1000.0),
+                "ip": e.get("ip"),
+                "path": e.get("path"),
+                "ua": e.get("ua"),
+                "status": e.get("status"),
+                "latency_ms": e.get("latency_ms"),
+            }
+            try:
                 session.execute(
                     text(
                         """
@@ -138,34 +117,83 @@ def flush_api_usage(batch_size: int | None = None) -> int:
                         VALUES (:token_id, to_timestamp(:ts), :ip, :path, :ua, :status, :latency_ms)
                         """
                     ),
-                    {
-                        "token_id": e.get("token_id"),
-                        "ts": (
-                            e.get("ts_ms", int(time.time() * 1000)) / 1000.0
-                        ),
-                        "ip": e.get("ip"),
-                        "path": e.get("path"),
-                        "ua": e.get("ua"),
-                        "status": e.get("status"),
-                        "latency_ms": e.get("latency_ms"),
-                    },
+                    params,
                 )
-                if e.get("token_id"):
-                    session.execute(
-                        text(
-                            "UPDATE auth.api_tokens SET last_used_at = NOW(), usage_count = usage_count + 1 WHERE id = :id"
-                        ),
-                        {"id": e.get("token_id")},
-                    )
-            session.commit()
-    except Exception:
-        # Requeue items back on failure
-        for raw in raw_items:
+                session.flush()
+            except IntegrityError:
+                # Reset transaction state
+                session.rollback()
+                # Attempt to backfill missing token row from Redis meta, then retry once
+                tid = e.get("token_id")
+                if tid:
+                    meta = redis_conn.hgetall(f"{API_TOKEN_META_PREFIX}{tid}")
+                    if meta:
+                        scopes = []
+                        try:
+                            scopes = json.loads(meta.get("scopes", "[]"))
+                        except Exception:
+                            scopes = []
+                        session.execute(
+                            text(
+                                """
+                                INSERT INTO auth.api_tokens (id, name, note, hash, scopes, expires_at)
+                                VALUES (:id, :name, :note, :hash, :scopes,
+                                        CASE WHEN :expires_ms > 0 THEN to_timestamp(:expires_ms / 1000.0)
+                                             ELSE NULL END)
+                                ON CONFLICT (id) DO NOTHING
+                                """
+                            ),
+                            {
+                                "id": tid,
+                                "name": meta.get("name"),
+                                "note": meta.get("note") or None,
+                                "hash": meta.get("hash"),
+                                "scopes": scopes,
+                                "expires_ms": int(
+                                    meta.get("expires_at_ms", 0) or 0
+                                ),
+                            },
+                        )
+                        # retry insert once
+                        try:
+                            session.execute(
+                                text(
+                                    """
+                                    INSERT INTO auth.api_token_usage (token_id, ts, ip, path, user_agent, status, latency_ms)
+                                    VALUES (:token_id, to_timestamp(:ts), :ip, :path, :ua, :status, :latency_ms)
+                                    """
+                                ),
+                                params,
+                            )
+                            session.flush()
+                        except IntegrityError:
+                            session.rollback()
+                            # Could not fix; requeue this event and continue
+                            redis_conn.lrem(processing_key, 1, raw)
+                            redis_conn.rpush(API_USAGE_QUEUE_KEY, raw)
+                            continue
+                    else:
+                        # No meta; requeue
+                        redis_conn.lrem(processing_key, 1, raw)
+                        redis_conn.rpush(API_USAGE_QUEUE_KEY, raw)
+                        continue
+                else:
+                    # No token id; requeue
+                    redis_conn.lrem(processing_key, 1, raw)
+                    redis_conn.rpush(API_USAGE_QUEUE_KEY, raw)
+                    continue
+
+            # Update counters after successful insert
+            if e.get("token_id"):
+                session.execute(
+                    text(
+                        "UPDATE auth.api_tokens SET last_used_at = NOW(), usage_count = usage_count + 1 WHERE id = :id"
+                    ),
+                    {"id": e.get("token_id")},
+                )
+            # Remove processed item from processing list and increment
             redis_conn.lrem(processing_key, 1, raw)
-            redis_conn.rpush(API_USAGE_QUEUE_KEY, raw)
-        raise
-    else:
-        # Remove processed items
-        for raw in raw_items:
-            redis_conn.lrem(processing_key, 1, raw)
-        return len(events)
+            processed += 1
+
+        session.commit()
+    return processed
