@@ -5,7 +5,7 @@ from typing import Any, Dict, List, Optional
 
 from fastapi import APIRouter, Depends, Query
 
-from fast_api_app.auth import require_api_token
+from fast_api_app.auth import require_scopes
 from fast_api_app.connections import rankings_async_session
 from shared_lib.queries.ripple_queries import (
     fetch_ripple_danger,
@@ -13,7 +13,8 @@ from shared_lib.queries.ripple_queries import (
 )
 
 router = APIRouter(
-    prefix="/api/ripple", dependencies=[Depends(require_api_token)]
+    prefix="/api/ripple",
+    dependencies=[Depends(require_scopes({"ripple.read"}))],
 )
 
 

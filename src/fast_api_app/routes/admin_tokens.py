@@ -75,7 +75,7 @@ def mint_token(req: MintTokenRequest, request: Request):
     token_id = str(uuid.uuid4())
     # token_id is a non-secret identifier; uuid4 uses os.urandom under CPython
     # and is sufficient as an opaque ID (nitpick doc: security does not depend on it).
-    # 32 bytes -> ~43 char url-safe
+    # 32 random bytes (~256 bits entropy) -> ~43 char URL-safe string
     import secrets
 
     secret = secrets.token_urlsafe(32)
@@ -88,7 +88,9 @@ def mint_token(req: MintTokenRequest, request: Request):
     allowed_env = os.getenv("API_TOKEN_ALLOWED_SCOPES", "")
     allowed = {s.strip() for s in allowed_env.split(",") if s.strip()}
     scope_re = re.compile(r"^[A-Za-z0-9:._-]{1,64}$")
-    scopes_in = req.scopes or []
+    # Default scopes ensure basic access unless narrowed explicitly.
+    default_scopes = ["ripple.read", "misc.ping"]
+    scopes_in = req.scopes if req.scopes is not None else default_scopes
     if allowed:
         unknown = [s for s in scopes_in if s not in allowed]
         if unknown:

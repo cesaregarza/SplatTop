@@ -189,7 +189,9 @@ def require_scopes(required: Set[str]) -> Callable:
                     scopes = orjson.loads(meta.get("scopes", "[]"))
                 except Exception:
                     scopes = []
-            if not required.issubset(set(scopes)):
+            # Backward compatibility: empty scopes imply full access.
+            # Define scopes on tokens to restrict access explicitly.
+            if scopes and not required.issubset(set(scopes)):
                 raise HTTPException(
                     status_code=403, detail="Insufficient scope"
                 )

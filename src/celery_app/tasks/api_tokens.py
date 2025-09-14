@@ -89,6 +89,8 @@ def flush_api_usage(batch_size: int | None = None) -> int:
     processing_key = API_USAGE_PROCESSING_KEY
     dlq_key = f"{API_USAGE_QUEUE_KEY}:dlq"
     max_attempts = int(os.getenv("API_USAGE_MAX_ATTEMPTS", "5"))
+    # Lock TTL: default 55s. Consider increasing for larger batch sizes or
+    # slower databases; keep configurable via env.
     lock_ttl = int(os.getenv("API_USAGE_LOCK_TTL", "55"))
     lock_key = "api:usage:flush:lock"
     worker_id = f"worker:{int(time.time()*1000)}"
@@ -105,9 +107,9 @@ def flush_api_usage(batch_size: int | None = None) -> int:
                 if orphan is None:
                     break
                 redis_conn.lpush(API_USAGE_QUEUE_KEY, orphan)
-        except Exception:
-            # Best-effort recovery; continue
-            pass
+        except Exception as e:
+            # Best-effort recovery; log and continue for visibility
+            logger.warning("Processing-list orphan recovery failed: %s", e)
 
         events: List[Dict[str, Any]] = []
         raw_items: List[str] = []
