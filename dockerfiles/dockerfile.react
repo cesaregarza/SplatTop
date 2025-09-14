@@ -11,6 +11,7 @@ WORKDIR /app
 FROM base AS dependencies
 
 COPY src/react_app/package*.json ./
+# Use npm ci for clean, reproducible installs
 RUN npm ci
 
 ###############################
@@ -24,7 +25,11 @@ ENV REACT_APP_VERSION=$REACT_APP_VERSION
 COPY src/react_app/src ./src
 COPY src/react_app/public ./public
 COPY src/react_app/postcss.config.js ./
-COPY src/react_app/tailwind.v4.config.js ./
+# Use the conventional Tailwind config filename for v4
+COPY src/react_app/tailwind.config.js ./
+
+# Patch CRA's PostCSS plugins to use Tailwind v4's plugin
+RUN sed -i "s/'tailwindcss'/'@tailwindcss\\/postcss'/" node_modules/react-scripts/config/webpack.config.js
 
 RUN npm run build
 

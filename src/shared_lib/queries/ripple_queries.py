@@ -48,6 +48,11 @@ async def fetch_ripple_page(
     """
 
     schema = _schema()
+    schema_sql = f'"{schema}"'
+    # Safely embed schema: validation restricts to [A-Za-z_][A-Za-z0-9_]*.
+    # Quote to avoid accidental keyword/case issues (not for injection, since
+    # validation already rejects unsafe names).
+    schema_sql = f'"{schema}"'
 
     cte = f"""
     WITH latest_ts AS (
@@ -55,11 +60,11 @@ async def fetch_ripple_page(
         WHEN CAST(:ts_param AS BIGINT) IS NOT NULL THEN CAST(:ts_param AS BIGINT)
         WHEN CAST(:build_param AS TEXT) IS NOT NULL THEN (
           SELECT MAX(calculated_at_ms)
-          FROM {schema}.player_rankings
+          FROM {schema_sql}.player_rankings
           WHERE build_version = CAST(:build_param AS TEXT)
         )
         ELSE (
-          SELECT MAX(calculated_at_ms) FROM {schema}.player_rankings
+          SELECT MAX(calculated_at_ms) FROM {schema_sql}.player_rankings
         )
       END AS ts
     ), tournament_times AS (
@@ -72,8 +77,8 @@ async def fetch_ripple_page(
           ELSE MAX(m.last_game_finished_at_ms)
         END AS end_ms,
         t.is_ranked
-      FROM {schema}.tournaments t
-      LEFT JOIN {schema}.matches m ON m.tournament_id = t.tournament_id
+      FROM {schema_sql}.tournaments t
+      LEFT JOIN {schema_sql}.matches m ON m.tournament_id = t.tournament_id
       GROUP BY t.tournament_id, t.start_time_ms, t.is_ranked
     ), normalized AS (
       SELECT
@@ -81,7 +86,7 @@ async def fetch_ripple_page(
         pat.tournament_id,
         COALESCE(tt.end_ms, tt.start_ms) AS event_ms,
         tt.is_ranked
-      FROM {schema}.player_appearance_teams pat
+      FROM {schema_sql}.player_appearance_teams pat
       JOIN tournament_times tt ON tt.tournament_id = pat.tournament_id
     ), ranked AS (
       SELECT
@@ -106,9 +111,9 @@ async def fetch_ripple_page(
         ROW_NUMBER() OVER (ORDER BY r.score DESC) AS rank
       FROM {schema}.player_rankings r
       JOIN latest_ts l ON r.calculated_at_ms = l.ts
-      LEFT JOIN {schema}.player_ranking_stats s
+      LEFT JOIN {schema_sql}.player_ranking_stats s
         ON s.player_id = r.player_id AND s.calculated_at_ms = r.calculated_at_ms AND s.build_version = r.build_version
-      LEFT JOIN {schema}.players p ON p.player_id = r.player_id
+      LEFT JOIN {schema_sql}.players p ON p.player_id = r.player_id
       WHERE (
         CAST(:min_tournaments AS INT) IS NULL
         OR (
@@ -190,7 +195,7 @@ WITH latest_ts AS NOT MATERIALIZED (
     WHEN CAST(:ts_param AS BIGINT) IS NOT NULL THEN CAST(:ts_param AS BIGINT)
     WHEN CAST(:build_param AS TEXT) IS NOT NULL THEN (
       SELECT MAX(calculated_at_ms)
-      FROM {schema}.player_rankings
+      FROM {schema_sql}.player_rankings
       WHERE build_version = CAST(:build_param AS TEXT)
     )
     ELSE (SELECT MAX(calculated_at_ms) FROM {schema}.player_rankings)
@@ -214,8 +219,8 @@ tournament_times AS NOT MATERIALIZED (
       ELSE MAX(m.last_game_finished_at_ms)
     END AS end_ms,
     t.is_ranked
-  FROM {schema}.tournaments t
-  LEFT JOIN {schema}.matches m ON m.tournament_id = t.tournament_id
+  FROM {schema_sql}.tournaments t
+  LEFT JOIN {schema_sql}.matches m ON m.tournament_id = t.tournament_id
   GROUP BY t.tournament_id, t.start_time_ms, t.is_ranked
 ),
 tt_window AS NOT MATERIALIZED (
@@ -232,7 +237,7 @@ pt_win AS NOT MATERIALIZED (
                   tw.tournament_id,
                   tw.event_ms
   FROM tt_window tw
-  JOIN {schema}.player_appearance_teams pat ON pat.tournament_id = tw.tournament_id
+  JOIN {schema_sql}.player_appearance_teams pat ON pat.tournament_id = tw.tournament_id
   JOIN r_ranked rr ON rr.player_id = pat.player_id
 ),
 agg AS NOT MATERIALIZED (
@@ -260,7 +265,7 @@ SELECT rr.player_rank,
 FROM agg a
 JOIN latest_ts l ON TRUE
 JOIN r_ranked rr ON rr.player_id = a.player_id
-LEFT JOIN {schema}.players p ON p.player_id = a.player_id
+LEFT JOIN {schema_sql}.players p ON p.player_id = a.player_id
 WHERE (CAST(:min_tournaments AS INT) IS NULL OR a.n_tournaments = CAST(:min_tournaments AS INT))
 ORDER BY ms_left ASC, rr.player_rank ASC
 LIMIT :limit OFFSET :offset

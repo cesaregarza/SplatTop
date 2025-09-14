@@ -1,6 +1,12 @@
 @import 'tailwindcss';
+@config "../tailwind.config.js";
 
-@config '../tailwind.v4.config.js';
+/* Tailwind v4 CSS-first theme tokens */
+@theme {
+  --color-purple: #ab5ab7;
+  --color-purpledark: #7b28a4;
+  --color-purplelight: #c183e1;
+}
 
 /*
   The default border color has changed to `currentcolor` in Tailwind CSS v4,

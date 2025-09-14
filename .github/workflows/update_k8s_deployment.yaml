@@ -253,25 +253,22 @@ jobs:
           ADMIN_API_TOKENS: ${{ secrets.ADMIN_API_TOKENS }}
         run: |
           mv k8s/secrets.template k8s/secrets.yaml
-          # Compute hashed admin tokens from plaintext list (comma-separated)
-          # Note: Admin tokens are high-entropy bearer tokens. We hash as
-          # SHA-256(pepper + token) only for lookup/storage convenience; a KDF
-          # (bcrypt/argon2) is unnecessary for random tokens and would add cost
-          # without improving security for this use-case.
-          ADMIN_API_TOKENS_HASHED=""
-          IFS=',' read -ra TOKS <<< "${ADMIN_API_TOKENS}"
-          for tok in "${TOKS[@]}"; do
-            t=$(echo -n "$tok" | xargs)
-            if [ -n "$t" ]; then
-              # hash(pepper + token)
-              HASH=$(printf "%s" "${API_TOKEN_PEPPER}${t}" | sha256sum | awk '{print $1}')
-              if [ -z "$ADMIN_API_TOKENS_HASHED" ]; then
-                ADMIN_API_TOKENS_HASHED="$HASH"
-              else
-                ADMIN_API_TOKENS_HASHED="$ADMIN_API_TOKENS_HASHED,$HASH"
-              fi
-            fi
-          done
+          # Compute hashed admin tokens using Python for robust handling of special characters.
+          # Note: Tokens are high-entropy; SHA-256(pepper + token) is used for lookup/storage only.
+          ADMIN_API_TOKENS_HASHED=$(python3 - << 'PY'
+import os, sys, hashlib
+pep = os.getenv('API_TOKEN_PEPPER','')
+raw = os.getenv('ADMIN_API_TOKENS','')
+parts = [p.strip() for p in raw.split(',')]
+hashes = []
+for p in parts:
+    if not p:
+        continue
+    h = hashlib.sha256((pep + p).encode('utf-8')).hexdigest()
+    hashes.append(h)
+print(','.join(hashes))
+PY
+          )
           sed -i "s|%DB_HOST%|${DB_HOST}|g" k8s/secrets.yaml
           sed -i "s|%DB_USER%|${DB_USER}|g" k8s/secrets.yaml
           sed -i "s|%DB_PASSWORD%|${DB_PASSWORD}|g" k8s/secrets.yaml
