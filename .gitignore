@@ -181,3 +181,6 @@ k8s/secrets.yaml
 !src/react_app/public/*
 !src/react_app/public/locales/*/*.json
 !i18n/*.json
+
+# Local notes (ignored)
+LOCAL_NOTES.md
