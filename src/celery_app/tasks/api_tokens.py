@@ -58,11 +58,6 @@ def persist_api_token(
     expires_at_ms: Optional[int],
 ) -> None:
     _ensure_schema()
-    expires = None
-    if expires_at_ms:
-        expires = text("to_timestamp(:sec)").bindparams(
-            sec=expires_at_ms / 1000.0
-        )
     with Session() as session:
         # Upsert-like behavior
         session.execute(
@@ -82,6 +77,7 @@ def persist_api_token(
                 "name": name,
                 "hash": token_hash,
                 "scopes": scopes,
+                # Convert ms to seconds once; to_timestamp(NULL) yields NULL
                 "expires": (expires_at_ms / 1000.0) if expires_at_ms else None,
             },
         )
@@ -100,46 +96,76 @@ def revoke_api_token(token_id: str) -> None:
         session.commit()
 
 
-def flush_api_usage(batch_size: int = 1000) -> int:
+def flush_api_usage(batch_size: int | None = None) -> int:
+    """Flush usage events atomically using a processing list.
+
+    Moves items with RPOPLPUSH from the main queue to a processing list,
+    writes them to DB, then removes them from processing. On failure,
+    moves items back to the main queue to avoid data loss.
+    """
+    import os
+
     _ensure_schema()
+    bs = batch_size or int(os.getenv("API_USAGE_FLUSH_BATCH", "1000"))
+    processing_key = f"{API_USAGE_QUEUE_KEY}:processing"
+
     events: List[Dict[str, Any]] = []
-    for _ in range(batch_size):
-        item = redis_conn.lpop(API_USAGE_QUEUE_KEY)
+    raw_items: List[str] = []
+
+    # Atomically move up to bs items to processing
+    for _ in range(bs):
+        item = redis_conn.rpoplpush(API_USAGE_QUEUE_KEY, processing_key)
         if item is None:
             break
+        raw_items.append(item)
         try:
             events.append(json.loads(item))
         except Exception:
+            # Drop malformed, remove from processing
+            redis_conn.lrem(processing_key, 1, item)
             continue
 
     if not events:
         return 0
 
-    with Session() as session:
-        for e in events:
-            session.execute(
-                text(
-                    """
-                    INSERT INTO auth.api_token_usage (token_id, ts, ip, path, user_agent, status, latency_ms)
-                    VALUES (:token_id, to_timestamp(:ts), :ip, :path, :ua, :status, :latency_ms)
-                    """
-                ),
-                {
-                    "token_id": e.get("token_id"),
-                    "ts": (e.get("ts_ms", int(time.time() * 1000)) / 1000.0),
-                    "ip": e.get("ip"),
-                    "path": e.get("path"),
-                    "ua": e.get("ua"),
-                    "status": e.get("status"),
-                    "latency_ms": e.get("latency_ms"),
-                },
-            )
-            if e.get("token_id"):
+    try:
+        with Session() as session:
+            for e in events:
                 session.execute(
                     text(
-                        "UPDATE auth.api_tokens SET last_used_at = NOW(), usage_count = usage_count + 1 WHERE id = :id"
+                        """
+                        INSERT INTO auth.api_token_usage (token_id, ts, ip, path, user_agent, status, latency_ms)
+                        VALUES (:token_id, to_timestamp(:ts), :ip, :path, :ua, :status, :latency_ms)
+                        """
                     ),
-                    {"id": e.get("token_id")},
+                    {
+                        "token_id": e.get("token_id"),
+                        "ts": (
+                            e.get("ts_ms", int(time.time() * 1000)) / 1000.0
+                        ),
+                        "ip": e.get("ip"),
+                        "path": e.get("path"),
+                        "ua": e.get("ua"),
+                        "status": e.get("status"),
+                        "latency_ms": e.get("latency_ms"),
+                    },
                 )
-        session.commit()
-    return len(events)
+                if e.get("token_id"):
+                    session.execute(
+                        text(
+                            "UPDATE auth.api_tokens SET last_used_at = NOW(), usage_count = usage_count + 1 WHERE id = :id"
+                        ),
+                        {"id": e.get("token_id")},
+                    )
+            session.commit()
+    except Exception:
+        # Requeue items back on failure
+        for raw in raw_items:
+            redis_conn.lrem(processing_key, 1, raw)
+            redis_conn.rpush(API_USAGE_QUEUE_KEY, raw)
+        raise
+    else:
+        # Remove processed items
+        for raw in raw_items:
+            redis_conn.lrem(processing_key, 1, raw)
+        return len(events)

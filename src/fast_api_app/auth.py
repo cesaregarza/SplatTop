@@ -91,16 +91,36 @@ def require_api_token(
             headers={"WWW-Authenticate": "Bearer"},
         )
 
-    if not redis_conn.sismember(API_TOKENS_ACTIVE_SET, token_hash):
-        logger.warning("Invalid or revoked API token")
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Invalid or revoked API token",
-            headers={"WWW-Authenticate": "Bearer"},
-        )
+    try:
+        if not redis_conn.sismember(API_TOKENS_ACTIVE_SET, token_hash):
+            logger.warning("Invalid or revoked API token")
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Invalid or revoked API token",
+                headers={"WWW-Authenticate": "Bearer"},
+            )
+        if token_id is None:
+            token_id = redis_conn.get(
+                f"{API_TOKEN_HASH_MAP_PREFIX}{token_hash}"
+            )
+        # Enforce expiration if configured in metadata
+        if token_id:
+            meta = redis_conn.hgetall(f"{API_TOKEN_META_PREFIX}{token_id}")
+            if meta:
+                exp = int(meta.get("expires_at_ms", 0) or 0)
+                if exp and exp > 0 and int(time.time() * 1000) > exp:
+                    logger.warning("Expired API token used")
+                    raise HTTPException(
+                        status_code=status.HTTP_401_UNAUTHORIZED,
+                        detail="Expired API token",
+                        headers={"WWW-Authenticate": "Bearer"},
+                    )
+    except HTTPException:
+        raise
+    except Exception:
+        logger.error("Auth Redis unavailable; failing closed")
+        raise HTTPException(status_code=503, detail="Auth backend unavailable")
 
-    if token_id is None:
-        token_id = redis_conn.get(f"{API_TOKEN_HASH_MAP_PREFIX}{token_hash}")
     request.state.token_id = token_id
     request.state.token_hash = token_hash
     return True
@@ -117,18 +137,15 @@ def require_admin_token(
         default=None, convert_underscores=False
     ),
 ):
-    # Prefer hashed admin tokens if provided, fallback to plaintext list
+    """Require admin tokens provided as hashed values only.
+
+    Configure a comma-separated list in ADMIN_API_TOKENS_HASHED. Hashing uses
+    ADMIN_TOKEN_PEPPER (or API_TOKEN_PEPPER as fallback) with SHA-256.
+    """
     raw = _get_header_token(authorization, x_admin_token)
     hashed_cfg = os.getenv("ADMIN_API_TOKENS_HASHED", "")
     hashed_allowed = {t.strip() for t in hashed_cfg.split(",") if t.strip()}
-    if raw and hashed_allowed:
-        if _admin_hash(raw) in hashed_allowed:
-            return True
-
-    configured = os.getenv("ADMIN_API_TOKENS", "")
-    allowed = {t.strip() for t in configured.split(",") if t.strip()}
-    if raw and allowed and raw in allowed:
+    if raw and hashed_allowed and _admin_hash(raw) in hashed_allowed:
         return True
-
     logger.warning("Admin token required or invalid")
     raise HTTPException(status_code=401, detail="Admin token required")

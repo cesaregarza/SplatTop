@@ -40,11 +40,16 @@ spec:
                 secretKeyRef:
                   name: db-secrets
                   key: API_TOKEN_PEPPER
-            - name: ADMIN_API_TOKENS
+            - name: ADMIN_TOKEN_PEPPER
               valueFrom:
                 secretKeyRef:
                   name: db-secrets
-                  key: ADMIN_API_TOKENS
+                  key: ADMIN_TOKEN_PEPPER
+            - name: ADMIN_API_TOKENS_HASHED
+              valueFrom:
+                secretKeyRef:
+                  name: db-secrets
+                  key: ADMIN_API_TOKENS_HASHED
             - name: DB_HOST
               valueFrom:
                 secretKeyRef:

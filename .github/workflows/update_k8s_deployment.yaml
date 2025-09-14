@@ -253,6 +253,21 @@ jobs:
           ADMIN_API_TOKENS: ${{ secrets.ADMIN_API_TOKENS }}
         run: |
           mv k8s/secrets.template k8s/secrets.yaml
+          # Compute hashed admin tokens from plaintext list (comma-separated)
+          ADMIN_API_TOKENS_HASHED=""
+          IFS=',' read -ra TOKS <<< "${ADMIN_API_TOKENS}"
+          for tok in "${TOKS[@]}"; do
+            t=$(echo -n "$tok" | xargs)
+            if [ -n "$t" ]; then
+              # hash(pepper + token)
+              HASH=$(printf "%s" "${API_TOKEN_PEPPER}${t}" | sha256sum | awk '{print $1}')
+              if [ -z "$ADMIN_API_TOKENS_HASHED" ]; then
+                ADMIN_API_TOKENS_HASHED="$HASH"
+              else
+                ADMIN_API_TOKENS_HASHED="$ADMIN_API_TOKENS_HASHED,$HASH"
+              fi
+            fi
+          done
           sed -i "s|%DB_HOST%|${DB_HOST}|g" k8s/secrets.yaml
           sed -i "s|%DB_USER%|${DB_USER}|g" k8s/secrets.yaml
           sed -i "s|%DB_PASSWORD%|${DB_PASSWORD}|g" k8s/secrets.yaml
@@ -265,7 +280,8 @@ jobs:
           sed -i "s|%DO_SPACES_ML_ENDPOINT%|${DO_SPACES_ML_ENDPOINT}|g" k8s/secrets.yaml
           sed -i "s|%DO_SPACES_ML_DIR%|${DO_SPACES_ML_DIR}|g" k8s/secrets.yaml
           sed -i "s|%API_TOKEN_PEPPER%|${API_TOKEN_PEPPER}|g" k8s/secrets.yaml
-          sed -i "s|%ADMIN_API_TOKENS%|${ADMIN_API_TOKENS}|g" k8s/secrets.yaml
+          sed -i "s|%ADMIN_TOKEN_PEPPER%|${API_TOKEN_PEPPER}|g" k8s/secrets.yaml
+          sed -i "s|%ADMIN_API_TOKENS_HASHED%|${ADMIN_API_TOKENS_HASHED}|g" k8s/secrets.yaml
           kubectl apply -f k8s/secrets.yaml
 
       - name: Create docker registry secret

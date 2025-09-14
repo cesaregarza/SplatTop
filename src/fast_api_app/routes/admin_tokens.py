@@ -72,23 +72,26 @@ def mint_token(req: MintTokenRequest, request: Request):
     now_ms = int(time.time() * 1000)
     scopes_json = orjson.dumps(req.scopes or []).decode()
 
-    pipe = redis_conn.pipeline()
-    pipe.sadd(API_TOKENS_ACTIVE_SET, h)
-    pipe.set(f"{API_TOKEN_HASH_MAP_PREFIX}{h}", token_id)
-    pipe.hset(
-        f"{API_TOKEN_META_PREFIX}{token_id}",
-        mapping={
-            "id": token_id,
-            "name": req.name,
-            "hash": h,
-            "scopes": scopes_json,
-            "created_at_ms": now_ms,
-            "expires_at_ms": req.expires_at_ms or 0,
-            "revoked": 0,
-        },
-    )
-    pipe.sadd(API_TOKEN_IDS_SET, token_id)
-    pipe.execute()
+    try:
+        pipe = redis_conn.pipeline()
+        pipe.sadd(API_TOKENS_ACTIVE_SET, h)
+        pipe.set(f"{API_TOKEN_HASH_MAP_PREFIX}{h}", token_id)
+        pipe.hset(
+            f"{API_TOKEN_META_PREFIX}{token_id}",
+            mapping={
+                "id": token_id,
+                "name": req.name,
+                "hash": h,
+                "scopes": scopes_json,
+                "created_at_ms": now_ms,
+                "expires_at_ms": req.expires_at_ms or 0,
+                "revoked": 0,
+            },
+        )
+        pipe.sadd(API_TOKEN_IDS_SET, token_id)
+        pipe.execute()
+    except Exception:
+        raise HTTPException(status_code=503, detail="Token store unavailable")
 
     # Persist asynchronously
     celery.send_task(

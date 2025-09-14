@@ -51,6 +51,7 @@ API_TOKEN_HASH_MAP_PREFIX = "api:token:hash:"
 API_TOKEN_META_PREFIX = "api:token:meta:"
 API_TOKEN_IDS_SET = "api:tokens:ids"
 API_USAGE_QUEUE_KEY = "api:usage:queue"
+API_USAGE_PROCESSING_KEY = "api:usage:queue:processing"
 API_TOKEN_PREFIX = "rpl"
 MAIN_ONLY_ABILITIES = [
     "comeback",
