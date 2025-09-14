@@ -3,7 +3,7 @@ import os
 import re
 import time
 from hashlib import sha256
-from typing import Optional, Tuple
+from typing import Callable, Optional, Set, Tuple
 
 import orjson
 from fastapi import Header, HTTPException, Request, status
@@ -137,7 +137,13 @@ def require_admin_token(
         default=None, convert_underscores=False
     ),
 ):
-    """Require admin tokens provided as hashed values only.
+    """Require a high-entropy admin bearer token.
+
+    Notes on hashing choice (addresses review nitpicks):
+    - Admin tokens are random, high-entropy bearer tokens (not user passwords).
+    - We hash as SHA-256(pepper + token) solely for lookup/storage; rainbow
+      tables are not applicable because of the server-side pepper and entropy.
+    - A KDF (bcrypt/argon2) is unnecessary for non-user-chosen tokens.
 
     Configure a comma-separated list in ADMIN_API_TOKENS_HASHED. Hashing uses
     ADMIN_TOKEN_PEPPER (or API_TOKEN_PEPPER as fallback) with SHA-256.
@@ -149,3 +155,51 @@ def require_admin_token(
         return True
     logger.warning("Admin token required or invalid")
     raise HTTPException(status_code=401, detail="Admin token required")
+
+
+def require_scopes(required: Set[str]) -> Callable:
+    """Return a dependency that enforces a set of scopes for API tokens.
+
+    - Ensures a valid API token via require_api_token.
+    - Fetches scopes from Redis using request.state.token_id.
+    - Returns HTTP 403 if any required scope is missing.
+    """
+
+    def _dep(
+        request: Request,
+        authorization: Optional[str] = Header(default=None),
+        x_api_token: Optional[str] = Header(
+            default=None, convert_underscores=False
+        ),
+    ) -> bool:
+        # Ensure token is valid and request.state is populated
+        require_api_token(
+            request, authorization=authorization, x_api_token=x_api_token
+        )
+
+        token_id = getattr(request.state, "token_id", None)
+        if not token_id:
+            raise HTTPException(status_code=403, detail="Insufficient scope")
+
+        try:
+            meta = redis_conn.hgetall(f"{API_TOKEN_META_PREFIX}{token_id}")
+            scopes = []
+            if meta and "scopes" in meta:
+                try:
+                    scopes = orjson.loads(meta.get("scopes", "[]"))
+                except Exception:
+                    scopes = []
+            if not required.issubset(set(scopes)):
+                raise HTTPException(
+                    status_code=403, detail="Insufficient scope"
+                )
+        except HTTPException:
+            raise
+        except Exception:
+            logger.error("Auth backend unavailable during scope check")
+            raise HTTPException(
+                status_code=503, detail="Auth backend unavailable"
+            )
+        return True
+
+    return _dep

@@ -254,6 +254,10 @@ jobs:
         run: |
           mv k8s/secrets.template k8s/secrets.yaml
           # Compute hashed admin tokens from plaintext list (comma-separated)
+          # Note: Admin tokens are high-entropy bearer tokens. We hash as
+          # SHA-256(pepper + token) only for lookup/storage convenience; a KDF
+          # (bcrypt/argon2) is unnecessary for random tokens and would add cost
+          # without improving security for this use-case.
           ADMIN_API_TOKENS_HASHED=""
           IFS=',' read -ra TOKS <<< "${ADMIN_API_TOKENS}"
           for tok in "${TOKS[@]}"; do

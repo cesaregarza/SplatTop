@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import logging
 import time
 from typing import Any, Dict, List, Optional
 
@@ -8,7 +9,13 @@ from sqlalchemy import text
 from sqlalchemy.exc import IntegrityError
 
 from celery_app.connections import Session, redis_conn
-from shared_lib.constants import API_TOKEN_META_PREFIX, API_USAGE_QUEUE_KEY
+from shared_lib.constants import (
+    API_TOKEN_META_PREFIX,
+    API_USAGE_PROCESSING_KEY,
+    API_USAGE_QUEUE_KEY,
+)
+
+logger = logging.getLogger(__name__)
 
 
 def _ensure_schema() -> None:
@@ -66,134 +73,210 @@ def revoke_api_token(token_id: str) -> None:
 
 
 def flush_api_usage(batch_size: int | None = None) -> int:
-    """Flush usage events atomically using a processing list.
+    """Flush usage events with a Redis processing list and a simple lock.
 
-    Moves items with RPOPLPUSH from the main queue to a processing list,
-    writes them to DB, then removes them from processing. On failure,
-    moves items back to the main queue to avoid data loss.
+    - Acquires a short-lived Redis lock to prevent overlapping workers.
+    - Recovers orphaned items from the processing list (previous crash).
+    - Uses RPOPLPUSH to move items atomically to processing while handling
+      malformed JSON and DB errors. Permanently failing events are routed to
+      a dead-letter queue after a small number of attempts.
     """
     import os
 
     _ensure_schema()
+    processed = 0
     bs = batch_size or int(os.getenv("API_USAGE_FLUSH_BATCH", "1000"))
-    processing_key = f"{API_USAGE_QUEUE_KEY}:processing"
+    processing_key = API_USAGE_PROCESSING_KEY
+    dlq_key = f"{API_USAGE_QUEUE_KEY}:dlq"
+    max_attempts = int(os.getenv("API_USAGE_MAX_ATTEMPTS", "5"))
+    lock_ttl = int(os.getenv("API_USAGE_LOCK_TTL", "55"))
+    lock_key = "api:usage:flush:lock"
+    worker_id = f"worker:{int(time.time()*1000)}"
 
-    events: List[Dict[str, Any]] = []
-    raw_items: List[str] = []
-
-    # Atomically move up to bs items to processing
-    for _ in range(bs):
-        item = redis_conn.rpoplpush(API_USAGE_QUEUE_KEY, processing_key)
-        if item is None:
-            break
-        raw_items.append(item)
-        try:
-            events.append(json.loads(item))
-        except Exception:
-            # Drop malformed, remove from processing
-            redis_conn.lrem(processing_key, 1, item)
-            continue
-
-    if not events:
+    # Acquire lock to avoid overlapping flushers
+    if not redis_conn.set(lock_key, worker_id, nx=True, ex=lock_ttl):
         return 0
 
-    processed = 0
-    with Session() as session:
-        for raw, e in zip(raw_items, events):
-            params = {
-                "token_id": e.get("token_id"),
-                "ts": (e.get("ts_ms", int(time.time() * 1000)) / 1000.0),
-                "ip": e.get("ip"),
-                "path": e.get("path"),
-                "ua": e.get("ua"),
-                "status": e.get("status"),
-                "latency_ms": e.get("latency_ms"),
-            }
+    try:
+        # Recover any orphaned items left in processing (previous crash)
+        try:
+            while True:
+                orphan = redis_conn.rpop(processing_key)
+                if orphan is None:
+                    break
+                redis_conn.lpush(API_USAGE_QUEUE_KEY, orphan)
+        except Exception:
+            # Best-effort recovery; continue
+            pass
+
+        events: List[Dict[str, Any]] = []
+        raw_items: List[str] = []
+
+        # Atomically move up to bs items to processing
+        for _ in range(bs):
+            item = redis_conn.rpoplpush(API_USAGE_QUEUE_KEY, processing_key)
+            if item is None:
+                break
+            raw_items.append(item)
             try:
-                session.execute(
-                    text(
-                        """
-                        INSERT INTO auth.api_token_usage (token_id, ts, ip, path, user_agent, status, latency_ms)
-                        VALUES (:token_id, to_timestamp(:ts), :ip, :path, :ua, :status, :latency_ms)
-                        """
-                    ),
-                    params,
-                )
-                session.flush()
-            except IntegrityError:
-                # Reset transaction state
-                session.rollback()
-                # Attempt to backfill missing token row from Redis meta, then retry once
-                tid = e.get("token_id")
-                if tid:
-                    meta = redis_conn.hgetall(f"{API_TOKEN_META_PREFIX}{tid}")
-                    if meta:
-                        scopes = []
-                        try:
-                            scopes = json.loads(meta.get("scopes", "[]"))
-                        except Exception:
-                            scopes = []
-                        session.execute(
-                            text(
-                                """
-                                INSERT INTO auth.api_tokens (id, name, note, hash, scopes, expires_at)
-                                VALUES (:id, :name, :note, :hash, :scopes,
-                                        CASE WHEN :expires_ms > 0 THEN to_timestamp(:expires_ms / 1000.0)
-                                             ELSE NULL END)
-                                ON CONFLICT (id) DO NOTHING
-                                """
-                            ),
-                            {
-                                "id": tid,
-                                "name": meta.get("name"),
-                                "note": meta.get("note") or None,
-                                "hash": meta.get("hash"),
-                                "scopes": scopes,
-                                "expires_ms": int(
-                                    meta.get("expires_at_ms", 0) or 0
-                                ),
-                            },
+                events.append(json.loads(item))
+            except Exception:
+                # Malformed JSON -> move to DLQ and drop from processing
+                logger.warning("Malformed usage event; sending to DLQ")
+                redis_conn.lrem(processing_key, 1, item)
+                redis_conn.lpush(dlq_key, item)
+                redis_conn.incr("api:usage:metrics:malformed")
+                # Remove last raw to keep alignment with events
+                try:
+                    raw_items.pop()
+                except Exception:
+                    pass
+                continue
+
+        if not events:
+            return 0
+        with Session() as session:
+            for raw, e in zip(raw_items, events):
+                params = {
+                    "token_id": e.get("token_id"),
+                    "ts": (e.get("ts_ms", int(time.time() * 1000)) / 1000.0),
+                    "ip": e.get("ip"),
+                    "path": e.get("path"),
+                    "ua": e.get("ua"),
+                    "status": e.get("status"),
+                    "latency_ms": e.get("latency_ms"),
+                }
+                try:
+                    session.execute(
+                        text(
+                            """
+                            INSERT INTO auth.api_token_usage (token_id, ts, ip, path, user_agent, status, latency_ms)
+                            VALUES (:token_id, to_timestamp(:ts), :ip, :path, :ua, :status, :latency_ms)
+                            """
+                        ),
+                        params,
+                    )
+                    session.flush()
+                except IntegrityError:
+                    # Reset transaction state
+                    session.rollback()
+                    # Attempt to backfill missing token row from Redis meta, then retry once
+                    tid = e.get("token_id")
+                    if tid:
+                        meta = redis_conn.hgetall(
+                            f"{API_TOKEN_META_PREFIX}{tid}"
                         )
-                        # retry insert once
-                        try:
+                        if meta:
+                            scopes = []
+                            try:
+                                scopes = json.loads(meta.get("scopes", "[]"))
+                            except Exception:
+                                scopes = []
                             session.execute(
                                 text(
                                     """
-                                    INSERT INTO auth.api_token_usage (token_id, ts, ip, path, user_agent, status, latency_ms)
-                                    VALUES (:token_id, to_timestamp(:ts), :ip, :path, :ua, :status, :latency_ms)
+                                    INSERT INTO auth.api_tokens (id, name, note, hash, scopes, expires_at)
+                                    VALUES (:id, :name, :note, :hash, :scopes,
+                                            CASE WHEN :expires_ms > 0 THEN to_timestamp(:expires_ms / 1000.0)
+                                                 ELSE NULL END)
+                                    ON CONFLICT (id) DO NOTHING
                                     """
                                 ),
-                                params,
+                                {
+                                    "id": tid,
+                                    "name": meta.get("name"),
+                                    "note": meta.get("note") or None,
+                                    "hash": meta.get("hash"),
+                                    "scopes": scopes,
+                                    "expires_ms": int(
+                                        meta.get("expires_at_ms", 0) or 0
+                                    ),
+                                },
                             )
-                            session.flush()
-                        except IntegrityError:
-                            session.rollback()
-                            # Could not fix; requeue this event and continue
+                            # retry insert once
+                            try:
+                                session.execute(
+                                    text(
+                                        """
+                                        INSERT INTO auth.api_token_usage (token_id, ts, ip, path, user_agent, status, latency_ms)
+                                        VALUES (:token_id, to_timestamp(:ts), :ip, :path, :ua, :status, :latency_ms)
+                                        """
+                                    ),
+                                    params,
+                                )
+                                session.flush()
+                            except IntegrityError:
+                                session.rollback()
+                                # Could not fix; requeue with attempts or DLQ
+                                attempts = int(e.get("attempts", 0)) + 1
+                                e["attempts"] = attempts
+                                redis_conn.lrem(processing_key, 1, raw)
+                                if attempts >= max_attempts:
+                                    logger.warning(
+                                        "Usage event moved to DLQ after max attempts"
+                                    )
+                                    redis_conn.lpush(dlq_key, json.dumps(e))
+                                    redis_conn.incr("api:usage:metrics:dlq")
+                                else:
+                                    redis_conn.rpush(
+                                        API_USAGE_QUEUE_KEY, json.dumps(e)
+                                    )
+                                    redis_conn.incr(
+                                        "api:usage:metrics:requeued"
+                                    )
+                                continue
+                        else:
+                            # No meta; requeue with attempts or DLQ
+                            attempts = int(e.get("attempts", 0)) + 1
+                            e["attempts"] = attempts
                             redis_conn.lrem(processing_key, 1, raw)
-                            redis_conn.rpush(API_USAGE_QUEUE_KEY, raw)
+                            if attempts >= max_attempts:
+                                logger.warning(
+                                    "Usage event moved to DLQ (no meta)"
+                                )
+                                redis_conn.lpush(dlq_key, json.dumps(e))
+                                redis_conn.incr("api:usage:metrics:dlq")
+                            else:
+                                redis_conn.rpush(
+                                    API_USAGE_QUEUE_KEY, json.dumps(e)
+                                )
+                                redis_conn.incr("api:usage:metrics:requeued")
                             continue
                     else:
-                        # No meta; requeue
+                        # No token id; requeue with attempts or DLQ
+                        attempts = int(e.get("attempts", 0)) + 1
+                        e["attempts"] = attempts
                         redis_conn.lrem(processing_key, 1, raw)
-                        redis_conn.rpush(API_USAGE_QUEUE_KEY, raw)
+                        if attempts >= max_attempts:
+                            logger.warning(
+                                "Usage event moved to DLQ (no token_id)"
+                            )
+                            redis_conn.lpush(dlq_key, json.dumps(e))
+                            redis_conn.incr("api:usage:metrics:dlq")
+                        else:
+                            redis_conn.rpush(API_USAGE_QUEUE_KEY, json.dumps(e))
+                            redis_conn.incr("api:usage:metrics:requeued")
                         continue
-                else:
-                    # No token id; requeue
-                    redis_conn.lrem(processing_key, 1, raw)
-                    redis_conn.rpush(API_USAGE_QUEUE_KEY, raw)
-                    continue
 
-            # Update counters after successful insert
-            if e.get("token_id"):
-                session.execute(
-                    text(
-                        "UPDATE auth.api_tokens SET last_used_at = NOW(), usage_count = usage_count + 1 WHERE id = :id"
-                    ),
-                    {"id": e.get("token_id")},
-                )
-            # Remove processed item from processing list and increment
-            redis_conn.lrem(processing_key, 1, raw)
-            processed += 1
+                # Update counters after successful insert
+                if e.get("token_id"):
+                    session.execute(
+                        text(
+                            "UPDATE auth.api_tokens SET last_used_at = NOW(), usage_count = usage_count + 1 WHERE id = :id"
+                        ),
+                        {"id": e.get("token_id")},
+                    )
+                # Remove processed item from processing list and increment
+                redis_conn.lrem(processing_key, 1, raw)
+                processed += 1
 
-        session.commit()
+            session.commit()
+    finally:
+        # Release lock if we still own it
+        try:
+            val = redis_conn.get(lock_key)
+            if val == worker_id:
+                redis_conn.delete(lock_key)
+        except Exception:
+            pass
     return processed

@@ -1,3 +1,5 @@
+import os
+import re
 import time
 import uuid
 from typing import Any, Dict, List, Optional
@@ -22,9 +24,16 @@ router = APIRouter(
 
 
 class MintTokenRequest(BaseModel):
-    name: str = Field(..., description="Human-friendly token name")
+    name: str = Field(
+        ...,
+        description="Human-friendly token name",
+        min_length=1,
+        max_length=64,
+    )
     note: Optional[str] = Field(
-        default=None, description="Free-form note for who/what it's for"
+        default=None,
+        description="Free-form note for who/what it's for",
+        max_length=512,
     )
     scopes: Optional[List[str]] = Field(default=None)
     expires_at_ms: Optional[int] = Field(default=None)
@@ -54,8 +63,6 @@ def _safe_scard(key: str) -> int:
 @limiter.limit("5/minute")
 def mint_token(req: MintTokenRequest, request: Request):
     # Enforce a global cap to prevent unbounded token creation
-    import os
-
     try:
         max_tokens = int(os.getenv("ADMIN_MAX_API_TOKENS", "1000"))
     except Exception:
@@ -66,6 +73,8 @@ def mint_token(req: MintTokenRequest, request: Request):
             status_code=429, detail="API token limit reached; cannot mint more"
         )
     token_id = str(uuid.uuid4())
+    # token_id is a non-secret identifier; uuid4 uses os.urandom under CPython
+    # and is sufficient as an opaque ID (nitpick doc: security does not depend on it).
     # 32 bytes -> ~43 char url-safe
     import secrets
 
@@ -74,7 +83,34 @@ def mint_token(req: MintTokenRequest, request: Request):
     h = hash_secret(secret)
 
     now_ms = int(time.time() * 1000)
-    scopes_json = orjson.dumps(req.scopes or []).decode()
+    # Validate requested scopes if an allowlist is configured; otherwise apply a
+    # conservative regex for hygiene.
+    allowed_env = os.getenv("API_TOKEN_ALLOWED_SCOPES", "")
+    allowed = {s.strip() for s in allowed_env.split(",") if s.strip()}
+    scope_re = re.compile(r"^[A-Za-z0-9:._-]{1,64}$")
+    scopes_in = req.scopes or []
+    if allowed:
+        unknown = [s for s in scopes_in if s not in allowed]
+        if unknown:
+            raise HTTPException(
+                status_code=400,
+                detail=f"Unknown scopes: {', '.join(sorted(set(unknown)))}",
+            )
+    else:
+        bad = [s for s in scopes_in if not scope_re.match(s or "")]
+        if bad:
+            raise HTTPException(
+                status_code=400,
+                detail=f"Invalid scope format: {', '.join(sorted(set(bad)))}",
+            )
+
+    # Expiration must be in the future if provided
+    if req.expires_at_ms and req.expires_at_ms < now_ms:
+        raise HTTPException(
+            status_code=400, detail="expires_at_ms must be in the future"
+        )
+
+    scopes_json = orjson.dumps(scopes_in).decode()
 
     try:
         pipe = redis_conn.pipeline()

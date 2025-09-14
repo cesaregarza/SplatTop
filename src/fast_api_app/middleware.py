@@ -10,7 +10,7 @@ from starlette.middleware.base import (
 )
 from starlette.responses import JSONResponse, Response
 
-from fast_api_app.auth import _get_header_token, hash_secret
+from fast_api_app.auth import _get_header_token
 from fast_api_app.connections import redis_conn
 from fast_api_app.utils import get_client_ip
 from shared_lib.constants import API_USAGE_QUEUE_KEY
@@ -60,7 +60,9 @@ class APITokenRateLimitMiddleware(BaseHTTPMiddleware):
       - API_RL_PER_SEC (default 10)
       - API_RL_PER_MIN (default 120)
     Applies to /api/* except /api/admin/*.
-    Identity: token hash if provided, else client IP.
+    Identity: a stable SHA-256 hash of the provided token header when present,
+    otherwise the client IP. This deliberately does not use the auth pepper to
+    avoid coupling rate-limiting identity to auth configuration.
     """
 
     def __init__(self, app):
@@ -89,14 +91,11 @@ class APITokenRateLimitMiddleware(BaseHTTPMiddleware):
             request.headers.get("x-api-token"),
         )
         if raw:
-            try:
-                th = hash_secret(raw)
-                return f"tok:{th}"
-            except Exception:
-                import hashlib
+            # Use a simple, stable hash independent of auth pepper.
+            import hashlib
 
-                th = hashlib.sha256(raw.encode()).hexdigest()
-                return f"tok:{th}"
+            th = hashlib.sha256(raw.encode()).hexdigest()
+            return f"tok:{th}"
         return f"ip:{get_client_ip(request)}"
 
     async def dispatch(
