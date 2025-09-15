@@ -36,15 +36,20 @@ def _pepper() -> str:
 
 
 def parse_token(raw: str) -> Tuple[Optional[str], str]:
-    """Parse a token string into (token_id, secret).
+    """Parse a token string into ``(token_id, secret)``.
 
-    Be permissive about the token_id format to avoid coupling clients to a
-    strict UUID regex: accept any characters up to the first underscore after
-    the prefix, and treat the remainder as the secret (which may itself contain
-    underscores due to urlsafe base64 encoding).
+    - Expected format: ``"{API_TOKEN_PREFIX}_{id}_{secret}"``. We split on the
+      first underscore after the prefix so the secret may itself contain
+      underscores (e.g., urlsafe base64).
+    - If the string does not start with the expected prefix, return
+      ``(None, raw)``.
 
-    If the string does not start with the expected prefix, return (None, raw)
-    to allow callers to fall back to hashing/lookup by the full string.
+    Important: This function never accepts or rejects a token; it only extracts
+    fields for downstream checks. Authentication is enforced in
+    ``require_api_token`` by hashing the returned ``secret`` with the server
+    pepper and verifying membership of the resulting hash in
+    ``API_TOKENS_ACTIVE_SET`` (and optional metadata checks). Returning
+    ``(None, raw)`` does not bypass these checks.
     """
     prefix = f"{API_TOKEN_PREFIX}_"
     if not raw.startswith(prefix):
@@ -78,7 +83,22 @@ def require_api_token(
     authorization: Optional[str] = Header(default=None),
     x_api_token: Optional[str] = Header(default=None),
 ):
-    """Redis-backed token validation; stores token_id for usage logging."""
+    """Validate an API token against Redis and attach identity to the request.
+
+    Security gates (in order):
+    - Extract the bearer token from ``Authorization`` or ``X-API-Token``.
+    - Parse with :func:`parse_token` → ``(token_id or None, secret)``.
+    - Hash ``secret`` with the server-side pepper (missing pepper → 401).
+    - Require ``API_TOKENS_ACTIVE_SET`` to contain the hash (else 401).
+    - If ``token_id`` is ``None``, map ``hash → id`` via
+      ``API_TOKEN_HASH_MAP_PREFIX`` to load metadata.
+    - If metadata has ``expires_at_ms`` in the past → 401.
+
+    On unexpected Redis errors, this fails closed with 503.
+
+    Note: ``parse_token`` returning ``(None, raw)`` is not an acceptance path;
+    only tokens whose peppered hash is present in the active set are accepted.
+    """
 
     raw = _get_header_token(authorization, x_api_token)
     if not raw:
@@ -190,11 +210,14 @@ def require_admin_token(
 
 
 def require_scopes(required: Set[str]) -> Callable:
-    """Return a dependency that enforces a set of scopes for API tokens.
+    """Return a dependency that enforces required scopes for API tokens.
 
-    - Ensures a valid API token via require_api_token.
-    - Fetches scopes from Redis using request.state.token_id.
+    - Ensures a valid API token via :func:`require_api_token`.
+    - Fetches scopes from Redis using ``request.state.token_id``.
     - Returns HTTP 403 if any required scope is missing.
+
+    Back-compat note: empty or missing scopes are treated as allow-all. Define
+    explicit scopes on tokens to restrict access.
     """
 
     def _dep(
