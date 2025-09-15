@@ -1,3 +1,4 @@
+import importlib
 import os
 import sys
 import types
@@ -159,6 +160,64 @@ def fake_redis():
     return FakeRedis()
 
 
+# Convenience: import auth module with required DB env present
+@pytest.fixture()
+def auth_module(monkeypatch):
+    monkeypatch.setenv("DB_HOST", "localhost")
+    monkeypatch.setenv("DB_PORT", "5432")
+    monkeypatch.setenv("DB_USER", "user")
+    monkeypatch.setenv("DB_PASSWORD", "pass")
+    monkeypatch.setenv("DB_NAME", "db")
+    monkeypatch.setenv("RANKINGS_DB_NAME", "db")
+    return importlib.import_module("fast_api_app.auth")
+
+
+@pytest.fixture()
+def token_builder(fake_redis, monkeypatch):
+    """Factory to create API tokens in FakeRedis with desired scopes/expiry.
+
+    Returns a callable: build(scopes=None, expires_at_ms=None, token_id=None, secret=None)
+    -> (token, token_id, token_hash)
+    """
+
+    from shared_lib.constants import (
+        API_TOKEN_HASH_MAP_PREFIX,
+        API_TOKEN_META_PREFIX,
+        API_TOKEN_PREFIX,
+        API_TOKENS_ACTIVE_SET,
+    )
+
+    # Ensure hashing pepper
+    monkeypatch.setenv("API_TOKEN_PEPPER", "testpepper")
+
+    def _build(scopes=None, expires_at_ms=None, token_id=None, secret=None):
+        from fast_api_app.auth import hash_secret
+
+        tid = token_id or "00000000-0000-4000-8000-" + os.urandom(4).hex()
+        sec = secret or "s3cr3t"
+        token = f"{API_TOKEN_PREFIX}_{tid}_{sec}"
+        h = hash_secret(sec, pepper="testpepper")
+        fake_redis.sadd(API_TOKENS_ACTIVE_SET, h)
+        fake_redis.set(f"{API_TOKEN_HASH_MAP_PREFIX}{h}", tid)
+        fake_redis.hset(
+            f"{API_TOKEN_META_PREFIX}{tid}",
+            mapping={
+                "id": tid,
+                "name": "Test Token",
+                "scopes": orjson.dumps(scopes or ["ripple.read"]).decode(),
+                "created_at_ms": 0,
+                "expires_at_ms": int(expires_at_ms or 0),
+                "revoked": 0,
+                "hash": h,
+            },
+        )
+        return token, tid, h
+
+    import orjson
+
+    return _build
+
+
 @pytest.fixture()
 def test_token(fake_redis, monkeypatch):
     """Provision a valid token and set env pepper; returns full token string."""
@@ -265,3 +324,137 @@ def app(fake_redis, monkeypatch):
 def client(app):
     with TestClient(app) as c:
         yield c
+
+
+@pytest.fixture()
+def client_factory(fake_redis, monkeypatch):
+    """Factory to build a fresh TestClient with env overrides to exercise middleware config.
+
+    Usage:
+        with client_factory(env={"API_RL_PER_SEC": "0", "API_RL_PER_MIN": "5"}) as c:
+            c.get("/api/ping", headers=...)
+    """
+
+    class _Factory:
+        def __call__(
+            self, env: dict | None = None, redis: FakeRedis | None = None
+        ):
+            # Apply env overrides
+            if env:
+                for k, v in env.items():
+                    if v is None:
+                        monkeypatch.delenv(k, raising=False)
+                    else:
+                        monkeypatch.setenv(k, str(v))
+
+            # Ensure DB env present
+            monkeypatch.setenv("DB_HOST", "localhost")
+            monkeypatch.setenv("DB_PORT", "5432")
+            monkeypatch.setenv("DB_USER", "user")
+            monkeypatch.setenv("DB_PASSWORD", "pass")
+            monkeypatch.setenv("DB_NAME", "db")
+            monkeypatch.setenv("RANKINGS_DB_NAME", "db")
+
+            # Reload app-related modules to pick up new env
+            for mod in [
+                "fast_api_app.middleware",
+                "fast_api_app.auth",
+                "fast_api_app.routes.ripple",
+                "fast_api_app.routes.admin_tokens",
+                "fast_api_app.app",
+            ]:
+                if mod in sys.modules:
+                    importlib.reload(sys.modules[mod])
+                else:
+                    importlib.import_module(mod)
+
+            app_mod = sys.modules["fast_api_app.app"]
+            auth_mod = sys.modules["fast_api_app.auth"]
+            mw_mod = sys.modules["fast_api_app.middleware"]
+            admin_mod = sys.modules["fast_api_app.routes.admin_tokens"]
+            ripple_mod = sys.modules["fast_api_app.routes.ripple"]
+
+            r = redis or fake_redis
+            # Patch Redis connections in reloaded modules
+            monkeypatch.setattr(app_mod, "redis_conn", r, raising=False)
+            monkeypatch.setattr(auth_mod, "redis_conn", r, raising=False)
+            monkeypatch.setattr(mw_mod, "redis_conn", r, raising=False)
+            monkeypatch.setattr(admin_mod, "redis_conn", r, raising=False)
+            monkeypatch.setattr(ripple_mod, "redis_conn", r, raising=False)
+
+            # Disable side effects
+            class _DummyCelery:
+                def send_task(self, *args, **kwargs):
+                    return None
+
+            monkeypatch.setattr(
+                app_mod, "celery", _DummyCelery(), raising=False
+            )
+            monkeypatch.setattr(
+                admin_mod, "celery", _DummyCelery(), raising=False
+            )
+            monkeypatch.setattr(
+                app_mod, "start_pubsub_listener", lambda: None, raising=False
+            )
+
+            async def _noop():
+                return None
+
+            br = getattr(app_mod, "background_runner", None)
+            if br is not None:
+                monkeypatch.setattr(br, "run", _noop, raising=False)
+
+            # Patch ripple DB session
+            @asynccontextmanager
+            async def _dummy_session():
+                class _S:
+                    pass
+
+                yield _S()
+
+            monkeypatch.setattr(
+                ripple_mod,
+                "rankings_async_session",
+                _dummy_session,
+                raising=False,
+            )
+
+            # Build a fresh client over the (reloaded) app
+            return TestClient(app_mod.app)
+
+    return _Factory()
+
+
+@pytest.fixture()
+def override_admin(client):
+    """Override admin auth dependency for the duration of a test."""
+    import fast_api_app.routes.admin_tokens as admin_mod
+
+    client.app.dependency_overrides[
+        admin_mod.require_admin_token
+    ] = lambda: True
+    try:
+        yield
+    finally:
+        client.app.dependency_overrides.clear()
+
+
+@pytest.fixture()
+def celery_spy(monkeypatch):
+    """Patch Celery send_task to a spy that records calls across app and admin modules."""
+
+    class _Spy:
+        def __init__(self):
+            self.calls = []  # list of (name, args, kwargs)
+
+        def send_task(self, name, args=None, kwargs=None):
+            self.calls.append((name, list(args or []), dict(kwargs or {})))
+            return None
+
+    spy = _Spy()
+    import fast_api_app.app as app_mod
+    import fast_api_app.routes.admin_tokens as admin_mod
+
+    monkeypatch.setattr(app_mod, "celery", spy, raising=False)
+    monkeypatch.setattr(admin_mod, "celery", spy, raising=False)
+    return spy

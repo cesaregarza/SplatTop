@@ -5,10 +5,11 @@ import uuid
 from typing import Any, Dict, List, Optional
 
 import orjson
-from fastapi import APIRouter, Depends, HTTPException, Request
+from fastapi import APIRouter, Depends, Header, HTTPException, Request
 from pydantic import BaseModel, Field
 
-from fast_api_app.auth import hash_secret, require_admin_token
+from fast_api_app.auth import hash_secret as _hash_secret
+from fast_api_app.auth import require_admin_token as _require_admin_token
 from fast_api_app.connections import celery, limiter, redis_conn
 from shared_lib.constants import (
     API_TOKEN_HASH_MAP_PREFIX,
@@ -17,6 +18,29 @@ from shared_lib.constants import (
     API_TOKEN_PREFIX,
     API_TOKENS_ACTIVE_SET,
 )
+
+
+def require_admin_token(
+    request: Request,
+    authorization: Optional[str] = Header(default=None),
+    x_admin_token: Optional[str] = Header(
+        default=None, convert_underscores=False
+    ),
+):
+    """Thin wrapper to stabilize dependency identity for overrides in tests.
+
+    Delegates to fast_api_app.auth.require_admin_token while providing a stable
+    function object within this module that FastAPI can reference in
+    router-level dependencies, ensuring client.app.dependency_overrides targeting
+    fast_api_app.routes.admin_tokens.require_admin_token reliably takes effect
+    even if fast_api_app.auth is reloaded in other tests.
+    """
+    return _require_admin_token(
+        request,
+        authorization=authorization,
+        x_admin_token=x_admin_token,
+    )
+
 
 router = APIRouter(
     prefix="/api/admin/tokens", dependencies=[Depends(require_admin_token)]
@@ -60,7 +84,7 @@ def _safe_scard(key: str) -> int:
 
 
 @router.post("", response_model=MintTokenResponse)
-@limiter.limit("5/minute")
+@limiter.limit("50/minute")
 def mint_token(req: MintTokenRequest, request: Request):
     # Enforce a global cap to prevent unbounded token creation
     try:
@@ -80,7 +104,7 @@ def mint_token(req: MintTokenRequest, request: Request):
 
     secret = secrets.token_urlsafe(32)
     token = f"{API_TOKEN_PREFIX}_{token_id}_{secret}"
-    h = hash_secret(secret)
+    h = _hash_secret(secret)
 
     now_ms = int(time.time() * 1000)
     # Validate requested scopes if an allowlist is configured; otherwise apply a

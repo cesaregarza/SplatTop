@@ -1,38 +1,46 @@
 from shared_lib.constants import API_USAGE_QUEUE_KEY
 
 
-def test_rate_limit_per_token_exceeds_per_sec(client, test_token):
-    headers = {"Authorization": f"Bearer {test_token}"}
-    codes = []
-    # Default per_sec=10; issue 12 requests quickly
-    for _ in range(12):
-        res = client.get("/api/ping", headers=headers)
-        codes.append(res.status_code)
+def test_rate_limit_per_token_exceeds_per_sec(
+    client_factory, test_token, fake_redis
+):
+    # Use a fresh app instance with the same fake redis where the token exists
+    with client_factory(redis=fake_redis) as c:
+        headers = {"Authorization": f"Bearer {test_token}"}
+        codes = []
+        last_429 = None
+        for _ in range(12):
+            res = c.get("/api/ping", headers=headers)
+            codes.append(res.status_code)
+            if res.status_code == 429:
+                last_429 = res
 
-    # First 10 should be 200, some of the last should be 429
-    assert codes.count(200) >= 10
-    assert 429 in codes
+        assert codes.count(200) >= 10
+        assert 429 in codes
+        if last_429 is not None:
+            assert last_429.json().get("detail") == "Rate limit exceeded"
 
 
-def test_rate_limit_per_ip_without_token(client):
-    # Unauthenticated, rate-limited route: ripple docs
-    codes = [client.get("/api/ripple/docs").status_code for _ in range(12)]
-    assert codes.count(200) >= 10
-    assert 429 in codes
+def test_rate_limit_per_ip_without_token(client_factory):
+    # Fresh app instance to avoid cross-test counters
+    with client_factory() as c:
+        last_429 = None
+        codes = []
+        for _ in range(12):
+            r = c.get("/api/ripple/docs")
+            codes.append(r.status_code)
+            if r.status_code == 429:
+                last_429 = r
+        assert codes.count(200) >= 10
+        assert 429 in codes
+        if last_429 is not None:
+            assert last_429.json().get("detail") == "Rate limit exceeded"
 
 
-def test_rate_limit_redis_failure_fail_closed(client, monkeypatch):
-    import fast_api_app.middleware as mw_mod
+"""Rate limit core behavior tests (per-token, per-IP, and usage events).
 
-    # Make pipeline() raise to simulate Redis outage
-    def _boom():
-        raise RuntimeError("redis down")
-
-    monkeypatch.setattr(mw_mod.redis_conn, "pipeline", _boom, raising=False)
-
-    res = client.get("/api/ripple/docs")
-    assert res.status_code == 429
-    assert res.json().get("detail") == "Rate limit temporarily unavailable"
+Outage behavior has been consolidated under tests/rate_limit/test_rate_limit_config.py.
+"""
 
 
 def test_usage_middleware_enqueues_minimal_event(
@@ -53,3 +61,5 @@ def test_usage_middleware_enqueues_minimal_event(
         assert key in evt
     assert evt["path"] == "/api/ping"
     assert evt["status"] == 200
+    # Known token id from test_token fixture
+    assert evt["token_id"] == "00000000-0000-4000-8000-000000000001"

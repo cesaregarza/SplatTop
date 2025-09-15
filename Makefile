@@ -158,3 +158,7 @@ update-i18n:
 .PHONY: load-splatgpt
 load-splatgpt:
 	kind load docker-image splatnlp:latest
+
+.PHONY: test
+test:
+	uv run pytest
