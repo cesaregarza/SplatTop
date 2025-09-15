@@ -148,8 +148,8 @@ start-react-app-dev:
 
 .PHONY: format
 format:
-	black src/
-	isort src/
+	black src/ tests/
+	isort src/ tests/
 
 .PHONY: update-i18n
 update-i18n:
@@ -158,3 +158,7 @@ update-i18n:
 .PHONY: load-splatgpt
 load-splatgpt:
 	kind load docker-image splatnlp:latest
+
+.PHONY: test
+test:
+	uv run pytest

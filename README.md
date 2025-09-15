@@ -37,6 +37,13 @@ We welcome contributions for localizations! If you are interested in helping tra
 - [Contributing](#contributing)
 - [Contributing Localizations](LOCALIZING.md)
 - [License](#license)
+- [API Authentication & Tokens](#api-authentication--tokens)
+  - [Admin Token Management Endpoints](#admin-token-management-endpoints)
+  - [Using API Tokens](#using-api-tokens)
+  - [Rate Limiting](#rate-limiting)
+  - [Usage Logging & Flush](#usage-logging--flush)
+  - [Proxy Headers & Client IP](#proxy-headers--client-ip)
+  - [Deployment/Migration Notes](#deploymentmigration-notes)
 
 ## Installation
 
@@ -168,3 +175,99 @@ Contributions are welcome, but I maintain high standards for code quality and ma
 ## License
 
 This project is licensed under GPL-3.0. Please refer to the [LICENSE](LICENSE) file for more information.
+
+## API Authentication & Tokens
+
+SplatTop uses high-entropy bearer tokens to protect selected API endpoints. Tokens are minted and managed via admin endpoints and validated against Redis-backed metadata. Token hashing uses SHA-256 with a server-side pepper for lookup/storage.
+
+Environment variables
+- `API_TOKEN_PEPPER`: Required for hashing API tokens.
+- `ADMIN_TOKEN_PEPPER` (optional): Pepper for admin tokens (defaults to `API_TOKEN_PEPPER`).
+- `ADMIN_API_TOKENS_HASHED`: Comma-separated or JSON array of SHA-256(`pepper` + `token`) hashes for admin access.
+- `API_TOKEN_ALLOWED_SCOPES` (optional): Comma-separated allowlist of valid scopes.
+- `ADMIN_MAX_API_TOKENS` (optional, default 1000): Cap on minted tokens.
+
+### Admin Token Management Endpoints
+
+Base path: `/api/admin/tokens` (requires an admin bearer token in headers; see below).
+
+- Mint a token
+  - POST `/api/admin/tokens`
+  - Body:
+    ```json
+    { "name": "ServiceName", "note": "optional", "scopes": ["ripple.read"], "expires_at_ms": 0 }
+    ```
+  - Response includes the full bearer token in the `token` field: `rpl_<uuid>_<secret>`.
+
+- List tokens
+  - GET `/api/admin/tokens`
+
+- Revoke a token
+  - DELETE `/api/admin/tokens/{token_id}`
+
+Headers for admin endpoints
+- `Authorization: Bearer <ADMIN_TOKEN>` or `X-Admin-Token: <ADMIN_TOKEN>`
+- The server hashes the presented admin token with the configured pepper and compares against `ADMIN_API_TOKENS_HASHED`.
+
+CI note for admin tokens
+- The workflow `.github/workflows/update_k8s_deployment.yaml` computes `ADMIN_API_TOKENS_HASHED` from `ADMIN_API_TOKENS` using Python. It accepts JSON arrays, newline-delimited, or comma-separated token lists and fails fast if the pepper is missing.
+
+### Using API Tokens
+
+Send your minted token with either header:
+- `Authorization: Bearer rpl_<uuid>_<secret>`
+- `X-API-Token: rpl_<uuid>_<secret>`
+
+Example curl
+```sh
+curl -H "Authorization: Bearer rpl_..." \
+     http://localhost:5000/api/ripple/leaderboard
+```
+
+Scopes
+- Example required scope: `ripple.read` for ripple endpoints.
+- If a token has empty scopes, it defaults to full access for backward compatibility. Define scopes to restrict access.
+
+### Rate Limiting
+
+Simple fixed-window limits are enforced per-token or per-IP for `/api/*` (excluding `/api/admin/*`).
+
+Environment variables
+- `API_RL_PER_SEC` (default 10)
+- `API_RL_PER_MIN` (default 120)
+- `API_RL_FAIL_OPEN` (default `false`): If `true`, requests pass when Redis is unavailable; otherwise responses are 429.
+
+Response on limit: `429 { "detail": "Rate limit exceeded" }`
+
+### Usage Logging & Flush
+
+All non-admin `/api/*` requests are enqueued to Redis for usage analytics and periodically flushed to PostgreSQL by Celery.
+
+Redis keys
+- Queue: `api:usage:queue`
+- Processing: `api:usage:queue:processing`
+- Lock: `api:usage:flush:lock`
+
+Environment variables
+- `API_USAGE_FLUSH_BATCH` (default 1000): Max items to move per flush run.
+- `API_USAGE_MAX_ATTEMPTS` (default 5): Max requeue attempts before DLQ.
+- `API_USAGE_LOCK_TTL` (default 55): Lock TTL seconds to prevent overlap.
+- `API_USAGE_RECOVER_LIMIT` (default 1000): Max orphaned items recovered per run.
+- `API_USAGE_FLUSH_MINUTE` (default `*`): Minute field for Celery Beat cron.
+
+### Proxy Headers & Client IP
+
+Client IP resolution is conservative by default; proxy headers are ignored unless explicitly enabled.
+
+Environment variable
+- `TRUST_PROXY_HEADERS` (set to `true`/`1` to enable): Only enable when your deployment runs behind a trusted proxy that sets `X-Forwarded-For`/`X-Real-IP` correctly.
+
+### Deployment/Migration Notes
+
+1. Configure secrets:
+   - Set `API_TOKEN_PEPPER` (high entropy).
+   - Set `ADMIN_API_TOKENS` (plaintext) in CI; the workflow produces `ADMIN_API_TOKENS_HASHED` for the cluster from the pepper and tokens.
+2. Ensure database schema exists (managed externally):
+   - `auth.api_tokens` and `auth.api_token_usage` tables with appropriate indexes (e.g., `api_token_usage(token_id, ts)` for analytics).
+3. Deploy Redis (broker + cache) and Celery Beat/Workers.
+4. Tune rate-limits and flush cadence via env vars as above.
