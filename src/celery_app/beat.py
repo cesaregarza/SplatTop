@@ -1,9 +1,13 @@
+import os
+
 from celery import Celery
 from celery.schedules import crontab
 
 from shared_lib.constants import REDIS_URI
 
 celery = Celery("tasks", broker=REDIS_URI, backend=REDIS_URI)
+
+_flush_minute = os.getenv("API_USAGE_FLUSH_MINUTE", "*")
 
 celery.conf.beat_schedule = {
     "pull-data-every-ten-minutes": {
@@ -34,8 +38,8 @@ celery.conf.beat_schedule = {
         "task": "tasks.fetch_season_results",
         "schedule": crontab(minute=30, hour="*"),
     },
-    "flush-api-usage-every-minute": {
+    "flush-api-usage": {
         "task": "tasks.flush_api_usage",
-        "schedule": crontab(minute="*"),
+        "schedule": crontab(minute=_flush_minute),
     },
 }

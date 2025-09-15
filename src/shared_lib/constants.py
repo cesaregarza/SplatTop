@@ -52,6 +52,7 @@ API_TOKEN_META_PREFIX = "api:token:meta:"
 API_TOKEN_IDS_SET = "api:tokens:ids"
 API_USAGE_QUEUE_KEY = "api:usage:queue"
 API_USAGE_PROCESSING_KEY = "api:usage:queue:processing"
+API_USAGE_LOCK_KEY = "api:usage:flush:lock"
 API_TOKEN_PREFIX = "rpl"
 MAIN_ONLY_ABILITIES = [
     "comeback",

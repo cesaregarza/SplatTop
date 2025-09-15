@@ -22,6 +22,7 @@ from fast_api_app.routes import (
     infer_router,
     ping_router,
     player_detail_router,
+    ripple_docs_router,
     ripple_router,
     search_router,
     weapon_info_router,
@@ -79,6 +80,7 @@ app.include_router(weapon_info_router)
 app.include_router(weapon_leaderboard_router)
 app.include_router(infer_router)
 app.include_router(ping_router)
+app.include_router(ripple_docs_router)
 app.include_router(ripple_router)
 app.include_router(admin_tokens_router)
 

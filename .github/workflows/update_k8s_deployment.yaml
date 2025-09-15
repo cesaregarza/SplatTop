@@ -256,16 +256,34 @@ jobs:
           # Compute hashed admin tokens using Python for robust handling of special characters.
           # Note: Tokens are high-entropy; SHA-256(pepper + token) is used for lookup/storage only.
           ADMIN_API_TOKENS_HASHED=$(python3 - << 'PY'
-import os, sys, hashlib
-pep = os.getenv('API_TOKEN_PEPPER','')
-raw = os.getenv('ADMIN_API_TOKENS','')
-parts = [p.strip() for p in raw.split(',')]
-hashes = []
-for p in parts:
-    if not p:
-        continue
-    h = hashlib.sha256((pep + p).encode('utf-8')).hexdigest()
-    hashes.append(h)
+import os, sys, hashlib, json
+
+pep = os.getenv('API_TOKEN_PEPPER')
+if pep is None or not pep.strip():
+    print('ERROR: API_TOKEN_PEPPER is missing or empty', file=sys.stderr)
+    sys.exit(1)
+
+raw = os.getenv('ADMIN_API_TOKENS', '')
+tokens = []
+s = (raw or '').strip()
+if s:
+    # Prefer JSON array for tokens to safely support commas and special chars
+    try:
+        data = json.loads(s)
+        if isinstance(data, list):
+            tokens = [str(x) for x in data]
+        elif isinstance(data, str):
+            tokens = [data]
+    except Exception:
+        # Fallback to newline-delimited format
+        parts = [p.strip() for p in s.splitlines() if p.strip()]
+        if parts:
+            tokens = parts
+        else:
+            # Final fallback: comma-separated
+            tokens = [p.strip() for p in s.split(',') if p.strip()]
+
+hashes = [hashlib.sha256((pep + t).encode('utf-8')).hexdigest() for t in tokens]
 print(','.join(hashes))
 PY
           )

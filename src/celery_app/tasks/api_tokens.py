@@ -11,6 +11,7 @@ from sqlalchemy.exc import IntegrityError
 from celery_app.connections import Session, redis_conn
 from shared_lib.constants import (
     API_TOKEN_META_PREFIX,
+    API_USAGE_LOCK_KEY,
     API_USAGE_PROCESSING_KEY,
     API_USAGE_QUEUE_KEY,
 )
@@ -92,7 +93,7 @@ def flush_api_usage(batch_size: int | None = None) -> int:
     # Lock TTL: default 55s. Consider increasing for larger batch sizes or
     # slower databases; keep configurable via env.
     lock_ttl = int(os.getenv("API_USAGE_LOCK_TTL", "55"))
-    lock_key = "api:usage:flush:lock"
+    lock_key = API_USAGE_LOCK_KEY
     worker_id = f"worker:{int(time.time()*1000)}"
 
     # Acquire lock to avoid overlapping flushers
@@ -102,11 +103,15 @@ def flush_api_usage(batch_size: int | None = None) -> int:
     try:
         # Recover any orphaned items left in processing (previous crash)
         try:
-            while True:
+            # Recover at most N orphaned items per run to avoid long loops
+            recover_limit = int(os.getenv("API_USAGE_RECOVER_LIMIT", "1000"))
+            recovered = 0
+            while recovered < recover_limit:
                 orphan = redis_conn.rpop(processing_key)
                 if orphan is None:
                     break
                 redis_conn.lpush(API_USAGE_QUEUE_KEY, orphan)
+                recovered += 1
         except Exception as e:
             # Best-effort recovery; log and continue for visibility
             logger.warning("Processing-list orphan recovery failed: %s", e)
