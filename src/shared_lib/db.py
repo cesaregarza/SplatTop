@@ -26,5 +26,5 @@ def create_uri() -> str:
 
 def create_ranking_uri() -> str:
     """Rankings DB URI (uses env RANKINGS_DB_NAME or falls back to DB_NAME)."""
-    db_name = os.getenv("RANKINGS_DB_NAME") or os.getenv("DB_NAME")
+    db_name = os.getenv("RANKINGS_DB_NAME") or "rankings_db"
     return _build_uri(db_name)

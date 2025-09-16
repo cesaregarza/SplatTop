@@ -3,8 +3,13 @@ name: Build and Update Kubernetes Deployment
 on:
   workflow_dispatch:
     inputs:
-      override-check:
-        description: "Override check for changes"
+      override-python:
+        description: "Force backend build regardless of detected changes"
+        type: boolean
+        required: false
+        default: false
+      override-react:
+        description: "Force frontend build regardless of detected changes"
         type: boolean
         required: false
         default: false
@@ -68,18 +73,25 @@ jobs:
           python="${PYTHON_CHANGED:-false}"
           react="${REACT_CHANGED:-false}"
           i18n="${I18N_CHANGED:-false}"
-          override="false"
+          override_python="false"
+          override_react="false"
 
           if [ "$GITHUB_EVENT_NAME" = "workflow_dispatch" ]; then
-            override=$(jq -r '.inputs["override-check"] // "false"' "$GITHUB_EVENT_PATH" 2>/dev/null || echo "false")
-            if [ "$override" = "true" ]; then
-              echo "Override requested; forcing build of backend and frontend images."
+            override_python=$(jq -r '.inputs["override-python"] // "false"' "$GITHUB_EVENT_PATH" 2>/dev/null || echo "false")
+            override_react=$(jq -r '.inputs["override-react"] // "false"' "$GITHUB_EVENT_PATH" 2>/dev/null || echo "false")
+
+            if [ "$override_python" = "true" ]; then
+              echo "Override requested; forcing backend build."
               python=true
+            fi
+
+            if [ "$override_react" = "true" ]; then
+              echo "Override requested; forcing frontend build."
               react=true
             fi
           fi
 
-          if [ "$i18n" = "true" ] && [ "$ACTOR" != "github-actions[bot]" ] && [ "$override" != "true" ]; then
+          if [ "$i18n" = "true" ] && [ "$ACTOR" != "github-actions[bot]" ] && [ "$override_python" != "true" ] && [ "$override_react" != "true" ]; then
             exit_pipeline=true
           else
             exit_pipeline=false
@@ -242,6 +254,7 @@ jobs:
           API_TOKEN_PEPPER: ${{ secrets.API_TOKEN_PEPPER }}
           ADMIN_API_TOKENS_HASHED: ${{ secrets.ADMIN_API_TOKENS_HASHED }}
           RANKINGS_DB_SCHEMA: ${{ secrets.RANKINGS_DB_SCHEMA }}
+          RANKINGS_DB_NAME: ${{ secrets.RANKINGS_DB_NAME }}
         run: |
           HASHED="${ADMIN_API_TOKENS_HASHED}"
           if [ -z "$HASHED" ]; then
@@ -251,6 +264,7 @@ jobs:
               --format json | jq -r '.ADMIN_API_TOKENS_HASHED')
           fi
           SCHEMA="${RANKINGS_DB_SCHEMA:-comp_rankings}"
+          RANKINGS_DB="${RANKINGS_DB_NAME:-rankings_db}"
           kubectl create secret generic db-secrets \
             --from-literal=DB_HOST="${DB_HOST}" \
             --from-literal=DB_USER="${DB_USER}" \
@@ -267,7 +281,7 @@ jobs:
             --from-literal=ADMIN_TOKEN_PEPPER="${API_TOKEN_PEPPER}" \
             --from-literal=ADMIN_API_TOKENS_HASHED="${HASHED}" \
             --from-literal=RANKINGS_DB_SCHEMA="${SCHEMA}" \
-            --from-literal=RANKINGS_DB_NAME="${DB_NAME}" \
+            --from-literal=RANKINGS_DB_NAME="${RANKINGS_DB}" \
             --dry-run=client -o yaml | kubectl apply -f -
 
       - name: Apply base Kubernetes manifests
