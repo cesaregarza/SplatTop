@@ -91,7 +91,7 @@ def mint_token(req: MintTokenRequest, request: Request):
         max_tokens = int(os.getenv("ADMIN_MAX_API_TOKENS", "1000"))
     except Exception:
         max_tokens = 1000
-    current = _safe_scard(API_TOKEN_IDS_SET)
+    current = _safe_scard(API_TOKENS_ACTIVE_SET)
     if max_tokens and current >= max_tokens:
         raise HTTPException(
             status_code=429, detail="API token limit reached; cannot mint more"
@@ -114,7 +114,9 @@ def mint_token(req: MintTokenRequest, request: Request):
     scope_re = re.compile(r"^[A-Za-z0-9:._-]{1,64}$")
     # Default scopes ensure basic access unless narrowed explicitly.
     default_scopes = ["ripple.read", "misc.ping"]
-    scopes_in = req.scopes if req.scopes is not None else default_scopes
+    scopes_in = (
+        list(req.scopes) if req.scopes is not None else list(default_scopes)
+    )
     if allowed:
         unknown = [s for s in scopes_in if s not in allowed]
         if unknown:
@@ -168,7 +170,7 @@ def mint_token(req: MintTokenRequest, request: Request):
             req.name,
             (req.note or None),
             h,
-            req.scopes or [],
+            scopes_in,
             req.expires_at_ms,
         ],
     )
@@ -178,7 +180,7 @@ def mint_token(req: MintTokenRequest, request: Request):
         name=req.name,
         note=req.note,
         token=token,
-        scopes=req.scopes or [],
+        scopes=scopes_in,
         expires_at_ms=req.expires_at_ms,
         created_at_ms=now_ms,
     )

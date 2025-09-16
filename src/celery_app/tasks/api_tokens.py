@@ -143,6 +143,7 @@ def flush_api_usage(batch_size: int | None = None) -> int:
         if not events:
             return 0
         with Session() as session:
+            ack_items: List[str] = []
             for raw, e in zip(raw_items, events):
                 params = {
                     "token_id": e.get("token_id"),
@@ -273,11 +274,26 @@ def flush_api_usage(batch_size: int | None = None) -> int:
                         ),
                         {"id": e.get("token_id")},
                     )
-                # Remove processed item from processing list and increment
-                redis_conn.lrem(processing_key, 1, raw)
-                processed += 1
+                ack_items.append(raw)
 
-            session.commit()
+            try:
+                session.commit()
+            except Exception as exc:
+                session.rollback()
+                logger.error("Failed to commit API usage batch: %s", exc)
+                return processed
+
+            acked = 0
+            for raw in ack_items:
+                try:
+                    removed = redis_conn.lrem(processing_key, 1, raw)
+                    if removed:
+                        acked += int(removed)
+                except Exception as ack_exc:
+                    logger.warning(
+                        "Failed to ack usage event from processing: %s", ack_exc
+                    )
+            processed += acked
     finally:
         # Release lock if we still own it
         try:

@@ -14,6 +14,7 @@ def test_mint_sends_persist_and_revoke_sends_task(
     args = celery_spy.calls[idx][1]
     assert args[0] == tok_id
     assert args[1] == "celery"
+    assert {"ripple.read", "misc.ping"}.issubset(set(args[4] or []))
 
     # Clear calls and revoke
     celery_spy.calls.clear()

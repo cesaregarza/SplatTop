@@ -127,13 +127,17 @@ class FakeRedis:
     def get(self, key):
         return self._kv.get(key)
 
-    def set(self, key, val):
+    def set(self, key, val, nx=False, ex=None, px=None):
+        if nx and key in self._kv:
+            return False
         self._kv[key] = val
+        return True
 
     def delete(self, key):
         self._kv.pop(key, None)
         self._hashes.pop(key, None)
         self._lists.pop(key, None)
+        self._sets.pop(key, None)
 
     # Hash ops
     def hgetall(self, key):
@@ -149,6 +153,68 @@ class FakeRedis:
     def rpush(self, key, value):
         self._lists.setdefault(key, [])
         self._lists[key].append(value)
+
+    def lpush(self, key, value):
+        self._lists.setdefault(key, [])
+        self._lists[key].insert(0, value)
+
+    def rpop(self, key):
+        lst = self._lists.get(key, [])
+        if not lst:
+            return None
+        return lst.pop()
+
+    def rpoplpush(self, src, dest):
+        item = self.rpop(src)
+        if item is None:
+            return None
+        self.lpush(dest, item)
+        return item
+
+    def lrem(self, key, count, value):
+        lst = list(self._lists.get(key, []))
+        removed = 0
+        if count == 0:
+            new_list = [item for item in lst if item != value]
+            removed = len(lst) - len(new_list)
+            self._lists[key] = new_list
+            return removed
+        if count > 0:
+            new_list = []
+            for item in lst:
+                if item == value and removed < count:
+                    removed += 1
+                    continue
+                new_list.append(item)
+            self._lists[key] = new_list
+            return removed
+        # count < 0 -> remove from tail
+        target = -count
+        new_list = []
+        for item in reversed(lst):
+            if item == value and removed < target:
+                removed += 1
+                continue
+            new_list.append(item)
+        new_list.reverse()
+        self._lists[key] = new_list
+        return removed
+
+    def llen(self, key):
+        return len(self._lists.get(key, []))
+
+    def lindex(self, key, index):
+        lst = self._lists.get(key, [])
+        try:
+            return lst[index]
+        except IndexError:
+            return None
+
+    # Counter helpers
+    def incr(self, key):
+        self._counters[key] = self._counters.get(key, 0) + 1
+        self._kv[key] = self._counters[key]
+        return self._counters[key]
 
     # Pipeline for rate limiter and admin ops
     def pipeline(self):

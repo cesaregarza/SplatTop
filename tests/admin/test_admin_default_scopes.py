@@ -1,7 +1,9 @@
 def test_admin_mint_applies_default_scopes(client, override_admin):
     r = client.post("/api/admin/tokens", json={"name": "defaults"})
     assert r.status_code == 200
-    tok_id = r.json()["id"]
+    body = r.json()
+    tok_id = body["id"]
+    assert {"ripple.read", "misc.ping"}.issubset(set(body.get("scopes") or []))
 
     rlist = client.get("/api/admin/tokens")
     assert rlist.status_code == 200

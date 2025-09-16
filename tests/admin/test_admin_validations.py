@@ -32,11 +32,11 @@ def test_admin_token_limit_reached_429(
     client, monkeypatch, fake_redis, override_admin
 ):
     import fast_api_app.routes.admin_tokens as admin_mod
-    from shared_lib.constants import API_TOKEN_IDS_SET
+    from shared_lib.constants import API_TOKENS_ACTIVE_SET
 
     # Cap at 1 and pre-seed one id
     monkeypatch.setenv("ADMIN_MAX_API_TOKENS", "1")
-    fake_redis.sadd(API_TOKEN_IDS_SET, "existing-id")
+    fake_redis.sadd(API_TOKENS_ACTIVE_SET, "existing-hash")
     r = client.post("/api/admin/tokens", json={"name": "t"})
     assert r.status_code == 429
     assert "limit" in r.json().get("detail", "")
