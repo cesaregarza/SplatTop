@@ -301,6 +301,9 @@ jobs:
     if: github.ref == 'refs/heads/main' && needs.check.outputs.exit_pipeline == 'false' && needs.build.result == 'success' && needs.update-deployment.result == 'success'
     runs-on: ubuntu-latest
     steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
       - name: Create GitHub release if missing
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
