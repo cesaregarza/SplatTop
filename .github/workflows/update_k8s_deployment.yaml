@@ -135,8 +135,16 @@ jobs:
         with:
           script: |
             function parse(v) {
-              const [M='0', m='0', p='0'] = String(v || '').replace(/^v/, '').split('.');
-              return { M: +M || 0, m: +m || 0, p: +p || 0 };
+              const cleaned = String(v || '')
+                .trim()
+                .replace(/^v\.?/, '');
+              const parts = cleaned.split('.');
+              const [M = '0', m = '0', p = '0'] = parts;
+              return {
+                M: Number(M) || 0,
+                m: Number(m) || 0,
+                p: Number(p) || 0,
+              };
             }
             const base = parse(process.env.BASE_VERSION);
             const latest = parse(process.env.LATEST_TAG);
@@ -233,6 +241,7 @@ jobs:
           DO_SPACES_ML_DIR: ${{ vars.DO_SPACES_ML_DIR }}
           API_TOKEN_PEPPER: ${{ secrets.API_TOKEN_PEPPER }}
           ADMIN_API_TOKENS_HASHED: ${{ secrets.ADMIN_API_TOKENS_HASHED }}
+          RANKINGS_DB_SCHEMA: ${{ secrets.RANKINGS_DB_SCHEMA }}
         run: |
           HASHED="${ADMIN_API_TOKENS_HASHED}"
           if [ -z "$HASHED" ]; then
@@ -241,6 +250,7 @@ jobs:
               --pepper "${API_TOKEN_PEPPER}" \
               --format json | jq -r '.ADMIN_API_TOKENS_HASHED')
           fi
+          SCHEMA="${RANKINGS_DB_SCHEMA:-comp_rankings}"
           kubectl create secret generic db-secrets \
             --from-literal=DB_HOST="${DB_HOST}" \
             --from-literal=DB_USER="${DB_USER}" \
@@ -256,7 +266,7 @@ jobs:
             --from-literal=API_TOKEN_PEPPER="${API_TOKEN_PEPPER}" \
             --from-literal=ADMIN_TOKEN_PEPPER="${API_TOKEN_PEPPER}" \
             --from-literal=ADMIN_API_TOKENS_HASHED="${HASHED}" \
-            --from-literal=RANKINGS_DB_SCHEMA="rankings" \
+            --from-literal=RANKINGS_DB_SCHEMA="${SCHEMA}" \
             --from-literal=RANKINGS_DB_NAME="${DB_NAME}" \
             --dry-run=client -o yaml | kubectl apply -f -
 
