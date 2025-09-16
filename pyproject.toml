@@ -21,6 +21,8 @@ dependencies = [
     "scipy>=1.13.1,<2",
     "cachetools>=5.3.3,<6",
     "httpx>=0.27.2,<0.28",
+    "requests>=2.31.0,<3",
+    "numpy>=1.26.0,<2",
 ]
 
 [project.scripts]
@@ -33,7 +35,6 @@ dev = [
     "pytest>=8.0.0,<9",
 ]
 scripts = [
-    "requests>=2.31.0,<3",
     "boto3>=1.34.74,<2",
     "tqdm>=4.66.2,<5",
     "locust>=2.27.0,<3",
@@ -49,17 +50,20 @@ default-groups = [
 include = [
     "src/fast_api_app",
     "src/celery_app",
+    "src/shared_lib",
 ]
 
 [tool.hatch.build.targets.wheel]
 include = [
     "src/fast_api_app",
     "src/celery_app",
+    "src/shared_lib",
 ]
 
 [tool.hatch.build.targets.wheel.sources]
 "src/fast_api_app" = "fast_api_app"
 "src/celery_app" = "celery_app"
+"src/shared_lib" = "shared_lib"
 
 [build-system]
 requires = ["hatchling"]
