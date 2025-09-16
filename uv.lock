@@ -1291,11 +1291,13 @@ dependencies = [
     { name = "fastapi" },
     { name = "gunicorn" },
     { name = "httpx" },
+    { name = "numpy" },
     { name = "orjson" },
     { name = "pandas" },
     { name = "psycopg2-binary" },
     { name = "python-dotenv" },
     { name = "redis" },
+    { name = "requests" },
     { name = "scipy" },
     { name = "slowapi" },
     { name = "sqlalchemy" },
@@ -1311,7 +1313,6 @@ dev = [
 scripts = [
     { name = "boto3" },
     { name = "locust" },
-    { name = "requests" },
     { name = "tqdm" },
 ]
 
@@ -1323,11 +1324,13 @@ requires-dist = [
     { name = "fastapi", specifier = ">=0.110.2,<0.111" },
     { name = "gunicorn", specifier = ">=22.0.0,<23" },
     { name = "httpx", specifier = ">=0.27.2,<0.28" },
+    { name = "numpy", specifier = ">=1.26.0,<2" },
     { name = "orjson", specifier = ">=3.10.1,<4" },
     { name = "pandas", specifier = ">=2.2.2,<3" },
     { name = "psycopg2-binary", specifier = ">=2.9.7,<3" },
     { name = "python-dotenv", specifier = ">=1.0.0,<2" },
     { name = "redis", specifier = ">=5.0.3,<6" },
+    { name = "requests", specifier = ">=2.31.0,<3" },
     { name = "scipy", specifier = ">=1.13.1,<2" },
     { name = "slowapi", specifier = ">=0.1.9,<0.2" },
     { name = "sqlalchemy", specifier = ">=2.0.20,<3" },
@@ -1343,7 +1346,6 @@ dev = [
 scripts = [
     { name = "boto3", specifier = ">=1.34.74,<2" },
     { name = "locust", specifier = ">=2.27.0,<3" },
-    { name = "requests", specifier = ">=2.31.0,<3" },
     { name = "tqdm", specifier = ">=4.66.2,<5" },
 ]
 
