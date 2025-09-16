@@ -34,7 +34,7 @@ def _schema() -> str:
 async def fetch_ripple_page(
     session: "AsyncSession",
     *,
-    limit: Optional[int] = 100,
+    limit: Optional[int] = None,
     offset: int = 0,
     min_tournaments: Optional[int] = 3,
     tournament_window_days: int = 90,
@@ -55,6 +55,8 @@ async def fetch_ripple_page(
 
     # Compute once in Python (no risk of int overflow here; Python ints are unbounded).
     window_ms = int(tournament_window_days) * 86_400_000
+
+    limit_clause = "" if limit is None else "LIMIT :limit_value\n"
 
     sql = text(
         f"""
@@ -126,14 +128,11 @@ SELECT
   COUNT(*) OVER () AS __total
 FROM base
 ORDER BY score DESC, player_id  -- deterministic for client-side rank
-LIMIT CASE WHEN :limit_is_null THEN NULL ELSE :limit_value END
-OFFSET :offset
+{limit_clause}OFFSET :offset
 """
     )
 
     params = {
-        "limit_is_null": limit is None,
-        "limit_value": int(limit) if limit is not None else 0,
         "offset": int(offset),
         "min_tournaments_is_null": min_tournaments is None,
         "min_tournaments_value": int(min_tournaments)
@@ -144,6 +143,9 @@ OFFSET :offset
         "build_param": build,
         "ts_param": ts_ms,
     }
+
+    if limit is not None:
+        params["limit_value"] = int(limit)
 
     res = await session.execute(sql, params)
     rows: Sequence[Mapping[str, Any]] = res.mappings().all()
