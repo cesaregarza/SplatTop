@@ -17,12 +17,12 @@ const Navbar = () => {
       <nav className="container mx-auto px-4 sm:px-6 py-2 flex justify-between items-center">
         <Link
           to="/"
-          className="text-xl sm:text-2xl font-bold text-white hover:text-ab5ab7 transition duration-300"
+          className="text-xl sm:text-2xl font-bold text-white hover:text-purple transition duration-300"
         >
           splat.top <span className="text-purplelight">{t("top500")}</span>
         </Link>
         <button
-          className="hamburger md:hidden focus:outline-none"
+          className="hamburger md:hidden focus:outline-hidden"
           onClick={toggleNavbar}
         >
           <div className="space-y-1.5">
@@ -52,7 +52,7 @@ const Navbar = () => {
             <li>
               <Link
                 to="/faq"
-                className="block py-2 px-4 text-white hover:bg-ab5ab7 rounded-md transition duration-300"
+                className="block py-2 px-4 text-white hover:bg-purple rounded-md transition duration-300"
               >
                 {t("navbar.faq")}
               </Link>
@@ -60,7 +60,7 @@ const Navbar = () => {
             <li>
               <Link
                 to="/top_weapons"
-                className="block py-2 px-4 text-white hover:bg-ab5ab7 rounded-md transition duration-300"
+                className="block py-2 px-4 text-white hover:bg-purple rounded-md transition duration-300"
               >
                 {t("navbar.top_weapons")}
               </Link>
@@ -68,7 +68,7 @@ const Navbar = () => {
             <li>
               <Link
                 to="/analytics"
-                className="block py-2 px-4 text-white hover:bg-ab5ab7 rounded-md transition duration-300"
+                className="block py-2 px-4 text-white hover:bg-purple rounded-md transition duration-300"
               >
                 {t("navbar.analytics")}
               </Link>

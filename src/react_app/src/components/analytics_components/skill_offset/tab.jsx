@@ -45,7 +45,7 @@ const SkillOffsetTab = () => {
 
   return (
     <div className="flex flex-col min-h-screen">
-      <main className="flex-grow container mx-auto px-4 py-8 bg-gray-900 text-white overflow-auto">
+      <main className="grow container mx-auto px-4 py-8 bg-gray-900 text-white overflow-auto">
         {isLoading ? (
           <div className="flex justify-center items-center h-full">
             <Loading text={t("load_page")} />

@@ -23,6 +23,31 @@ spec:
           env:
             - name: ENV
               value: "development"
+            - name: RANKINGS_DB_NAME
+              valueFrom:
+                secretKeyRef:
+                  name: db-secrets
+                  key: RANKINGS_DB_NAME
+            - name: RANKINGS_DB_SCHEMA
+              valueFrom:
+                secretKeyRef:
+                  name: db-secrets
+                  key: RANKINGS_DB_SCHEMA
+            - name: API_TOKEN_PEPPER
+              valueFrom:
+                secretKeyRef:
+                  name: db-secrets
+                  key: API_TOKEN_PEPPER
+            - name: ADMIN_TOKEN_PEPPER
+              valueFrom:
+                secretKeyRef:
+                  name: db-secrets
+                  key: ADMIN_TOKEN_PEPPER
+            - name: ADMIN_API_TOKENS_HASHED
+              valueFrom:
+                secretKeyRef:
+                  name: db-secrets
+                  key: ADMIN_API_TOKENS_HASHED
             - name: DB_HOST
               valueFrom:
                 secretKeyRef:

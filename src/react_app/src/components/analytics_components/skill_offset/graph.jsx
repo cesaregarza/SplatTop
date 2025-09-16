@@ -146,14 +146,14 @@ const SkillOffsetGraph = ({ data, weaponTranslations, logarithmic }) => {
     <div className="graph-container relative" style={{ padding: "20px" }}>
       <HighchartsReact highcharts={Highcharts} options={chartOptions} />
       <button
-        className="absolute top-0 right-0 mt-2 mr-2 bg-blue-500 text-white rounded-full p-2 focus:outline-none"
+        className="absolute top-0 right-0 mt-2 mr-2 bg-blue-500 text-white rounded-full p-2 focus:outline-hidden"
         onMouseEnter={() => setShowTooltip(true)}
         onMouseLeave={() => setShowTooltip(false)}
       >
         ?
       </button>
       {showTooltip && (
-        <div className="tooltip absolute right-0 mt-1 bg-gray-800 text-white text-xs rounded p-2 z-50">
+        <div className="tooltip absolute right-0 mt-1 bg-gray-800 text-white text-xs rounded-sm p-2 z-50">
           {t("skill_offset.tooltip")}
         </div>
       )}

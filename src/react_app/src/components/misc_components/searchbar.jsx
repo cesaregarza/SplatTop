@@ -83,10 +83,10 @@ const SearchBar = () => {
           onKeyDown={handleKeyDown}
           onFocus={() => setIsFocused(true)}
           onBlur={() => setIsFocused(false)}
-          className="w-full py-2 px-4 text-gray-700 placeholder-gray-400 rounded-md focus:outline-none"
+          className="w-full py-2 px-4 text-gray-700 placeholder-gray-400 rounded-md focus:outline-hidden"
         />
         <button
-          className="text-gray-500 hover:text-gray-700 px-3 py-2 rounded-md focus:outline-none"
+          className="text-gray-500 hover:text-gray-700 px-3 py-2 rounded-md focus:outline-hidden"
           onClick={() => setSearchQuery("")}
         >
           {searchQuery || isFocused ? (
@@ -126,13 +126,14 @@ const SearchBar = () => {
         <div className="absolute z-10 mt-2 w-full bg-gray-800 rounded-md shadow-lg max-h-60 overflow-y-auto">
           <ul>
             {searchResults.slice(0, 10).map((result, index) => {
-              const keyText = result[0];
+              const keyText = result[0] ?? "";
               const playerId = result[1];
-              const highlightedText = keyText.replace(
-                new RegExp(searchQuery, "gi"),
-                (match) =>
-                  `<span class="font-bold text-purplelight">${match}</span>`
-              );
+              // Render highlights as React nodes (avoid innerHTML). Escape the query for regex.
+              const escapeRegExp = (s) => s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+              const q = searchQuery || "";
+              const parts = q
+                ? keyText.split(new RegExp(`(${escapeRegExp(q)})`, "gi"))
+                : [keyText];
               return (
                 <li
                   key={index}
@@ -142,9 +143,18 @@ const SearchBar = () => {
                       ? "bg-gray-700"
                       : "hover:bg-gray-700"
                   }`}
-                  dangerouslySetInnerHTML={{ __html: highlightedText }}
                   onClick={() => (window.location.href = `/player/${playerId}`)}
-                ></li>
+                >
+                  {parts.map((part, i) =>
+                    q && part.toLowerCase() === q.toLowerCase() ? (
+                      <span key={i} className="font-bold text-purplelight">
+                        {part}
+                      </span>
+                    ) : (
+                      <React.Fragment key={i}>{part}</React.Fragment>
+                    )
+                  )}
+                </li>
               );
             })}
           </ul>

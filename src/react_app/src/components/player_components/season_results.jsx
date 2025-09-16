@@ -82,7 +82,7 @@ const SeasonResults = ({ data, weaponReferenceData }) => {
               activeTab === season
                 ? "bg-purple-600 text-white shadow-md"
                 : "bg-gray-800 text-gray-400 hover:bg-gray-700 hover:text-white"
-            } focus:outline-none focus:ring-2 focus:ring-purple-500`}
+            } focus:outline-hidden focus:ring-2 focus:ring-purple-500`}
             onClick={() => setActiveTab(season)}
           >
             {season === currentSeason

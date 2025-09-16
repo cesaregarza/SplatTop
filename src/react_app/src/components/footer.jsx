@@ -13,7 +13,7 @@ const Footer = () => {
           <div className="mb-4 md:mb-0">
             <Link
               to="/"
-              className="text-2xl font-bold text-white hover:text-ab5ab7 transition duration-300"
+              className="text-2xl font-bold text-white hover:text-purple transition duration-300"
             >
               splat.top{" "}
               <span className="text-purplelight">{t("top500")}</span>
@@ -24,7 +24,7 @@ const Footer = () => {
               <li>
                 <Link
                   to="/about"
-                  className="text-white hover:text-ab5ab7 transition duration-300"
+                  className="text-white hover:text-purple transition duration-300"
                 >
                   {t("footer.about")}
                 </Link>
@@ -32,7 +32,7 @@ const Footer = () => {
               <li>
                 <Link
                   to="/contact"
-                  className="text-white hover:text-ab5ab7 transition duration-300"
+                  className="text-white hover:text-purple transition duration-300"
                 >
                   {t("footer.contact")}
                 </Link>

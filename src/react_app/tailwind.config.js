@@ -1,6 +1,11 @@
+/**
+ * Tailwind CSS configuration (v4-compatible) for the React app.
+ * Using the conventional filename so CRA/PostCSS auto-detects it
+ * without relying on the @config directive.
+ */
 module.exports = {
-  purge: ['./src/**/*.{js,jsx,ts,tsx}', './public/index.html'],
-  darkMode: 'class', // Enable dark mode
+  content: ['./src/**/*.{js,jsx,ts,tsx}', './public/index.html'],
+  darkMode: 'class',
   theme: {
     extend: {
       colors: {
@@ -10,8 +15,6 @@ module.exports = {
       },
     },
   },
-  variants: {
-    extend: {},
-  },
   plugins: [],
 };
+

@@ -34,16 +34,20 @@ build-no-cache:
 port-forward:
 	kubectl port-forward service/fast-api-app-service 5000:80 8001:8001 & echo $$! > /tmp/fast-apiport-forward.pid
 	kubectl port-forward service/react-app-service 4000:80 & echo $$! > /tmp/react-port-forward.pid
+	kubectl port-forward -n ingress-nginx service/ingress-nginx-controller 8080:80 & echo $$! > /tmp/ingress-port-forward.pid
 	echo "fast-api app is running at http://localhost:5000"
 	echo "Websocket is running at http://localhost:8001"
 	echo "React (prod) app is running at http://localhost:4000"
+	echo "Ingress is running at http://localhost:8080"
 
 .PHONY: stop-port-forward
 stop-port-forward:
 	kill `cat /tmp/fast-apiport-forward.pid` || true
 	kill `cat /tmp/react-port-forward.pid` || true
+	kill `cat /tmp/ingress-port-forward.pid` || true
 	rm -f /tmp/fast-apiport-forward.pid
 	rm -f /tmp/react-port-forward.pid
+	rm -f /tmp/ingress-port-forward.pid
 
 .PHONY: deploy-core
 deploy-core:
@@ -144,8 +148,8 @@ start-react-app-dev:
 
 .PHONY: format
 format:
-	black src/
-	isort src/
+	black src/ tests/
+	isort src/ tests/
 
 .PHONY: update-i18n
 update-i18n:
@@ -154,3 +158,7 @@ update-i18n:
 .PHONY: load-splatgpt
 load-splatgpt:
 	kind load docker-image splatnlp:latest
+
+.PHONY: test
+test:
+	uv run pytest

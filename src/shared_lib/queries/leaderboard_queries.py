@@ -133,3 +133,57 @@ GROUP BY
 ORDER BY
     x_power DESC;
 """
+
+ALL_PEAKS_SQLITE_QUERY = """
+WITH player_rankings AS (
+    SELECT 
+        player_id, 
+        season_number, 
+        mode, 
+        region, 
+        MAX(x_power) AS peak_x_power,
+        ROW_NUMBER() OVER (
+            PARTITION BY season_number, mode, region 
+            ORDER BY MAX(x_power) DESC
+        ) AS rank
+    FROM
+        xscraper.players
+    WHERE
+        updated
+    GROUP BY
+        player_id, season_number, mode, region
+),
+ranked_players AS (
+    SELECT 
+        pr.player_id,
+        pr.season_number, 
+        pr.mode, 
+        pr.region, 
+        pr.peak_x_power,
+        pr.rank,
+        p.splashtag
+    FROM
+        player_rankings pr
+    JOIN xscraper.players p ON pr.player_id = p.player_id
+        AND pr.season_number = p.season_number
+        AND pr.mode = p.mode
+        AND pr.region = p.region
+        AND pr.peak_x_power = p.x_power
+    WHERE
+        p.updated
+    GROUP BY
+        pr.player_id, pr.season_number, pr.mode, pr.region, pr.peak_x_power, pr.rank, p.splashtag
+)
+SELECT 
+    splashtag,
+    season_number, 
+    mode, 
+    CASE WHEN region THEN 'Takoroka' ELSE 'Tentatek' END AS region, 
+    peak_x_power
+FROM
+    ranked_players
+WHERE
+    rank <= 500
+ORDER BY
+    peak_x_power DESC;
+"""

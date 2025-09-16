@@ -1,7 +1,7 @@
 ###############################
 #         Base Image          #
 ###############################
-FROM node:14 as base
+FROM node:20 as base
 
 WORKDIR /app
 
@@ -11,10 +11,8 @@ WORKDIR /app
 FROM base AS dependencies
 
 COPY src/react_app/package*.json ./
-RUN npm install
-
-# Install Tailwind CSS and its dependencies
-RUN npm install -D tailwindcss@latest postcss@latest autoprefixer@latest
+# Use npm ci for clean, reproducible installs
+RUN npm ci
 
 ###############################
 #        Build Image          #
@@ -26,13 +24,12 @@ ENV REACT_APP_VERSION=$REACT_APP_VERSION
 
 COPY src/react_app/src ./src
 COPY src/react_app/public ./public
-
-# Generate Tailwind CSS configuration files
-RUN npx tailwindcss init -p
-
-# Replace the content of tailwind.config.js
+COPY src/react_app/postcss.config.js ./
+# Use the conventional Tailwind config filename for v4
 COPY src/react_app/tailwind.config.js ./
-COPY src/react_app/src/index.css ./src/index.css
+
+# Patch CRA's PostCSS plugins to use Tailwind v4's plugin
+RUN sed -i "s/'tailwindcss'/'@tailwindcss\\/postcss'/" node_modules/react-scripts/config/webpack.config.js
 
 RUN npm run build
 

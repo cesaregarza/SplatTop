@@ -31,7 +31,8 @@
     "start": "react-scripts start",
     "build": "react-scripts build",
     "test": "react-scripts test",
-    "eject": "react-scripts eject"
+    "eject": "react-scripts eject",
+    "browserslist:update": "npx update-browserslist-db@latest"
   },
   "eslintConfig": {
     "extends": [
@@ -52,8 +53,8 @@
     ]
   },
   "devDependencies": {
-    "autoprefixer": "^10.4.19",
+    "@tailwindcss/postcss": "^4.1.12",
     "postcss": "^8.4.38",
-    "tailwindcss": "^3.4.3"
+    "tailwindcss": "^4.1.12"
   }
 }

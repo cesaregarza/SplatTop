@@ -11,11 +11,19 @@ from slowapi.errors import RateLimitExceeded
 
 from fast_api_app.background_tasks import background_runner
 from fast_api_app.connections import celery, limiter
+from fast_api_app.middleware import (
+    APITokenRateLimitMiddleware,
+    APITokenUsageMiddleware,
+)
 from fast_api_app.pubsub import start_pubsub_listener
 from fast_api_app.routes import (
+    admin_tokens_router,
     front_page_router,
     infer_router,
+    ping_router,
     player_detail_router,
+    ripple_docs_router,
+    ripple_router,
     search_router,
     weapon_info_router,
     weapon_leaderboard_router,
@@ -47,6 +55,8 @@ async def lifespan(app: FastAPI):
 app = FastAPI(lifespan=lifespan)
 app.state.limiter = limiter
 app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
+app.add_middleware(APITokenUsageMiddleware)
+app.add_middleware(APITokenRateLimitMiddleware)
 
 # Setup CORS
 if os.getenv("ENV") == "development":
@@ -69,6 +79,10 @@ app.include_router(search_router)
 app.include_router(weapon_info_router)
 app.include_router(weapon_leaderboard_router)
 app.include_router(infer_router)
+app.include_router(ping_router)
+app.include_router(ripple_docs_router)
+app.include_router(ripple_router)
+app.include_router(admin_tokens_router)
 
 
 # Base route that lists all available routes

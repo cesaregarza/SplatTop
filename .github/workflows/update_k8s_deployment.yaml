@@ -17,226 +17,208 @@ on:
       - "k8s/**"
       - "i18n/**"
 
+permissions:
+  contents: write
+  packages: write
+  id-token: write
+  actions: read
+  checks: read
+
+concurrency:
+  group: deploy-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   check:
     runs-on: ubuntu-latest
     environment: SplatTop
     outputs:
-      python_changed: ${{ steps.check_changes.outputs.python_changed }}
-      react_changed: ${{ steps.check_changes.outputs.react_changed }}
-      exit_pipeline: ${{ steps.check_changes.outputs.exit_pipeline }}
-
+      python_changed: ${{ steps.finalize.outputs.python_changed }}
+      react_changed: ${{ steps.finalize.outputs.react_changed }}
+      i18n_changed: ${{ steps.finalize.outputs.i18n_changed }}
+      exit_pipeline: ${{ steps.finalize.outputs.exit_pipeline }}
     steps:
       - name: Checkout
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
         with:
-          token: ${{ secrets.CI_SPLATTOP_TOKEN }}
           fetch-depth: 0
 
-      - name: Check for changes
-        id: check_changes
+      - name: Detect changed paths
+        id: changes
+        uses: dorny/paths-filter@v3
+        with:
+          filters: |
+            python:
+              - 'src/celery_app/**'
+              - 'src/fast_api_app/**'
+              - 'src/shared_lib/**'
+            react:
+              - 'src/react_app/**'
+            i18n:
+              - 'i18n/**'
+
+      - name: Finalize change detection
+        id: finalize
+        env:
+          PYTHON_CHANGED: ${{ steps.changes.outputs.python }}
+          REACT_CHANGED: ${{ steps.changes.outputs.react }}
+          I18N_CHANGED: ${{ steps.changes.outputs.i18n }}
+          ACTOR: ${{ github.actor }}
         run: |
-          if [ "${{ github.event.inputs.override-check }}" == 'true' ]; then
-            echo "Override check is true, skipping change detection"
-            echo "python_changed=true" >> $GITHUB_OUTPUT
-            echo "react_changed=true" >> $GITHUB_OUTPUT
-            echo "exit_pipeline=false" >> $GITHUB_OUTPUT
-            exit 0
+          python="${PYTHON_CHANGED:-false}"
+          react="${REACT_CHANGED:-false}"
+          i18n="${I18N_CHANGED:-false}"
+          override="false"
+
+          if [ "$GITHUB_EVENT_NAME" = "workflow_dispatch" ]; then
+            override=$(jq -r '.inputs["override-check"] // "false"' "$GITHUB_EVENT_PATH" 2>/dev/null || echo "false")
+            if [ "$override" = "true" ]; then
+              echo "Override requested; forcing build of backend and frontend images."
+              python=true
+              react=true
+            fi
           fi
 
-          echo "Checking for changes in src/"
-          LATEST_TAG=$(git describe --tags --always `git rev-list --tags --max-count=1` 2>&1)
-          TAG_FETCH_EXIT_CODE=$?
-
-          if [ $TAG_FETCH_EXIT_CODE -ne 0 ]; then
-            echo "Failed to fetch latest tag, exit code: $TAG_FETCH_EXIT_CODE"
-            echo "python_changed=true" >> $GITHUB_OUTPUT
-            echo "react_changed=true" >> $GITHUB_OUTPUT
-            exit 0
-          fi
-
-          if [ -z "$LATEST_TAG" ]; then
-            echo "No tags found, skipping check"
-            echo "python_changed=false" >> $GITHUB_OUTPUT
-            echo "react_changed=false" >> $GITHUB_OUTPUT
-            exit 0
-          fi
-
-          echo "Latest tag: $LATEST_TAG"
-
-          LAST_COMMITTER=$(git log -1 --pretty=format:'%an')
-
-          I18N_CHANGES=$(git diff --name-only $LATEST_TAG HEAD -- 'i18n/*')
-          if [ "$LAST_COMMITTER" = "GitHub Actions" ]; then
-            GH_ACTIONS_PUSHED=true
+          if [ "$i18n" = "true" ] && [ "$ACTOR" != "github-actions[bot]" ] && [ "$override" != "true" ]; then
+            exit_pipeline=true
           else
-            GH_ACTIONS_PUSHED=false
+            exit_pipeline=false
           fi
 
-          # If there are changes to i18n and it's NOT a push from GitHub Actions
-          # then exit 0 and wait for the other workflow to finish
-          if [ -n "$I18N_CHANGES" ] && [ "$GH_ACTIONS_PUSHED" = false ]; then
-            echo "i18n changes found, exiting"
-            echo "exit_pipeline=true" >> $GITHUB_OUTPUT
-            exit 0
-          else
-            echo "No i18n changes found or push is from GitHub Actions"
-            echo "exit_pipeline=false" >> $GITHUB_OUTPUT
-          fi
-
-          PYTHON_CHANGES=$(git diff --name-only $LATEST_TAG HEAD -- 'src/celery_app/*' 'src/fast_api_app/*' 'src/shared_lib/*')
-          REACT_CHANGES=$(git diff --name-only $LATEST_TAG HEAD -- 'src/react_app/*')
-
-          if [ -n "$PYTHON_CHANGES" ]; then
-            echo "Python changes found, setting python_changed to true"
-            echo "python_changed=true" >> $GITHUB_OUTPUT
-          else
-            echo "No Python changes found, setting python_changed to false"
-            echo "python_changed=false" >> $GITHUB_OUTPUT
-          fi
-
-          if [ -n "$REACT_CHANGES" ]; then
-            echo "React changes found, setting react_changed to true"
-            echo "react_changed=true" >> $GITHUB_OUTPUT
-          else
-            echo "No React changes found, setting react_changed to false"
-            echo "react_changed=false" >> $GITHUB_OUTPUT
-          fi
+          {
+            echo "python_changed=${python}"
+            echo "react_changed=${react}"
+            echo "i18n_changed=${i18n}"
+            echo "exit_pipeline=${exit_pipeline}"
+          } >> "$GITHUB_OUTPUT"
 
   build:
     needs: check
-    if: (needs.check.outputs.exit_pipeline == 'false')
+    if: needs.check.outputs.exit_pipeline == 'false'
     runs-on: ubuntu-latest
     environment: SplatTop
     outputs:
-      next_version: ${{ steps.calculate_version.outputs.version || '0.0.1' }}
-      latest_release: ${{ steps.latest_release.outputs.release }}
-
+      next_version: ${{ steps.nextver.outputs.version }}
+      latest_release: ${{ steps.latest.outputs.tag }}
     steps:
       - name: Checkout
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Log in to DigitalOcean Container Registry
+        uses: docker/login-action@v3
         with:
-          ref: main
-          token: ${{ secrets.CI_SPLATTOP_TOKEN }}
+          registry: registry.digitalocean.com
+          username: ${{ secrets.DIGITALOCEAN_ACCESS_TOKEN }}
+          password: ${{ secrets.DIGITALOCEAN_ACCESS_TOKEN }}
 
-      - name: Install doctl
-        uses: digitalocean/action-doctl@v2
-        with:
-          token: ${{ secrets.DIGITALOCEAN_ACCESS_TOKEN }}
-
-      - name: Login to DigitalOcean Container Registry
-        run: doctl registry login --expiry-seconds 600
-
-      - name: Read .version file
+      - name: Read .version
         id: semver
+        run: echo "version=$(cat .version)" >> "$GITHUB_OUTPUT"
+
+      - name: Get latest release tag
+        id: latest
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          echo "version=$(cat .version)" >> $GITHUB_OUTPUT
+          tag=$(gh release view --json tagName -q .tagName 2>/dev/null || echo "")
+          echo "tag=$tag" >> "$GITHUB_OUTPUT"
 
-      - name: Get latest release
-        id: latest_release
-        run: |
-          LATEST_RELEASE=\
-          $(curl -sH "Authorization: token ${{ secrets.GITHUB_TOKEN }}" \
-          "https://api.github.com/repos/${{ github.repository }}/releases/latest" \
-          | jq -r '.tag_name')
-          echo "release=${LATEST_RELEASE}" >> $GITHUB_OUTPUT
-          echo "Latest Release: ${LATEST_RELEASE}"
+      - name: Compute next version
+        id: nextver
+        uses: actions/github-script@v7
+        env:
+          BASE_VERSION: ${{ steps.semver.outputs.version }}
+          LATEST_TAG: ${{ steps.latest.outputs.tag }}
+        with:
+          script: |
+            function parse(v) {
+              const [M='0', m='0', p='0'] = String(v || '').replace(/^v/, '').split('.');
+              return { M: +M || 0, m: +m || 0, p: +p || 0 };
+            }
+            const base = parse(process.env.BASE_VERSION);
+            const latest = parse(process.env.LATEST_TAG);
+            const baseGreater =
+              base.M > latest.M ||
+              (base.M === latest.M && (
+                base.m > latest.m ||
+                (base.m === latest.m && base.p > latest.p)
+              ));
+            const next = baseGreater
+              ? `${base.M}.${base.m}.${base.p}`
+              : `${latest.M}.${latest.m}.${latest.p + 1}`;
+            core.setOutput('version', next);
 
-      - name: Calculate next version
-        id: calculate_version
-        run: |
-          LATEST_RELEASE=${{ steps.latest_release.outputs.release }}
-          BASE_VERSION=${{ steps.semver.outputs.version }}
-          CLEANED_LATEST_RELEASE=${LATEST_RELEASE#v}
+      - name: Build & push FastAPI image
+        if: needs.check.outputs.python_changed == 'true'
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: dockerfiles/dockerfile.fast-api
+          push: true
+          tags: |
+            registry.digitalocean.com/sendouq/fast-api:latest
+            registry.digitalocean.com/sendouq/fast-api:v${{ steps.nextver.outputs.version }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
 
-          echo "Latest Release without v: ${CLEANED_LATEST_RELEASE}"
-          echo "Base Version: ${BASE_VERSION}"
+      - name: Build & push Celery image
+        if: needs.check.outputs.python_changed == 'true'
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: dockerfiles/dockerfile.celery
+          push: true
+          tags: |
+            registry.digitalocean.com/sendouq/celery:latest
+            registry.digitalocean.com/sendouq/celery:v${{ steps.nextver.outputs.version }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
 
-          BASE_MAJOR=$(echo ${BASE_VERSION} | cut -d. -f1)
-          BASE_MINOR=$(echo ${BASE_VERSION} | cut -d. -f2)
-          BASE_PATCH=$(echo ${BASE_VERSION} | cut -d. -f3)
-
-          LATEST_MAJOR=$(echo ${CLEANED_LATEST_RELEASE} | cut -d. -f1)
-          LATEST_MINOR=$(echo ${CLEANED_LATEST_RELEASE} | cut -d. -f2)
-          LATEST_PATCH=$(echo ${CLEANED_LATEST_RELEASE} | cut -d. -f3)
-
-          if [[ $BASE_MAJOR -gt $LATEST_MAJOR ]] || \
-              [[ $BASE_MAJOR -eq $LATEST_MAJOR && \
-                  $BASE_MINOR -gt $LATEST_MINOR ]] || \
-              [[ $BASE_MAJOR -eq $LATEST_MAJOR && \
-                  $BASE_MINOR -eq $LATEST_MINOR && \
-                  $BASE_PATCH -gt $LATEST_PATCH ]]; then
-              echo "Base Version is greater than Latest Release"
-              NEXT_VERSION=${BASE_VERSION}
-          else
-              echo "Base Version is less or equal to Latest Release"
-              LATEST_PATCH=$((LATEST_PATCH + 1))
-              NEXT_VERSION="${LATEST_MAJOR}.${LATEST_MINOR}.${LATEST_PATCH}"
-          fi
-
-          echo "Next Version: ${NEXT_VERSION}"
-          echo "version=${NEXT_VERSION}" >> $GITHUB_OUTPUT
-
-      - name: Build and push Celery Dockerfile
-        if: (needs.check.outputs.python_changed == 'true') || (github.event.inputs.override-check == 'true')
-        run: |
-          docker build \
-            -t registry.digitalocean.com/sendouq/celery:latest \
-            -f dockerfiles/dockerfile.celery .
-          docker push registry.digitalocean.com/sendouq/celery:latest
-
-      - name: Build and push FastAPI Dockerfile
-        if: (needs.check.outputs.python_changed == 'true') || (github.event.inputs.override-check == 'true')
-        run: |
-          docker build \
-            -t registry.digitalocean.com/sendouq/fast-api:latest \
-            -f dockerfiles/dockerfile.fast-api .
-          docker push registry.digitalocean.com/sendouq/fast-api:latest
-
-      - name: Build and push React Dockerfile
-        if: (needs.check.outputs.react_changed == 'true') || (github.event.inputs.override-check == 'true')
-        run: |
-          docker build \
-            --build-arg REACT_APP_VERSION=${{ steps.calculate_version.outputs.next_version }} \
-            -t registry.digitalocean.com/sendouq/react:latest \
-            -f dockerfiles/dockerfile.react .
-          docker push registry.digitalocean.com/sendouq/react:latest
+      - name: Build & push React image
+        if: needs.check.outputs.react_changed == 'true'
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: dockerfiles/dockerfile.react
+          build-args: |
+            REACT_APP_VERSION=${{ steps.nextver.outputs.version }}
+          push: true
+          tags: |
+            registry.digitalocean.com/sendouq/react:latest
+            registry.digitalocean.com/sendouq/react:v${{ steps.nextver.outputs.version }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
 
   update-deployment:
     needs: [check, build]
-    if: github.ref == 'refs/heads/main' && (needs.check.outputs.exit_pipeline == 'false')
+    if: github.ref == 'refs/heads/main' && needs.check.outputs.exit_pipeline == 'false' && needs.build.result == 'success'
     runs-on: ubuntu-latest
     environment: SplatTop
-    outputs:
-      next_version: ${{ needs.build.outputs.next_version }}
-
     steps:
       - name: Checkout
-        uses: actions/checkout@v3
-        with:
-          ref: main
-          token: ${{ secrets.CI_SPLATTOP_TOKEN }}
+        uses: actions/checkout@v4
 
       - name: Install doctl
         uses: digitalocean/action-doctl@v2
         with:
           token: ${{ secrets.DIGITALOCEAN_ACCESS_TOKEN }}
-
-      - name: Install helm
-        run: |
-          curl -fsSL -o get_helm.sh https://raw.githubusercontent.com/helm/helm/master/scripts/get-helm-3
-          chmod 700 get_helm.sh
-          ./get_helm.sh
-
-      - name: Setup Git
-        run: |
-          git config --global user.name "GitHub Actions"
-          git config --global user.email "actions@github.com"
 
       - name: Save DigitalOcean kubeconfig
         run: doctl kubernetes cluster kubeconfig save ${{ secrets.DIGITALOCEAN_CLUSTER_ID }}
 
-      - name: Create Kubernetes secrets
+      - name: Ensure registry pull secret
+        run: |
+          kubectl delete secret regcred --ignore-not-found
+          kubectl create secret docker-registry regcred \
+            --docker-server=registry.digitalocean.com \
+            --docker-username='${{ secrets.DIGITALOCEAN_ACCESS_TOKEN }}' \
+            --docker-password='${{ secrets.DIGITALOCEAN_ACCESS_TOKEN }}' \
+            --docker-email='${{ secrets.EMAIL }}'
+
+      - name: Apply application secrets
         env:
           DB_HOST: ${{ secrets.DB_HOST }}
           DB_USER: ${{ secrets.DB_USER }}
@@ -249,118 +231,91 @@ jobs:
           DO_SPACES_ENDPOINT: ${{ secrets.DO_SPACES_ENDPOINT }}
           DO_SPACES_ML_ENDPOINT: ${{ secrets.DO_SPACES_ML_ENDPOINT }}
           DO_SPACES_ML_DIR: ${{ vars.DO_SPACES_ML_DIR }}
+          API_TOKEN_PEPPER: ${{ secrets.API_TOKEN_PEPPER }}
+          ADMIN_API_TOKENS_HASHED: ${{ secrets.ADMIN_API_TOKENS_HASHED }}
         run: |
-          mv k8s/secrets.template k8s/secrets.yaml
-          sed -i "s|%DB_HOST%|${DB_HOST}|g" k8s/secrets.yaml
-          sed -i "s|%DB_USER%|${DB_USER}|g" k8s/secrets.yaml
-          sed -i "s|%DB_PASSWORD%|${DB_PASSWORD}|g" k8s/secrets.yaml
-          sed -i "s|%DB_NAME%|${DB_NAME}|g" k8s/secrets.yaml
-          sed -i "s|%DB_PORT%|${DB_PORT}|g" k8s/secrets.yaml
-          sed -i "s|%DO_SPACES_KEY%|${DO_SPACES_KEY}|g" k8s/secrets.yaml
-          sed -i "s|%DO_SPACES_SECRET%|${DO_SPACES_SECRET}|g" k8s/secrets.yaml
-          sed -i "s|%DO_SPACES_REGION%|${DO_SPACES_REGION}|g" k8s/secrets.yaml
-          sed -i "s|%DO_SPACES_ENDPOINT%|${DO_SPACES_ENDPOINT}|g" k8s/secrets.yaml
-          sed -i "s|%DO_SPACES_ML_ENDPOINT%|${DO_SPACES_ML_ENDPOINT}|g" k8s/secrets.yaml
-          sed -i "s|%DO_SPACES_ML_DIR%|${DO_SPACES_ML_DIR}|g" k8s/secrets.yaml
-          kubectl apply -f k8s/secrets.yaml
+          HASHED="${ADMIN_API_TOKENS_HASHED}"
+          if [ -z "$HASHED" ]; then
+            HASHED=$(python scripts/generate_api_admin_secrets.py \
+              --tokens "${{ secrets.ADMIN_API_TOKENS }}" \
+              --pepper "${API_TOKEN_PEPPER}" \
+              --format json | jq -r '.ADMIN_API_TOKENS_HASHED')
+          fi
+          kubectl create secret generic db-secrets \
+            --from-literal=DB_HOST="${DB_HOST}" \
+            --from-literal=DB_USER="${DB_USER}" \
+            --from-literal=DB_PASSWORD="${DB_PASSWORD}" \
+            --from-literal=DB_NAME="${DB_NAME}" \
+            --from-literal=DB_PORT="${DB_PORT}" \
+            --from-literal=DO_SPACES_KEY="${DO_SPACES_KEY}" \
+            --from-literal=DO_SPACES_SECRET="${DO_SPACES_SECRET}" \
+            --from-literal=DO_SPACES_REGION="${DO_SPACES_REGION}" \
+            --from-literal=DO_SPACES_ENDPOINT="${DO_SPACES_ENDPOINT}" \
+            --from-literal=DO_SPACES_ML_ENDPOINT="${DO_SPACES_ML_ENDPOINT}" \
+            --from-literal=DO_SPACES_ML_DIR="${DO_SPACES_ML_DIR}" \
+            --from-literal=API_TOKEN_PEPPER="${API_TOKEN_PEPPER}" \
+            --from-literal=ADMIN_TOKEN_PEPPER="${API_TOKEN_PEPPER}" \
+            --from-literal=ADMIN_API_TOKENS_HASHED="${HASHED}" \
+            --from-literal=RANKINGS_DB_SCHEMA="rankings" \
+            --from-literal=RANKINGS_DB_NAME="${DB_NAME}" \
+            --dry-run=client -o yaml | kubectl apply -f -
 
-      - name: Create docker registry secret
-        run: |
-          kubectl delete secret regcred --ignore-not-found
-          kubectl create secret docker-registry regcred \
-            --docker-server=https://registry.digitalocean.com/sendouq \
-            --docker-username=${{ secrets.DIGITALOCEAN_ACCESS_TOKEN }} \
-            --docker-password=${{ secrets.DIGITALOCEAN_ACCESS_TOKEN }} \
-            --docker-email=${{ secrets.EMAIL }}
-
-      - name: Install Cert-Manager
-        run: |
-          kubectl apply -f https://github.com/jetstack/cert-manager/releases/download/v1.7.1/cert-manager.yaml
-
-      - name: Wait for Cert-Manager to be ready
-        run: |
-          kubectl wait --namespace cert-manager --for=condition=available --timeout=600s deployment/cert-manager
-          kubectl wait --namespace cert-manager --for=condition=available --timeout=600s deployment/cert-manager-cainjector
-          kubectl wait --namespace cert-manager --for=condition=available --timeout=600s deployment/cert-manager-webhook
-
-      - name: Update ClusterIssuer
-        env:
-          EMAIL: ${{ secrets.EMAIL }}
-        run: |
-          mv k8s/cluster-issuer.template k8s/cluster-issuer.yaml
-          sed -i "s/%EMAIL%/${EMAIL}/g" k8s/cluster-issuer.yaml
-          kubectl apply -f k8s/cluster-issuer.yaml
-          kubectl apply -f k8s/certificate.yaml
-
-      - name: Apply Kubernetes configuration files
+      - name: Apply base Kubernetes manifests
         run: |
           kubectl apply -f k8s/redis/redis-deployment.yaml
           kubectl apply -f k8s/redis/redis-service.yaml
-
-      - name: Apply Celery configuration
-        if: (needs.check.outputs.python_changed == 'true') || (github.event.inputs.override-check == 'true')
-        run: |
           kubectl apply -f k8s/celery-worker/celery-worker-deployment.yaml
           kubectl apply -f k8s/celery-beat/celery-beat-deployment.yaml
-
-      - name: Apply FastAPI configuration
-        if: (needs.check.outputs.python_changed == 'true') || (github.event.inputs.override-check == 'true')
-        run: |
           kubectl apply -f k8s/fast-api/fast-api-deployment.yaml
           kubectl apply -f k8s/fast-api/fast-api-service.yaml
-
-      - name: Apply React configuration
-        if: (needs.check.outputs.react_changed == 'true') || (github.event.inputs.override-check == 'true')
-        run: |
           kubectl apply -f k8s/react/react-deployment.yaml
           kubectl apply -f k8s/react/react-service.yaml
-
-      - name: Apply SplatGPT configuration
-        run: |
           kubectl apply -f k8s/splatgpt/splatgpt-deployment.yaml
           kubectl apply -f k8s/splatgpt/splatgpt-service.yaml
+          kubectl apply -f k8s/ingress.yaml
 
-      - name: Apply Ingress configuration
-        run: kubectl apply -f k8s/ingress.yaml
-
-      - name: Repull images if build was not skipped
-        if: ${{ needs.build.result != 'skipped' }}
+      - name: Update deployment images
+        env:
+          VERSION: ${{ needs.build.outputs.next_version }}
+          PYTHON_CHANGED: ${{ needs.check.outputs.python_changed }}
+          REACT_CHANGED: ${{ needs.check.outputs.react_changed }}
         run: |
-          if [ "${{ needs.check.outputs.python_changed }}" == 'true' ]; then
-            kubectl rollout restart deployment/celery-worker
-            kubectl rollout restart deployment/celery-beat
-            kubectl rollout restart deployment/fast-api-app
-          fi
-          if [ "${{ needs.check.outputs.react_changed }}" == 'true' ]; then
-            kubectl rollout restart deployment/react-app
+          TAG="v${VERSION}"
+          if [ -z "${VERSION}" ]; then
+            echo "Missing version output from build job" >&2
+            exit 1
           fi
 
-      - name: Create Release
-        if: success()
-        run: |
-          LATEST_RELEASE=${{ needs.build.outputs.latest_release }}
-          NEXT_VERSION=${{ needs.build.outputs.next_version }}
-          echo "Latest Release: ${LATEST_RELEASE}"
-          echo "Next Version: v${NEXT_VERSION}"
-          if [[ $NEXT_VERSION != $LATEST_RELEASE ]]; then
-              echo "Creating Release"
-              git tag -a v$NEXT_VERSION -m "AUTO: Release v$NEXT_VERSION"
-              git push origin v$NEXT_VERSION
-          else
-              echo "No new release to create"
+          if [ "${PYTHON_CHANGED}" = "true" ]; then
+            kubectl set image deployment/celery-worker celery-worker=registry.digitalocean.com/sendouq/celery:${TAG}
+            kubectl set image deployment/celery-beat celery-beat=registry.digitalocean.com/sendouq/celery:${TAG}
+            kubectl set image deployment/fast-api-app fast-api-app=registry.digitalocean.com/sendouq/fast-api:${TAG}
+          fi
+
+          if [ "${REACT_CHANGED}" = "true" ]; then
+            kubectl set image deployment/react-app react-app=registry.digitalocean.com/sendouq/react:${TAG}
           fi
 
   release:
+    needs: [check, build, update-deployment]
+    if: github.ref == 'refs/heads/main' && needs.check.outputs.exit_pipeline == 'false' && needs.build.result == 'success' && needs.update-deployment.result == 'success'
     runs-on: ubuntu-latest
-    needs: [update-deployment, check]
-    if: success() && github.ref == 'refs/heads/main' && (needs.check.outputs.exit_pipeline == 'false')
     steps:
-      - name: Create release
+      - name: Create GitHub release if missing
         env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          tag: ${{ needs.update-deployment.outputs.next_version }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAG: v${{ needs.build.outputs.next_version }}
+          LATEST: ${{ needs.build.outputs.latest_release }}
         run: |
-          gh release create v${{ env.tag }} \
-          --repo="$GITHUB_REPOSITORY" \
-          --title="${GITHUB_REPOSITORY#*/} v${{ env.tag }}" \
-          --generate-notes
+          if [ -z "${TAG}" ]; then
+            echo "No tag computed; skipping release."
+            exit 0
+          fi
+
+          if [ "${TAG}" != "${LATEST}" ]; then
+            gh release create "${TAG}" \
+              --title "${GITHUB_REPOSITORY#*/} ${TAG}" \
+              --generate-notes
+          else
+            echo "Release ${TAG} already exists; skipping."
+          fi

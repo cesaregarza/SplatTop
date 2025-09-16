@@ -1,4 +1,4 @@
-import React, { useState, useEffect, Suspense } from "react";
+import React, { useState, useEffect, useRef, Suspense } from "react";
 import { useLocation } from "react-router-dom";
 import axios from "axios";
 import Loading from "./misc_components/loading";
@@ -30,7 +30,7 @@ const PlayerDetailContent = () => {
   const [chartData, setChartData] = useState(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState(null);
-  const [socket, setSocket] = useState(null);
+  const socketRef = useRef(null);
 
   const {
     weaponTranslations,
@@ -58,8 +58,9 @@ const PlayerDetailContent = () => {
           );
         }
 
-        if (socket) {
-          socket.close();
+        if (socketRef.current) {
+          socketRef.current.close();
+          socketRef.current = null;
         }
 
         const newSocket = new WebSocket(websocketEndpoint);
@@ -89,7 +90,7 @@ const PlayerDetailContent = () => {
           // Optionally handle the connection close
         };
 
-        setSocket(newSocket);
+        socketRef.current = newSocket;
       } catch (error) {
         setError(error);
       } finally {
@@ -100,8 +101,9 @@ const PlayerDetailContent = () => {
     fetchData();
 
     return () => {
-      if (socket) {
-        socket.close();
+      if (socketRef.current) {
+        socketRef.current.close();
+        socketRef.current = null;
       }
     };
   }, [player_id, t]); // eslint-disable-line react-hooks/exhaustive-deps
@@ -169,7 +171,7 @@ const PlayerDetail = () => {
         <header className="text-3xl font-bold mb-4 text-center text-white">
           {t("page_title")}
         </header>
-        <main className="flex-grow container mx-auto px-4 py-8 bg-gray-900 text-white overflow-auto">
+        <main className="grow container mx-auto px-4 py-8 bg-gray-900 text-white overflow-auto">
           <PlayerDetailContent />
         </main>
       </div>

@@ -57,7 +57,7 @@ function ChartController({
       />
       <div className="relative controls-box border-2 border-gray-200 rounded-lg py-4 px-1 mt-5">
         <div className="absolute bg-gray-900">
-          <h2 className="text-lg font-semibold rounded-sm">Controls</h2>
+          <h2 className="text-lg font-semibold rounded-xs">Controls</h2>
         </div>
         <div className="flex flex-col justify-center items-center">
           <div className="w-full flex justify-center items-center">

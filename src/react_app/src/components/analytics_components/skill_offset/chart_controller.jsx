@@ -8,7 +8,7 @@ function SkillOffsetChartController({ logarithmic, toggleLogarithmic }) {
     <div className="pb-24">
       <div className="relative controls-box border-2 border-gray-200 rounded-lg py-4 px-1 mt-5">
         <div className="absolute bg-gray-900">
-          <h2 className="text-lg font-semibold rounded-sm">
+          <h2 className="text-lg font-semibold rounded-xs">
             {t("skill_offset.controller.title")}
           </h2>
         </div>

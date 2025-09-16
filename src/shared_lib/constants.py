@@ -44,6 +44,16 @@ GINI_COEFF_REDIS_KEY = "gini_coeff"
 LORENZ_CURVE_REDIS_KEY = "gini_coeff_data"
 WEAPON_LEADERBOARD_PEAK_REDIS_KEY = "weapon_leaderboard_peak"
 SEASON_RESULTS_REDIS_KEY = "season_results"
+
+# API token management (Redis keys)
+API_TOKENS_ACTIVE_SET = "api:tokens:active"
+API_TOKEN_HASH_MAP_PREFIX = "api:token:hash:"
+API_TOKEN_META_PREFIX = "api:token:meta:"
+API_TOKEN_IDS_SET = "api:tokens:ids"
+API_USAGE_QUEUE_KEY = "api:usage:queue"
+API_USAGE_PROCESSING_KEY = "api:usage:queue:processing"
+API_USAGE_LOCK_KEY = "api:usage:flush:lock"
+API_TOKEN_PREFIX = "rpl"
 MAIN_ONLY_ABILITIES = [
     "comeback",
     "last_ditch_effort",

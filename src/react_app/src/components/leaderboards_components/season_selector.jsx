@@ -44,18 +44,18 @@ const SeasonSelector = ({ selectedSeason, setSelectedSeason }) => {
   return (
     <div className="relative inline-block w-64" ref={dropdownRef}>
       <div
-        className="flex items-center justify-between w-full bg-gray-800 border border-gray-700 text-white py-2 px-3 rounded leading-tight cursor-pointer"
+        className="flex items-center justify-between w-full bg-gray-800 border border-gray-700 text-white py-2 px-3 rounded-sm leading-tight cursor-pointer"
         onClick={toggleDropdown}
       >
         {selectedSeason !== null ? (
-          <div className="flex items-center flex-grow">
+          <div className="flex items-center grow">
             <span>{`${selectedSeason} ${getSeasonName(
               selectedSeason,
               gameT
             )}`}</span>
             <button
               onClick={handleClearSeason}
-              className="ml-auto p-1 hover:bg-gray-700 rounded"
+              className="ml-auto p-1 hover:bg-gray-700 rounded-sm"
               aria-label="Clear season selection"
             >
               <FaTimes size={14} />
@@ -75,7 +75,7 @@ const SeasonSelector = ({ selectedSeason, setSelectedSeason }) => {
         </svg>
       </div>
       {isOpen && (
-        <div className="absolute z-10 w-full mt-1 bg-gray-800 border border-gray-700 rounded shadow-lg max-h-60 overflow-y-auto">
+        <div className="absolute z-10 w-full mt-1 bg-gray-800 border border-gray-700 rounded-sm shadow-lg max-h-60 overflow-y-auto">
           {seasons.map((season) => (
             <div
               key={season}
