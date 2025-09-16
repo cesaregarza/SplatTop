@@ -81,7 +81,7 @@ tt_window AS (
   SELECT t.tournament_id, t.event_ms
   FROM {schema_sql}.tournament_event_times t
   JOIN latest_ts l ON TRUE
-  WHERE t.event_ms BETWEEN (l.ts - CAST(:window_ms AS BIGINT)) AND l.ts
+  WHERE t.event_ms BETWEEN (l.ts - :window_ms) AND l.ts
     AND (:ranked_only = FALSE OR t.is_ranked IS TRUE)
 ),
 -- touch appearances only for tournaments in the window and players in the snapshot
@@ -102,7 +102,7 @@ eligible AS (
   SELECT rl.player_id
   FROM r_latest rl
   LEFT JOIN window_counts wc ON wc.player_id = rl.player_id
-  WHERE (:min_tournaments IS NULL OR COALESCE(wc.window_count, 0) >= CAST(:min_tournaments AS INT))
+  WHERE (:min_tournaments_is_null OR COALESCE(wc.window_count, 0) >= :min_tournaments_value)
 ),
 -- assemble paged rows
 base AS (
@@ -126,14 +126,15 @@ SELECT
   COUNT(*) OVER () AS __total
 FROM base
 ORDER BY score DESC, player_id  -- deterministic for client-side rank
-LIMIT CAST(:limit AS INT) OFFSET CAST(:offset AS INT)
+LIMIT :limit OFFSET :offset
 """
     )
 
     params = {
         "limit": int(limit),
         "offset": int(offset),
-        "min_tournaments": min_tournaments,
+        "min_tournaments_is_null": min_tournaments is None,
+        "min_tournaments_value": int(min_tournaments) if min_tournaments is not None else 0,
         "window_ms": int(window_ms),
         "ranked_only": bool(ranked_only),
         "build_param": build,
