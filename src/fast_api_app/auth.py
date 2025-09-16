@@ -203,6 +203,13 @@ def require_admin_token(
     raw = _get_header_token(authorization, x_admin_token)
     hashed_cfg = os.getenv("ADMIN_API_TOKENS_HASHED", "")
     hashed_allowed = {t.strip() for t in hashed_cfg.split(",") if t.strip()}
+    if not hashed_allowed:
+        logger.error(
+            "ADMIN_API_TOKENS_HASHED is not configured; blocking admin access"
+        )
+        raise HTTPException(
+            status_code=503, detail="Admin token system is not configured"
+        )
     if raw and hashed_allowed and _admin_hash(raw) in hashed_allowed:
         return True
     logger.warning("Admin token required or invalid")
