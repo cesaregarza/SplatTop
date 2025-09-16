@@ -203,7 +203,7 @@ def _display_score(
 @router.get("")
 async def get_ripple_leaderboard(
     # Pagination
-    limit: int = Query(50, ge=1, le=500),
+    limit: Optional[int] = Query(None, ge=1, le=500),
     offset: int = Query(0, ge=0),
     # Run selection
     build: Optional[str] = Query(None, description="Filter to a build_version"),

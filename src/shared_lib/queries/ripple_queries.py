@@ -34,7 +34,7 @@ def _schema() -> str:
 async def fetch_ripple_page(
     session: "AsyncSession",
     *,
-    limit: int = 100,
+    limit: Optional[int] = 100,
     offset: int = 0,
     min_tournaments: Optional[int] = 3,
     tournament_window_days: int = 90,
@@ -126,15 +126,19 @@ SELECT
   COUNT(*) OVER () AS __total
 FROM base
 ORDER BY score DESC, player_id  -- deterministic for client-side rank
-LIMIT :limit OFFSET :offset
+LIMIT CASE WHEN :limit_is_null THEN NULL ELSE :limit_value END
+OFFSET :offset
 """
     )
 
     params = {
-        "limit": int(limit),
+        "limit_is_null": limit is None,
+        "limit_value": int(limit) if limit is not None else 0,
         "offset": int(offset),
         "min_tournaments_is_null": min_tournaments is None,
-        "min_tournaments_value": int(min_tournaments) if min_tournaments is not None else 0,
+        "min_tournaments_value": int(min_tournaments)
+        if min_tournaments is not None
+        else 0,
         "window_ms": int(window_ms),
         "ranked_only": bool(ranked_only),
         "build_param": build,
