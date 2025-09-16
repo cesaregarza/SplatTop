@@ -16,19 +16,19 @@ _SCHEMA_RE = re.compile(r"^[A-Za-z_][A-Za-z0-9_]*$")
 def _schema() -> str:
     """Return a validated schema name from env.
 
-    Uses env RANKINGS_DB_SCHEMA, defaults to 'rankings'. Falls back to
+    Uses env RANKINGS_DB_SCHEMA, defaults to 'comp_rankings'. Falls back to
     'rankings' if validation fails.
     """
     import os
 
-    candidate = os.getenv("RANKINGS_DB_SCHEMA", "rankings")
+    candidate = os.getenv("RANKINGS_DB_SCHEMA", "comp_rankings")
     if _SCHEMA_RE.match(candidate):
         return candidate
     logger.warning(
-        "Invalid RANKINGS_DB_SCHEMA '%s'; falling back to 'rankings'",
+        "Invalid RANKINGS_DB_SCHEMA '%s'; falling back to 'comp_rankings'",
         candidate,
     )
-    return "rankings"
+    return "comp_rankings"
 
 
 async def fetch_ripple_page(
