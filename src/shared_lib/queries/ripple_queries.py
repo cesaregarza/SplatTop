@@ -32,7 +32,7 @@ def _schema() -> str:
 
 
 async def fetch_ripple_page(
-    session: AsyncSession,
+    session: "AsyncSession",
     *,
     limit: int = 100,
     offset: int = 0,
@@ -42,132 +42,147 @@ async def fetch_ripple_page(
     build: Optional[str] = None,
     ts_ms: Optional[int] = None,
 ) -> tuple[list[Mapping[str, Any]], int, Optional[int], Optional[str]]:
-    """Fetch a page of ripple rankings with total count and run metadata.
-
-    Returns: (rows, total_count, calculated_at_ms, build_version)
+    """
+    Faster Ripple page using the tournament_event_times MV.
+    - 1 SQL round-trip (COUNT(*) OVER()).
+    - No correlated subqueries for window counts.
+    - No DB ROW_NUMBER(); page rank computed client-side.
+    - Never references the 'rank' identifier from player_rankings.
     """
 
     schema = _schema()
-    schema_sql = f'"{schema}"'
-    # Safely embed schema: validation restricts to [A-Za-z_][A-Za-z0-9_]*.
-    # Quote to avoid accidental keyword/case issues (not for injection, since
-    # validation already rejects unsafe names).
-    schema_sql = f'"{schema}"'
+    schema_sql = f'"{schema}"'  # safe quoting, schema name validated upstream
 
-    cte = f"""
-    WITH latest_ts AS (
-      SELECT CASE
-        WHEN CAST(:ts_param AS BIGINT) IS NOT NULL THEN CAST(:ts_param AS BIGINT)
-        WHEN CAST(:build_param AS TEXT) IS NOT NULL THEN (
-          SELECT MAX(calculated_at_ms)
-          FROM {schema_sql}.player_rankings
-          WHERE build_version = CAST(:build_param AS TEXT)
-        )
-        ELSE (
-          SELECT MAX(calculated_at_ms) FROM {schema_sql}.player_rankings
-        )
-      END AS ts
-    ), tournament_times AS (
-      SELECT
-        t.tournament_id,
-        CASE WHEN t.start_time_ms < 1000000000000 THEN t.start_time_ms * 1000 ELSE t.start_time_ms END AS start_ms,
-        CASE
-          WHEN MAX(m.last_game_finished_at_ms) IS NULL THEN NULL
-          WHEN MAX(m.last_game_finished_at_ms) < 1000000000000 THEN MAX(m.last_game_finished_at_ms) * 1000
-          ELSE MAX(m.last_game_finished_at_ms)
-        END AS end_ms,
-        t.is_ranked
-      FROM {schema_sql}.tournaments t
-      LEFT JOIN {schema_sql}.matches m ON m.tournament_id = t.tournament_id
-      GROUP BY t.tournament_id, t.start_time_ms, t.is_ranked
-    ), normalized AS (
-      SELECT
-        pat.player_id,
-        pat.tournament_id,
-        COALESCE(tt.end_ms, tt.start_ms) AS event_ms,
-        tt.is_ranked
-      FROM {schema_sql}.player_appearance_teams pat
-      JOIN tournament_times tt ON tt.tournament_id = pat.tournament_id
-    ), ranked AS (
-      SELECT
-        r.player_id,
-        r.score,
-        r.win_pr,
-        r.loss_pr,
-        r.exposure,
-        r.calculated_at_ms,
-        r.build_version,
-        p.display_name,
-        s.tournament_count,
-        s.last_active_ms,
-        (
-          SELECT COUNT(DISTINCT n.tournament_id)
-          FROM normalized n
-          JOIN latest_ts l2 ON TRUE
-          WHERE n.player_id = r.player_id
-            AND n.event_ms BETWEEN (l2.ts - CAST(:window_ms AS BIGINT)) AND l2.ts
-            AND (:ranked_only = false OR n.is_ranked IS TRUE)
-        ) AS window_count,
-        ROW_NUMBER() OVER (ORDER BY r.score DESC) AS rank
-      FROM {schema}.player_rankings r
-      JOIN latest_ts l ON r.calculated_at_ms = l.ts
-      LEFT JOIN {schema_sql}.player_ranking_stats s
-        ON s.player_id = r.player_id AND s.calculated_at_ms = r.calculated_at_ms AND s.build_version = r.build_version
-      LEFT JOIN {schema_sql}.players p ON p.player_id = r.player_id
-      WHERE (
-        CAST(:min_tournaments AS INT) IS NULL
-        OR (
-          SELECT COUNT(DISTINCT n2.tournament_id)
-          FROM normalized n2
-          JOIN latest_ts l3 ON TRUE
-          WHERE n2.player_id = r.player_id
-            AND n2.event_ms BETWEEN (l3.ts - CAST(:window_ms AS BIGINT)) AND l3.ts
-            AND (:ranked_only = false OR n2.is_ranked IS TRUE)
-        ) >= CAST(:min_tournaments AS INT)
-      )
+    # Compute once in Python (no risk of int overflow here; Python ints are unbounded).
+    window_ms = int(tournament_window_days) * 86_400_000
+
+    sql = text(
+        f"""
+WITH latest_ts AS (
+  SELECT CASE
+    WHEN CAST(:ts_param AS BIGINT) IS NOT NULL THEN CAST(:ts_param AS BIGINT)
+    WHEN CAST(:build_param AS TEXT) IS NOT NULL THEN (
+      SELECT MAX(calculated_at_ms)
+      FROM {schema_sql}.player_rankings
+      WHERE build_version = CAST(:build_param AS TEXT)
     )
-    """
-
-    page_sql = text(
-        cte
-        + """
-    SELECT *
-    FROM ranked
-    ORDER BY score DESC
-    LIMIT :limit OFFSET :offset
-    """
-    )
-
-    count_sql = text(
-        cte
-        + """
-    SELECT COUNT(*)::int AS total,
-           MAX(calculated_at_ms)::bigint AS calculated_at_ms,
-           MAX(build_version)::text AS build_version
-    FROM ranked
-    """
+    ELSE (SELECT MAX(calculated_at_ms) FROM {schema_sql}.player_rankings)
+  END AS ts
+),
+-- rankings snapshot at ts (avoid the 'rank' column entirely)
+r_latest AS (
+  SELECT r.player_id, r.score, r.win_pr, r.loss_pr, r.exposure,
+         r.calculated_at_ms, r.build_version
+  FROM {schema_sql}.player_rankings r
+  JOIN latest_ts l ON r.calculated_at_ms = l.ts
+),
+-- MV-powered window selection (fast)
+tt_window AS (
+  SELECT t.tournament_id, t.event_ms
+  FROM {schema_sql}.tournament_event_times t
+  JOIN latest_ts l ON TRUE
+  WHERE t.event_ms BETWEEN (l.ts - :window_ms::bigint) AND l.ts
+    AND (:ranked_only::boolean = FALSE OR t.is_ranked IS TRUE)
+),
+-- touch appearances only for tournaments in the window and players in the snapshot
+events_in_window AS (
+  SELECT DISTINCT pat.player_id, w.tournament_id
+  FROM {schema_sql}.player_appearance_teams pat
+  JOIN tt_window w       ON w.tournament_id = pat.tournament_id
+  JOIN r_latest rl       ON rl.player_id    = pat.player_id
+),
+-- compute per-player window_count once
+window_counts AS (
+  SELECT e.player_id, COUNT(*)::int AS window_count
+  FROM events_in_window e
+  GROUP BY e.player_id
+),
+-- if min_tournaments is provided, filter here (NULL => no filter)
+eligible AS (
+  SELECT rl.player_id
+  FROM r_latest rl
+  LEFT JOIN window_counts wc ON wc.player_id = rl.player_id
+  WHERE (:min_tournaments IS NULL OR COALESCE(wc.window_count, 0) >= :min_tournaments::int)
+),
+-- assemble paged rows
+base AS (
+  SELECT
+    rl.player_id, rl.score, rl.win_pr, rl.loss_pr, rl.exposure,
+    rl.calculated_at_ms, rl.build_version,
+    p.display_name,
+    s.tournament_count, s.last_active_ms,
+    COALESCE(wc.window_count, 0) AS window_count
+  FROM eligible e
+  JOIN r_latest rl ON rl.player_id = e.player_id
+  LEFT JOIN window_counts wc ON wc.player_id = rl.player_id
+  LEFT JOIN {schema_sql}.player_ranking_stats s
+    ON s.player_id = rl.player_id
+   AND s.calculated_at_ms = rl.calculated_at_ms
+   AND s.build_version    = rl.build_version
+  LEFT JOIN {schema_sql}.players p ON p.player_id = rl.player_id
+)
+SELECT
+  base.*,
+  COUNT(*) OVER () AS __total
+FROM base
+ORDER BY score DESC, player_id  -- deterministic for client-side rank
+LIMIT :limit::int OFFSET :offset::int
+"""
     )
 
     params = {
         "limit": int(limit),
         "offset": int(offset),
         "min_tournaments": min_tournaments,
-        "window_ms": int(tournament_window_days) * 86400000,
+        "window_ms": int(window_ms),
         "ranked_only": bool(ranked_only),
         "build_param": build,
         "ts_param": ts_ms,
     }
 
-    page_res = await session.execute(page_sql, params)
-    rows: Sequence[Mapping[str, Any]] = page_res.mappings().all()
+    res = await session.execute(sql, params)
+    rows: Sequence[Mapping[str, Any]] = res.mappings().all()
 
-    count_res = await session.execute(count_sql, params)
-    count_row = count_res.mappings().one()
-    total = int(count_row.get("total", 0))
-    calc_ts = count_row.get("calculated_at_ms")
-    build_version = count_row.get("build_version")
+    if rows:
+        total = int(rows[0]["__total"])
+        calc_ts = rows[0]["calculated_at_ms"]
+        build_version = rows[0]["build_version"]
+    else:
+        # No rows matched the filter; fetch run metadata cheaply
+        meta_sql = text(
+            f"""
+        WITH latest_ts AS (
+          SELECT CASE
+            WHEN CAST(:ts_param AS BIGINT) IS NOT NULL THEN CAST(:ts_param AS BIGINT)
+            WHEN CAST(:build_param AS TEXT) IS NOT NULL THEN (
+              SELECT MAX(calculated_at_ms)
+              FROM {schema_sql}.player_rankings
+              WHERE build_version = CAST(:build_param AS TEXT)
+            )
+            ELSE (SELECT MAX(calculated_at_ms) FROM {schema_sql}.player_rankings)
+          END AS ts
+        )
+        SELECT l.ts AS calculated_at_ms,
+               (SELECT MAX(build_version)::text
+                  FROM {schema_sql}.player_rankings r
+                  JOIN latest_ts l ON r.calculated_at_ms = l.ts) AS build_version
+        FROM latest_ts l
+        """
+        )
+        meta = (await session.execute(meta_sql, params)).mappings().one()
+        total = 0
+        calc_ts = meta["calculated_at_ms"]
+        build_version = meta["build_version"]
 
-    return list(rows), total, calc_ts, build_version
+    # Build output rows, drop __total, and compute the page rank client-side
+    out_rows: list[dict] = []
+    for i, r in enumerate(rows):
+        row = dict(r)
+        row.pop("__total", None)
+        row["rank"] = offset + i + 1
+        out_rows.append(row)
+
+    return out_rows, total, calc_ts, build_version
 
 
 async def fetch_ripple_danger(
@@ -188,6 +203,7 @@ async def fetch_ripple_danger(
     """
 
     schema = _schema()
+    schema_sql = f'"{schema}"'
 
     ctes = f"""
 WITH latest_ts AS NOT MATERIALIZED (
