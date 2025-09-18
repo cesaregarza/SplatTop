@@ -11,6 +11,7 @@ from slowapi.errors import RateLimitExceeded
 
 from fast_api_app.background_tasks import background_runner
 from fast_api_app.connections import celery, limiter
+from fast_api_app.feature_flags import is_comp_leaderboard_enabled
 from fast_api_app.middleware import (
     APITokenRateLimitMiddleware,
     APITokenUsageMiddleware,
@@ -46,6 +47,8 @@ async def lifespan(app: FastAPI):
     celery.send_task("tasks.update_lorenz_and_gini")
     celery.send_task("tasks.fetch_weapon_leaderboard")
     celery.send_task("tasks.fetch_season_results")
+    if is_comp_leaderboard_enabled():
+        celery.send_task("tasks.refresh_ripple_snapshots")
 
     start_pubsub_listener()
     asyncio.create_task(background_runner.run())
