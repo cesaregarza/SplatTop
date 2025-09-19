@@ -18,6 +18,7 @@ from celery_app.tasks.leaderboard import (
 )
 from celery_app.tasks.misc import pull_aliases, update_weapon_info
 from celery_app.tasks.player_detail import fetch_player_data
+from celery_app.tasks.ripple_snapshot import refresh_ripple_snapshots
 from shared_lib.constants import REDIS_URI
 
 logging.basicConfig(
@@ -39,3 +40,4 @@ celery.task(name="tasks.fetch_season_results")(fetch_season_results)
 celery.task(name="tasks.persist_api_token")(persist_api_token)
 celery.task(name="tasks.revoke_api_token")(revoke_api_token)
 celery.task(name="tasks.flush_api_usage")(flush_api_usage)
+celery.task(name="tasks.refresh_ripple_snapshots")(refresh_ripple_snapshots)

@@ -45,6 +45,13 @@ LORENZ_CURVE_REDIS_KEY = "gini_coeff_data"
 WEAPON_LEADERBOARD_PEAK_REDIS_KEY = "weapon_leaderboard_peak"
 SEASON_RESULTS_REDIS_KEY = "season_results"
 
+# Competition ripple leaderboard cache keys
+RIPPLE_STABLE_STATE_KEY = "ripple:stable:state"
+RIPPLE_STABLE_LATEST_KEY = "ripple:stable:latest"
+RIPPLE_STABLE_META_KEY = "ripple:stable:meta"
+RIPPLE_DANGER_LATEST_KEY = "ripple:danger:latest"
+COMP_LEADERBOARD_FLAG_KEY = "feature:comp_leaderboard"
+
 # API token management (Redis keys)
 API_TOKENS_ACTIVE_SET = "api:tokens:active"
 API_TOKEN_HASH_MAP_PREFIX = "api:token:hash:"
