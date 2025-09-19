@@ -20,7 +20,7 @@ from shared_lib.queries import ripple_queries
 
 logger = logging.getLogger(__name__)
 
-DEFAULT_LIMIT = 200
+DEFAULT_LIMIT = None
 DEFAULT_TOURNAMENT_WINDOW_DAYS = 90
 SCORE_OFFSET = 0.0
 SCORE_MULTIPLIER = 25.0
@@ -35,7 +35,7 @@ DEFAULT_PAGE_PARAMS = {
 }
 
 DEFAULT_DANGER_PARAMS = {
-    "limit": DEFAULT_LIMIT,
+    "limit": 500,
     "offset": 0,
     "min_tournaments": None,
     "tournament_window_days": DEFAULT_TOURNAMENT_WINDOW_DAYS,
@@ -72,7 +72,10 @@ def _load_state() -> Dict[str, Any]:
 
 
 def _persist_state(state: Dict[str, Any]) -> None:
-    redis_conn.set(RIPPLE_STABLE_STATE_KEY, orjson.dumps(state))
+    serializable = {
+        str(player_id): value for player_id, value in state.items()
+    }
+    redis_conn.set(RIPPLE_STABLE_STATE_KEY, orjson.dumps(serializable))
 
 
 def _persist_payload(key: str, payload: Mapping[str, Any]) -> None:

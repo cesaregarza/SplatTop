@@ -25,7 +25,7 @@ def _parse_bool(value: Optional[str]) -> Optional[bool]:
 def _env_default() -> bool:
     parsed = _parse_bool(os.getenv("COMP_LEADERBOARD_ENABLED"))
     if parsed is None:
-        return False
+        return True
     return parsed
 
 

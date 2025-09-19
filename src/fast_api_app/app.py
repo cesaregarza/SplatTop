@@ -25,6 +25,7 @@ from fast_api_app.routes import (
     player_detail_router,
     ripple_docs_router,
     ripple_router,
+    ripple_public_router,
     search_router,
     weapon_info_router,
     weapon_leaderboard_router,
@@ -63,7 +64,7 @@ app.add_middleware(APITokenRateLimitMiddleware)
 
 # Setup CORS
 if os.getenv("ENV") == "development":
-    origins = ["http://localhost:3000"]
+    origins = ["http://localhost:3000", "http://comp.localhost:3000"]
 else:
     origins = ["*"]
 
@@ -85,6 +86,7 @@ app.include_router(infer_router)
 app.include_router(ping_router)
 app.include_router(ripple_docs_router)
 app.include_router(ripple_router)
+app.include_router(ripple_public_router)
 app.include_router(admin_tokens_router)
 
 
