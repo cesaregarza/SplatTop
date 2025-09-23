@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 
 const nf2 = new Intl.NumberFormat(undefined, { maximumFractionDigits: 2 });
 
@@ -68,6 +68,10 @@ const StableLeaderboardView = ({ rows, loading, error }) => {
   const [query, setQuery] = useState("");
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(25);
+  const [jumpPlayerId, setJumpPlayerId] = useState("");
+  const [jumpRank, setJumpRank] = useState("");
+  const [highlightId, setHighlightId] = useState(null);
+  const highlightTimerRef = useRef(null);
 
   const prepared = useMemo(() => {
     const data = Array.isArray(rows) ? rows : [];
@@ -116,7 +120,7 @@ const StableLeaderboardView = ({ rows, loading, error }) => {
     const end = start + pageSize;
     const pageRows = filtered.slice(start, end);
 
-    return { filtered: pageRows, total, pageCount, current, maxShifted };
+    return { filtered: pageRows, total, pageCount, current, maxShifted, all: filtered };
   }, [rows, query, page, pageSize]);
 
   const goto = (value) => {
@@ -125,6 +129,61 @@ const StableLeaderboardView = ({ rows, loading, error }) => {
       return target;
     });
   };
+
+  const gotoRank = (rankValue) => {
+    const rankNum = Number(rankValue);
+    if (!Number.isFinite(rankNum) || rankNum < 1) return;
+    const index = rankNum - 1;
+    const targetPage = Math.floor(index / pageSize) + 1;
+    setQuery("");
+    setPage(targetPage);
+  };
+
+  const gotoPlayerId = (pid) => {
+    if (!pid) return;
+    setQuery("");
+    // Prefer stable_rank if available to compute exact index
+    let idx = -1;
+    try {
+      const baseRow = (Array.isArray(rows) ? rows : []).find((r) => r.player_id === pid);
+      if (baseRow && Number.isFinite(baseRow.stable_rank)) {
+        idx = Number(baseRow.stable_rank) - 1;
+      }
+    } catch {}
+    if (idx < 0) {
+      // Fallback to current prepared list
+      idx = prepared.all.findIndex((r) => r.player_id === pid);
+    }
+    if (idx >= 0) {
+      const targetPage = Math.floor(idx / pageSize) + 1;
+      setPage(targetPage);
+      setHighlightId(pid);
+      if (highlightTimerRef.current) clearTimeout(highlightTimerRef.current);
+      highlightTimerRef.current = setTimeout(() => setHighlightId(null), 3000);
+      // Update URL param for shareable link
+      try {
+        const url = new URL(window.location.href);
+        url.searchParams.set("player", pid);
+        url.searchParams.delete("rank");
+        window.history.replaceState(null, "", url.toString());
+      } catch {}
+    }
+  };
+
+  // Deep-linking via ?player=ID or ?rank=N
+  useEffect(() => {
+    try {
+      const url = new URL(window.location.href);
+      const qPlayer = url.searchParams.get("player");
+      const qRank = url.searchParams.get("rank");
+      if (qPlayer) {
+        gotoPlayerId(qPlayer);
+      } else if (qRank) {
+        gotoRank(qRank);
+      }
+    } catch {}
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [rows, pageSize]);
 
   const content = useMemo(() => {
     if (loading) {
@@ -239,8 +298,14 @@ const StableLeaderboardView = ({ rows, loading, error }) => {
                 const totalTournaments = row.tournament_count ?? null;
                 const windowCount = row.window_tournament_count ?? null;
 
+                const isHighlighted = highlightId && row.player_id === highlightId;
                 return (
-                  <tr key={row.player_id} className="hover:bg-slate-900/60">
+                  <tr
+                    key={row.player_id}
+                    className={`hover:bg-slate-900/60 ${
+                      isHighlighted ? "ring-2 ring-fuchsia-500/40" : ""
+                    }`}
+                  >
                     <td className="px-4 py-3 font-semibold text-slate-200 whitespace-nowrap">{rank}</td>
                     <td className="px-4 py-3 align-top">
                       <div className="flex flex-col min-w-0 max-w-[14rem]">
@@ -339,40 +404,115 @@ const StableLeaderboardView = ({ rows, loading, error }) => {
               Page {prepared.current} of {prepared.pageCount} • {prepared.total} players
             </span>
           </div>
+          <div className="flex flex-col sm:flex-row gap-2 w-full sm:w-auto sm:items-center justify-center">
+            <form
+              className="flex items-center gap-2"
+              onSubmit={(e) => {
+                e.preventDefault();
+                gotoPlayerId(jumpPlayerId.trim());
+              }}
+            >
+              <input
+                type="text"
+                inputMode="text"
+                placeholder="Jump to player ID"
+                value={jumpPlayerId}
+                onChange={(e) => setJumpPlayerId(e.target.value)}
+                className="rounded-md bg-slate-900/80 px-2 py-1 text-slate-100 placeholder:text-slate-500 ring-1 ring-white/10"
+              />
+              <button
+                type="submit"
+                className="rounded-md px-3 py-1.5 text-sm bg-fuchsia-600 text-white ring-1 ring-white/10 hover:bg-fuchsia-500"
+              >
+                Go
+              </button>
+            </form>
 
-          <nav className="flex flex-wrap items-center justify-center gap-1">
-            <button
-              className="rounded-md px-3 py-1.5 text-sm bg-slate-900/70 ring-1 ring-white/10 text-slate-200 disabled:opacity-50"
-              onClick={() => goto(prepared.current - 1)}
-              disabled={prepared.current <= 1}
+            <form
+              className="flex items-center gap-2"
+              onSubmit={(e) => {
+                e.preventDefault();
+                gotoRank(jumpRank);
+                // reflect in URL
+                try {
+                  const url = new URL(window.location.href);
+                  url.searchParams.set("rank", String(jumpRank));
+                  url.searchParams.delete("player");
+                  window.history.replaceState(null, "", url.toString());
+                } catch {}
+              }}
             >
-              Prev
-            </button>
-            {Array.from({ length: prepared.pageCount }).map((_, index) => {
-              const pageNumber = index + 1;
-              const active = pageNumber === prepared.current;
-              return (
-                <button
-                  key={pageNumber}
-                  className={`rounded-md px-3 py-1.5 text-sm ring-1 ring-white/10 ${
-                    active
-                      ? "bg-slate-200 text-slate-900"
-                      : "bg-slate-900/70 text-slate-200"
-                  }`}
-                  onClick={() => goto(pageNumber)}
-                >
-                  {pageNumber}
-                </button>
-              );
-            })}
-            <button
-              className="rounded-md px-3 py-1.5 text-sm bg-slate-900/70 ring-1 ring-white/10 text-slate-200 disabled:opacity-50"
-              onClick={() => goto(prepared.current + 1)}
-              disabled={prepared.current >= prepared.pageCount}
-            >
-              Next
-            </button>
-          </nav>
+              <input
+                type="number"
+                inputMode="numeric"
+                min="1"
+                placeholder="Go to rank"
+                value={jumpRank}
+                onChange={(e) => setJumpRank(e.target.value)}
+                className="rounded-md bg-slate-900/80 px-2 py-1 text-slate-100 placeholder:text-slate-500 ring-1 ring-white/10 w-28"
+              />
+              <button
+                type="submit"
+                className="rounded-md px-3 py-1.5 text-sm bg-slate-700 text-slate-100 ring-1 ring-white/10 hover:bg-slate-600"
+              >
+                Go
+              </button>
+            </form>
+
+            <nav className="flex flex-wrap items-center justify-center gap-1">
+              <button
+                className="rounded-md px-3 py-1.5 text-sm bg-slate-900/70 ring-1 ring-white/10 text-slate-200 disabled:opacity-50"
+                onClick={() => goto(prepared.current - 1)}
+                disabled={prepared.current <= 1}
+              >
+                Prev
+              </button>
+              {(() => {
+                const total = prepared.pageCount;
+                const cur = prepared.current;
+                const windowSize = 2; // pages around current
+                const pages = new Set([1, total]);
+                for (let p = cur - windowSize; p <= cur + windowSize; p++) {
+                  if (p >= 1 && p <= total) pages.add(p);
+                }
+                const arr = Array.from(pages).sort((a, b) => a - b);
+                const items = [];
+                for (let i = 0; i < arr.length; i++) {
+                  const p = arr[i];
+                  const prev = i > 0 ? arr[i - 1] : null;
+                  if (prev && p - prev > 1) {
+                    items.push(
+                      <span key={`gap-${prev}`} className="px-1 text-slate-500">
+                        …
+                      </span>
+                    );
+                  }
+                  const active = p === cur;
+                  items.push(
+                    <button
+                      key={p}
+                      className={`rounded-md px-3 py-1.5 text-sm ring-1 ring-white/10 ${
+                        active
+                          ? "bg-slate-200 text-slate-900"
+                          : "bg-slate-900/70 text-slate-200"
+                      }`}
+                      onClick={() => goto(p)}
+                    >
+                      {p}
+                    </button>
+                  );
+                }
+                return items;
+              })()}
+              <button
+                className="rounded-md px-3 py-1.5 text-sm bg-slate-900/70 ring-1 ring-white/10 text-slate-200 disabled:opacity-50"
+                onClick={() => goto(prepared.current + 1)}
+                disabled={prepared.current >= prepared.pageCount}
+              >
+                Next
+              </button>
+            </nav>
+          </div>
         </div>
       </>
     );
