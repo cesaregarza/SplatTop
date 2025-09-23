@@ -195,7 +195,7 @@ ORDER BY score DESC, player_id  -- deterministic for client-side rank
 async def fetch_ripple_danger(
     session: AsyncSession,
     *,
-    limit: int = 20,
+    limit: Optional[int] = 20,
     offset: int = 0,
     min_tournaments: Optional[int] = None,
     tournament_window_days: int = 90,
@@ -272,9 +272,7 @@ agg AS NOT MATERIALIZED (
 )
     """
 
-    page_sql = text(
-        ctes
-        + f"""
+    base_page_sql = f"""
 SELECT rr.player_rank,
        a.player_id,
        p.display_name,
@@ -291,9 +289,12 @@ JOIN r_ranked rr ON rr.player_id = a.player_id
 LEFT JOIN {schema_sql}.players p ON p.player_id = a.player_id
 WHERE (CAST(:min_tournaments AS INT) IS NULL OR a.n_tournaments = CAST(:min_tournaments AS INT))
 ORDER BY ms_left ASC, rr.player_rank ASC
-LIMIT :limit OFFSET :offset
         """
+
+    limit_offset_clause = (
+        "" if limit is None else "\nLIMIT :limit OFFSET :offset"
     )
+    page_sql = text(ctes + base_page_sql + limit_offset_clause)
 
     count_sql = text(
         ctes
@@ -307,14 +308,15 @@ WHERE (CAST(:min_tournaments AS INT) IS NULL OR a.n_tournaments = CAST(:min_tour
     )
 
     params = {
-        "limit": int(limit),
-        "offset": int(offset),
         "min_tournaments": min_tournaments,
         "window_ms": int(tournament_window_days) * 86400000,
         "ranked_only": bool(ranked_only),
         "build_param": build,
         "ts_param": ts_ms,
     }
+    if limit is not None:
+        params["limit"] = int(limit)
+        params["offset"] = int(offset)
 
     page_res = await session.execute(page_sql, params)
     rows = page_res.mappings().all()

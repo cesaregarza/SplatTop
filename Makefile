@@ -1,3 +1,9 @@
+KIND_CONTEXT ?= kind-kind
+
+.PHONY: ensure-kind
+ensure-kind:
+	kubectl config use-context $(KIND_CONTEXT)
+
 .PHONY: build
 build:
 	docker rmi fast-api-app:latest || true
@@ -31,7 +37,7 @@ build-no-cache:
 	kind load docker-image react-app:latest
 
 .PHONY: port-forward
-port-forward:
+port-forward: ensure-kind
 	kubectl port-forward service/fast-api-app-service 5000:80 8001:8001 & echo $$! > /tmp/fast-apiport-forward.pid
 	kubectl port-forward service/react-app-service 4000:80 & echo $$! > /tmp/react-port-forward.pid
 	kubectl port-forward -n ingress-nginx service/ingress-nginx-controller 8080:80 & echo $$! > /tmp/ingress-port-forward.pid
@@ -50,8 +56,7 @@ stop-port-forward:
 	rm -f /tmp/ingress-port-forward.pid
 
 .PHONY: deploy-core
-deploy-core:
-	kubectl config use-context kind-kind
+deploy-core: ensure-kind
 	kubectl apply -f k8s/secrets.yaml
 	kubectl apply -f k8s/redis/redis-deployment.yaml
 	kubectl apply -f k8s/redis/redis-service.yaml
@@ -66,20 +71,20 @@ deploy-core:
 	kubectl apply -f https://raw.githubusercontent.com/kubernetes/ingress-nginx/controller-v1.0.0/deploy/static/provider/cloud/deploy.yaml
 
 .PHONY: deploy
-deploy:
+deploy: ensure-kind
 	make deploy-core
 	sleep 20
 	kubectl apply -f k8s/ingress-dev.yaml
 	kubectl port-forward -n ingress-nginx service/ingress-nginx-controller 8080:80
 
 .PHONY: deploy-dev
-deploy-dev:
+deploy-dev: ensure-kind
 	make deploy-core
 	make port-forward
 	cd src/react_app && npm start
 
 .PHONY: undeploy-core
-undeploy-core:
+undeploy-core: ensure-kind
 	kubectl delete -f k8s/secrets.yaml
 	kubectl delete -f k8s/redis/redis-deployment.yaml
 	kubectl delete -f k8s/redis/redis-service.yaml
@@ -93,53 +98,53 @@ undeploy-core:
 	kubectl delete -f k8s/splatgpt/splatgpt-service.yaml
 
 .PHONY: undeploy
-undeploy:
+undeploy: ensure-kind
 	make undeploy-core
 	kubectl delete -f k8s/ingress-dev.yaml
 
 .PHONY: undeploy-dev
-undeploy-dev:
+undeploy-dev: ensure-kind
 	make undeploy-core
 	make stop-port-forward
 
 .PHONY: redeploy
-redeploy: undeploy deploy
+redeploy: ensure-kind undeploy deploy
 
 .PHONY: redeploy-dev
-redeploy-dev: undeploy-dev deploy-dev
+redeploy-dev: ensure-kind undeploy-dev deploy-dev
 
 .PHONY: update
-update: undeploy build deploy
+update: ensure-kind undeploy build deploy
 
 .PHONY: update-dev
-update-dev: undeploy-dev build deploy-dev
+update-dev: ensure-kind undeploy-dev build deploy-dev
 
 .PHONY: fast-api-logs
-fast-api-logs:
+fast-api-logs: ensure-kind
 	kubectl logs -f `kubectl get pods -l app=fast-api-app -o jsonpath='{.items[0].metadata.name}'`
 
 .PHONY: celery-logs
-celery-logs:
+celery-logs: ensure-kind
 	kubectl logs -f `kubectl get pods -l app=celery-worker -o jsonpath='{.items[0].metadata.name}'`
 
 .PHONY : celery-beat-logs
-celery-beat-logs:
+celery-beat-logs: ensure-kind
 	kubectl logs -f `kubectl get pods -l app=celery-beat -o jsonpath='{.items[0].metadata.name}'`
 
 .PHONY: react-logs
-react-logs:
+react-logs: ensure-kind
 	kubectl logs -f `kubectl get pods -l app=react-app -o jsonpath='{.items[0].metadata.name}'`
 
 .PHONY: redis-logs
-redis-logs:
+redis-logs: ensure-kind
 	kubectl logs -f `kubectl get pods -l app=redis -o jsonpath='{.items[0].metadata.name}'`
 
 .PHONY: splatgpt-logs
-splatgpt-logs:
+splatgpt-logs: ensure-kind
 	kubectl logs -f `kubectl get pods -l app=splatnlp -o jsonpath='{.items[0].metadata.name}'`
 
 .PHONY: ingress-logs
-ingress-logs:
+ingress-logs: ensure-kind
 	kubectl logs -f `kubectl get pods -n ingress-nginx -l app.kubernetes.io/component=controller -o jsonpath='{.items[0].metadata.name}'` -n ingress-nginx
 
 .PHONY: start-react-app-dev
