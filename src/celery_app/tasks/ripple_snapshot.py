@@ -35,9 +35,9 @@ DEFAULT_PAGE_PARAMS = {
 }
 
 DEFAULT_DANGER_PARAMS = {
-    "limit": 500,
+    "limit": None,
     "offset": 0,
-    "min_tournaments": None,
+    "min_tournaments": 3,
     "tournament_window_days": DEFAULT_TOURNAMENT_WINDOW_DAYS,
     "ranked_only": True,
 }
@@ -72,9 +72,7 @@ def _load_state() -> Dict[str, Any]:
 
 
 def _persist_state(state: Dict[str, Any]) -> None:
-    serializable = {
-        str(player_id): value for player_id, value in state.items()
-    }
+    serializable = {str(player_id): value for player_id, value in state.items()}
     redis_conn.set(RIPPLE_STABLE_STATE_KEY, orjson.dumps(serializable))
 
 

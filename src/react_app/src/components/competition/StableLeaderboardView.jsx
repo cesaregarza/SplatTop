@@ -139,7 +139,7 @@ const StableLeaderboardView = ({ rows, loading, error }) => {
                 <th className="px-4 py-3">Grade</th>
                 <th className="px-4 py-3">Days Left</th>
                 <th className="px-4 py-3">Next Expiry</th>
-                <th className="px-4 py-3">Tournaments</th>
+                <th className="px-4 py-3">Tournaments (90d)</th>
                 <th className="px-4 py-3 hidden sm:table-cell">Last Active</th>
                 <th className="px-4 py-3 hidden sm:table-cell">Last Tournament</th>
               </tr>
@@ -214,7 +214,7 @@ const StableLeaderboardView = ({ rows, loading, error }) => {
                 <th className="px-4 py-3">Grade</th>
                 <th className="px-4 py-3">Days Left</th>
                 <th className="px-4 py-3">Next Expiry</th>
-                <th className="px-4 py-3">Tournaments</th>
+                <th className="px-4 py-3">Tournaments (90d)</th>
                 <th className="px-4 py-3 hidden sm:table-cell">Last Active</th>
                 <th className="px-4 py-3 hidden sm:table-cell">Last Tournament</th>
               </tr>
@@ -224,7 +224,11 @@ const StableLeaderboardView = ({ rows, loading, error }) => {
                 const rank = row.stable_rank ?? "—";
                 const shifted = row._shifted;
                 const grade = row._grade;
-                const days = row.danger_days_left;
+                const tournamentCount =
+                  row.window_tournament_count ?? row.tournament_count;
+                const showDanger =
+                  tournamentCount === 3 && row.danger_days_left != null;
+                const days = showDanger ? row.danger_days_left : null;
                 const severity = severityOf(days);
                 const daysLabel =
                   days == null
@@ -232,18 +236,32 @@ const StableLeaderboardView = ({ rows, loading, error }) => {
                     : days < 0
                     ? "Expired"
                     : `${Math.max(days, 0).toFixed(1)}d`;
+                const totalTournaments = row.tournament_count ?? null;
+                const windowCount = row.window_tournament_count ?? null;
 
                 return (
                   <tr key={row.player_id} className="hover:bg-slate-900/60">
                     <td className="px-4 py-3 font-semibold text-slate-200 whitespace-nowrap">{rank}</td>
                     <td className="px-4 py-3 align-top">
                       <div className="flex flex-col min-w-0 max-w-[14rem]">
-                        <span
-                          className="font-medium text-slate-100 truncate"
-                          title={row.display_name || undefined}
-                        >
-                          {row.display_name}
-                        </span>
+                        {row.player_id ? (
+                          <a
+                            href={`https://sendou.ink/u/${row.player_id}`}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="font-medium text-slate-100 truncate hover:underline"
+                            title={row.display_name || undefined}
+                          >
+                            {row.display_name}
+                          </a>
+                        ) : (
+                          <span
+                            className="font-medium text-slate-100 truncate"
+                            title={row.display_name || undefined}
+                          >
+                            {row.display_name}
+                          </span>
+                        )}
                         <span
                           className="text-xs text-slate-500 truncate"
                           title={row.player_id || undefined}
@@ -271,10 +289,21 @@ const StableLeaderboardView = ({ rows, loading, error }) => {
                       </span>
                     </td>
                     <td className="px-4 py-3 text-slate-300">
-                      {formatDate(row.danger_next_expiry_ms)}
+                      {formatDate(showDanger ? row.danger_next_expiry_ms : null)}
                     </td>
-                    <td className="px-4 py-3 text-slate-200">
-                      {row.tournament_count ?? "—"}
+                    <td className="px-4 py-3 text-slate-200 whitespace-nowrap">
+                      {windowCount != null ? (
+                        <div className="flex flex-col">
+                          <span className="font-medium">{windowCount}</span>
+                          {totalTournaments != null && (
+                            <span className="text-xs text-slate-500">
+                              total {totalTournaments}
+                            </span>
+                          )}
+                        </div>
+                      ) : (
+                        totalTournaments ?? "—"
+                      )}
                     </td>
                     <td className="px-4 py-3 text-slate-300 hidden sm:table-cell">
                       {formatDate(row.last_active_ms)}

@@ -6,8 +6,8 @@ from typing import Any, Dict, Optional
 import orjson
 from fastapi import APIRouter, HTTPException
 
-from fast_api_app.feature_flags import is_comp_leaderboard_enabled
 from fast_api_app.connections import redis_conn
+from fast_api_app.feature_flags import is_comp_leaderboard_enabled
 from shared_lib.constants import (
     COMP_LEADERBOARD_FLAG_KEY,
     RIPPLE_DANGER_LATEST_KEY,
@@ -23,7 +23,9 @@ _STALENESS_THRESHOLD_MS = 24 * 60 * 60 * 1000  # 24 hours
 
 def _ensure_enabled() -> None:
     if not is_comp_leaderboard_enabled():
-        raise HTTPException(status_code=404, detail="Competition leaderboard is disabled")
+        raise HTTPException(
+            status_code=404, detail="Competition leaderboard is disabled"
+        )
 
 
 def _load_payload(key: str) -> Optional[Dict[str, Any]]:

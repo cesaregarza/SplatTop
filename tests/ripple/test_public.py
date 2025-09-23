@@ -14,7 +14,9 @@ def _now_ms() -> int:
 
 
 def test_public_leaderboard_disabled_returns_404(client_factory, fake_redis):
-    with client_factory(env={"COMP_LEADERBOARD_ENABLED": "false"}, redis=fake_redis) as client:
+    with client_factory(
+        env={"COMP_LEADERBOARD_ENABLED": "false"}, redis=fake_redis
+    ) as client:
         res = client.get("/api/ripple/public")
         assert res.status_code == 404
 
@@ -53,7 +55,9 @@ def test_public_leaderboard_returns_cached_payload(client_factory, fake_redis):
     }
     fake_redis.set(RIPPLE_STABLE_LATEST_KEY, orjson.dumps(payload))
 
-    with client_factory(env={"COMP_LEADERBOARD_ENABLED": "true"}, redis=fake_redis) as client:
+    with client_factory(
+        env={"COMP_LEADERBOARD_ENABLED": "true"}, redis=fake_redis
+    ) as client:
         res = client.get("/api/ripple/public")
         assert res.status_code == 200
         data = res.json()
@@ -88,7 +92,9 @@ def test_public_danger_returns_cached_payload(client_factory, fake_redis):
     }
     fake_redis.set(RIPPLE_DANGER_LATEST_KEY, orjson.dumps(payload))
 
-    with client_factory(env={"COMP_LEADERBOARD_ENABLED": "true"}, redis=fake_redis) as client:
+    with client_factory(
+        env={"COMP_LEADERBOARD_ENABLED": "true"}, redis=fake_redis
+    ) as client:
         res = client.get("/api/ripple/public/danger")
         assert res.status_code == 200
         data = res.json()
@@ -129,7 +135,9 @@ def test_public_meta_reports_presence(client_factory, fake_redis):
     fake_redis.set(RIPPLE_STABLE_LATEST_KEY, orjson.dumps(stable_payload))
     fake_redis.set(RIPPLE_DANGER_LATEST_KEY, orjson.dumps(danger_payload))
 
-    with client_factory(env={"COMP_LEADERBOARD_ENABLED": "true"}, redis=fake_redis) as client:
+    with client_factory(
+        env={"COMP_LEADERBOARD_ENABLED": "true"}, redis=fake_redis
+    ) as client:
         res = client.get("/api/ripple/public/meta")
         assert res.status_code == 200
         data = res.json()

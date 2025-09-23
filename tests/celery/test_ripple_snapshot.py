@@ -14,6 +14,8 @@ os.environ.setdefault("DB_PASSWORD", "pass")
 os.environ.setdefault("DB_NAME", "db")
 os.environ.setdefault("RANKINGS_DB_NAME", "db")
 
+from conftest import FakeRedis
+
 from celery_app.tasks import ripple_snapshot as snapshot_mod
 from shared_lib.constants import (
     RIPPLE_DANGER_LATEST_KEY,
@@ -21,7 +23,6 @@ from shared_lib.constants import (
     RIPPLE_STABLE_META_KEY,
     RIPPLE_STABLE_STATE_KEY,
 )
-from conftest import FakeRedis
 
 
 def test_refresh_ripple_snapshots_persists_payloads(monkeypatch):
@@ -92,13 +93,19 @@ def test_refresh_ripple_snapshots_persists_payloads(monkeypatch):
         fake_fetch_events,
         raising=False,
     )
+
     async def fake_first_score(session, player_id, event_ms):
         return {"p1": 1.2, "p2": 0.9}.get(player_id, 0.0)
 
     monkeypatch.setattr(
-        snapshot_mod, "_first_score_after_event", fake_first_score, raising=False
+        snapshot_mod,
+        "_first_score_after_event",
+        fake_first_score,
+        raising=False,
     )
-    monkeypatch.setattr(snapshot_mod, "_now_ms", lambda: current_ms, raising=False)
+    monkeypatch.setattr(
+        snapshot_mod, "_now_ms", lambda: current_ms, raising=False
+    )
 
     @asynccontextmanager
     async def fake_session():
@@ -127,7 +134,9 @@ def test_refresh_ripple_snapshots_persists_payloads(monkeypatch):
     danger_payload = orjson.loads(fake_redis.get(RIPPLE_DANGER_LATEST_KEY))
     assert danger_payload["record_count"] == 1
     assert danger_payload["data"][0]["player_id"] == "p1"
-    assert danger_payload["data"][0]["days_left"] == pytest.approx(1000 / 86_400_000)
+    assert danger_payload["data"][0]["days_left"] == pytest.approx(
+        1000 / 86_400_000
+    )
 
     meta_payload = orjson.loads(fake_redis.get(RIPPLE_STABLE_META_KEY))
     assert meta_payload["stable_record_count"] == 2
@@ -172,9 +181,7 @@ def test_existing_state_preserves_stable_score(monkeypatch):
         return [], 0, 2000, "2024.09.02"
 
     async def fake_fetch_events(session, player_ids):
-        return {
-            "p1": {"latest_event_ms": 400, "tournament_count": 4}
-        }
+        return {"p1": {"latest_event_ms": 400, "tournament_count": 4}}
 
     monkeypatch.setattr(
         snapshot_mod.ripple_queries,
@@ -194,11 +201,15 @@ def test_existing_state_preserves_stable_score(monkeypatch):
         fake_fetch_events,
         raising=False,
     )
+
     async def fake_first_score(session, player_id, event_ms):
         return 0.9
 
     monkeypatch.setattr(
-        snapshot_mod, "_first_score_after_event", fake_first_score, raising=False
+        snapshot_mod,
+        "_first_score_after_event",
+        fake_first_score,
+        raising=False,
     )
     monkeypatch.setattr(snapshot_mod, "_now_ms", lambda: 4_000, raising=False)
 
