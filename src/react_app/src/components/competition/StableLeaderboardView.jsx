@@ -1,5 +1,8 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
+import "./StableLeaderboardView.css";
 
+const CRACKLE_PURPLE = "#a78bfa";
+const CRACKLE_STROKE_WIDTH = { min: 0.6, max: 1.2 };
 const nf2 = new Intl.NumberFormat(undefined, { maximumFractionDigits: 2 });
 
 const RAW_GRADE_SCALE = [
@@ -54,6 +57,69 @@ const chipClass = (severity) =>
     neutral: "bg-slate-700/20 text-slate-300 ring-1 ring-white/10",
   }[severity] || "bg-slate-700/20 text-slate-300 ring-1 ring-white/10");
 
+// Map grade labels to CSS tier classes for consistent styling
+const tierFor = (label) => {
+  switch (label) {
+    case "XX★":
+      return "grade-tier-xxstar";
+    case "XX+":
+      return "grade-tier-xxplus";
+    case "XX":
+      return "grade-tier-xx";
+    case "XS+":
+      return "grade-tier-xsplus";
+    case "XS":
+      return "grade-tier-xs";
+    case "XS-":
+      return "grade-tier-xsminus";
+    case "XA+":
+      return "grade-tier-xaplus";
+    case "XA":
+      return "grade-tier-xa";
+    case "XA-":
+      return "grade-tier-xaminus";
+    case "XB+":
+      return "grade-tier-xbplus";
+    case "XB":
+      return "grade-tier-xb";
+    case "XB-":
+      return "grade-tier-xbminus";
+    default:
+      return "grade-tier-default";
+  }
+};
+
+const gradeChipClass = (label, active) => {
+  const tier = tierFor(label);
+  return `grade-chip ${tier} ${active ? "is-active" : ""}`.trim();
+};
+
+const isXX = (label) => label === "XX★" || label === "XX+" || label === "XX";
+const rateFor = (label) => (label === "XX★" ? 4 : label === "XX+" ? 3 : 2.4);
+
+const GradeBadge = ({ label }) => {
+  if (!label)
+    return (
+      <span className="grade-badge grade-tier-default" title="Grade —">
+        —
+      </span>
+    );
+  const tier = tierFor(label);
+  const crackleClass = isXX(label) ? "crackle" : "";
+  const dataProps = isXX(label)
+    ? { "data-color": CRACKLE_PURPLE, "data-rate": rateFor(label) }
+    : {};
+  return (
+    <span
+      className={`grade-badge ${tier} ${crackleClass}`}
+      title={`Grade ${label}`}
+      {...dataProps}
+    >
+      {label}
+    </span>
+  );
+};
+
 const ScoreBar = ({ value, max }) => {
   if (value == null || max == null || max <= 0) return null;
   const pct = Math.max(0, Math.min(100, (value / max) * 100));
@@ -64,14 +130,16 @@ const ScoreBar = ({ value, max }) => {
   );
 };
 
-const StableLeaderboardView = ({ rows, loading, error }) => {
+const StableLeaderboardView = ({ rows, loading, error, windowDays }) => {
   const [query, setQuery] = useState("");
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(25);
   const [jumpPlayerId, setJumpPlayerId] = useState("");
-  const [jumpRank, setJumpRank] = useState("");
+  const [jumpGrade, setJumpGrade] = useState("");
   const [highlightId, setHighlightId] = useState(null);
   const highlightTimerRef = useRef(null);
+  const rootRef = useRef(null);
+  const crackleMapRef = useRef(new Map());
 
   const prepared = useMemo(() => {
     const data = Array.isArray(rows) ? rows : [];
@@ -130,13 +198,167 @@ const StableLeaderboardView = ({ rows, loading, error }) => {
     });
   };
 
-  const gotoRank = (rankValue) => {
-    const rankNum = Number(rankValue);
-    if (!Number.isFinite(rankNum) || rankNum < 1) return;
-    const index = rankNum - 1;
-    const targetPage = Math.floor(index / pageSize) + 1;
+  // Attach "realistic crackle" SVG layers to XX badges/chips
+  useEffect(() => {
+    const root = rootRef.current;
+    if (!root) return;
+    const reduceMotion =
+      typeof window !== "undefined" &&
+      typeof window.matchMedia === "function" &&
+      window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+
+    const map = crackleMapRef.current;
+    const ns = "http://www.w3.org/2000/svg";
+
+    function cleanupNode(el) {
+      const st = map.get(el);
+      if (!st) return;
+      st.cancelled = true;
+      for (const t of st.timers) clearTimeout(t);
+      try {
+        if (st.layer && st.layer.parentNode) st.layer.parentNode.removeChild(st.layer);
+      } catch {}
+      map.delete(el);
+    }
+
+    function initNode(el) {
+      if (map.has(el)) return;
+      const color = (el.getAttribute("data-color") || "#a78bfa").trim();
+      const rate = Math.max(0, parseFloat(el.getAttribute("data-rate") || "3"));
+      el.style.setProperty("--zap-color", color);
+      const layer = document.createElement("span");
+      layer.className = "crackle-layer";
+      const svg = document.createElementNS(ns, "svg");
+      svg.setAttribute("viewBox", "0 0 100 100");
+      svg.setAttribute("preserveAspectRatio", "none");
+      layer.appendChild(svg);
+      el.appendChild(layer);
+      if (reduceMotion || rate === 0) {
+        map.set(el, { layer, svg, timers: [], cancelled: true, pool: [] });
+        return;
+      }
+      const POOL = 12;
+      const pool = [];
+      for (let i = 0; i < POOL; i++) {
+        const p = document.createElementNS(ns, "path");
+        p.setAttribute("class", "spark");
+        p.setAttribute("stroke", color);
+        const strokeWidth =
+          CRACKLE_STROKE_WIDTH.min +
+          Math.random() * (CRACKLE_STROKE_WIDTH.max - CRACKLE_STROKE_WIDTH.min);
+        p.setAttribute("stroke-width", strokeWidth.toFixed(2));
+        svg.appendChild(p);
+        pool.push({ el: p, busy: false });
+      }
+      const state = { layer, svg, timers: [], cancelled: false, pool, rate };
+
+      function makeSparkPath() {
+        // Ring crackle: short jagged arc just outside the chip
+        const R = 47;                             // base ring radius (units in viewBox)
+        const amp = 1.7 + Math.random() * 2.1;    // radial jitter
+        const seg = 5 + ((Math.random() * 3) | 0); // 5–7 segments
+        const arc = (8 + Math.random() * 18) * Math.PI / 180; // 8–26° arc span
+        const a0  = Math.random() * Math.PI * 2;  // random starting angle
+
+        const pts = [];
+        for (let i = 0; i <= seg; i++) {
+          const t = i / seg;
+          const ang = a0 + (t - 0.5) * arc;
+          const ri  = R + (Math.random() * 2 - 1) * amp + (Math.random() < 0.5 ? -0.2 : 0.2);
+          pts.push([50 + ri * Math.cos(ang), 50 + ri * Math.sin(ang)]);
+        }
+        let d = `M${pts[0][0].toFixed(2)} ${pts[0][1].toFixed(2)}`;
+        for (let i = 1; i < pts.length; i++) d += `L${pts[i][0].toFixed(2)} ${pts[i][1].toFixed(2)}`;
+        // Occasional outward branch
+        if (Math.random() < 0.6) {
+          const k = 1 + Math.floor(Math.random() * (pts.length - 2));
+          const base = pts[k];
+          const branchAngle = a0 + ((k / seg) - 0.5) * arc + (Math.random() * 0.6 - 0.3);
+          const rb1 = R + amp * (0.6 + Math.random() * 0.8);
+          const rb2 = rb1 + Math.random() * amp * 0.9;
+          const bx1 = 50 + rb1 * Math.cos(branchAngle);
+          const by1 = 50 + rb1 * Math.sin(branchAngle);
+          const bx2 = 50 + rb2 * Math.cos(branchAngle + (Math.random() < 0.5 ? 0.8 : -0.8));
+          const by2 = 50 + rb2 * Math.sin(branchAngle + (Math.random() < 0.5 ? 0.8 : -0.8));
+          d += `M${base[0].toFixed(2)} ${base[1].toFixed(2)} L${bx1.toFixed(2)} ${by1.toFixed(2)} L${bx2.toFixed(2)} ${by2.toFixed(2)}`;
+        }
+        return d;
+      }
+
+      function flashOne() {
+        const slot = pool.find((s) => !s.busy);
+        if (!slot) return;
+        slot.busy = true;
+        slot.el.setAttribute("d", makeSparkPath());
+        slot.el.classList.add("show");
+        const life = 50 + Math.random() * 120;
+        const t1 = setTimeout(() => {
+          slot.el.classList.remove("show");
+          const t2 = setTimeout(() => {
+            slot.busy = false;
+          }, 110);
+          state.timers.push(t2);
+        }, life);
+        state.timers.push(t1);
+      }
+
+      function loop() {
+        if (state.cancelled) return;
+        const interval = -Math.log(1 - Math.random()) / (state.rate || 1) * 1000;
+        const t = setTimeout(() => {
+          if (state.cancelled) return;
+          const burst = Math.random() < 0.25 ? (2 + (Math.random() < 0.35 ? 1 : 0)) : 1;
+          for (let i = 0; i < burst; i++) {
+            const ti = setTimeout(() => {
+              if (!state.cancelled) flashOne();
+            }, i * 22 + Math.random() * 18);
+            state.timers.push(ti);
+          }
+          loop();
+        }, interval);
+        state.timers.push(t);
+      }
+
+      loop();
+      map.set(el, state);
+    }
+
+    // Attach to current crackle elements
+    const targets = Array.from(root.querySelectorAll(".crackle"));
+    targets.forEach((el) => initNode(el));
+    // Cleanup for removed elements
+    for (const el of Array.from(map.keys())) {
+      if (!root.contains(el)) cleanupNode(el);
+    }
+
+    return () => {
+      for (const el of Array.from(map.keys())) cleanupNode(el);
+      map.clear();
+    };
+  }, [rows, query, page, pageSize]);
+
+  const gotoGrade = (gradeValue) => {
+    const label = String(gradeValue || "").trim();
+    if (!label) return;
+    const idx = prepared.all.findIndex((r) => r._grade === label);
+    if (idx < 0) return;
+    const targetPage = Math.floor(idx / pageSize) + 1;
     setQuery("");
     setPage(targetPage);
+    try {
+      const row = prepared.all[idx];
+      if (row?.player_id) {
+        setHighlightId(row.player_id);
+        if (highlightTimerRef.current) clearTimeout(highlightTimerRef.current);
+        highlightTimerRef.current = setTimeout(() => setHighlightId(null), 3000);
+      }
+      setJumpGrade(label);
+      const url = new URL(window.location.href);
+      url.searchParams.set("grade", label);
+      url.searchParams.delete("player");
+      url.searchParams.delete("rank");
+      window.history.replaceState(null, "", url.toString());
+    } catch {}
   };
 
   const gotoPlayerId = (pid) => {
@@ -170,16 +392,16 @@ const StableLeaderboardView = ({ rows, loading, error }) => {
     }
   };
 
-  // Deep-linking via ?player=ID or ?rank=N
+  // Deep-linking via ?player=ID or ?grade=LABEL
   useEffect(() => {
     try {
       const url = new URL(window.location.href);
       const qPlayer = url.searchParams.get("player");
-      const qRank = url.searchParams.get("rank");
+      const qGrade = url.searchParams.get("grade");
       if (qPlayer) {
         gotoPlayerId(qPlayer);
-      } else if (qRank) {
-        gotoRank(qRank);
+      } else if (qGrade) {
+        gotoGrade(qGrade);
       }
     } catch {}
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -193,13 +415,12 @@ const StableLeaderboardView = ({ rows, loading, error }) => {
             <thead className="bg-slate-900/70 sticky top-0 text-left text-xs font-semibold uppercase tracking-wider text-slate-400">
               <tr>
                 <th className="px-4 py-3">Rank</th>
-                <th className="px-4 py-3">Player</th>
+                <th className="px-4 py-3 w-[16rem]">Player</th>
                 <th className="px-4 py-3">Display Score</th>
                 <th className="px-4 py-3">Grade</th>
                 <th className="px-4 py-3">Days Left</th>
                 <th className="px-4 py-3">Next Expiry</th>
-                <th className="px-4 py-3">Tournaments (90d)</th>
-                <th className="px-4 py-3 hidden sm:table-cell">Last Active</th>
+                <th className="px-4 py-3">Tournaments ({windowDays ?? 90}d)</th>
                 <th className="px-4 py-3 hidden sm:table-cell">Last Tournament</th>
               </tr>
             </thead>
@@ -209,7 +430,7 @@ const StableLeaderboardView = ({ rows, loading, error }) => {
                   <td className="px-4 py-3">
                     <div className="h-6 w-6 rounded-full bg-slate-800" />
                   </td>
-                  <td className="px-4 py-3">
+                  <td className="px-4 py-3 w-[16rem]">
                     <div className="h-4 w-48 rounded bg-slate-800" />
                     <div className="mt-1 h-3 w-28 rounded bg-slate-900" />
                   </td>
@@ -228,9 +449,6 @@ const StableLeaderboardView = ({ rows, loading, error }) => {
                   </td>
                   <td className="px-4 py-3">
                     <div className="h-4 w-10 rounded bg-slate-800" />
-                  </td>
-                  <td className="px-4 py-3 hidden sm:table-cell">
-                    <div className="h-4 w-24 rounded bg-slate-800" />
                   </td>
                   <td className="px-4 py-3 hidden sm:table-cell">
                     <div className="h-4 w-24 rounded bg-slate-800" />
@@ -268,13 +486,12 @@ const StableLeaderboardView = ({ rows, loading, error }) => {
             <thead className="sticky top-0 z-10 bg-slate-900/70 backdrop-blur text-left text-xs font-semibold uppercase tracking-wider text-slate-400">
               <tr>
                 <th className="px-4 py-3">Rank</th>
-                <th className="px-4 py-3">Player</th>
+                <th className="px-4 py-3 w-[16rem]">Player</th>
                 <th className="px-4 py-3">Display Score</th>
                 <th className="px-4 py-3">Grade</th>
                 <th className="px-4 py-3">Days Left</th>
                 <th className="px-4 py-3">Next Expiry</th>
-                <th className="px-4 py-3">Tournaments (90d)</th>
-                <th className="px-4 py-3 hidden sm:table-cell">Last Active</th>
+                <th className="px-4 py-3">Tournaments ({windowDays ?? 90}d)</th>
                 <th className="px-4 py-3 hidden sm:table-cell">Last Tournament</th>
               </tr>
             </thead>
@@ -283,18 +500,23 @@ const StableLeaderboardView = ({ rows, loading, error }) => {
                 const rank = row.stable_rank ?? "—";
                 const shifted = row._shifted;
                 const grade = row._grade;
-                const tournamentCount =
-                  row.window_tournament_count ?? row.tournament_count;
+                // Use only the 90d window count for danger logic; do not
+                // substitute total tournament counts here.
+                const tournamentCount = row.window_tournament_count ?? null;
                 const showDanger =
                   tournamentCount === 3 && row.danger_days_left != null;
                 const days = showDanger ? row.danger_days_left : null;
                 const severity = severityOf(days);
-                const daysLabel =
-                  days == null
-                    ? "—"
-                    : days < 0
-                    ? "Expired"
-                    : `${Math.max(days, 0).toFixed(1)}d`;
+                let daysLabel;
+                if (days == null) {
+                  daysLabel = "—";
+                } else if (days < 0) {
+                  daysLabel = "Expired";
+                } else if (days < 1) {
+                  daysLabel = "<1d";
+                } else {
+                  daysLabel = `${Math.round(days)}d`;
+                }
                 const totalTournaments = row.tournament_count ?? null;
                 const windowCount = row.window_tournament_count ?? null;
 
@@ -307,8 +529,8 @@ const StableLeaderboardView = ({ rows, loading, error }) => {
                     }`}
                   >
                     <td className="px-4 py-3 font-semibold text-slate-200 whitespace-nowrap">{rank}</td>
-                    <td className="px-4 py-3 align-top">
-                      <div className="flex flex-col min-w-0 max-w-[14rem]">
+                    <td className="px-4 py-3 align-top w-[16rem]">
+                      <div className="flex flex-col min-w-0 w-[16rem]">
                         {row.player_id ? (
                           <a
                             href={`https://sendou.ink/u/${row.player_id}`}
@@ -344,9 +566,7 @@ const StableLeaderboardView = ({ rows, loading, error }) => {
                       </div>
                     </td>
                     <td className="px-4 py-3 whitespace-nowrap">
-                      <span className="inline-flex items-center rounded-md bg-slate-800 px-2 py-0.5 text-xs font-semibold text-slate-200">
-                        {grade}
-                      </span>
+                      <GradeBadge label={grade} />
                     </td>
                     <td className="px-4 py-3 whitespace-nowrap">
                       <span className={`inline-flex items-center rounded-md px-2 py-0.5 text-xs font-medium ${chipClass(severity)}`}>
@@ -371,9 +591,6 @@ const StableLeaderboardView = ({ rows, loading, error }) => {
                       )}
                     </td>
                     <td className="px-4 py-3 text-slate-300 hidden sm:table-cell">
-                      {formatDate(row.last_active_ms)}
-                    </td>
-                    <td className="px-4 py-3 text-slate-300 hidden sm:table-cell">
                       {formatDate(row.last_tournament_ms)}
                     </td>
                   </tr>
@@ -383,7 +600,7 @@ const StableLeaderboardView = ({ rows, loading, error }) => {
           </table>
         </div>
 
-        <div className="mt-4 flex flex-col items-center justify-between gap-3 sm:flex-row">
+        <div className="mt-4 space-y-3">
           <div className="flex flex-wrap items-center gap-2 text-sm text-slate-400">
             <span>Rows per page</span>
             <select
@@ -404,122 +621,126 @@ const StableLeaderboardView = ({ rows, loading, error }) => {
               Page {prepared.current} of {prepared.pageCount} • {prepared.total} players
             </span>
           </div>
-          <div className="flex flex-col sm:flex-row gap-2 w-full sm:w-auto sm:items-center justify-center">
-            <form
-              className="flex items-center gap-2"
-              onSubmit={(e) => {
-                e.preventDefault();
-                gotoPlayerId(jumpPlayerId.trim());
-              }}
-            >
-              <input
-                type="text"
-                inputMode="text"
-                placeholder="Jump to player ID"
-                value={jumpPlayerId}
-                onChange={(e) => setJumpPlayerId(e.target.value)}
-                className="rounded-md bg-slate-900/80 px-2 py-1 text-slate-100 placeholder:text-slate-500 ring-1 ring-white/10"
-              />
-              <button
-                type="submit"
-                className="rounded-md px-3 py-1.5 text-sm bg-fuchsia-600 text-white ring-1 ring-white/10 hover:bg-fuchsia-500"
-              >
-                Go
-              </button>
-            </form>
 
-            <form
-              className="flex items-center gap-2"
-              onSubmit={(e) => {
-                e.preventDefault();
-                gotoRank(jumpRank);
-                // reflect in URL
-                try {
-                  const url = new URL(window.location.href);
-                  url.searchParams.set("rank", String(jumpRank));
-                  url.searchParams.delete("player");
-                  window.history.replaceState(null, "", url.toString());
-                } catch {}
-              }}
+          <nav className="flex flex-wrap items-center justify-center gap-1">
+            <button
+              className="rounded-md px-3 py-1.5 text-sm bg-slate-900/70 ring-1 ring-white/10 text-slate-200 disabled:opacity-50"
+              onClick={() => goto(prepared.current - 1)}
+              disabled={prepared.current <= 1}
             >
-              <input
-                type="number"
-                inputMode="numeric"
-                min="1"
-                placeholder="Go to rank"
-                value={jumpRank}
-                onChange={(e) => setJumpRank(e.target.value)}
-                className="rounded-md bg-slate-900/80 px-2 py-1 text-slate-100 placeholder:text-slate-500 ring-1 ring-white/10 w-28"
-              />
-              <button
-                type="submit"
-                className="rounded-md px-3 py-1.5 text-sm bg-slate-700 text-slate-100 ring-1 ring-white/10 hover:bg-slate-600"
-              >
-                Go
-              </button>
-            </form>
-
-            <nav className="flex flex-wrap items-center justify-center gap-1">
-              <button
-                className="rounded-md px-3 py-1.5 text-sm bg-slate-900/70 ring-1 ring-white/10 text-slate-200 disabled:opacity-50"
-                onClick={() => goto(prepared.current - 1)}
-                disabled={prepared.current <= 1}
-              >
-                Prev
-              </button>
-              {(() => {
-                const total = prepared.pageCount;
-                const cur = prepared.current;
-                const windowSize = 2; // pages around current
-                const pages = new Set([1, total]);
-                for (let p = cur - windowSize; p <= cur + windowSize; p++) {
-                  if (p >= 1 && p <= total) pages.add(p);
-                }
-                const arr = Array.from(pages).sort((a, b) => a - b);
-                const items = [];
-                for (let i = 0; i < arr.length; i++) {
-                  const p = arr[i];
-                  const prev = i > 0 ? arr[i - 1] : null;
-                  if (prev && p - prev > 1) {
-                    items.push(
-                      <span key={`gap-${prev}`} className="px-1 text-slate-500">
-                        …
-                      </span>
-                    );
-                  }
-                  const active = p === cur;
+              Prev
+            </button>
+            {(() => {
+              const total = prepared.pageCount;
+              const cur = prepared.current;
+              const windowSize = 2; // pages around current
+              const pages = new Set([1, total]);
+              for (let p = cur - windowSize; p <= cur + windowSize; p++) {
+                if (p >= 1 && p <= total) pages.add(p);
+              }
+              const arr = Array.from(pages).sort((a, b) => a - b);
+              const items = [];
+              for (let i = 0; i < arr.length; i++) {
+                const p = arr[i];
+                const prev = i > 0 ? arr[i - 1] : null;
+                if (prev && p - prev > 1) {
                   items.push(
-                    <button
-                      key={p}
-                      className={`rounded-md px-3 py-1.5 text-sm ring-1 ring-white/10 ${
-                        active
-                          ? "bg-slate-200 text-slate-900"
-                          : "bg-slate-900/70 text-slate-200"
-                      }`}
-                      onClick={() => goto(p)}
-                    >
-                      {p}
-                    </button>
+                    <span key={`gap-${prev}`} className="px-1 text-slate-500">
+                      …
+                    </span>
                   );
                 }
-                return items;
-              })()}
-              <button
-                className="rounded-md px-3 py-1.5 text-sm bg-slate-900/70 ring-1 ring-white/10 text-slate-200 disabled:opacity-50"
-                onClick={() => goto(prepared.current + 1)}
-                disabled={prepared.current >= prepared.pageCount}
-              >
-                Next
-              </button>
-            </nav>
-          </div>
+                const active = p === cur;
+                items.push(
+                  <button
+                    key={p}
+                    className={`rounded-md px-3 py-1.5 text-sm ring-1 ring-white/10 ${
+                      active
+                        ? "bg-slate-200 text-slate-900"
+                        : "bg-slate-900/70 text-slate-200"
+                    }`}
+                    onClick={() => goto(p)}
+                  >
+                    {p}
+                  </button>
+                );
+              }
+              return items;
+            })()}
+            <button
+              className="rounded-md px-3 py-1.5 text-sm bg-slate-900/70 ring-1 ring-white/10 text-slate-200 disabled:opacity-50"
+              onClick={() => goto(prepared.current + 1)}
+              disabled={prepared.current >= prepared.pageCount}
+            >
+              Next
+            </button>
+          </nav>
+
+          {(() => {
+            // Compute visible grades from the current filtered dataset
+            const present = new Set(
+              prepared.all
+                .map((r) => r._grade)
+                .filter((g) => g && g !== "—")
+            );
+            const ordered = DISPLAY_GRADE_SCALE.map(([, label]) => label)
+              .slice()
+              .reverse() // best first
+              .filter((label) => present.has(label));
+            if (!ordered.length) return null;
+            return (
+              <nav className="flex flex-wrap items-center justify-center gap-2">
+                {ordered.map((label) => {
+                  const active = jumpGrade === label;
+      const crackleCls = isXX(label) ? "crackle" : "";
+      const dataRate = isXX(label) ? rateFor(label) : undefined;
+      return (
+        <button
+          key={label}
+          type="button"
+          aria-pressed={active}
+          className={`${gradeChipClass(label, active)} ${crackleCls}`}
+          data-color={CRACKLE_PURPLE}
+          {...(dataRate ? { "data-rate": dataRate } : {})}
+          onClick={() => gotoGrade(label)}
+        >
+                      {label}
+                    </button>
+                  );
+                })}
+              </nav>
+            );
+          })()}
+
+          <form
+            className="flex items-center justify-center gap-2"
+            onSubmit={(e) => {
+              e.preventDefault();
+              gotoPlayerId(jumpPlayerId.trim());
+            }}
+          >
+            <input
+              type="text"
+              inputMode="text"
+              placeholder="Jump to player ID"
+              value={jumpPlayerId}
+              onChange={(e) => setJumpPlayerId(e.target.value)}
+              className="rounded-md bg-slate-900/80 px-2 py-1 text-slate-100 placeholder:text-slate-500 ring-1 ring-white/10"
+            />
+            <button
+              type="submit"
+              className="rounded-md px-3 py-1.5 text-sm bg-fuchsia-600 text-white ring-1 ring-white/10 hover:bg-fuchsia-500"
+            >
+              Go
+            </button>
+          </form>
         </div>
       </>
     );
   }, [loading, error, prepared, query, pageSize]);
 
   return (
-    <section>
+    <section ref={rootRef}>
       <header className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
         <div>
           <h2 className="text-2xl font-semibold text-slate-100">Stable leaderboard</h2>

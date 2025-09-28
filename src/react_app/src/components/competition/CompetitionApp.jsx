@@ -4,7 +4,7 @@ import StableLeaderboardView from "./StableLeaderboardView";
 import useCompetitionSnapshot from "../../hooks/useCompetitionSnapshot";
 
 const CompetitionApp = () => {
-  const { loading, error, disabled, stable, danger, meta, refresh } =
+  const { loading, error, disabled, stable, danger, refresh } =
     useCompetitionSnapshot();
 
   const mergedRows = useMemo(() => {
@@ -18,8 +18,11 @@ const CompetitionApp = () => {
         danger_days_left: dangerRow?.days_left ?? null,
         danger_next_expiry_ms: dangerRow?.next_expiry_ms ?? null,
         danger_oldest_in_window_ms: dangerRow?.oldest_in_window_ms ?? null,
+        // Prefer danger's live window count; otherwise use stable payload's
+        // window count when available. Do NOT fall back to total tournaments,
+        // as that incorrectly implies all tournaments occurred in the window.
         window_tournament_count:
-          dangerRow?.window_tournament_count ?? row.tournament_count,
+          dangerRow?.window_tournament_count ?? row.window_tournament_count ?? null,
       };
     });
   }, [stable?.data, danger?.data]);
@@ -42,6 +45,8 @@ const CompetitionApp = () => {
   const stale = Boolean(stable?.stale || danger?.stale);
   const generatedAtMs = stable?.generated_at_ms ?? danger?.generated_at_ms;
 
+  const windowDays = stable?.query_params?.tournament_window_days ?? null;
+
   return (
     <CompetitionLayout
       generatedAtMs={generatedAtMs}
@@ -57,20 +62,12 @@ const CompetitionApp = () => {
       )}
 
       <div className="grid gap-8">
-        <StableLeaderboardView rows={mergedRows} loading={loading} error={error} />
-
-        {meta && (
-          <aside className="rounded-lg border border-slate-800 bg-slate-900/70 p-4 text-sm text-slate-300">
-            <p className="text-xs uppercase tracking-wide text-slate-500">
-              Snapshot details
-            </p>
-            <ul className="mt-2 space-y-1">
-              <li>Stable rows: {meta.stable_record_count ?? "—"}</li>
-              <li>Danger rows: {meta.danger_record_count ?? "—"}</li>
-              <li>Build version: {meta.build_version ?? "—"}</li>
-            </ul>
-          </aside>
-        )}
+        <StableLeaderboardView
+          rows={mergedRows}
+          loading={loading}
+          error={error}
+          windowDays={windowDays}
+        />
       </div>
     </CompetitionLayout>
   );

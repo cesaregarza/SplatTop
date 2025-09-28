@@ -21,7 +21,7 @@ from shared_lib.queries import ripple_queries
 logger = logging.getLogger(__name__)
 
 DEFAULT_LIMIT = None
-DEFAULT_TOURNAMENT_WINDOW_DAYS = 90
+DEFAULT_TOURNAMENT_WINDOW_DAYS = 120
 SCORE_OFFSET = 0.0
 SCORE_MULTIPLIER = 25.0
 MS_PER_DAY = 86_400_000
@@ -89,13 +89,17 @@ async def _fetch_player_events(
     schema = ripple_queries._schema()
     schema_sql = f'"{schema}"'
 
+    # Use LEFT JOIN to ensure lifetime tournament_count is not undercounted
+    # when a tournament is missing from the event-time MV. We still compute
+    # latest_event_ms from available event times, but total tournaments are
+    # counted across all appearances.
     query = text(
         f"""
         SELECT pat.player_id,
                MAX(tet.event_ms)::bigint AS latest_event_ms,
                COUNT(DISTINCT pat.tournament_id)::int AS tournament_count
         FROM {schema_sql}.player_appearance_teams pat
-        JOIN {schema_sql}.tournament_event_times tet
+        LEFT JOIN {schema_sql}.tournament_event_times tet
           ON tet.tournament_id = pat.tournament_id
         WHERE pat.player_id = ANY(:player_ids)
         GROUP BY pat.player_id
@@ -164,8 +168,8 @@ async def _bootstrap_state(
         state[player_id] = {
             "stable_score": stable_score,
             "last_tournament_ms": latest_event_ms,
-            "last_active_ms": _to_int(row.get("last_active_ms"))
-            or latest_event_ms,
+            # Align last_active_ms to last_tournament_ms to prevent desyncs
+            "last_active_ms": latest_event_ms,
             "tournament_count": tournament_count
             or _to_int(row.get("tournament_count")),
             "updated_at_ms": now_ms,
@@ -193,7 +197,9 @@ def _merge_state(
         tournament_count = event_info.get("tournament_count")
         if tournament_count is None:
             tournament_count = _to_int(row.get("tournament_count"))
-        last_active_ms = _to_int(row.get("last_active_ms")) or latest_event_ms
+        # We intentionally align last_active_ms with last_tournament_ms so that
+        # the public snapshot displays a single coherent timestamp for both.
+        last_active_ms = None  # will be set after last_tournament_ms determined
 
         existing = new_state.get(player_id, {})
         stable_score = existing.get("stable_score")
@@ -209,6 +215,9 @@ def _merge_state(
         if last_tournament_ms is None:
             last_tournament_ms = latest_event_ms
 
+        # Finalize last_active_ms to match last_tournament_ms
+        last_active_ms = last_tournament_ms
+
         new_state[player_id] = {
             "stable_score": stable_score,
             "last_tournament_ms": last_tournament_ms,
@@ -217,6 +226,9 @@ def _merge_state(
             "updated_at_ms": now_ms,
         }
 
+        # Include 90d window count from the page row when available so the
+        # public stable payload can show window counts even if a player does
+        # not appear in the danger set.
         stable_rows.append(
             {
                 "player_id": player_id,
@@ -224,6 +236,7 @@ def _merge_state(
                 "stable_score": stable_score,
                 "display_score": _display_score(stable_score),
                 "tournament_count": tournament_count,
+                "window_tournament_count": _to_int(row.get("window_count")),
                 "last_active_ms": last_active_ms,
                 "last_tournament_ms": last_tournament_ms,
             }
