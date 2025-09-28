@@ -2,8 +2,10 @@ import React, { useEffect, useMemo, useRef, useState } from "react";
 import "./StableLeaderboardView.css";
 
 const CRACKLE_PURPLE = "#a78bfa";
-const CRACKLE_STROKE_WIDTH = { min: 0.6, max: 1.2 };
-const nf2 = new Intl.NumberFormat(undefined, { maximumFractionDigits: 2 });
+const nf2 = new Intl.NumberFormat(undefined, {
+  minimumFractionDigits: 2,
+  maximumFractionDigits: 2,
+});
 
 const RAW_GRADE_SCALE = [
   [-5, "XB-"],
@@ -120,12 +122,43 @@ const GradeBadge = ({ label }) => {
   );
 };
 
-const ScoreBar = ({ value, max }) => {
-  if (value == null || max == null || max <= 0) return null;
-  const pct = Math.max(0, Math.min(100, (value / max) * 100));
+const ScoreBar = ({ value }) => {
+  if (value == null) return null;
+  const BASELINE_MAX = 250;
+  const pct = Math.max(0, Math.min(100, (value / BASELINE_MAX) * 100));
+  const tier = value >= 300 ? "xxstar" : value >= BASELINE_MAX ? "xxplus" : "base";
+  const wrapperClasses = [
+    "relative mt-1 h-1.5 rounded-full bg-slate-800 overflow-hidden"
+  ];
+  let wrapperStyle = undefined;
+  let barClass = "bg-fuchsia-500/60";
+  let glow = null;
+
+  if (tier === "xxplus") {
+    wrapperClasses.push("ring-1 ring-fuchsia-300/40");
+    barClass = "bg-gradient-to-r from-fuchsia-400 via-violet-300 to-fuchsia-300";
+    glow = (
+      <span
+        aria-hidden
+        className="pointer-events-none absolute inset-0 rounded-full bg-fuchsia-400/25 blur-sm"
+      />
+    );
+  } else if (tier === "xxstar") {
+    wrapperClasses.push("ring-1 ring-amber-200/40");
+    wrapperStyle = { boxShadow: "0 0 12px rgba(249, 168, 212, 0.35)" };
+    barClass = "bg-gradient-to-r from-fuchsia-300 via-violet-200 to-amber-200";
+    glow = (
+      <span
+        aria-hidden
+        className="pointer-events-none absolute inset-0 rounded-full bg-amber-100/30 blur"
+      />
+    );
+  }
+
   return (
-    <div className="mt-1 h-1.5 rounded-full bg-slate-800 overflow-hidden">
-      <div className="h-full bg-fuchsia-500/60" style={{ width: `${pct}%` }} aria-hidden />
+    <div className={wrapperClasses.join(" ")} style={wrapperStyle}>
+      <div className={`h-full ${barClass}`} style={{ width: `${pct}%` }} aria-hidden />
+      {glow}
     </div>
   );
 };
@@ -176,11 +209,6 @@ const StableLeaderboardView = ({ rows, loading, error, windowDays }) => {
       (a, b) => (a.stable_rank ?? Infinity) - (b.stable_rank ?? Infinity)
     );
 
-    const maxShifted = filtered.reduce(
-      (max, row) => (row._shifted != null && row._shifted > max ? row._shifted : max),
-      0
-    );
-
     const total = filtered.length;
     const pageCount = Math.max(1, Math.ceil(total / pageSize));
     const current = Math.min(page, pageCount);
@@ -188,7 +216,7 @@ const StableLeaderboardView = ({ rows, loading, error, windowDays }) => {
     const end = start + pageSize;
     const pageRows = filtered.slice(start, end);
 
-    return { filtered: pageRows, total, pageCount, current, maxShifted, all: filtered };
+    return { filtered: pageRows, total, pageCount, current, all: filtered };
   }, [rows, query, page, pageSize]);
 
   const goto = (value) => {
@@ -237,16 +265,16 @@ const StableLeaderboardView = ({ rows, loading, error, windowDays }) => {
         map.set(el, { layer, svg, timers: [], cancelled: true, pool: [] });
         return;
       }
+      const dpr = typeof window !== "undefined" ? window.devicePixelRatio || 1 : 1;
+      const hairline = 1 / dpr;
       const POOL = 12;
       const pool = [];
       for (let i = 0; i < POOL; i++) {
         const p = document.createElementNS(ns, "path");
         p.setAttribute("class", "spark");
         p.setAttribute("stroke", color);
-        const strokeWidth =
-          CRACKLE_STROKE_WIDTH.min +
-          Math.random() * (CRACKLE_STROKE_WIDTH.max - CRACKLE_STROKE_WIDTH.min);
-        p.setAttribute("stroke-width", strokeWidth.toFixed(2));
+        const strokeWidth = hairline * (0.9 + Math.random() * 0.2);
+        p.setAttribute("stroke-width", strokeWidth.toFixed(3));
         svg.appendChild(p);
         pool.push({ el: p, busy: false });
       }
@@ -414,14 +442,22 @@ const StableLeaderboardView = ({ rows, loading, error, windowDays }) => {
           <table className="min-w-full divide-y divide-slate-800">
             <thead className="bg-slate-900/70 sticky top-0 text-left text-xs font-semibold uppercase tracking-wider text-slate-400">
               <tr>
-                <th className="px-4 py-3">Rank</th>
-                <th className="px-4 py-3 w-[16rem]">Player</th>
-                <th className="px-4 py-3">Display Score</th>
-                <th className="px-4 py-3">Grade</th>
-                <th className="px-4 py-3">Days Left</th>
-                <th className="px-4 py-3">Next Expiry</th>
-                <th className="px-4 py-3">Tournaments ({windowDays ?? 90}d)</th>
-                <th className="px-4 py-3 hidden sm:table-cell">Last Tournament</th>
+                <th className="px-4 py-3" title="Stable leaderboard position after filtering">Rank</th>
+                <th className="px-4 py-3 w-[16rem]" title="Player display name and Sendou ID">Player</th>
+                <th
+                  className="px-4 py-3"
+                  title="Overall score that determines the player's leaderboard spot."
+                >
+                  Rank Score
+                </th>
+                <th className="px-4 py-3" title="Grade tier derived from the current rank score">Grade</th>
+                <th className="px-4 py-3" title="Days until the player could fall off the leaderboard">Days Before Drop</th>
+                <th
+                  className="px-4 py-3"
+                  title={`Tournaments played in the last ${windowDays ?? 90} days; total lifetime shown beneath when available.`}
+                >
+                  Tournaments (Last {windowDays ?? 90} Days)
+                </th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-800">
@@ -445,13 +481,7 @@ const StableLeaderboardView = ({ rows, loading, error, windowDays }) => {
                     <div className="h-5 w-16 rounded bg-slate-800" />
                   </td>
                   <td className="px-4 py-3">
-                    <div className="h-5 w-24 rounded bg-slate-800" />
-                  </td>
-                  <td className="px-4 py-3">
                     <div className="h-4 w-10 rounded bg-slate-800" />
-                  </td>
-                  <td className="px-4 py-3 hidden sm:table-cell">
-                    <div className="h-4 w-24 rounded bg-slate-800" />
                   </td>
                 </tr>
               ))}
@@ -485,14 +515,22 @@ const StableLeaderboardView = ({ rows, loading, error, windowDays }) => {
           <table className="min-w-full divide-y divide-slate-800">
             <thead className="sticky top-0 z-10 bg-slate-900/70 backdrop-blur text-left text-xs font-semibold uppercase tracking-wider text-slate-400">
               <tr>
-                <th className="px-4 py-3">Rank</th>
-                <th className="px-4 py-3 w-[16rem]">Player</th>
-                <th className="px-4 py-3">Display Score</th>
-                <th className="px-4 py-3">Grade</th>
-                <th className="px-4 py-3">Days Left</th>
-                <th className="px-4 py-3">Next Expiry</th>
-                <th className="px-4 py-3">Tournaments ({windowDays ?? 90}d)</th>
-                <th className="px-4 py-3 hidden sm:table-cell">Last Tournament</th>
+                <th className="px-4 py-3" title="Stable leaderboard position after filtering">Rank</th>
+                <th className="px-4 py-3 w-[16rem]" title="Player display name and Sendou ID">Player</th>
+                <th
+                  className="px-4 py-3"
+                  title="Overall score that determines the player's leaderboard spot."
+                >
+                  Rank Score
+                </th>
+                <th className="px-4 py-3" title="Grade tier derived from the current rank score">Grade</th>
+                <th className="px-4 py-3" title="Days until the player could fall off the leaderboard">Days Before Drop</th>
+                <th
+                  className="px-4 py-3"
+                  title={`Tournaments played in the last ${windowDays ?? 90} days; total lifetime shown beneath when available.`}
+                >
+                  Tournaments (Last {windowDays ?? 90} Days)
+                </th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-800 text-sm">
@@ -507,6 +545,15 @@ const StableLeaderboardView = ({ rows, loading, error, windowDays }) => {
                   tournamentCount === 3 && row.danger_days_left != null;
                 const days = showDanger ? row.danger_days_left : null;
                 const severity = severityOf(days);
+                const rankScore = shifted;
+                const rankScoreClass =
+                  rankScore == null
+                    ? "text-slate-100"
+                    : rankScore >= 300
+                    ? "text-amber-100"
+                    : rankScore >= 250
+                    ? "text-fuchsia-200"
+                    : "text-slate-100";
                 let daysLabel;
                 if (days == null) {
                   daysLabel = "—";
@@ -558,23 +605,20 @@ const StableLeaderboardView = ({ rows, loading, error, windowDays }) => {
                       </div>
                     </td>
                     <td className="px-4 py-3 whitespace-nowrap">
-                      <div className="font-semibold text-slate-100">
-                        {shifted == null ? "—" : nf2.format(shifted)}
+                      <div className={`font-semibold ${rankScoreClass}`}>
+                        {rankScore == null ? "—" : nf2.format(rankScore)}
                       </div>
                       <div className="min-w-0">
-                        <ScoreBar value={shifted} max={prepared.maxShifted} />
+                        <ScoreBar value={rankScore} />
                       </div>
                     </td>
                     <td className="px-4 py-3 whitespace-nowrap">
                       <GradeBadge label={grade} />
                     </td>
-                    <td className="px-4 py-3 whitespace-nowrap">
+                    <td className="px-4 py-3 whitespace-nowrap" title="Days until this player could fall off the leaderboard">
                       <span className={`inline-flex items-center rounded-md px-2 py-0.5 text-xs font-medium ${chipClass(severity)}`}>
                         {daysLabel}
                       </span>
-                    </td>
-                    <td className="px-4 py-3 text-slate-300">
-                      {formatDate(showDanger ? row.danger_next_expiry_ms : null)}
                     </td>
                     <td className="px-4 py-3 text-slate-200 whitespace-nowrap">
                       {windowCount != null ? (
@@ -589,9 +633,6 @@ const StableLeaderboardView = ({ rows, loading, error, windowDays }) => {
                       ) : (
                         totalTournaments ?? "—"
                       )}
-                    </td>
-                    <td className="px-4 py-3 text-slate-300 hidden sm:table-cell">
-                      {formatDate(row.last_tournament_ms)}
                     </td>
                   </tr>
                 );

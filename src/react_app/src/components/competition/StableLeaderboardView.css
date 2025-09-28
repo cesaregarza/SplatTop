@@ -9,6 +9,7 @@
   border: 1px solid rgba(255, 255, 255, 0.08);
   color: #e6e6f0;
   background: #0f172a; /* slate-900 */
+  z-index: 0;
 }
 
 .grade-badge {
@@ -123,6 +124,11 @@
   --zap-cycle-xxstar: 2200ms;
   --zap-cycle-xxplus: 2400ms;
   --zap-cycle-xx: 2600ms;
+  --xs-glow-scale-min: 0.9;
+  --xs-glow-scale-max: 1.05;
+  --xs-glow-opacity-min: 0.25;
+  --xs-glow-opacity-max: 0.42;
+  --xs-glow-blur: 14px;
 }
 /* Crackle overlay for JS-driven sparks */
 .crackle-layer{
@@ -139,12 +145,76 @@
   opacity: 0;
   stroke-linecap: round;
   stroke-linejoin: round;
+  vector-effect: non-scaling-stroke;
+  shape-rendering: geometricPrecision;
   transition: opacity 90ms linear;
   filter:
     drop-shadow(0 0 2px var(--zap-color, #a78bfa))
     drop-shadow(0 0 7px var(--zap-color, #a78bfa));
 }
 .spark.show{ opacity: 1; }
+
+@keyframes xsGlowPulse {
+  0%, 100% {
+    transform: scale(var(--xs-glow-scale-min, 0.9));
+    opacity: var(--xs-glow-opacity-min, 0.25);
+  }
+  50% {
+    transform: scale(var(--xs-glow-scale-max, 1.05));
+    opacity: var(--xs-glow-opacity-max, 0.42);
+  }
+}
+
+.grade-badge.grade-tier-xsplus,
+.grade-chip.grade-tier-xsplus {
+  --xs-glow-scale-min: 0.93;
+  --xs-glow-scale-max: 1.08;
+  --xs-glow-opacity-min: 0.28;
+  --xs-glow-opacity-max: 0.48;
+  --xs-glow-blur: 16px;
+}
+
+.grade-badge.grade-tier-xs,
+.grade-chip.grade-tier-xs {
+  --xs-glow-scale-min: 0.9;
+  --xs-glow-scale-max: 1.05;
+  --xs-glow-opacity-min: 0.24;
+  --xs-glow-opacity-max: 0.4;
+  --xs-glow-blur: 14px;
+}
+
+.grade-badge.grade-tier-xsminus,
+.grade-chip.grade-tier-xsminus {
+  --xs-glow-scale-min: 0.88;
+  --xs-glow-scale-max: 1.02;
+  --xs-glow-opacity-min: 0.2;
+  --xs-glow-opacity-max: 0.34;
+  --xs-glow-blur: 12px;
+}
+
+.grade-badge.grade-tier-xsplus::before,
+.grade-chip.grade-tier-xsplus::before,
+.grade-badge.grade-tier-xs::before,
+.grade-chip.grade-tier-xs::before,
+.grade-badge.grade-tier-xsminus::before,
+.grade-chip.grade-tier-xsminus::before {
+  content: "";
+  position: absolute;
+  inset: -10px;
+  border-radius: 999px;
+  pointer-events: none;
+  z-index: -1;
+  background: radial-gradient(
+    circle,
+    rgba(167, 139, 250, 0.45) 0%,
+    rgba(167, 139, 250, 0.25) 38%,
+    rgba(167, 139, 250, 0) 75%
+  );
+  filter: blur(var(--xs-glow-blur, 14px));
+  transform: scale(var(--xs-glow-scale-min, 0.9));
+  opacity: var(--xs-glow-opacity-min, 0.25);
+  animation: xsGlowPulse 4.8s ease-in-out infinite;
+}
 
 @media (prefers-reduced-motion: reduce){
   .crackle-layer .spark{ display: none; }
@@ -154,5 +224,15 @@
     border: 1px solid var(--zap-color, #a78bfa);
     border-radius: 999px;
     opacity: .5;
+  }
+  .grade-badge.grade-tier-xsplus::before,
+  .grade-chip.grade-tier-xsplus::before,
+  .grade-badge.grade-tier-xs::before,
+  .grade-chip.grade-tier-xs::before,
+  .grade-badge.grade-tier-xsminus::before,
+  .grade-chip.grade-tier-xsminus::before {
+    animation: none;
+    opacity: var(--xs-glow-opacity-max, 0.42);
+    transform: scale(1);
   }
 }
