@@ -1,4 +1,5 @@
 KIND_CONTEXT ?= kind-kind
+DEV_PORTS ?= 3000 4000 5000 8001 8080
 
 .PHONY: ensure-kind
 ensure-kind:
@@ -167,3 +168,18 @@ load-splatgpt:
 .PHONY: test
 test:
 	uv run pytest
+
+.PHONY: kill-ports
+kill-ports:
+	@for port in $(DEV_PORTS); do \
+		pids=$$(lsof -ti tcp:$$port -sTCP:LISTEN 2>/dev/null); \
+		if [ -n "$$pids" ]; then \
+			echo "Force killing process on port $$port: $$pids"; \
+			for pid in $$pids; do \
+				kill -9 $$pid 2>/dev/null || true; \
+				wait $$pid 2>/dev/null || true; \
+			done; \
+		else \
+			echo "No process found on port $$port"; \
+		fi; \
+	done

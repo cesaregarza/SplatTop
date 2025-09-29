@@ -10,11 +10,10 @@ const CompetitionFaq = () => {
       question: "What are these rankings?",
       answer: (
         <p>
-          This leaderboard highlights the strongest competitors based on recent
-          ranked tournament results recorded on sendou.ink. You do not need to
-          stay on a fixed roster; every player is tracked individually, so
-          switching teams from event to event still counts toward your
-          placement.
+          This is a player leaderboard built from sendou.ink tournament data.
+          It reflects performance in RANKED, finalized events and tracks players
+          individually (not fixed teams), so switching rosters between events is
+          fine; your personal results follow you.
         </p>
       ),
     },
@@ -23,9 +22,10 @@ const CompetitionFaq = () => {
       answer: (
         <div className="space-y-3">
           <p>
-            We award more points for beating strong opponents at large events
-            and fewer points for wins over lower-ranked teams. The result is a
-            ladder that rewards consistent performance against tough brackets.
+            Beating strong opponents at tougher tournaments helps the most. The
+            system compares who you beat and who beat you across the entire
+            scene and turns that into a single number. It's designed to reward
+            quality wins without letting raw volume or grinding inflate scores.
           </p>
           <button
             type="button"
@@ -37,19 +37,18 @@ const CompetitionFaq = () => {
           {showExtendedVersion && (
             <div className="rounded-md border border-blue-500/30 bg-slate-900/70 p-4 text-sm text-blue-100 space-y-3">
               <p>
-                Stronger opponents swing the score more: a win over a top seed
-                adds a big chunk, while a loss to them barely dents your total.
-                Upset losses to underdogs remove more points because the system
-                expected you to win, and routine wins over mid-tier teams taper
-                off as the bracket context stabilizes.
+                Strength of opposition matters. Beating high-performing players
+                at stronger events boosts your score more than routine wins
+                against mid-tier opposition. Losses to much lower-rated players
+                sting more than expected losses to favorites.
               </p>
               <p>
-                Previous results are constantly recontextualized. If a player is
-                secretly Magnus Carlsen smurfing their way through the bracket,
-                you might lose a lot of points the day it happens, but as the
-                algorithm realizes how strong they really are, it refunds those
-                losses. Every event keeps feeding new information back into old
-                matches so the table evolves toward the most accurate ordering.
+                Results are reinterpreted as the field evolves. If a "new"
+                player turns out to be elite, the system later treats earlier
+                losses to them as less damaging because it learned they're
+                strong. Scores are frozen after each player's most recent
+                eligible tournament; we surface the next update the moment that
+                player records another eligible result.
               </p>
             </div>
           )}
@@ -62,25 +61,43 @@ const CompetitionFaq = () => {
           </button>
           {showNerdVersion && (
             <div className="rounded-md border border-fuchsia-500/30 bg-slate-900/70 p-4 text-sm text-fuchsia-100 space-y-3">
+              <ol className="list-decimal space-y-2 pl-5 text-fuchsia-100/90">
+                <li>
+                  Run a tick-tock loop to estimate per-tournament influence
+                  <code className="mx-1">S</code> from the participants'
+                  current ratings. Production uses
+                  <code className="mx-1">log_top_20_sum</code> and mean-normalizes
+                  <code className="mx-1">S</code> to 1.0.
+                </li>
+                <li>
+                  Convert every ranked set into player-level winner-&gt;loser pairs
+                  with weights
+                  <code className="mx-1">w = exp(-decay_rate * delta_days) * S^beta</code>.
+                  Production runs with <code className="mx-1">beta = 1</code> and a
+                  half-life of roughly 180 days.
+                </li>
+                <li>
+                  Build a directed player graph and run PageRank in both
+                  directions using the same teleport vector
+                  <code className="mx-1">rho</code>, where
+                  <code className="mx-1">rho_i proportional to exposure_i</code>
+                  (share of weighted match participation).
+                </li>
+                <li>
+                  Compute <code className="mx-1">PR_win</code> on the winner graph
+                  and <code className="mx-1">PR_loss</code> on the mirrored loss
+                  graph with damping <code className="mx-1">alpha ~ 0.85</code>.
+                  Apply lambda smoothing with
+                  <code className="mx-1">lambda ~ 0.025 * median(PR) / median(rho)</code>
+                  and publish the raw score
+                  <code className="mx-1">s_i = log((PR_win_i + lambda * rho_i)/(PR_loss_i + lambda * rho_i))</code>.
+                </li>
+              </ol>
               <p>
-                Build a directed graph of ranked match outcomes, run
-                exposure-weighted PageRank in both directions, and use
-                <code className="mx-1">teleport_weight = 1 / (1 + exposure)</code>
-                so players with huge match counts do not soak up free score from
-                random jumps. The resulting vector becomes the seed for
-                <code className="mx-1">tournament_influence</code>.
-              </p>
-              <p>
-                Iterate until convergence:
-                <code className="mx-1">player_score = PR(win_graph, tournament_influence)</code>
-                and
-                <code className="mx-1">tournament_influence = f(player_score)</code>.
-                After it settles, run one more bidirectional PageRank with the
-                final influence weights, yielding
-                <code className="mx-1">win_pr</code> and
-                <code className="mx-1">loss_pr</code>. The published raw score is
-                <code className="mx-1">log(win_pr) - log(loss_pr)</code>, which
-                neatly offsets volume bias and keeps the scale symmetric.
+            Long-gap inactivity decay is available (delay ~ 180 days with a
+            small daily rate). The raw log-odds output is then converted to
+            display units via <code className="mx-1">display = 250 + 50 * raw</code>
+            and frozen until you appear in another eligible tournament.
               </p>
             </div>
           )}
@@ -91,21 +108,21 @@ const CompetitionFaq = () => {
       question: "When does the leaderboard refresh?",
       answer: (
         <p>
-          We publish a fresh leaderboard update every day at 12:15 UTC. That
-          daily export keeps the standings rock steady; if you check later in
-          the day you will see the same order until the next morning.
+          Rankings are recomputed daily from finalized sendou.ink data at 12:15 UTC
+          (07:15 Eastern during standard time, 08:15 Eastern during daylight time).
+          Your entry updates the next time you play a new eligible tournament.
         </p>
       ),
     },
     {
-      question: "What is the danger window?",
+      question: "Do scores decay if I stop playing?",
       answer: (
         <p>
-          Each placement only counts for a limited time. The danger column shows
-          how many days remain before your oldest ranked result expires and, by
-          extension, how close you are to dropping out of the leaderboard if you
-          skip future ranked tournaments. If the number is low, plan your next
-          event so you stay locked in.
+          This is a bit complicated. You will not see your score decay, instead
+          you will be dropped from the leaderboard if you stop playing for a
+          while. However, if you come back to play another eligible tournament,
+          your score will be updated with old data having a much smaller weight,
+          so you might see a large shift in your score in either direction.
         </p>
       ),
     },
@@ -114,15 +131,19 @@ const CompetitionFaq = () => {
       answer: (
         <div className="space-y-3">
           <p>
-            Players only disappear if their results age out of the danger
-            window. As long as someone has active ranked results from sendou.ink,
-            they stay on the board, even if they change teams every event.
+            Eligibility uses only finalized sendou.ink tournaments marked
+            RANKED. Players appear after meeting a small minimum of eligible
+            events and will be tracked regardless of team changes.
+          </p>
+          <p>
+            Players will be tracked even if they are not eligible for the
+            leaderboard. I am still debating whether to add a view that shows
+            all players regardless of eligibility status.
           </p>
           <p>
             Seeing duplicate entries for the same person? sendou.ink supports
-            account merges, and we mirror those once we're notified. Share the
-            sendou helpdesk thread where the merge was approved and I'll unify
-            the accounts here as well.
+            account merges; DM me the sendou helpdesk thread confirming the
+            merge and I'll mirror it on the next refresh.
           </p>
         </div>
       ),
@@ -130,13 +151,20 @@ const CompetitionFaq = () => {
     {
       question: "I just played an event - why isn't it showing up?",
       answer: (
-        <p>
-          We currently ingest tournaments from sendou.ink that are flagged as
-          RANKED on that site. Once the event is verified there, it lands in the
-          next daily refresh. Casual brackets, scrims, and tournaments without
-          the RANKED tag will not change the standings. Support for manually
-          marking other events as ranked is on the roadmap.
-        </p>
+        <div className="space-y-3">
+          <p>
+            A few common reasons:
+          </p>
+          <ul className="list-disc pl-5 space-y-1 text-slate-300/90">
+            <li>The tournament isn't marked RANKED on sendou.ink.</li>
+            <li>The tournament isn't finalized yet on sendou.ink.</li>
+            <li>It will land with the next daily refresh cycle.</li>
+          </ul>
+          <p>
+            Once it's finalized and marked RANKED, it will count in the next
+            refresh. Casual events and scrims don't affect standings.
+          </p>
+        </div>
       ),
     },
     {
@@ -144,10 +172,9 @@ const CompetitionFaq = () => {
       answer: (
         <div className="space-y-3">
           <p>
-            Grades mirror Splatoon's familiar ladder, prefixed with an X to show
-            these are competitive tiers; think X-S+, X-S, X-A, and so on. They act
-            like the ranked leagues in other games (gold, diamond, masters) so you
-            can instantly read a player's tier.
+            Grades follow the Splatoon ladder but add an "X" prefix (XB, XA,
+            XS, XS+) to highlight the competitive tier. They're derived from
+            the same score shown on the table and don't depend on team or region.
           </p>
           <button
             type="button"
@@ -159,16 +186,31 @@ const CompetitionFaq = () => {
           {showGradeNerdVersion && (
             <div className="rounded-md border border-fuchsia-500/30 bg-slate-900/70 p-4 text-sm text-fuchsia-100 space-y-3">
               <p>
-                Scores start as real numbers from the convergence routine, then
-                we apply an affine transform so the displayed values are easier to
-                read. Before the transform we bucket players by integer thresholds
-                of the raw score, and each +1 step is roughly{' '}
-                <code className="mx-1">e</code>{' '}times harder to obtain
-                than the previous tier. Those raw thresholds lock in the grade
-                bands, which we then label with the familiar X-grade names.
+                The scoring engine produces a raw log-odds value. We map it to
+                display units using <code className="mx-1">display = 250 + 50 * raw</code>
+                so the numbers are easier to read, but grade thresholds are defined
+                on the raw scale. Each integer step in the raw score is about e
+                times harder to reach than the previous one, and we label the
+                resulting bands with the X-prefixed Splatoon grades (for example
+                XB, XA, XS, XS+).
               </p>
             </div>
           )}
+        </div>
+      ),
+    },
+    {
+      question: "What tournaments count, exactly?",
+      answer: (
+        <div className="space-y-3">
+          <p>
+            Only finalized sendou.ink tournaments that are explicitly marked
+            RANKED are used. Byes/forfeits don't create wins or losses. When
+            available, per-match player appearances are preferred; otherwise the
+            team's active roster is used for that match. If you play as a
+            substitute for a match but are not in the active roster, the match
+            will count but the tournament will not for purposes of eligibility.
+          </p>
         </div>
       ),
     },
