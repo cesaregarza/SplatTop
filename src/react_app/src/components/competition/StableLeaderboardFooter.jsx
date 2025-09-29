@@ -20,6 +20,7 @@ const StableLeaderboardFooterComponent = ({
   jumpPlayerId,
   onJumpPlayerChange,
   onJumpPlayerSubmit,
+  onJumpToTop,
 }, ref) => {
   const handlePageSizeChange = (event) => {
     const value = Number(event.target.value);
@@ -149,6 +150,18 @@ const StableLeaderboardFooterComponent = ({
           Go
         </button>
       </form>
+
+      {onJumpToTop && (
+        <div className="flex justify-center">
+          <button
+            type="button"
+            onClick={onJumpToTop}
+            className="inline-flex items-center gap-2 rounded-md bg-slate-800/80 px-3 py-1.5 text-sm font-medium text-slate-100 ring-1 ring-white/10 hover:bg-slate-800"
+          >
+            Back to top
+          </button>
+        </div>
+      )}
     </div>
   );
 };

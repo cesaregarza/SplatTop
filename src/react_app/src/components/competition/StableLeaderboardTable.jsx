@@ -103,7 +103,7 @@ const buildRowView = (row, highlightId) => {
       ? "text-fuchsia-200"
       : "text-slate-100";
 
-  const scoreClasses = ["font-semibold", rankScoreClass];
+  const scoreClasses = ["font-semibold", rankScoreClass, "font-data"];
   const scoreDataProps = {};
   const showScoreHighlight = grade === "XX★";
   if (showScoreHighlight) {
@@ -152,7 +152,7 @@ const StableLeaderboardMobileList = ({ rows, windowDays }) => {
           >
             <div className="flex items-center justify-between gap-3">
               <span className="inline-flex items-center rounded-full bg-slate-800/80 px-2.5 py-0.5 text-xs font-semibold uppercase tracking-wide text-slate-300">
-                Rank {rank}
+                Rank <span className="font-data text-slate-100">{rank}</span>
               </span>
               <GradeBadge label={grade} />
             </div>
@@ -174,7 +174,7 @@ const StableLeaderboardMobileList = ({ rows, windowDays }) => {
                     {row.display_name}
                   </span>
                 )}
-                <div className="text-xs text-slate-500 truncate" title={row.player_id || undefined}>
+                <div className="text-xs text-slate-500 truncate font-data" title={row.player_id || undefined}>
                   {row.player_id || "—"}
                 </div>
               </div>
@@ -191,7 +191,7 @@ const StableLeaderboardMobileList = ({ rows, windowDays }) => {
             <div className="mt-4 grid gap-3 sm:grid-cols-2">
               <div>
                 <p className="text-xs uppercase tracking-wide text-slate-400">Danger Status</p>
-                <span className={`mt-1 inline-flex items-center rounded-md px-2 py-0.5 text-xs font-medium ${chipClassName}`}>
+                <span className={`mt-1 inline-flex items-center rounded-md px-2 py-0.5 text-xs font-medium font-data ${chipClassName}`}>
                   {daysLabel}
                 </span>
               </div>
@@ -199,13 +199,15 @@ const StableLeaderboardMobileList = ({ rows, windowDays }) => {
                 <p className="text-xs uppercase tracking-wide text-slate-400">Tournaments (last {windowLabel}d)</p>
                 {windowCount != null ? (
                   <div className="mt-1">
-                    <span className="font-semibold text-slate-100">{windowCount}</span>
+                    <span className="font-semibold text-slate-100 font-data">{windowCount}</span>
                     {totalTournaments != null && (
-                      <div className="text-xs text-slate-500">total {totalTournaments}</div>
+                      <div className="text-xs text-slate-500">
+                        total <span className="font-data">{totalTournaments}</span>
+                      </div>
                     )}
                   </div>
                 ) : (
-                  <div className="mt-1 text-slate-100">{totalTournaments ?? "—"}</div>
+                  <div className="mt-1 text-slate-100 font-data">{totalTournaments ?? "—"}</div>
                 )}
               </div>
             </div>
@@ -272,7 +274,7 @@ const StableLeaderboardTable = ({ rows, highlightId, windowDays }) => {
                     key={key}
                     className={`hover:bg-slate-900/60 ${highlightClass}`.trim()}
                   >
-                    <td className="px-4 py-3 font-semibold text-slate-200 whitespace-nowrap">{rank}</td>
+                    <td className="px-4 py-3 font-semibold text-slate-200 whitespace-nowrap font-data">{rank}</td>
                     <td className="px-4 py-3 align-top w-[16rem]">
                       <div className="flex flex-col min-w-0 w-[16rem]">
                         {row.player_id ? (
@@ -293,7 +295,7 @@ const StableLeaderboardTable = ({ rows, highlightId, windowDays }) => {
                             {row.display_name}
                           </span>
                         )}
-                        <span className="text-xs text-slate-500 truncate" title={row.player_id || undefined}>
+                        <span className="text-xs text-slate-500 truncate font-data" title={row.player_id || undefined}>
                           {row.player_id}
                         </span>
                       </div>
@@ -313,20 +315,22 @@ const StableLeaderboardTable = ({ rows, highlightId, windowDays }) => {
                       className="px-4 py-3 whitespace-nowrap"
                       title="Days until this player could fall off the leaderboard"
                     >
-                      <span className={`inline-flex items-center rounded-md px-2 py-0.5 text-xs font-medium ${chipClassName}`}>
+                      <span className={`inline-flex items-center rounded-md px-2 py-0.5 text-xs font-medium font-data ${chipClassName}`}>
                         {daysLabel}
                       </span>
                     </td>
                     <td className="px-4 py-3 text-slate-200 whitespace-nowrap">
                       {windowCount != null ? (
                         <div className="flex flex-col">
-                          <span className="font-medium">{windowCount}</span>
+                          <span className="font-medium font-data">{windowCount}</span>
                           {totalTournaments != null && (
-                            <span className="text-xs text-slate-500">total {totalTournaments}</span>
+                            <span className="text-xs text-slate-500">
+                              total <span className="font-data">{totalTournaments}</span>
+                            </span>
                           )}
                         </div>
                       ) : (
-                        totalTournaments ?? "—"
+                        <span className="font-data">{totalTournaments ?? "—"}</span>
                       )}
                     </td>
                   </tr>

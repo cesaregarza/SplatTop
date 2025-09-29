@@ -11,6 +11,7 @@
   background: #0f172a; /* slate-900 */
   z-index: 0;
   min-width: 3.25rem;
+  font-family: var(--font-data, "FiraMono", monospace);
 }
 
 .grade-badge {
@@ -37,6 +38,7 @@
   gap: 0.2rem;
   --ring-pad: 4px;
   color: #fde68a;
+  font-family: var(--font-data, "FiraMono", monospace);
   text-shadow: 0 0 6px rgba(249, 168, 212, 0.55), 0 0 12px rgba(91, 33, 182, 0.3);
 }
 

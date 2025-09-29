@@ -245,6 +245,14 @@ const StableLeaderboardView = ({ rows, loading, error, windowDays }) => {
     }
   }, []);
 
+  const handleScrollToTop = useCallback(() => {
+    try {
+      rootRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+    } catch {
+      /* no-op */
+    }
+  }, []);
+
   let content;
   if (loading) {
     content = <LoadingSkeleton />;
@@ -270,6 +278,7 @@ const StableLeaderboardView = ({ rows, loading, error, windowDays }) => {
           onJumpPlayerChange={setJumpPlayerId}
           onJumpPlayerSubmit={handleJumpPlayerSubmit}
           ref={footerRef}
+          onJumpToTop={handleScrollToTop}
         />
       </>
     );

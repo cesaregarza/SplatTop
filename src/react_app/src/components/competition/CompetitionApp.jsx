@@ -1,11 +1,12 @@
 import React, { useEffect, useMemo } from "react";
+import { BrowserRouter as Router, Route, Routes } from "react-router-dom";
 import CompetitionLayout from "./CompetitionLayout";
 import StableLeaderboardView from "./StableLeaderboardView";
+import CompetitionFaq from "./CompetitionFaq";
 import useCompetitionSnapshot from "../../hooks/useCompetitionSnapshot";
 
-const CompetitionApp = () => {
-  const { loading, error, disabled, stable, danger, refresh } =
-    useCompetitionSnapshot();
+const CompetitionLeaderboardPage = ({ snapshot }) => {
+  const { loading, error, disabled, stable, danger, refresh } = snapshot;
 
   useEffect(() => {
     const previous = document.title;
@@ -52,7 +53,6 @@ const CompetitionApp = () => {
 
   const stale = Boolean(stable?.stale || danger?.stale);
   const generatedAtMs = stable?.generated_at_ms ?? danger?.generated_at_ms;
-
   const windowDays = stable?.query_params?.tournament_window_days ?? null;
 
   return (
@@ -61,6 +61,8 @@ const CompetitionApp = () => {
       stale={stale}
       loading={loading}
       onRefresh={refresh}
+      faqLinkHref="/faq"
+      faqLinkLabel="Read FAQ"
       top500Href="/top500"
     >
       {error && (
@@ -80,5 +82,56 @@ const CompetitionApp = () => {
     </CompetitionLayout>
   );
 };
+
+const CompetitionFaqPage = ({ snapshot }) => {
+  const { loading, stable, danger, disabled } = snapshot;
+
+  useEffect(() => {
+    const previous = document.title;
+    document.title = "Competition FAQ - splat.top";
+    return () => {
+      document.title = previous;
+    };
+  }, []);
+
+  const generatedAtMs = stable?.generated_at_ms ?? danger?.generated_at_ms;
+  const stale = Boolean(stable?.stale || danger?.stale);
+
+  return (
+    <CompetitionLayout
+      generatedAtMs={generatedAtMs}
+      stale={stale}
+      loading={loading}
+      faqLinkHref="/"
+      faqLinkLabel="View leaderboard"
+      top500Href="/top500"
+    >
+      {disabled && (
+        <div className="mb-6 rounded-md border border-amber-500/40 bg-amber-500/10 px-4 py-3 text-sm text-amber-200">
+          The public competition leaderboard is currently turned off, but you can
+          still review how the system works below.
+        </div>
+      )}
+      <CompetitionFaq />
+    </CompetitionLayout>
+  );
+};
+
+const CompetitionRoutes = () => {
+  const snapshot = useCompetitionSnapshot();
+
+  return (
+    <Routes>
+      <Route path="/faq" element={<CompetitionFaqPage snapshot={snapshot} />} />
+      <Route path="*" element={<CompetitionLeaderboardPage snapshot={snapshot} />} />
+    </Routes>
+  );
+};
+
+const CompetitionApp = () => (
+  <Router>
+    <CompetitionRoutes />
+  </Router>
+);
 
 export default CompetitionApp;

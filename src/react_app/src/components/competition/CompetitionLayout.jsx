@@ -1,4 +1,5 @@
 import React from "react";
+import { Link } from "react-router-dom";
 
 const formatTimestamp = (ts) => {
   if (!ts) return "—";
@@ -13,6 +14,8 @@ const CompetitionLayout = ({
   stale,
   loading,
   onRefresh,
+  faqLinkHref,
+  faqLinkLabel = "FAQ",
   top500Href = "/top500",
 }) => {
   const lastUpdated = formatTimestamp(generatedAtMs);
@@ -61,15 +64,29 @@ const CompetitionLayout = ({
             </div>
           </div>
           <div className="flex items-center gap-3">
-            {loading && <span className="text-sm text-slate-400">Refreshing…</span>}
-            <button
-              type="button"
-              className="rounded-md bg-fuchsia-600 px-4 py-2 text-sm font-medium text-white ring-1 ring-white/10 hover:bg-fuchsia-500 transition disabled:opacity-60"
-              onClick={onRefresh}
-              disabled={loading}
-            >
-              Refresh snapshot
-            </button>
+            {faqLinkHref && (
+              <Link
+                to={faqLinkHref}
+                className="rounded-md bg-white/10 px-4 py-2 text-sm font-medium text-white ring-1 ring-white/10 hover:bg-white/15 transition"
+              >
+                {faqLinkLabel}
+              </Link>
+            )}
+            {onRefresh && (
+              <>
+                {loading && (
+                  <span className="text-sm text-slate-400">Refreshing…</span>
+                )}
+                <button
+                  type="button"
+                  className="rounded-md bg-fuchsia-600 px-4 py-2 text-sm font-medium text-white ring-1 ring-white/10 hover:bg-fuchsia-500 transition disabled:opacity-60"
+                  onClick={onRefresh}
+                  disabled={loading}
+                >
+                  Refresh snapshot
+                </button>
+              </>
+            )}
           </div>
         </div>
       </section>
