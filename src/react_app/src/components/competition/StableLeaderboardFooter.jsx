@@ -1,4 +1,4 @@
-import React from "react";
+import React, { forwardRef, memo, useMemo } from "react";
 import {
   CRACKLE_PURPLE,
   DISPLAY_GRADE_SCALE,
@@ -7,8 +7,11 @@ import {
   rateFor,
 } from "./stableLeaderboardUtils";
 
-const StableLeaderboardFooter = ({
-  prepared,
+const StableLeaderboardFooterComponent = ({
+  pageCount,
+  currentPage,
+  totalPlayers,
+  allRows,
   pageSize,
   onPageSizeChange,
   onGotoPage,
@@ -17,25 +20,23 @@ const StableLeaderboardFooter = ({
   jumpPlayerId,
   onJumpPlayerChange,
   onJumpPlayerSubmit,
-}) => {
-  const { pageCount, current, total, all } = prepared;
-
+}, ref) => {
   const handlePageSizeChange = (event) => {
     const value = Number(event.target.value);
     onPageSizeChange(value);
   };
 
-  const visibleGrades = React.useMemo(() => {
-    const present = new Set(all.map((row) => row._grade).filter((value) => value && value !== "—"));
+  const visibleGrades = useMemo(() => {
+    const present = new Set(allRows.map((row) => row._grade).filter((value) => value && value !== "—"));
     return DISPLAY_GRADE_SCALE.map(([, label]) => label)
       .slice()
       .reverse()
       .filter((label) => present.has(label));
-  }, [all]);
+  }, [allRows]);
 
   return (
-    <div className="mt-4 space-y-3">
-      <div className="flex flex-wrap items-center gap-2 text-sm text-slate-400">
+    <div ref={ref} className="mt-4 space-y-3">
+      <div className="flex flex-col gap-2 text-sm text-slate-400 sm:flex-row sm:flex-wrap sm:items-center">
         <span>Rows per page</span>
         <select
           className="rounded-md bg-slate-900/80 px-2 py-1 text-slate-100 ring-1 ring-white/10"
@@ -48,16 +49,16 @@ const StableLeaderboardFooter = ({
             </option>
           ))}
         </select>
-        <span className="ml-3">
-          Page {current} of {pageCount} • {total} players
+        <span className="sm:ml-3">
+          Page {currentPage} of {pageCount} • {totalPlayers} players
         </span>
       </div>
 
       <nav className="flex flex-wrap items-center justify-center gap-1">
         <button
           className="rounded-md px-3 py-1.5 text-sm bg-slate-900/70 ring-1 ring-white/10 text-slate-200 disabled:opacity-50"
-          onClick={() => onGotoPage(current - 1)}
-          disabled={current <= 1}
+          onClick={() => onGotoPage(currentPage - 1)}
+          disabled={currentPage <= 1}
           type="button"
         >
           Prev
@@ -65,7 +66,7 @@ const StableLeaderboardFooter = ({
         {(() => {
           const pages = new Set([1, pageCount]);
           const windowSize = 2;
-          for (let p = current - windowSize; p <= current + windowSize; p++) {
+          for (let p = currentPage - windowSize; p <= currentPage + windowSize; p++) {
             if (p >= 1 && p <= pageCount) pages.add(p);
           }
           const sorted = Array.from(pages).sort((a, b) => a - b);
@@ -80,7 +81,7 @@ const StableLeaderboardFooter = ({
                 </span>
               );
             }
-            const active = page === current;
+            const active = page === currentPage;
             items.push(
               <button
                 key={page}
@@ -98,8 +99,8 @@ const StableLeaderboardFooter = ({
         })()}
         <button
           className="rounded-md px-3 py-1.5 text-sm bg-slate-900/70 ring-1 ring-white/10 text-slate-200 disabled:opacity-50"
-          onClick={() => onGotoPage(current + 1)}
-          disabled={current >= pageCount}
+          onClick={() => onGotoPage(currentPage + 1)}
+          disabled={currentPage >= pageCount}
           type="button"
         >
           Next
@@ -129,14 +130,17 @@ const StableLeaderboardFooter = ({
         </nav>
       )}
 
-      <form className="flex items-center justify-center gap-2" onSubmit={onJumpPlayerSubmit}>
+      <form
+        className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-center"
+        onSubmit={onJumpPlayerSubmit}
+      >
         <input
           type="text"
           inputMode="text"
           placeholder="Jump to player ID"
           value={jumpPlayerId}
           onChange={(event) => onJumpPlayerChange(event.target.value)}
-          className="rounded-md bg-slate-900/80 px-2 py-1 text-slate-100 placeholder:text-slate-500 ring-1 ring-white/10"
+          className="w-full rounded-md bg-slate-900/80 px-2 py-1 text-slate-100 placeholder:text-slate-500 ring-1 ring-white/10 sm:w-56"
         />
         <button
           type="submit"
@@ -148,5 +152,10 @@ const StableLeaderboardFooter = ({
     </div>
   );
 };
+
+StableLeaderboardFooterComponent.displayName = "StableLeaderboardFooter";
+
+const StableLeaderboardFooter = memo(forwardRef(StableLeaderboardFooterComponent));
+StableLeaderboardFooter.displayName = "StableLeaderboardFooter";
 
 export default StableLeaderboardFooter;

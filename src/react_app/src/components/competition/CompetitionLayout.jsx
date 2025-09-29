@@ -35,13 +35,6 @@ const CompetitionLayout = ({
               <span className="text-white/30">/</span>
               <span className="text-white text-sm font-medium">Competition</span>
             </div>
-
-            <a
-              href={top500Href}
-              className="rounded-md bg-white/10 px-3 py-1.5 text-sm font-medium text-white ring-1 ring-white/10 hover:bg-white/15 transition"
-            >
-              View Top 500
-            </a>
           </div>
 
           <h1 className="mt-5 text-3xl sm:text-5xl font-semibold tracking-tight">

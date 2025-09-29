@@ -1,6 +1,6 @@
-import React from "react";
+import React, { memo } from "react";
 
-const StableLeaderboardHeader = ({ query, onQueryChange }) => (
+const StableLeaderboardHeader = ({ query, onQueryChange, onScrollToControls }) => (
   <header className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
     <div>
       <h2 className="text-2xl font-semibold text-slate-100">Stable leaderboard</h2>
@@ -24,7 +24,18 @@ const StableLeaderboardHeader = ({ query, onQueryChange }) => (
         <span className="absolute left-3 top-2.5 text-slate-500">🔎</span>
       </div>
     </div>
+    {onScrollToControls && (
+      <button
+        type="button"
+        onClick={onScrollToControls}
+        className="inline-flex items-center gap-2 self-start rounded-md bg-slate-800/80 px-3 py-1.5 text-sm font-medium text-slate-100 ring-1 ring-white/10 hover:bg-slate-800 md:hidden"
+      >
+        Jump to controls
+      </button>
+    )}
   </header>
 );
 
-export default StableLeaderboardHeader;
+StableLeaderboardHeader.displayName = "StableLeaderboardHeader";
+
+export default memo(StableLeaderboardHeader);

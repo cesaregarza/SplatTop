@@ -1,4 +1,4 @@
-import React from "react";
+import React, { memo, useMemo } from "react";
 import {
   CRACKLE_PURPLE,
   chipClass,
@@ -32,7 +32,7 @@ const GradeBadge = ({ label }) => {
   );
 };
 
-const ScoreBar = ({ value }) => {
+const ScoreBar = ({ value, highlightClass = "" }) => {
   if (value == null) return null;
   const BASELINE_MAX = 250;
   const pct = Math.max(0, Math.min(100, (value / BASELINE_MAX) * 100));
@@ -63,6 +63,8 @@ const ScoreBar = ({ value }) => {
     );
   }
 
+  if (highlightClass) wrapperClasses.push(highlightClass);
+
   return (
     <div className={wrapperClasses.join(" ")} style={wrapperStyle}>
       <div className={`h-full ${barClass}`} style={{ width: `${pct}%` }} aria-hidden />
@@ -71,129 +73,275 @@ const ScoreBar = ({ value }) => {
   );
 };
 
-const StableLeaderboardTable = ({ rows, highlightId, windowDays }) => (
-  <div className="overflow-x-auto rounded-lg border border-slate-800 shadow-md">
-    <table className="min-w-full divide-y divide-slate-800">
-      <thead className="sticky top-0 z-10 bg-slate-900/70 backdrop-blur text-left text-xs font-semibold uppercase tracking-wider text-slate-400">
-        <tr>
-          <th className="px-4 py-3" title="Stable leaderboard position after filtering">Rank</th>
-          <th className="px-4 py-3 w-[16rem]" title="Player display name and Sendou ID">Player</th>
-          <th
-            className="px-4 py-3"
-            title="Overall score that determines the player's leaderboard spot."
-          >
-            Rank Score
-          </th>
-          <th className="px-4 py-3" title="Grade tier derived from the current rank score">Grade</th>
-          <th className="px-4 py-3" title="Days until the player could fall off the leaderboard">Days Before Drop</th>
-          <th
-            className="px-4 py-3"
-            title={`Tournaments played in the last ${windowDays ?? 90} days; total lifetime shown beneath when available.`}
-          >
-            Tournaments (Last {windowDays ?? 90} Days)
-          </th>
-        </tr>
-      </thead>
-      <tbody className="divide-y divide-slate-800 text-sm">
-        {rows.map((row) => {
-          const rank = row.stable_rank ?? "—";
-          const shifted = row._shifted;
-          const grade = row._grade;
-          const tournamentCount = row.window_tournament_count ?? null;
-          const showDanger = tournamentCount === 3 && row.danger_days_left != null;
-          const days = showDanger ? row.danger_days_left : null;
-          const severity = severityOf(days);
-          const rankScore = shifted;
-          const rankScoreClass =
-            rankScore == null
-              ? "text-slate-100"
-              : rankScore >= 300
-              ? "text-amber-100"
-              : rankScore >= 250
-              ? "text-fuchsia-200"
-              : "text-slate-100";
-          let daysLabel;
-          if (days == null) {
-            daysLabel = "—";
-          } else if (days < 0) {
-            daysLabel = "Expired";
-          } else if (days < 1) {
-            daysLabel = "<1d";
-          } else {
-            daysLabel = `${Math.round(days)}d`;
-          }
-          const totalTournaments = row.tournament_count ?? null;
-          const windowCount = row.window_tournament_count ?? null;
-          const isHighlighted = highlightId && row.player_id === highlightId;
+const buildRowView = (row, highlightId) => {
+  const rank = row.stable_rank ?? "—";
+  const grade = row._grade;
+  const rankScore = row._shifted ?? null;
+  const windowCount = row.window_tournament_count ?? null;
+  const totalTournaments = row.tournament_count ?? null;
+  const showDanger = windowCount === 3 && row.danger_days_left != null;
+  const days = showDanger ? row.danger_days_left : null;
+  const severity = severityOf(days);
+  const chipClassName = chipClass(severity);
+  let daysLabel = "—";
+  if (days != null) {
+    if (days < 0) {
+      daysLabel = "Expired";
+    } else if (days < 1) {
+      daysLabel = "<1d";
+    } else {
+      daysLabel = `${Math.round(days)}d`;
+    }
+  }
 
-          return (
-            <tr
-              key={row.player_id}
-              className={`hover:bg-slate-900/60 ${isHighlighted ? "ring-2 ring-fuchsia-500/40" : ""}`}
-            >
-              <td className="px-4 py-3 font-semibold text-slate-200 whitespace-nowrap">{rank}</td>
-              <td className="px-4 py-3 align-top w-[16rem]">
-                <div className="flex flex-col min-w-0 w-[16rem]">
-                  {row.player_id ? (
-                    <a
-                      href={`https://sendou.ink/u/${row.player_id}`}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="font-medium text-slate-100 truncate hover:underline"
-                      title={row.display_name || undefined}
-                    >
-                      {row.display_name}
-                    </a>
-                  ) : (
-                    <span
-                      className="font-medium text-slate-100 truncate"
-                      title={row.display_name || undefined}
-                    >
-                      {row.display_name}
-                    </span>
-                  )}
-                  <span className="text-xs text-slate-500 truncate" title={row.player_id || undefined}>
-                    {row.player_id}
+  const rankScoreClass =
+    rankScore == null
+      ? "text-slate-100"
+      : rankScore >= 300
+      ? "text-amber-100"
+      : rankScore >= 250
+      ? "text-fuchsia-200"
+      : "text-slate-100";
+
+  const scoreClasses = ["font-semibold", rankScoreClass];
+  const scoreDataProps = {};
+  const showScoreHighlight = grade === "XX★";
+  if (showScoreHighlight) {
+    scoreClasses.push("xxstar-score", "crackle");
+    scoreDataProps["data-color"] = CRACKLE_PURPLE;
+    scoreDataProps["data-rate"] = 9;
+  }
+
+  const highlighted = Boolean(highlightId && row.player_id === highlightId);
+  const highlightClass = highlighted
+    ? "ring-2 ring-fuchsia-500/40 ring-offset-0"
+    : "";
+
+  return {
+    row,
+    rank,
+    grade,
+    rankScore,
+    rankScoreDisplay: rankScore == null ? "—" : nf2.format(rankScore),
+    scoreClassName: scoreClasses.join(" "),
+    scoreDataProps,
+    barHighlightClass: showScoreHighlight ? "xxstar-scorebar" : "",
+    chipClassName,
+    daysLabel,
+    windowCount,
+    totalTournaments,
+    highlighted,
+    highlightClass,
+  };
+};
+
+const StableLeaderboardMobileList = ({ rows, windowDays }) => {
+  const windowLabel = windowDays ?? 90;
+
+  if (!rows.length) return null;
+
+  return (
+    <div className="md:hidden space-y-3">
+      {rows.map((entry) => {
+        const { row, rank, grade, rankScore, rankScoreDisplay, scoreClassName, scoreDataProps, barHighlightClass, chipClassName, daysLabel, windowCount, totalTournaments, highlightClass } = entry;
+        const key = row.player_id || `${row.display_name || "player"}-${rank}`;
+        return (
+          <article
+            key={key}
+            className={`rounded-xl border border-slate-800 bg-slate-900/75 p-4 shadow-sm transition ${highlightClass}`.trim()}
+          >
+            <div className="flex items-center justify-between gap-3">
+              <span className="inline-flex items-center rounded-full bg-slate-800/80 px-2.5 py-0.5 text-xs font-semibold uppercase tracking-wide text-slate-300">
+                Rank {rank}
+              </span>
+              <GradeBadge label={grade} />
+            </div>
+
+            <div className="mt-3 flex items-start justify-between gap-3">
+              <div className="min-w-0">
+                {row.player_id ? (
+                  <a
+                    href={`https://sendou.ink/u/${row.player_id}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-base font-semibold text-slate-100 truncate hover:underline"
+                    title={row.display_name || undefined}
+                  >
+                    {row.display_name}
+                  </a>
+                ) : (
+                  <span className="text-base font-semibold text-slate-100 truncate" title={row.display_name || undefined}>
+                    {row.display_name}
                   </span>
+                )}
+                <div className="text-xs text-slate-500 truncate" title={row.player_id || undefined}>
+                  {row.player_id || "—"}
                 </div>
-              </td>
-              <td className="px-4 py-3 whitespace-nowrap">
-                <div className={`font-semibold ${rankScoreClass}`}>
-                  {rankScore == null ? "—" : nf2.format(rankScore)}
-                </div>
-                <div className="min-w-0">
-                  <ScoreBar value={rankScore} />
-                </div>
-              </td>
-              <td className="px-4 py-3 whitespace-nowrap">
-                <GradeBadge label={grade} />
-              </td>
-              <td
-                className="px-4 py-3 whitespace-nowrap"
-                title="Days until this player could fall off the leaderboard"
-              >
-                <span className={`inline-flex items-center rounded-md px-2 py-0.5 text-xs font-medium ${chipClass(severity)}`}>
+              </div>
+            </div>
+
+            <div className="mt-3 space-y-1">
+              <p className="text-xs uppercase tracking-wide text-slate-400">Rank Score</p>
+              <div className={scoreClassName} {...scoreDataProps}>
+                {rankScoreDisplay}
+              </div>
+              <ScoreBar value={rankScore} highlightClass={barHighlightClass} />
+            </div>
+
+            <div className="mt-4 grid gap-3 sm:grid-cols-2">
+              <div>
+                <p className="text-xs uppercase tracking-wide text-slate-400">Danger Status</p>
+                <span className={`mt-1 inline-flex items-center rounded-md px-2 py-0.5 text-xs font-medium ${chipClassName}`}>
                   {daysLabel}
                 </span>
-              </td>
-              <td className="px-4 py-3 text-slate-200 whitespace-nowrap">
+              </div>
+              <div>
+                <p className="text-xs uppercase tracking-wide text-slate-400">Tournaments (last {windowLabel}d)</p>
                 {windowCount != null ? (
-                  <div className="flex flex-col">
-                    <span className="font-medium">{windowCount}</span>
+                  <div className="mt-1">
+                    <span className="font-semibold text-slate-100">{windowCount}</span>
                     {totalTournaments != null && (
-                      <span className="text-xs text-slate-500">total {totalTournaments}</span>
+                      <div className="text-xs text-slate-500">total {totalTournaments}</div>
                     )}
                   </div>
                 ) : (
-                  totalTournaments ?? "—"
+                  <div className="mt-1 text-slate-100">{totalTournaments ?? "—"}</div>
                 )}
-              </td>
-            </tr>
-          );
-        })}
-      </tbody>
-    </table>
-  </div>
-);
+              </div>
+            </div>
+          </article>
+        );
+      })}
+    </div>
+  );
+};
 
-export default StableLeaderboardTable;
+const StableLeaderboardTable = ({ rows, highlightId, windowDays }) => {
+  const preparedRows = useMemo(
+    () => rows.map((row) => buildRowView(row, highlightId)),
+    [rows, highlightId]
+  );
+
+  return (
+    <div className="space-y-4">
+      <div className="hidden md:block">
+        <div className="overflow-x-auto rounded-lg border border-slate-800 shadow-md">
+          <table className="min-w-full divide-y divide-slate-800">
+            <thead className="sticky top-0 z-10 bg-slate-900/70 backdrop-blur text-left text-xs font-semibold uppercase tracking-wider text-slate-400">
+              <tr>
+                <th className="px-4 py-3" title="Stable leaderboard position after filtering">Rank</th>
+                <th className="px-4 py-3 w-[16rem]" title="Player display name and Sendou ID">Player</th>
+                <th
+                  className="px-4 py-3"
+                  title="Overall score that determines the player's leaderboard spot."
+                >
+                  Rank Score
+                </th>
+                <th className="px-4 py-3" title="Grade tier derived from the current rank score">Grade</th>
+                <th className="px-4 py-3" title="Days until the player could fall off the leaderboard">Days Before Drop</th>
+                <th
+                  className="px-4 py-3"
+                  title={`Tournaments played in the last ${windowDays ?? 90} days; total lifetime shown beneath when available.`}
+                >
+                  Tournaments (Last {windowDays ?? 90} Days)
+                </th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-slate-800 text-sm">
+              {preparedRows.map((entry) => {
+                const {
+                  row,
+                  rank,
+                  grade,
+                  rankScore,
+                  rankScoreDisplay,
+                  scoreClassName,
+                  scoreDataProps,
+                  barHighlightClass,
+                  chipClassName,
+                  daysLabel,
+                  windowCount,
+                  totalTournaments,
+                  highlightClass,
+                } = entry;
+
+                const key = row.player_id || `${row.display_name || "player"}-${rank}`;
+
+                return (
+                  <tr
+                    key={key}
+                    className={`hover:bg-slate-900/60 ${highlightClass}`.trim()}
+                  >
+                    <td className="px-4 py-3 font-semibold text-slate-200 whitespace-nowrap">{rank}</td>
+                    <td className="px-4 py-3 align-top w-[16rem]">
+                      <div className="flex flex-col min-w-0 w-[16rem]">
+                        {row.player_id ? (
+                          <a
+                            href={`https://sendou.ink/u/${row.player_id}`}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="font-medium text-slate-100 truncate hover:underline"
+                            title={row.display_name || undefined}
+                          >
+                            {row.display_name}
+                          </a>
+                        ) : (
+                          <span
+                            className="font-medium text-slate-100 truncate"
+                            title={row.display_name || undefined}
+                          >
+                            {row.display_name}
+                          </span>
+                        )}
+                        <span className="text-xs text-slate-500 truncate" title={row.player_id || undefined}>
+                          {row.player_id}
+                        </span>
+                      </div>
+                    </td>
+                    <td className="px-4 py-3 whitespace-nowrap">
+                      <div className={scoreClassName} {...scoreDataProps}>
+                        {rankScoreDisplay}
+                      </div>
+                      <div className="min-w-0">
+                        <ScoreBar value={rankScore} highlightClass={barHighlightClass} />
+                      </div>
+                    </td>
+                    <td className="px-4 py-3 whitespace-nowrap">
+                      <GradeBadge label={grade} />
+                    </td>
+                    <td
+                      className="px-4 py-3 whitespace-nowrap"
+                      title="Days until this player could fall off the leaderboard"
+                    >
+                      <span className={`inline-flex items-center rounded-md px-2 py-0.5 text-xs font-medium ${chipClassName}`}>
+                        {daysLabel}
+                      </span>
+                    </td>
+                    <td className="px-4 py-3 text-slate-200 whitespace-nowrap">
+                      {windowCount != null ? (
+                        <div className="flex flex-col">
+                          <span className="font-medium">{windowCount}</span>
+                          {totalTournaments != null && (
+                            <span className="text-xs text-slate-500">total {totalTournaments}</span>
+                          )}
+                        </div>
+                      ) : (
+                        totalTournaments ?? "—"
+                      )}
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <StableLeaderboardMobileList rows={preparedRows} windowDays={windowDays} />
+    </div>
+  );
+};
+
+StableLeaderboardTable.displayName = "StableLeaderboardTable";
+
+export default memo(StableLeaderboardTable);

@@ -10,6 +10,7 @@
   color: #e6e6f0;
   background: #0f172a; /* slate-900 */
   z-index: 0;
+  min-width: 3.25rem;
 }
 
 .grade-badge {
@@ -24,9 +25,51 @@
   font-weight: 600;
   font-size: 0.85rem;
   transition: transform 150ms ease;
+  min-width: 3.5rem;
 }
 .grade-chip:hover { transform: scale(1.05); }
 .grade-chip.is-active { transform: scale(1.02); }
+
+.xxstar-score {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.2rem;
+  --ring-pad: 4px;
+  color: #fde68a;
+  text-shadow: 0 0 6px rgba(249, 168, 212, 0.55), 0 0 12px rgba(91, 33, 182, 0.3);
+}
+
+.xxstar-score::after {
+  content: "";
+  position: absolute;
+  inset: -0.2rem -0.35rem;
+  border-radius: 1rem;
+  background: radial-gradient(circle at 50% 50%, rgba(250, 232, 255, 0.35) 0%, rgba(244, 114, 182, 0.22) 48%, rgba(59, 7, 100, 0.18) 70%, transparent 100%);
+  opacity: 0.55;
+  pointer-events: none;
+  filter: blur(1.4px);
+  animation: xxScorePulse 4200ms ease-in-out infinite;
+  z-index: -1;
+}
+
+.xxstar-scorebar {
+  position: relative;
+  box-shadow: 0 0 0 1px rgba(249, 168, 212, 0.28);
+  background: linear-gradient(90deg, rgba(249, 168, 212, 0.32), rgba(196, 181, 253, 0.24));
+}
+
+.xxstar-scorebar::after {
+  content: "";
+  position: absolute;
+  inset: -3px;
+  border-radius: inherit;
+  background: radial-gradient(circle at 25% 50%, rgba(252, 231, 243, 0.38) 0%, transparent 55%),
+              radial-gradient(circle at 75% 50%, rgba(233, 213, 255, 0.32) 0%, transparent 55%);
+  opacity: 0.55;
+  filter: blur(5px);
+  pointer-events: none;
+}
 
 /* Top tiers — strong visual presence */
 .grade-badge.grade-tier-xxstar,
@@ -34,8 +77,9 @@
   background: linear-gradient(135deg, rgba(217,70,239,0.22), rgba(244,63,94,0.22));
   color: #fde2f2;
   border-color: rgba(217,70,239,0.45);
-  box-shadow: 0 0 0 2px rgba(217,70,239,0.25) inset,
-              0 0 12px rgba(217,70,239,0.45);
+  box-shadow: 0 0 0 2px rgba(217,70,239,0.24) inset,
+              0 0 12px rgba(244,114,182,0.45),
+              0 0 22px rgba(244,114,182,0.25);
 }
 
 .grade-badge.grade-tier-xxplus,
@@ -44,7 +88,8 @@
   color: #f6e7fb;
   border-color: rgba(217,70,239,0.35);
   box-shadow: 0 0 0 2px rgba(217,70,239,0.18) inset,
-              0 0 10px rgba(217,70,239,0.4);
+              0 0 10px rgba(217,70,239,0.4),
+              0 0 20px rgba(217,70,239,0.22);
 }
 
 .grade-badge.grade-tier-xx,
@@ -106,6 +151,38 @@
 .grade-badge.grade-tier-xx::before,
 .grade-chip.grade-tier-xx::before{ content: none; }
 
+.grade-badge.grade-tier-xxstar::after,
+.grade-chip.grade-tier-xxstar::after,
+.grade-badge.grade-tier-xxplus::after,
+.grade-chip.grade-tier-xxplus::after {
+  content: "";
+  position: absolute;
+  inset: -9px;
+  border-radius: 16px;
+  background: radial-gradient(circle at center,
+      rgba(253, 216, 222, 0.42) 0%,
+      rgba(236, 72, 153, 0.28) 36%,
+      rgba(67, 34, 137, 0.14) 64%,
+      transparent 100%);
+  opacity: 0.6;
+  pointer-events: none;
+  z-index: -1;
+  mix-blend-mode: screen;
+  filter: blur(1.5px);
+  animation: xxPulse 5200ms ease-in-out infinite;
+}
+
+.grade-badge.grade-tier-xxplus::after,
+.grade-chip.grade-tier-xxplus::after {
+  inset: -8px;
+  background: radial-gradient(circle at center,
+      rgba(236, 206, 255, 0.38) 0%,
+      rgba(196, 98, 255, 0.24) 36%,
+      rgba(59, 28, 112, 0.12) 62%,
+      transparent 100%);
+  opacity: 0.55;
+}
+
 /* removed elec-flicker/jitter ring animations in favor of JS crackle paths */
 
 @media (prefers-reduced-motion: reduce) {
@@ -115,6 +192,27 @@
   .grade-chip.grade-tier-xxplus::before,
   .grade-badge.grade-tier-xx::before,
   .grade-chip.grade-tier-xx::before { animation: none; opacity: .9; }
+  .grade-badge.grade-tier-xxstar::after,
+  .grade-chip.grade-tier-xxstar::after,
+  .grade-badge.grade-tier-xxplus::after,
+  .grade-chip.grade-tier-xxplus::after {
+    animation: none;
+    opacity: 0.7;
+  }
+  .xxstar-score {
+    animation: none;
+  }
+  .xxstar-score::after {
+    animation: none;
+    opacity: 0.65;
+  }
+  .xxstar-scorebar {
+    animation: none;
+  }
+  .xxstar-scorebar::after {
+    animation: none;
+    opacity: 0.6;
+  }
 }
 
 /* Electric ring tunables */
@@ -154,6 +252,24 @@
 }
 .spark.show{ opacity: 1; }
 
+@keyframes xxPulse {
+  0%, 100% {
+    transform: scale(0.97);
+    opacity: 0.65;
+    filter: blur(1.3px);
+  }
+  45% {
+    transform: scale(1.03);
+    opacity: 0.9;
+    filter: blur(1.9px);
+  }
+  70% {
+    transform: scale(1.01);
+    opacity: 0.78;
+    filter: blur(1.5px);
+  }
+}
+
 @keyframes xsGlowPulse {
   0%, 100% {
     transform: scale(var(--xs-glow-scale-min, 0.9));
@@ -162,6 +278,24 @@
   50% {
     transform: scale(var(--xs-glow-scale-max, 1.05));
     opacity: var(--xs-glow-opacity-max, 0.42);
+  }
+}
+
+@keyframes xxScorePulse {
+  0%, 100% {
+    opacity: 0.5;
+    transform: scale(0.97);
+    filter: blur(1.1px);
+  }
+  45% {
+    opacity: 0.75;
+    transform: scale(1.02);
+    filter: blur(1.5px);
+  }
+  70% {
+    opacity: 0.6;
+    transform: scale(1.0);
+    filter: blur(1.2px);
   }
 }
 

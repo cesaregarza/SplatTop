@@ -1,4 +1,4 @@
-import React, { useMemo } from "react";
+import React, { useEffect, useMemo } from "react";
 import CompetitionLayout from "./CompetitionLayout";
 import StableLeaderboardView from "./StableLeaderboardView";
 import useCompetitionSnapshot from "../../hooks/useCompetitionSnapshot";
@@ -6,6 +6,14 @@ import useCompetitionSnapshot from "../../hooks/useCompetitionSnapshot";
 const CompetitionApp = () => {
   const { loading, error, disabled, stable, danger, refresh } =
     useCompetitionSnapshot();
+
+  useEffect(() => {
+    const previous = document.title;
+    document.title = "Competitive Rankings - splat.top";
+    return () => {
+      document.title = previous;
+    };
+  }, []);
 
   const mergedRows = useMemo(() => {
     const stableRows = Array.isArray(stable?.data) ? stable.data : [];

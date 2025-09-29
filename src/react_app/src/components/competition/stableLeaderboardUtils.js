@@ -95,4 +95,63 @@ export const gradeChipClass = (label, active) => {
 
 export const isXX = (label) => label === "XX★" || label === "XX+" || label === "XX";
 
-export const rateFor = (label) => (label === "XX★" ? 4 : label === "XX+" ? 3 : 2.4);
+export const rateFor = (label) => {
+  if (label === "XX★") return 7.5;
+  if (label === "XX+") return 4.5;
+  if (label === "XX") return 3;
+  return 2.4;
+};
+
+const SHOWCASE_BLUEPRINTS = [
+  { label: "XX★", codename: "Ink Leviathan", windowCount: 6, totalCount: 48, dangerDaysLeft: 12.4 },
+  { label: "XX+", codename: "Kraken Voltage", windowCount: 4, totalCount: 36, dangerDaysLeft: 2.6 },
+  { label: "XX", codename: "Tri-Slosh Tempest", windowCount: 3, totalCount: 28, dangerDaysLeft: 0.45 },
+  { label: "XS+", codename: "Charger Aurora", windowCount: 3, totalCount: 24, dangerDaysLeft: 0.12 },
+  { label: "XS", codename: "Splat Pulse", windowCount: 3, totalCount: 22, dangerDaysLeft: -0.5 },
+  { label: "XS-", codename: "Ink Echo", windowCount: 2, totalCount: 20 },
+  { label: "XA+", codename: "Wave Breaker", windowCount: 2, totalCount: 18 },
+  { label: "XA", codename: "Inkstream Nomad", windowCount: 1, totalCount: 15 },
+  { label: "XA-", codename: "Suction Drift", windowCount: 1, totalCount: 12 },
+  { label: "XB+", codename: "Splashdown Relay", windowCount: 0, totalCount: 10 },
+  { label: "XB", codename: "Tide Rider", windowCount: null, totalCount: 7 },
+  { label: "XB-", codename: "Reef Rookie", windowCount: null, totalCount: 5 },
+];
+
+const metricWithinGrade = (label) => {
+  const index = DISPLAY_GRADE_SCALE.findIndex(([, targetLabel]) => targetLabel === label);
+  if (index < 0) return 180; // fallback midpoint
+  const [upper] = DISPLAY_GRADE_SCALE[index];
+  const lower = index > 0 ? DISPLAY_GRADE_SCALE[index - 1][0] : Number.NEGATIVE_INFINITY;
+
+  if (!Number.isFinite(upper)) {
+    const base = Number.isFinite(lower) ? lower : 250;
+    return base + 20;
+  }
+
+  if (!Number.isFinite(lower)) {
+    return upper - 5;
+  }
+
+  const midpoint = lower + (upper - lower) * 0.65;
+  return Math.min(upper - 0.5, Math.max(lower + 0.5, midpoint));
+};
+
+export const createGradeShowcaseRows = () =>
+  SHOWCASE_BLUEPRINTS.map((blueprint, index) => {
+    const metric = metricWithinGrade(blueprint.label);
+    const displayScore = metric - 150;
+    const playerId = `__sample_${blueprint.label.toLowerCase().replace(/[^a-z0-9]+/g, "-")}`;
+    const displayName = `[Sample] ${blueprint.label} — ${blueprint.codename}`;
+
+    return {
+      player_id: playerId,
+      display_name: displayName,
+      stable_rank: null,
+      display_score: displayScore,
+      window_tournament_count: blueprint.windowCount ?? null,
+      tournament_count: blueprint.totalCount ?? null,
+      danger_days_left: blueprint.windowCount === 3 ? blueprint.dangerDaysLeft ?? null : null,
+      is_showcase: true,
+      showcase_order: index,
+    };
+  });

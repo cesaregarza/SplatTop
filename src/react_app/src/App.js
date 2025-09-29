@@ -14,10 +14,37 @@ const TopWeapons = React.lazy(() =>
   import("./components/weapon_leaderboard")
 );
 
+const COMPETITION_OVERRIDE_KEY = "splat.top.competitionOverride";
+
+const readBoolean = (value) => {
+  if (value == null) return null;
+  const normalized = String(value).trim().toLowerCase();
+  if (normalized === "true" || normalized === "1") return true;
+  if (normalized === "false" || normalized === "0") return false;
+  return null;
+};
+
 const detectCompetitionHost = () => {
+  const explicitFlag = readBoolean(process.env.REACT_APP_ENABLE_COMPETITION);
+  if (explicitFlag !== null) return explicitFlag;
+
+  if (typeof window !== "undefined") {
+    try {
+      const params = new URLSearchParams(window.location.search);
+      const overrideParam = readBoolean(params.get("competition"));
+      if (overrideParam !== null) return overrideParam;
+
+      const stored = readBoolean(
+        window.localStorage?.getItem(COMPETITION_OVERRIDE_KEY)
+      );
+      if (stored !== null) return stored;
+    } catch {}
+  }
+
   if (typeof window === "undefined") {
     return false;
   }
+
   const hostname = window.location.hostname.toLowerCase();
   if (hostname === "comp.localhost") {
     return true;
@@ -45,9 +72,22 @@ const MainSiteApp = () => (
 );
 
 const App = () => {
-  const [isCompetition, setIsCompetition] = useState(detectCompetitionHost);
+  const [isCompetition, setIsCompetition] = useState(() => detectCompetitionHost());
 
   useEffect(() => {
+    if (typeof window !== "undefined") {
+      const params = new URLSearchParams(window.location.search);
+      const override = readBoolean(params.get("competition"));
+      if (override !== null) {
+        try {
+          window.localStorage?.setItem(
+            COMPETITION_OVERRIDE_KEY,
+            override ? "true" : "false"
+          );
+        } catch {}
+      }
+    }
+
     setIsCompetition(detectCompetitionHost());
   }, []);
 

@@ -1,12 +1,16 @@
-import React, { useEffect, useMemo, useRef, useState } from "react";
+import React, { memo, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import "./StableLeaderboardView.css";
 import useCrackleEffect from "../../hooks/useCrackleEffect";
 import StableLeaderboardHeader from "./StableLeaderboardHeader";
 import StableLeaderboardTable from "./StableLeaderboardTable";
 import StableLeaderboardFooter from "./StableLeaderboardFooter";
-import { gradeFor } from "./stableLeaderboardUtils";
+import { createGradeShowcaseRows, gradeFor } from "./stableLeaderboardUtils";
 
-const LoadingSkeleton = () => (
+const ENABLE_SHOWCASE_ROWS =
+  String(process.env.REACT_APP_SHOWCASE_STABLE_LEADERBOARD ?? "true").toLowerCase() !== "false";
+const SHOWCASE_ROWS = ENABLE_SHOWCASE_ROWS ? createGradeShowcaseRows() : [];
+
+const LoadingSkeleton = memo(() => (
   <div className="overflow-x-auto rounded-lg border border-slate-800">
     <table className="min-w-full divide-y divide-slate-800">
       <thead className="bg-slate-900/70 sticky top-0 text-left text-xs font-semibold uppercase tracking-wider text-slate-400">
@@ -47,21 +51,27 @@ const LoadingSkeleton = () => (
       </tbody>
     </table>
   </div>
-);
+));
 
-const ErrorBanner = ({ message }) => (
+LoadingSkeleton.displayName = "StableLeaderboardLoadingSkeleton";
+
+const ErrorBanner = memo(({ message }) => (
   <div className="rounded-md border border-rose-500/40 bg-rose-500/10 px-4 py-3 text-sm text-rose-200">
     Unable to load the stable leaderboard right now: {message}
   </div>
-);
+));
 
-const EmptyState = ({ query }) => (
+ErrorBanner.displayName = "StableLeaderboardErrorBanner";
+
+const EmptyState = memo(({ query }) => (
   <p className="text-slate-400">
     {query
       ? "No players match your search."
       : "No players are available for this snapshot yet. Check back soon!"}
   </p>
-);
+));
+
+EmptyState.displayName = "StableLeaderboardEmptyState";
 
 const StableLeaderboardView = ({ rows, loading, error, windowDays }) => {
   const [query, setQuery] = useState("");
@@ -72,11 +82,13 @@ const StableLeaderboardView = ({ rows, loading, error, windowDays }) => {
   const [highlightId, setHighlightId] = useState(null);
   const highlightTimerRef = useRef(null);
   const rootRef = useRef(null);
+  const footerRef = useRef(null);
 
   const prepared = useMemo(() => {
     const data = Array.isArray(rows) ? rows : [];
+    const augmented = SHOWCASE_ROWS.length ? [...data, ...SHOWCASE_ROWS] : data;
 
-    const mapped = data.map((row) => {
+    const mapped = augmented.map((row) => {
       const baseDisplay = row.display_score ?? null;
       const shifted = baseDisplay == null ? null : baseDisplay + 150;
       const rawScore =
@@ -116,24 +128,28 @@ const StableLeaderboardView = ({ rows, loading, error, windowDays }) => {
     return { filtered: pageRows, total, pageCount, current, all: filtered };
   }, [rows, query, page, pageSize]);
 
-  const gotoPage = (value) => {
-    setPage((current) => {
-      const target = Math.max(1, Math.min(value, prepared.pageCount));
-      return target;
-    });
-  };
+  const gotoPage = useCallback(
+    (value) => {
+      setPage((current) => {
+        const target = Math.max(1, Math.min(value, prepared.pageCount));
+        return target;
+      });
+    },
+    [prepared.pageCount]
+  );
 
   useCrackleEffect(rootRef, [rows, query, page, pageSize, jumpGrade]);
 
-  const clearHighlightLater = () => {
+  const clearHighlightLater = useCallback(() => {
     if (highlightTimerRef.current) clearTimeout(highlightTimerRef.current);
     highlightTimerRef.current = setTimeout(() => setHighlightId(null), 3000);
-  };
+  }, []);
 
-  const gotoGrade = (gradeValue) => {
-    const label = String(gradeValue || "").trim();
-    if (!label) return;
-    const idx = prepared.all.findIndex((r) => r._grade === label);
+  const gotoGrade = useCallback(
+    (gradeValue) => {
+      const label = String(gradeValue || "").trim();
+      if (!label) return;
+      const idx = prepared.all.findIndex((r) => r._grade === label);
     if (idx < 0) return;
     const targetPage = Math.floor(idx / pageSize) + 1;
     setQuery("");
@@ -150,13 +166,16 @@ const StableLeaderboardView = ({ rows, loading, error, windowDays }) => {
       url.searchParams.delete("player");
       url.searchParams.delete("rank");
       window.history.replaceState(null, "", url.toString());
-    } catch {}
-  };
+      } catch {}
+    },
+    [prepared.all, pageSize, clearHighlightLater]
+  );
 
-  const gotoPlayerId = (pid) => {
-    if (!pid) return;
-    setQuery("");
-    let idx = -1;
+  const gotoPlayerId = useCallback(
+    (pid) => {
+      if (!pid) return;
+      setQuery("");
+      let idx = -1;
     try {
       const baseRow = (Array.isArray(rows) ? rows : []).find((r) => r.player_id === pid);
       if (baseRow && Number.isFinite(baseRow.stable_rank)) {
@@ -177,8 +196,10 @@ const StableLeaderboardView = ({ rows, loading, error, windowDays }) => {
         url.searchParams.delete("rank");
         window.history.replaceState(null, "", url.toString());
       } catch {}
-    }
-  };
+      }
+    },
+    [rows, prepared.all, pageSize, clearHighlightLater]
+  );
 
   useEffect(() => {
     try {
@@ -198,15 +219,31 @@ const StableLeaderboardView = ({ rows, loading, error, windowDays }) => {
     if (highlightTimerRef.current) clearTimeout(highlightTimerRef.current);
   }, []);
 
-  const handlePageSizeChange = (size) => {
+  const handlePageSizeChange = useCallback((size) => {
     setPageSize(size);
     setPage(1);
-  };
+  }, []);
 
-  const handleJumpPlayerSubmit = (event) => {
-    event.preventDefault();
-    gotoPlayerId(jumpPlayerId.trim());
-  };
+  const handleJumpPlayerSubmit = useCallback(
+    (event) => {
+      event.preventDefault();
+      gotoPlayerId(jumpPlayerId.trim());
+    },
+    [gotoPlayerId, jumpPlayerId]
+  );
+
+  const handleQueryChange = useCallback((value) => {
+    setQuery(value);
+    setPage(1);
+  }, []);
+
+  const handleScrollToControls = useCallback(() => {
+    try {
+      footerRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+    } catch {
+      /* no-op */
+    }
+  }, []);
 
   let content;
   if (loading) {
@@ -220,7 +257,10 @@ const StableLeaderboardView = ({ rows, loading, error, windowDays }) => {
       <>
         <StableLeaderboardTable rows={prepared.filtered} highlightId={highlightId} windowDays={windowDays} />
         <StableLeaderboardFooter
-          prepared={prepared}
+          pageCount={prepared.pageCount}
+          currentPage={prepared.current}
+          totalPlayers={prepared.total}
+          allRows={prepared.all}
           pageSize={pageSize}
           onPageSizeChange={handlePageSizeChange}
           onGotoPage={gotoPage}
@@ -229,19 +269,20 @@ const StableLeaderboardView = ({ rows, loading, error, windowDays }) => {
           jumpPlayerId={jumpPlayerId}
           onJumpPlayerChange={setJumpPlayerId}
           onJumpPlayerSubmit={handleJumpPlayerSubmit}
+          ref={footerRef}
         />
       </>
     );
   }
 
+  const showScrollButton = !loading && !error && prepared.total > 0;
+
   return (
     <section ref={rootRef}>
       <StableLeaderboardHeader
         query={query}
-        onQueryChange={(value) => {
-          setQuery(value);
-          setPage(1);
-        }}
+        onQueryChange={handleQueryChange}
+        onScrollToControls={showScrollButton ? handleScrollToControls : undefined}
       />
       {content}
     </section>
