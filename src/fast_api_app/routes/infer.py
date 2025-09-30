@@ -9,8 +9,8 @@ import httpx
 from fastapi import APIRouter, HTTPException, Request
 from fastapi.responses import HTMLResponse
 from pydantic import BaseModel
-from sqlalchemy.dialects.postgresql import insert as pg_insert
 from redis.exceptions import RedisError
+from sqlalchemy.dialects.postgresql import insert as pg_insert
 
 from fast_api_app.connections import (
     async_session,

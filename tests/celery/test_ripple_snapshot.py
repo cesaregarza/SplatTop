@@ -19,10 +19,10 @@ from conftest import FakeRedis
 from celery_app.tasks import ripple_snapshot as snapshot_mod
 from shared_lib.constants import (
     RIPPLE_DANGER_LATEST_KEY,
+    RIPPLE_SNAPSHOT_LOCK_KEY,
     RIPPLE_STABLE_LATEST_KEY,
     RIPPLE_STABLE_META_KEY,
     RIPPLE_STABLE_STATE_KEY,
-    RIPPLE_SNAPSHOT_LOCK_KEY,
 )
 
 
@@ -95,13 +95,13 @@ def test_refresh_ripple_snapshots_persists_payloads(monkeypatch):
         raising=False,
     )
 
-    async def fake_first_score(session, player_id, event_ms):
-        return {"p1": 1.2, "p2": 0.9}.get(player_id, 0.0)
+    async def fake_first_scores(session, events):
+        return {"p1": 1.2, "p2": 0.9}
 
     monkeypatch.setattr(
         snapshot_mod,
-        "_first_score_after_event",
-        fake_first_score,
+        "_first_scores_after_events",
+        fake_first_scores,
         raising=False,
     )
     monkeypatch.setattr(
@@ -203,13 +203,13 @@ def test_existing_state_preserves_stable_score(monkeypatch):
         raising=False,
     )
 
-    async def fake_first_score(session, player_id, event_ms):
-        return 0.9
+    async def fake_first_scores(session, events):
+        return {"p1": 0.9}
 
     monkeypatch.setattr(
         snapshot_mod,
-        "_first_score_after_event",
-        fake_first_score,
+        "_first_scores_after_events",
+        fake_first_scores,
         raising=False,
     )
     monkeypatch.setattr(snapshot_mod, "_now_ms", lambda: 4_000, raising=False)

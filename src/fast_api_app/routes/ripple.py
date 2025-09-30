@@ -58,7 +58,9 @@ def _get_cached(kind: str, params: Dict[str, Any]) -> Optional[Dict[str, Any]]:
         return None
 
 
-def _set_cached(kind: str, params: Dict[str, Any], payload: Dict[str, Any]) -> None:
+def _set_cached(
+    kind: str, params: Dict[str, Any], payload: Dict[str, Any]
+) -> None:
     key = _cache_key(kind, params)
     try:
         redis_conn.setex(key, _CACHE_TTL_SECONDS, orjson.dumps(payload))
@@ -325,7 +327,7 @@ async def get_ripple_leaderboard(
             "win_loss_ratio": win_loss_ratio,
             "tournament_count": r.get("tournament_count"),
             "last_active_ms": r.get("last_active_ms"),
-    }
+        }
 
     items: List[Dict[str, Any]] = [to_item(dict(r)) for r in rows]
 
@@ -406,7 +408,6 @@ async def get_ripple_danger(
     build: Optional[str] = Query(None),
     ts_ms: Optional[int] = Query(None),
 ):
-
     cache_params = {
         "limit": limit,
         "offset": offset,

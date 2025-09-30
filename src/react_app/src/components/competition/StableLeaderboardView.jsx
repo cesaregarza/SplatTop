@@ -179,26 +179,34 @@ const StableLeaderboardView = ({ rows, loading, error, windowDays }) => {
     (gradeValue) => {
       const label = String(gradeValue || "").trim();
       if (!label) return;
+
       const idx = prepared.all.findIndex((r) => r._grade === label);
-    if (idx < 0) return;
-    const targetPage = Math.floor(idx / pageSize) + 1;
-    setQuery("");
-    setPage(targetPage);
-    try {
-      const row = prepared.all[idx];
-      if (row?.player_id) {
-        setHighlightId(row.player_id);
-        clearHighlightLater();
-      }
+      if (idx < 0) return;
+
+      const realCount = prepared.total;
+      const isShowcaseRow = idx >= realCount;
+      const targetPage = isShowcaseRow
+        ? 1
+        : Math.floor(idx / pageSize) + 1;
+
+      setQuery("");
+      setPage(targetPage);
       setJumpGrade(label);
-      const url = new URL(window.location.href);
-      url.searchParams.set("grade", label);
-      url.searchParams.delete("player");
-      url.searchParams.delete("rank");
-      window.history.replaceState(null, "", url.toString());
+
+      try {
+        const row = prepared.all[idx];
+        if (row?.player_id) {
+          setHighlightId(row.player_id);
+          clearHighlightLater();
+        }
+        const url = new URL(window.location.href);
+        url.searchParams.set("grade", label);
+        url.searchParams.delete("player");
+        url.searchParams.delete("rank");
+        window.history.replaceState(null, "", url.toString());
       } catch {}
     },
-    [prepared.all, pageSize, clearHighlightLater]
+    [prepared.all, prepared.total, pageSize, clearHighlightLater]
   );
 
   const gotoPlayerId = useCallback(
@@ -206,26 +214,28 @@ const StableLeaderboardView = ({ rows, loading, error, windowDays }) => {
       if (!pid) return;
       setQuery("");
       let idx = -1;
-    try {
-      const baseRow = (Array.isArray(rows) ? rows : []).find((r) => r.player_id === pid);
-      if (baseRow && Number.isFinite(baseRow.stable_rank)) {
-        idx = Number(baseRow.stable_rank) - 1;
-      }
-    } catch {}
-    if (idx < 0) {
-      idx = prepared.all.findIndex((r) => r.player_id === pid);
-    }
-    if (idx >= 0) {
-      const targetPage = Math.floor(idx / pageSize) + 1;
-      setPage(targetPage);
-      setHighlightId(pid);
-      clearHighlightLater();
       try {
-        const url = new URL(window.location.href);
-        url.searchParams.set("player", pid);
-        url.searchParams.delete("rank");
-        window.history.replaceState(null, "", url.toString());
+        const baseRow = (Array.isArray(rows) ? rows : []).find(
+          (r) => r.player_id === pid
+        );
+        if (baseRow && Number.isFinite(baseRow.stable_rank)) {
+          idx = Number(baseRow.stable_rank) - 1;
+        }
       } catch {}
+      if (idx < 0) {
+        idx = prepared.all.findIndex((r) => r.player_id === pid);
+      }
+      if (idx >= 0) {
+        const targetPage = Math.floor(idx / pageSize) + 1;
+        setPage(targetPage);
+        setHighlightId(pid);
+        clearHighlightLater();
+        try {
+          const url = new URL(window.location.href);
+          url.searchParams.set("player", pid);
+          url.searchParams.delete("rank");
+          window.history.replaceState(null, "", url.toString());
+        } catch {}
       }
     },
     [rows, prepared.all, pageSize, clearHighlightLater]

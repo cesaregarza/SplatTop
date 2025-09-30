@@ -15,11 +15,11 @@ from sqlalchemy import text
 from celery_app.connections import rankings_async_session, redis_conn
 from shared_lib.constants import (
     RIPPLE_DANGER_LATEST_KEY,
+    RIPPLE_SNAPSHOT_LOCK_KEY,
     RIPPLE_STABLE_LATEST_KEY,
     RIPPLE_STABLE_META_KEY,
     RIPPLE_STABLE_PERCENTILES_KEY,
     RIPPLE_STABLE_STATE_KEY,
-    RIPPLE_SNAPSHOT_LOCK_KEY,
 )
 from shared_lib.queries import ripple_queries
 
@@ -178,13 +178,13 @@ async def _fetch_player_events(
     # counted across all appearances.
     query = text(
         f"""
-        SELECT pat.player_id,
+        SELECT pat.player_id::text AS player_id,
                MAX(tet.event_ms)::bigint AS latest_event_ms,
                COUNT(DISTINCT pat.tournament_id)::int AS tournament_count
         FROM {schema_sql}.player_appearance_teams pat
         LEFT JOIN {schema_sql}.tournament_event_times tet
           ON tet.tournament_id = pat.tournament_id
-        WHERE pat.player_id = ANY(:player_ids)
+        WHERE pat.player_id::text = ANY(:player_ids)
         GROUP BY pat.player_id
         """
     )
@@ -192,38 +192,55 @@ async def _fetch_player_events(
     result = await session.execute(query, {"player_ids": player_ids})
     out: Dict[str, Dict[str, Any]] = {}
     for row in result.mappings():
-        out[row["player_id"]] = {
+        player_id = str(row["player_id"])
+        out[player_id] = {
             "latest_event_ms": _to_int(row["latest_event_ms"]),
             "tournament_count": _to_int(row["tournament_count"]),
         }
     return out
 
 
-async def _first_score_after_event(
-    session, player_id: str, event_ms: int
-) -> float | None:
+async def _first_scores_after_events(
+    session,
+    player_events: Dict[str, int],
+) -> Dict[str, float]:
+    if not player_events:
+        return {}
+
     schema = ripple_queries._schema()
     schema_sql = f'"{schema}"'
 
+    player_ids = list(player_events.keys())
+    event_ms = [int(player_events[player_id]) for player_id in player_ids]
+
     query = text(
         f"""
-        SELECT score
-        FROM {schema_sql}.player_rankings
-        WHERE player_id = :player_id
-          AND calculated_at_ms >= :event_ms
-        ORDER BY calculated_at_ms ASC
-        LIMIT 1
+        WITH params AS (
+            SELECT player_id, event_ms
+            FROM UNNEST(CAST(:player_ids AS text[]), CAST(:event_ms AS bigint[]))
+                AS t(player_id, event_ms)
+        )
+        SELECT DISTINCT ON (pr.player_id)
+               pr.player_id::text AS player_id,
+               pr.score
+        FROM params p
+        JOIN {schema_sql}.player_rankings pr
+          ON pr.player_id::text = p.player_id
+         AND pr.calculated_at_ms >= p.event_ms
+        ORDER BY pr.player_id, pr.calculated_at_ms
         """
     )
 
     result = await session.execute(
-        query, {"player_id": player_id, "event_ms": event_ms}
+        query, {"player_ids": player_ids, "event_ms": event_ms}
     )
-    row = result.first()
-    if not row:
-        return None
-    score = row[0]
-    return None if score is None else float(score)
+
+    out: Dict[str, float] = {}
+    for row in result.mappings():
+        score = row.get("score")
+        if score is not None:
+            out[str(row["player_id"])] = float(score)
+    return out
 
 
 async def _bootstrap_state(
@@ -234,22 +251,29 @@ async def _bootstrap_state(
 ) -> Dict[str, Any]:
     """Build the stable cache from scratch when Redis lacks history."""
     state: Dict[str, Any] = {}
+
+    players_with_events = {
+        player_id: info["latest_event_ms"]
+        for player_id, info in events.items()
+        if info.get("latest_event_ms") is not None
+    }
+    event_scores = await _first_scores_after_events(
+        session, players_with_events
+    )
+
     for row in rows:
         player_id = row.get("player_id")
         if not player_id:
             continue
-        event_info = events.get(player_id, {})
+        player_key = str(player_id)
+        event_info = events.get(player_key, {})
         latest_event_ms = _to_int(event_info.get("latest_event_ms"))
         tournament_count = event_info.get("tournament_count")
-        stable_score = None
-        if latest_event_ms is not None:
-            stable_score = await _first_score_after_event(
-                session, player_id, latest_event_ms
-            )
+        stable_score = event_scores.get(player_key)
         if stable_score is None:
             score = row.get("score") or 0.0
             stable_score = float(score)
-        state[player_id] = {
+        state[player_key] = {
             "stable_score": stable_score,
             "last_tournament_ms": latest_event_ms,
             # Align last_active_ms to last_tournament_ms to prevent desyncs
@@ -267,16 +291,19 @@ def _merge_state(
     previous_state: Dict[str, Any],
     now_ms: int,
 ) -> tuple[List[Dict[str, Any]], Dict[str, Any]]:
-    new_state = dict(previous_state)
+    new_state = {
+        str(player_id): value for player_id, value in previous_state.items()
+    }
     stable_rows: List[Dict[str, Any]] = []
 
     for row in rows:
         player_id = row.get("player_id")
         if not player_id:
             continue
+        player_key = str(player_id)
         score = float(row.get("score") or 0.0)
         display_name = row.get("display_name")
-        event_info = events.get(player_id, {})
+        event_info = events.get(player_key, {})
         latest_event_ms = _to_int(event_info.get("latest_event_ms"))
         tournament_count = event_info.get("tournament_count")
         if tournament_count is None:
@@ -285,7 +312,7 @@ def _merge_state(
         # the public snapshot displays a single coherent timestamp for both.
         last_active_ms = None  # will be set after last_tournament_ms determined
 
-        existing = new_state.get(player_id, {})
+        existing = new_state.get(player_key, {})
         stable_score = existing.get("stable_score")
         last_tournament_ms = existing.get("last_tournament_ms")
 
@@ -302,7 +329,7 @@ def _merge_state(
         # Finalize last_active_ms to match last_tournament_ms
         last_active_ms = last_tournament_ms
 
-        new_state[player_id] = {
+        new_state[player_key] = {
             "stable_score": stable_score,
             "last_tournament_ms": last_tournament_ms,
             "last_active_ms": last_active_ms,
@@ -315,7 +342,7 @@ def _merge_state(
         # not appear in the danger set.
         stable_rows.append(
             {
-                "player_id": player_id,
+                "player_id": player_key,
                 "display_name": display_name,
                 "stable_score": stable_score,
                 "display_score": _display_score(stable_score),
@@ -339,7 +366,8 @@ def _serialize_danger(
 ) -> List[Dict[str, Any]]:
     serialized: List[Dict[str, Any]] = []
     for row in danger_rows:
-        player_id = row.get("player_id")
+        raw_player_id = row.get("player_id")
+        player_id = None if raw_player_id is None else str(raw_player_id)
         ms_left = row.get("ms_left")
         ms_left_value = float(ms_left) if ms_left is not None else None
         days_left = None
@@ -395,7 +423,9 @@ async def _refresh_snapshots_async() -> Dict[str, Any]:
             )
             danger_rows = [dict(r) for r in danger_rows_raw]
             player_ids = [
-                row.get("player_id") for row in rows if row.get("player_id")
+                str(row.get("player_id"))
+                for row in rows
+                if row.get("player_id")
             ]
             events = await _fetch_player_events(session, player_ids)
 
