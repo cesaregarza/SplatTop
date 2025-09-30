@@ -7,50 +7,58 @@ import StableLeaderboardTable from "./StableLeaderboardTable";
 import StableLeaderboardFooter from "./StableLeaderboardFooter";
 import { createGradeShowcaseRows, gradeFor } from "./stableLeaderboardUtils";
 
+const rawShowcaseFlag = process.env.REACT_APP_SHOWCASE_STABLE_LEADERBOARD;
 const ENABLE_SHOWCASE_ROWS =
-  String(process.env.REACT_APP_SHOWCASE_STABLE_LEADERBOARD ?? "true").toLowerCase() !== "false";
+  rawShowcaseFlag != null
+    ? String(rawShowcaseFlag).trim().toLowerCase() !== "false"
+    : process.env.NODE_ENV !== "production";
 const SHOWCASE_ROWS = ENABLE_SHOWCASE_ROWS ? createGradeShowcaseRows() : [];
 
 const LoadingSkeleton = memo(() => (
-  <div className="overflow-x-auto rounded-lg border border-slate-800">
-    <table className="min-w-full divide-y divide-slate-800">
-      <thead className="bg-slate-900/70 sticky top-0 text-left text-xs font-semibold uppercase tracking-wider text-slate-400">
-        <tr>
-          <th className="px-4 py-3">Rank</th>
-          <th className="px-4 py-3 w-[16rem]">Player</th>
-          <th className="px-4 py-3">Rank Score</th>
-          <th className="px-4 py-3">Grade</th>
-          <th className="px-4 py-3">Days Before Drop</th>
-          <th className="px-4 py-3">Tournaments</th>
-        </tr>
-      </thead>
-      <tbody className="divide-y divide-slate-800">
-        {Array.from({ length: 10 }).map((_, index) => (
-          <tr key={index} className="animate-pulse">
-            <td className="px-4 py-3">
-              <div className="h-6 w-6 rounded-full bg-slate-800" />
-            </td>
-            <td className="px-4 py-3 w-[16rem]">
-              <div className="h-4 w-48 rounded bg-slate-800" />
-              <div className="mt-1 h-3 w-28 rounded bg-slate-900" />
-            </td>
-            <td className="px-4 py-3">
-              <div className="h-4 w-16 rounded bg-slate-800" />
-              <div className="mt-1 h-1.5 w-32 rounded bg-slate-900" />
-            </td>
-            <td className="px-4 py-3">
-              <div className="h-5 w-10 rounded bg-slate-800" />
-            </td>
-            <td className="px-4 py-3">
-              <div className="h-5 w-16 rounded bg-slate-800" />
-            </td>
-            <td className="px-4 py-3">
-              <div className="h-4 w-10 rounded bg-slate-800" />
-            </td>
+  <div className="rounded-lg border border-slate-800 bg-slate-950/60 shadow-md overflow-hidden">
+    <div className="overflow-x-auto">
+      <table className="min-w-full divide-y divide-slate-800">
+        <thead
+          className="bg-slate-900/70 sticky top-0 z-10 text-left text-xs font-semibold uppercase tracking-wider text-slate-400 backdrop-blur border-b border-slate-800"
+          style={{ borderTopLeftRadius: "0.5rem", borderTopRightRadius: "0.5rem" }}
+        >
+          <tr>
+            <th className="px-4 py-3 rounded-tl-lg">Rank</th>
+            <th className="px-4 py-3 w-[16rem]">Player</th>
+            <th className="px-4 py-3">Rank Score</th>
+            <th className="px-4 py-3">Grade</th>
+            <th className="px-4 py-3">Days Before Drop</th>
+            <th className="px-4 py-3 rounded-tr-lg">Tournaments</th>
           </tr>
-        ))}
-      </tbody>
-    </table>
+        </thead>
+        <tbody className="divide-y divide-slate-800">
+          {Array.from({ length: 10 }).map((_, index) => (
+            <tr key={index} className="animate-pulse">
+              <td className="px-4 py-3">
+                <div className="h-6 w-6 rounded-full bg-slate-800" />
+              </td>
+              <td className="px-4 py-3 w-[16rem]">
+                <div className="h-4 w-48 rounded bg-slate-800" />
+                <div className="mt-1 h-3 w-28 rounded bg-slate-900" />
+              </td>
+              <td className="px-4 py-3">
+                <div className="h-4 w-16 rounded bg-slate-800" />
+                <div className="mt-1 h-1.5 w-32 rounded bg-slate-900" />
+              </td>
+              <td className="px-4 py-3">
+                <div className="h-5 w-10 rounded bg-slate-800" />
+              </td>
+              <td className="px-4 py-3">
+                <div className="h-5 w-16 rounded bg-slate-800" />
+              </td>
+              <td className="px-4 py-3">
+                <div className="h-4 w-10 rounded bg-slate-800" />
+              </td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
   </div>
 ));
 
@@ -81,6 +89,7 @@ const StableLeaderboardView = ({ rows, loading, error, windowDays }) => {
   const [jumpPlayerId, setJumpPlayerId] = useState("");
   const [jumpGrade, setJumpGrade] = useState("");
   const [highlightId, setHighlightId] = useState(null);
+  const [tableScrollKey, setTableScrollKey] = useState(0);
   const highlightTimerRef = useRef(null);
   const rootRef = useRef(null);
   const footerRef = useRef(null);
@@ -157,6 +166,10 @@ const StableLeaderboardView = ({ rows, loading, error, windowDays }) => {
       hasShowcase: filteredShowcase.length > 0,
     };
   }, [rows, query, page, pageSize]);
+
+  const scrollTableToTop = useCallback(() => {
+    setTableScrollKey((key) => key + 1);
+  }, []);
 
   const gotoPage = useCallback(
     (value) => {
@@ -303,7 +316,12 @@ const StableLeaderboardView = ({ rows, loading, error, windowDays }) => {
   } else {
     content = (
       <>
-        <StableLeaderboardTable rows={prepared.filtered} highlightId={highlightId} windowDays={windowDays} />
+        <StableLeaderboardTable
+          rows={prepared.filtered}
+          highlightId={highlightId}
+          windowDays={windowDays}
+          scrollResetKey={tableScrollKey}
+        />
         <StableLeaderboardFooter
           pageCount={prepared.pageCount}
           currentPage={prepared.current}
@@ -312,6 +330,7 @@ const StableLeaderboardView = ({ rows, loading, error, windowDays }) => {
           pageSize={pageSize}
           onPageSizeChange={handlePageSizeChange}
           onGotoPage={gotoPage}
+          onPaginate={scrollTableToTop}
           jumpGrade={jumpGrade}
           onGotoGrade={gotoGrade}
           jumpPlayerId={jumpPlayerId}

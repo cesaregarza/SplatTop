@@ -228,7 +228,7 @@ const CompetitionFaq = ({ percentiles }) => {
           <p>
             Grades follow the Splatoon ladder but add an "X" prefix (XB, XA,
             XS, XS+) to highlight the competitive tier. They're derived from
-            the same score shown on the table and don't depend on team or region.
+            the same score shown on the table and don't depend on your team.
           </p>
           <div className="rounded-md border border-slate-800/60 bg-slate-900/50 p-3 text-sm text-slate-200">
             <p className="font-semibold text-center text-slate-100">Grade floors &amp; percentiles</p>
@@ -373,9 +373,9 @@ const CompetitionFaq = ({ percentiles }) => {
   return (
     <div ref={rootRef} className="space-y-10">
       <section className="rounded-lg border border-slate-800 bg-slate-900/60 px-6 py-6">
-        <h2 className="text-2xl font-semibold text-white">Competition FAQ</h2>
+        <h2 className="text-2xl font-semibold text-white">Competitive Leaderboard FAQ</h2>
         <p className="mt-3 text-slate-300">
-          New to the competition leaderboard? These answers explain what the
+          New to the competitive leaderboard? These answers explain what the
           rankings show, when the board refreshes, and how to get help if
           something looks off.
         </p>
