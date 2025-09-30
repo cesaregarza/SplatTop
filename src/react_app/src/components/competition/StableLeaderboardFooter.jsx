@@ -4,6 +4,7 @@ import {
   DISPLAY_GRADE_SCALE,
   gradeChipClass,
   isXX,
+  nf0,
   rateFor,
 } from "./stableLeaderboardUtils";
 
@@ -45,6 +46,9 @@ const StableLeaderboardFooterComponent = ({
       .filter((label) => present.has(label));
   }, [allRows]);
 
+  const formattedTotalPlayers =
+    typeof totalPlayers === "number" ? nf0.format(totalPlayers) : totalPlayers ?? "—";
+
   return (
     <section
       ref={ref}
@@ -57,7 +61,7 @@ const StableLeaderboardFooterComponent = ({
             <p className="mt-1 text-sm text-slate-300">
               Page <span className="font-semibold text-slate-100">{currentPage}</span> of {pageCount}
               <span className="mx-2 text-slate-600">•</span>
-              <span className="font-semibold text-slate-100">{totalPlayers}</span> players
+              <span className="font-semibold text-slate-100">{formattedTotalPlayers}</span> players
             </p>
           </div>
           <div className="flex items-center gap-3">
@@ -138,11 +142,11 @@ const StableLeaderboardFooterComponent = ({
         {visibleGrades.length > 0 && (
           <div className="space-y-3">
             <p className="text-xs font-semibold uppercase tracking-wide text-slate-400 text-center sm:text-left">
-              Jump to grade
+              Jump to grade section
             </p>
             <nav
               className="flex flex-wrap items-center justify-center gap-2"
-              aria-label="Jump to grade"
+              aria-label="Jump to grade section"
             >
               {visibleGrades.map((label) => {
                 const active = jumpGrade === label;

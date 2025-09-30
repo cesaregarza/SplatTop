@@ -1,11 +1,59 @@
 import React from "react";
 import { Link } from "react-router-dom";
 
-const formatTimestamp = (ts) => {
-  if (!ts) return "—";
-  const date = new Date(ts);
-  if (Number.isNaN(date.getTime())) return "—";
-  return date.toLocaleString();
+const UTC_TIME_FORMATTER = new Intl.DateTimeFormat("en-GB", {
+  hour: "2-digit",
+  minute: "2-digit",
+  hour12: false,
+  timeZone: "UTC",
+});
+
+const ABSOLUTE_UTC_FORMATTER = new Intl.DateTimeFormat("en-GB", {
+  year: "numeric",
+  month: "short",
+  day: "numeric",
+  hour: "2-digit",
+  minute: "2-digit",
+  second: "2-digit",
+  hour12: false,
+  timeZone: "UTC",
+  timeZoneName: "short",
+});
+
+const formatRelativeFromNow = (date) => {
+  if (!(date instanceof Date) || Number.isNaN(date.getTime())) return null;
+  const diffMs = Date.now() - date.getTime();
+  if (!Number.isFinite(diffMs)) return null;
+  if (diffMs < 45 * 1000) return "just now";
+
+  const minutes = Math.floor(diffMs / 60000);
+  if (minutes < 60) return `${minutes}m ago`;
+
+  const hours = Math.floor(minutes / 60);
+  if (hours < 24) return `${hours}h ago`;
+
+  const days = Math.floor(hours / 24);
+  if (days < 7) return `${days}d ago`;
+
+  const weeks = Math.floor(days / 7);
+  if (weeks < 5) return `${weeks}w ago`;
+
+  const months = Math.floor(days / 30);
+  if (months < 12) return `${months}mo ago`;
+
+  const years = Math.floor(days / 365);
+  return `${years}y ago`;
+};
+
+const formatTimestampParts = (timestampMs) => {
+  if (!timestampMs && timestampMs !== 0) return null;
+  const date = new Date(timestampMs);
+  if (Number.isNaN(date.getTime())) return null;
+  return {
+    timeLabel: UTC_TIME_FORMATTER.format(date),
+    absoluteLabel: ABSOLUTE_UTC_FORMATTER.format(date),
+    relativeLabel: formatRelativeFromNow(date),
+  };
 };
 
 const CompetitionLayout = ({
@@ -18,7 +66,7 @@ const CompetitionLayout = ({
   faqLinkLabel = "FAQ",
   top500Href = "/top500",
 }) => {
-  const lastUpdated = formatTimestamp(generatedAtMs);
+  const timestampParts = formatTimestampParts(generatedAtMs);
 
   return (
     <div className="min-h-screen bg-slate-950 text-slate-100">
@@ -44,7 +92,7 @@ const CompetitionLayout = ({
             Competitive Rankings
           </h1>
           <p className="mt-2 max-w-3xl text-slate-300">
-            Refreshed once daily at 12:15 UTC. Standings only move when new tournaments are recorded.
+            Refreshed once daily at 00:15 UTC. Standings only move when new tournaments are recorded.
           </p>
         </div>
       </header>
@@ -54,7 +102,26 @@ const CompetitionLayout = ({
           <div>
             <p className="text-xs uppercase tracking-wide text-slate-400">Last updated</p>
             <div className="mt-1 flex items-center gap-3">
-              <span className="text-lg font-medium">{lastUpdated}</span>
+              {timestampParts ? (
+                <>
+                  <span
+                    className="text-lg font-medium text-slate-100"
+                    title={timestampParts.absoluteLabel}
+                  >
+                    Updated {timestampParts.timeLabel} UTC
+                  </span>
+                  {timestampParts.relativeLabel && (
+                    <span
+                      className="text-sm text-slate-400"
+                      title={timestampParts.absoluteLabel}
+                    >
+                      · {timestampParts.relativeLabel}
+                    </span>
+                  )}
+                </>
+              ) : (
+                <span className="text-lg font-medium text-slate-100">—</span>
+              )}
               {stale && (
                 <span className="inline-flex items-center rounded-full bg-amber-500/15 px-3 py-1 text-xs font-medium text-amber-300 ring-1 ring-amber-300/20">
                   Stale — queued for refresh

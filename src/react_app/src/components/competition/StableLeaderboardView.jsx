@@ -27,8 +27,8 @@ const LoadingSkeleton = memo(() => (
             <th className="px-4 py-3 w-[16rem]">Player</th>
             <th className="px-4 py-3">Rank Score</th>
             <th className="px-4 py-3">Grade</th>
-            <th className="px-4 py-3">Days Before Drop</th>
-            <th className="px-4 py-3 rounded-tr-lg">Tournaments</th>
+            <th className="px-4 py-3">Days Until Inactive</th>
+            <th className="px-4 py-3 rounded-tr-lg">Tournaments 120d / Lifetime</th>
           </tr>
         </thead>
         <tbody className="divide-y divide-slate-800">

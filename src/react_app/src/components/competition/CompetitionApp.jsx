@@ -78,7 +78,7 @@ const CompetitionLeaderboardPage = ({ snapshot }) => {
       loading={loading}
       onRefresh={refresh}
       faqLinkHref="/faq"
-      faqLinkLabel="Leaderboard FAQ"
+      faqLinkLabel="How rankings work"
       top500Href={MAIN_SITE_URL}
     >
       {error && (
