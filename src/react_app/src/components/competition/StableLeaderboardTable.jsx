@@ -1,4 +1,5 @@
-import React, { memo, useMemo } from "react";
+import React, { forwardRef, memo, useMemo } from "react";
+import { Virtuoso } from "react-virtuoso";
 import {
   CRACKLE_PURPLE,
   chipClass,
@@ -8,6 +9,7 @@ import {
   severityOf,
   tierFor,
 } from "./stableLeaderboardUtils";
+import useMediaQuery from "../../hooks/useMediaQuery";
 
 const GradeBadge = ({ label }) => {
   if (!label)
@@ -135,24 +137,194 @@ const buildRowView = (row, highlightId) => {
   };
 };
 
+const DESKTOP_MEDIA_QUERY = "(min-width: 768px)";
+const MAX_TABLE_HEIGHT = 640;
+const MIN_TABLE_HEIGHT = 320;
+const ROW_HEIGHT_ESTIMATE = 68;
+const DESKTOP_GRID_CLASS =
+  "grid grid-cols-[5rem_minmax(16rem,1fr)_minmax(11rem,0.9fr)_7rem_minmax(10rem,0.9fr)_minmax(11rem,1fr)] gap-x-4";
+
+const DesktopScroller = forwardRef((props, ref) => (
+  <div
+    {...props}
+    ref={ref}
+    className={[props.className, "max-h-full overflow-y-auto"].filter(Boolean).join(" ")}
+  />
+));
+
+const DesktopHeader = ({ windowDays }) => (
+  <div
+    className={`${DESKTOP_GRID_CLASS} sticky top-0 z-10 bg-slate-900/70 px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-slate-400 backdrop-blur`}
+  >
+    <div title="Competitive rankings position after filtering">Rank</div>
+    <div title="Player display name and Sendou ID">Player</div>
+    <div title="Overall score that determines the player's leaderboard spot.">Rank Score</div>
+    <div title="Grade tier derived from the current rank score">Grade</div>
+    <div title="Days until the player could fall off the leaderboard">Days Before Drop</div>
+    <div
+      title={`Tournaments played in the last ${windowDays ?? 90} days; total lifetime shown beneath when available.`}
+    >
+      Tournaments (Last {windowDays ?? 90} Days)
+    </div>
+  </div>
+);
+
+const DesktopLeaderboardRow = ({ entry, isLast }) => {
+  const {
+    row,
+    rank,
+    grade,
+    rankScore,
+    rankScoreDisplay,
+    scoreClassName,
+    scoreDataProps,
+    barHighlightClass,
+    chipClassName,
+    daysLabel,
+    windowCount,
+    totalTournaments,
+    highlightClass,
+  } = entry;
+
+  const baseClasses = [
+    DESKTOP_GRID_CLASS,
+    "items-start px-4 py-3 text-sm text-slate-200 transition hover:bg-slate-900/60",
+    isLast ? "" : "border-b border-slate-800",
+  ];
+
+  if (highlightClass) {
+    baseClasses.push("rounded-lg", highlightClass);
+  }
+
+  return (
+    <div className={baseClasses.filter(Boolean).join(" ")}>
+      <div className="font-semibold font-data text-slate-200 whitespace-nowrap">{rank}</div>
+
+      <div className="min-w-0 flex flex-col">
+        {row.player_id ? (
+          <a
+            href={`https://sendou.ink/u/${row.player_id}`}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="font-medium text-slate-100 truncate hover:underline"
+            title={row.display_name || undefined}
+          >
+            {row.display_name}
+          </a>
+        ) : (
+          <span
+            className="font-medium text-slate-100 truncate"
+            title={row.display_name || undefined}
+          >
+            {row.display_name}
+          </span>
+        )}
+        <span className="text-xs text-slate-500 truncate font-data" title={row.player_id || undefined}>
+          {row.player_id}
+        </span>
+      </div>
+
+      <div className="min-w-0">
+        <div className={scoreClassName} {...scoreDataProps}>
+          {rankScoreDisplay}
+        </div>
+        <ScoreBar value={rankScore} highlightClass={barHighlightClass} />
+      </div>
+
+      <div className="flex items-center">
+        <GradeBadge label={grade} />
+      </div>
+
+      <div className="whitespace-nowrap" title="Days until this player could fall off the leaderboard">
+        <span className={`inline-flex items-center rounded-md px-2 py-0.5 text-xs font-medium font-data ${chipClassName}`}>
+          {daysLabel}
+        </span>
+      </div>
+
+      <div className="text-slate-200 whitespace-nowrap">
+        {windowCount != null ? (
+          <div className="flex flex-col">
+            <span className="font-medium font-data">{windowCount}</span>
+            {totalTournaments != null && (
+              <span className="text-xs text-slate-500">
+                total <span className="font-data">{totalTournaments}</span>
+              </span>
+            )}
+          </div>
+        ) : (
+          <span className="font-data">{totalTournaments ?? "—"}</span>
+        )}
+      </div>
+    </div>
+  );
+};
+
+const DesktopLeaderboardTableView = ({ rows, windowDays }) => {
+  if (!rows.length) return null;
+
+  const estimatedHeight = Math.min(
+    MAX_TABLE_HEIGHT,
+    Math.max(MIN_TABLE_HEIGHT, 120 + rows.length * ROW_HEIGHT_ESTIMATE)
+  );
+
+  return (
+    <div className="rounded-lg border border-slate-800 bg-slate-950/60 shadow-md">
+      <Virtuoso
+        data={rows}
+        overscan={8}
+        style={{ height: estimatedHeight }}
+        components={{
+          Header: () => <DesktopHeader windowDays={windowDays} />,
+          Scroller: DesktopScroller,
+        }}
+        itemContent={(index, entry) => (
+          <DesktopLeaderboardRow
+            entry={entry}
+            isLast={index === rows.length - 1}
+          />
+        )}
+      />
+    </div>
+  );
+};
+
 const StableLeaderboardMobileList = ({ rows, windowDays }) => {
   const windowLabel = windowDays ?? 90;
 
   if (!rows.length) return null;
 
   return (
-    <div className="md:hidden space-y-3">
+    <div className="space-y-3">
       {rows.map((entry) => {
-        const { row, rank, grade, rankScore, rankScoreDisplay, scoreClassName, scoreDataProps, barHighlightClass, chipClassName, daysLabel, windowCount, totalTournaments, highlightClass } = entry;
+        const {
+          row,
+          rank,
+          grade,
+          rankScore,
+          rankScoreDisplay,
+          scoreClassName,
+          scoreDataProps,
+          barHighlightClass,
+          chipClassName,
+          daysLabel,
+          windowCount,
+          totalTournaments,
+          highlightClass,
+        } = entry;
         const key = row.player_id || `${row.display_name || "player"}-${rank}`;
+        const cardClasses = [
+          "rounded-xl border border-slate-800 bg-slate-900/75 p-4 shadow-sm transition",
+          highlightClass,
+        ]
+          .filter(Boolean)
+          .join(" ");
+
         return (
-          <article
-            key={key}
-            className={`rounded-xl border border-slate-800 bg-slate-900/75 p-4 shadow-sm transition ${highlightClass}`.trim()}
-          >
+          <article key={key} className={cardClasses}>
             <div className="flex items-center justify-between gap-3">
-              <span className="inline-flex items-center rounded-full bg-slate-800/80 px-2.5 py-0.5 text-xs font-semibold uppercase tracking-wide text-slate-300">
-                Rank <span className="font-data text-slate-100">{rank}</span>
+              <span className="inline-flex items-baseline gap-1 rounded-full bg-slate-800/80 px-2.5 py-0.5 text-xs font-semibold uppercase tracking-wide text-slate-300">
+                <span>Rank</span>
+                <span className="text-slate-100">{rank}</span>
               </span>
               <GradeBadge label={grade} />
             </div>
@@ -170,7 +342,10 @@ const StableLeaderboardMobileList = ({ rows, windowDays }) => {
                     {row.display_name}
                   </a>
                 ) : (
-                  <span className="text-base font-semibold text-slate-100 truncate" title={row.display_name || undefined}>
+                  <span
+                    className="text-base font-semibold text-slate-100 truncate"
+                    title={row.display_name || undefined}
+                  >
                     {row.display_name}
                   </span>
                 )}
@@ -223,125 +398,15 @@ const StableLeaderboardTable = ({ rows, highlightId, windowDays }) => {
     () => rows.map((row) => buildRowView(row, highlightId)),
     [rows, highlightId]
   );
+  const isDesktop = useMediaQuery(DESKTOP_MEDIA_QUERY);
 
   return (
     <div className="space-y-4">
-      <div className="hidden md:block">
-        <div className="overflow-x-auto rounded-lg border border-slate-800 shadow-md">
-          <table className="min-w-full divide-y divide-slate-800">
-            <thead className="sticky top-0 z-10 bg-slate-900/70 backdrop-blur text-left text-xs font-semibold uppercase tracking-wider text-slate-400">
-              <tr>
-                <th className="px-4 py-3" title="Competitive rankings position after filtering">Rank</th>
-                <th className="px-4 py-3 w-[16rem]" title="Player display name and Sendou ID">Player</th>
-                <th
-                  className="px-4 py-3"
-                  title="Overall score that determines the player's leaderboard spot."
-                >
-                  Rank Score
-                </th>
-                <th className="px-4 py-3" title="Grade tier derived from the current rank score">Grade</th>
-                <th className="px-4 py-3" title="Days until the player could fall off the leaderboard">Days Before Drop</th>
-                <th
-                  className="px-4 py-3"
-                  title={`Tournaments played in the last ${windowDays ?? 90} days; total lifetime shown beneath when available.`}
-                >
-                  Tournaments (Last {windowDays ?? 90} Days)
-                </th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-slate-800 text-sm">
-              {preparedRows.map((entry) => {
-                const {
-                  row,
-                  rank,
-                  grade,
-                  rankScore,
-                  rankScoreDisplay,
-                  scoreClassName,
-                  scoreDataProps,
-                  barHighlightClass,
-                  chipClassName,
-                  daysLabel,
-                  windowCount,
-                  totalTournaments,
-                  highlightClass,
-                } = entry;
-
-                const key = row.player_id || `${row.display_name || "player"}-${rank}`;
-
-                return (
-                  <tr
-                    key={key}
-                    className={`hover:bg-slate-900/60 ${highlightClass}`.trim()}
-                  >
-                    <td className="px-4 py-3 font-semibold text-slate-200 whitespace-nowrap font-data">{rank}</td>
-                    <td className="px-4 py-3 align-top w-[16rem]">
-                      <div className="flex flex-col min-w-0 w-[16rem]">
-                        {row.player_id ? (
-                          <a
-                            href={`https://sendou.ink/u/${row.player_id}`}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="font-medium text-slate-100 truncate hover:underline"
-                            title={row.display_name || undefined}
-                          >
-                            {row.display_name}
-                          </a>
-                        ) : (
-                          <span
-                            className="font-medium text-slate-100 truncate"
-                            title={row.display_name || undefined}
-                          >
-                            {row.display_name}
-                          </span>
-                        )}
-                        <span className="text-xs text-slate-500 truncate font-data" title={row.player_id || undefined}>
-                          {row.player_id}
-                        </span>
-                      </div>
-                    </td>
-                    <td className="px-4 py-3 whitespace-nowrap">
-                      <div className={scoreClassName} {...scoreDataProps}>
-                        {rankScoreDisplay}
-                      </div>
-                      <div className="min-w-0">
-                        <ScoreBar value={rankScore} highlightClass={barHighlightClass} />
-                      </div>
-                    </td>
-                    <td className="px-4 py-3 whitespace-nowrap">
-                      <GradeBadge label={grade} />
-                    </td>
-                    <td
-                      className="px-4 py-3 whitespace-nowrap"
-                      title="Days until this player could fall off the leaderboard"
-                    >
-                      <span className={`inline-flex items-center rounded-md px-2 py-0.5 text-xs font-medium font-data ${chipClassName}`}>
-                        {daysLabel}
-                      </span>
-                    </td>
-                    <td className="px-4 py-3 text-slate-200 whitespace-nowrap">
-                      {windowCount != null ? (
-                        <div className="flex flex-col">
-                          <span className="font-medium font-data">{windowCount}</span>
-                          {totalTournaments != null && (
-                            <span className="text-xs text-slate-500">
-                              total <span className="font-data">{totalTournaments}</span>
-                            </span>
-                          )}
-                        </div>
-                      ) : (
-                        <span className="font-data">{totalTournaments ?? "—"}</span>
-                      )}
-                    </td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
-        </div>
-      </div>
-
-      <StableLeaderboardMobileList rows={preparedRows} windowDays={windowDays} />
+      {isDesktop ? (
+        <DesktopLeaderboardTableView rows={preparedRows} windowDays={windowDays} />
+      ) : (
+        <StableLeaderboardMobileList rows={preparedRows} windowDays={windowDays} />
+      )}
     </div>
   );
 };

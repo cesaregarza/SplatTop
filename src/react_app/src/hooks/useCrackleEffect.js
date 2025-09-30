@@ -211,9 +211,7 @@ const useCrackleEffect = (rootRef, deps = [], options = {}) => {
       states.set(element, state);
     };
 
-    const candidates = selector
-      ? Array.from(root.querySelectorAll(selector))
-      : [];
+    const candidates = selector ? Array.from(root.querySelectorAll(selector)) : [];
     candidates.forEach(initNode);
 
     for (const element of Array.from(states.keys())) {
@@ -222,7 +220,39 @@ const useCrackleEffect = (rootRef, deps = [], options = {}) => {
       }
     }
 
+    let observer;
+    if (selector && typeof MutationObserver === "function") {
+      observer = new MutationObserver((mutations) => {
+        for (const mutation of mutations) {
+          mutation.addedNodes.forEach((node) => {
+            if (!(node instanceof Element)) return;
+            if (node.matches(selector)) initNode(node);
+            const found = node.querySelectorAll?.(selector);
+            if (found && found.length) {
+              found.forEach((el) => initNode(el));
+            }
+          });
+          mutation.removedNodes.forEach((node) => {
+            if (!(node instanceof Element)) return;
+            if (states.has(node)) cleanupNode(node);
+            const found = node.querySelectorAll?.(selector);
+            if (found && found.length) {
+              found.forEach((el) => cleanupNode(el));
+            }
+          });
+        }
+      });
+      observer.observe(root, { childList: true, subtree: true });
+    }
+
     return () => {
+      if (observer) {
+        try {
+          observer.disconnect();
+        } catch {
+          /* no-op */
+        }
+      }
       for (const element of Array.from(states.keys())) {
         cleanupNode(element);
       }

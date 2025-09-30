@@ -1,6 +1,7 @@
 import React, { memo, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import "./StableLeaderboardView.css";
 import useCrackleEffect from "../../hooks/useCrackleEffect";
+import useMediaQuery from "../../hooks/useMediaQuery";
 import StableLeaderboardHeader from "./StableLeaderboardHeader";
 import StableLeaderboardTable from "./StableLeaderboardTable";
 import StableLeaderboardFooter from "./StableLeaderboardFooter";
@@ -83,6 +84,7 @@ const StableLeaderboardView = ({ rows, loading, error, windowDays }) => {
   const highlightTimerRef = useRef(null);
   const rootRef = useRef(null);
   const footerRef = useRef(null);
+  const isDesktop = useMediaQuery("(min-width: 768px)");
 
   const prepared = useMemo(() => {
     const data = Array.isArray(rows) ? rows : [];
@@ -166,7 +168,7 @@ const StableLeaderboardView = ({ rows, loading, error, windowDays }) => {
     [prepared.pageCount]
   );
 
-  useCrackleEffect(rootRef, [rows, query, page, pageSize, jumpGrade]);
+  useCrackleEffect(rootRef, [rows, query, page, pageSize, jumpGrade, isDesktop]);
 
   const clearHighlightLater = useCallback(() => {
     if (highlightTimerRef.current) clearTimeout(highlightTimerRef.current);
