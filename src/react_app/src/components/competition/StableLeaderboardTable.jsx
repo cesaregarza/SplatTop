@@ -231,7 +231,7 @@ const StableLeaderboardTable = ({ rows, highlightId, windowDays }) => {
           <table className="min-w-full divide-y divide-slate-800">
             <thead className="sticky top-0 z-10 bg-slate-900/70 backdrop-blur text-left text-xs font-semibold uppercase tracking-wider text-slate-400">
               <tr>
-                <th className="px-4 py-3" title="Stable leaderboard position after filtering">Rank</th>
+                <th className="px-4 py-3" title="Competitive rankings position after filtering">Rank</th>
                 <th className="px-4 py-3 w-[16rem]" title="Player display name and Sendou ID">Player</th>
                 <th
                   className="px-4 py-3"

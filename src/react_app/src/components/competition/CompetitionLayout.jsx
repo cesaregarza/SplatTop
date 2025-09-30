@@ -36,16 +36,15 @@ const CompetitionLayout = ({
               <div className="h-4 w-px bg-white/20" />
               <span className="text-white/80 text-sm">Top 500</span>
               <span className="text-white/30">/</span>
-              <span className="text-white text-sm font-medium">Competition</span>
+              <span className="text-white text-sm font-medium">Competitive</span>
             </div>
           </div>
 
           <h1 className="mt-5 text-3xl sm:text-5xl font-semibold tracking-tight">
-            Competition Ripple Leaderboard
+            Competitive Rankings
           </h1>
           <p className="mt-2 max-w-3xl text-slate-300">
-            A stable snapshot of the Ripple rankings, refreshed once daily at
-            12:15 UTC—snappy visuals, zero mid-day volatility.
+            Refreshed once daily at 12:15 UTC. Standings only move when new tournaments are recorded.
           </p>
         </div>
       </header>

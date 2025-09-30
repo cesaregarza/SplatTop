@@ -3,9 +3,9 @@ import React, { memo } from "react";
 const StableLeaderboardHeader = ({ query, onQueryChange, onScrollToControls }) => (
   <header className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
     <div>
-      <h2 className="text-2xl font-semibold text-slate-100">Stable leaderboard</h2>
+      <h2 className="text-2xl font-semibold text-slate-100">Competitive rankings</h2>
       <p className="mt-1 text-sm text-slate-400">
-        Rankings only change when a player records a new tournament. Danger status is integrated below.
+        Standings shift when players log fresh tournaments; players drop if they go 120 days without a ranked event.
       </p>
     </div>
     <div className="w-full sm:w-80">

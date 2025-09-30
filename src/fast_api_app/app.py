@@ -66,7 +66,7 @@ app.add_middleware(APITokenRateLimitMiddleware)
 if os.getenv("ENV") == "development":
     origins = ["http://localhost:3000", "http://comp.localhost:3000"]
 else:
-    origins = ["*"]
+    origins = ["https://splat.top", "https://comp.splat.top"]
 
 app.add_middleware(
     CORSMiddleware,
