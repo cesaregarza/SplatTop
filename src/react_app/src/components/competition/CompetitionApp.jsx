@@ -26,7 +26,7 @@ const CompetitionLeaderboardPage = ({ snapshot }) => {
 
   useEffect(() => {
     const previous = document.title;
-    document.title = "Competitive Rankings - splat.top";
+    document.title = "Competitive Leaderboard - splat.top";
     return () => {
       document.title = previous;
     };
@@ -56,9 +56,9 @@ const CompetitionLeaderboardPage = ({ snapshot }) => {
     return (
       <div className="min-h-screen bg-slate-950 text-slate-100 flex items-center justify-center px-6">
         <div className="max-w-lg text-center">
-          <h1 className="text-3xl font-semibold">Competition leaderboard disabled</h1>
+          <h1 className="text-3xl font-semibold">Competitive leaderboard disabled</h1>
           <p className="mt-4 text-slate-400">
-            The public competition leaderboard is currently turned off. Check
+            The public competitive leaderboard is currently turned off. Check
             back later or contact an administrator if you believe this is a
             mistake.
           </p>
@@ -78,7 +78,7 @@ const CompetitionLeaderboardPage = ({ snapshot }) => {
       loading={loading}
       onRefresh={refresh}
       faqLinkHref="/faq"
-      faqLinkLabel="Read FAQ"
+      faqLinkLabel="How rankings work"
       top500Href={MAIN_SITE_URL}
     >
       {error && (
@@ -93,6 +93,7 @@ const CompetitionLeaderboardPage = ({ snapshot }) => {
           loading={loading}
           error={error}
           windowDays={windowDays}
+          onRefresh={refresh}
         />
       </div>
     </CompetitionLayout>
@@ -104,7 +105,7 @@ const CompetitionFaqPage = ({ snapshot }) => {
 
   useEffect(() => {
     const previous = document.title;
-    document.title = "Competition FAQ - splat.top";
+    document.title = "Competitive Leaderboard FAQ - splat.top";
     return () => {
       document.title = previous;
     };
@@ -124,7 +125,7 @@ const CompetitionFaqPage = ({ snapshot }) => {
     >
       {disabled && (
         <div className="mb-6 rounded-md border border-amber-500/40 bg-amber-500/10 px-4 py-3 text-sm text-amber-200">
-          The public competition leaderboard is currently turned off, but you can
+          The public competitive leaderboard is currently turned off, but you can
           still review how the system works below.
         </div>
       )}

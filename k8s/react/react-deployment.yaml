@@ -23,3 +23,5 @@ spec:
           env:
             - name: ENV
               value: "production"
+            - name: REACT_APP_SHOWCASE_STABLE_LEADERBOARD
+              value: "false"

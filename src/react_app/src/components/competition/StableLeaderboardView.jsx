@@ -3,54 +3,62 @@ import "./StableLeaderboardView.css";
 import useCrackleEffect from "../../hooks/useCrackleEffect";
 import useMediaQuery from "../../hooks/useMediaQuery";
 import StableLeaderboardHeader from "./StableLeaderboardHeader";
+import StableLeaderboardControls from "./StableLeaderboardControls";
 import StableLeaderboardTable from "./StableLeaderboardTable";
-import StableLeaderboardFooter from "./StableLeaderboardFooter";
-import { createGradeShowcaseRows, gradeFor } from "./stableLeaderboardUtils";
+import { DISPLAY_GRADE_SCALE, createGradeShowcaseRows, gradeFor } from "./stableLeaderboardUtils";
 
+const rawShowcaseFlag = process.env.REACT_APP_SHOWCASE_STABLE_LEADERBOARD;
 const ENABLE_SHOWCASE_ROWS =
-  String(process.env.REACT_APP_SHOWCASE_STABLE_LEADERBOARD ?? "true").toLowerCase() !== "false";
+  rawShowcaseFlag != null
+    ? String(rawShowcaseFlag).trim().toLowerCase() !== "false"
+    : process.env.NODE_ENV !== "production";
 const SHOWCASE_ROWS = ENABLE_SHOWCASE_ROWS ? createGradeShowcaseRows() : [];
 
 const LoadingSkeleton = memo(() => (
-  <div className="overflow-x-auto rounded-lg border border-slate-800">
-    <table className="min-w-full divide-y divide-slate-800">
-      <thead className="bg-slate-900/70 sticky top-0 text-left text-xs font-semibold uppercase tracking-wider text-slate-400">
-        <tr>
-          <th className="px-4 py-3">Rank</th>
-          <th className="px-4 py-3 w-[16rem]">Player</th>
-          <th className="px-4 py-3">Rank Score</th>
-          <th className="px-4 py-3">Grade</th>
-          <th className="px-4 py-3">Days Before Drop</th>
-          <th className="px-4 py-3">Tournaments</th>
-        </tr>
-      </thead>
-      <tbody className="divide-y divide-slate-800">
-        {Array.from({ length: 10 }).map((_, index) => (
-          <tr key={index} className="animate-pulse">
-            <td className="px-4 py-3">
-              <div className="h-6 w-6 rounded-full bg-slate-800" />
-            </td>
-            <td className="px-4 py-3 w-[16rem]">
-              <div className="h-4 w-48 rounded bg-slate-800" />
-              <div className="mt-1 h-3 w-28 rounded bg-slate-900" />
-            </td>
-            <td className="px-4 py-3">
-              <div className="h-4 w-16 rounded bg-slate-800" />
-              <div className="mt-1 h-1.5 w-32 rounded bg-slate-900" />
-            </td>
-            <td className="px-4 py-3">
-              <div className="h-5 w-10 rounded bg-slate-800" />
-            </td>
-            <td className="px-4 py-3">
-              <div className="h-5 w-16 rounded bg-slate-800" />
-            </td>
-            <td className="px-4 py-3">
-              <div className="h-4 w-10 rounded bg-slate-800" />
-            </td>
+  <div className="rounded-lg border border-slate-800 bg-slate-950/60 shadow-md overflow-hidden">
+    <div className="overflow-x-auto">
+      <table className="min-w-full divide-y divide-slate-800">
+        <thead
+          className="bg-slate-900/70 sticky top-0 z-10 text-left text-xs font-semibold uppercase tracking-wider text-slate-400 backdrop-blur border-b border-slate-800"
+          style={{ borderTopLeftRadius: "0.5rem", borderTopRightRadius: "0.5rem" }}
+        >
+          <tr>
+            <th className="px-4 py-3 rounded-tl-lg">Rank</th>
+            <th className="px-4 py-3 w-[16rem]">Player</th>
+            <th className="px-4 py-3">Rank Score</th>
+            <th className="px-4 py-3">Grade</th>
+            <th className="px-4 py-3">Days Until Inactive</th>
+            <th className="px-4 py-3 rounded-tr-lg">Tournaments 120d / Lifetime</th>
           </tr>
-        ))}
-      </tbody>
-    </table>
+        </thead>
+        <tbody className="divide-y divide-slate-800">
+          {Array.from({ length: 10 }).map((_, index) => (
+            <tr key={index} className="animate-pulse">
+              <td className="px-4 py-3">
+                <div className="h-6 w-6 rounded-full bg-slate-800" />
+              </td>
+              <td className="px-4 py-3 w-[16rem]">
+                <div className="h-4 w-48 rounded bg-slate-800" />
+                <div className="mt-1 h-3 w-28 rounded bg-slate-900" />
+              </td>
+              <td className="px-4 py-3">
+                <div className="h-4 w-16 rounded bg-slate-800" />
+                <div className="mt-1 h-1.5 w-32 rounded bg-slate-900" />
+              </td>
+              <td className="px-4 py-3">
+                <div className="h-5 w-10 rounded bg-slate-800" />
+              </td>
+              <td className="px-4 py-3">
+                <div className="h-5 w-16 rounded bg-slate-800" />
+              </td>
+              <td className="px-4 py-3">
+                <div className="h-4 w-10 rounded bg-slate-800" />
+              </td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
   </div>
 ));
 
@@ -74,16 +82,15 @@ const EmptyState = memo(({ query }) => (
 
 EmptyState.displayName = "StableLeaderboardEmptyState";
 
-const StableLeaderboardView = ({ rows, loading, error, windowDays }) => {
+const StableLeaderboardView = ({ rows, loading, error, windowDays, onRefresh }) => {
   const [query, setQuery] = useState("");
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(25);
-  const [jumpPlayerId, setJumpPlayerId] = useState("");
-  const [jumpGrade, setJumpGrade] = useState("");
+  const [gradeFilter, setGradeFilter] = useState("");
   const [highlightId, setHighlightId] = useState(null);
+  const [tableScrollKey, setTableScrollKey] = useState(0);
   const highlightTimerRef = useRef(null);
   const rootRef = useRef(null);
-  const footerRef = useRef(null);
   const isDesktop = useMediaQuery("(min-width: 768px)");
 
   const prepared = useMemo(() => {
@@ -115,6 +122,10 @@ const StableLeaderboardView = ({ rows, loading, error, windowDays }) => {
     const q = query.trim().toLowerCase();
 
     const mappedReal = data.map(mapWithGrade);
+    const presentGrades = Array.from(
+      new Set(mappedReal.map((row) => row._grade).filter((value) => value && value !== "—"))
+    );
+
     const filteredReal = q
       ? mappedReal.filter((row) => matchesQuery(row, q))
       : mappedReal.slice();
@@ -123,16 +134,20 @@ const StableLeaderboardView = ({ rows, loading, error, windowDays }) => {
       (a, b) => (a.stable_rank ?? Infinity) - (b.stable_rank ?? Infinity)
     );
 
-    const total = filteredReal.length;
+    const gradeFilteredReal = gradeFilter
+      ? filteredReal.filter((row) => row._grade === gradeFilter)
+      : filteredReal;
+
+    const total = gradeFilteredReal.length;
     const effectivePageCount = Math.max(1, Math.ceil(Math.max(total, 1) / pageSize));
     const current = Math.min(page, effectivePageCount);
     const start = (current - 1) * pageSize;
     const end = start + pageSize;
-    const pageRows = filteredReal.slice(start, end);
+    const pageRows = gradeFilteredReal.slice(start, end);
 
     let filteredShowcase = [];
     let pageShowcase = [];
-    if (SHOWCASE_ROWS.length) {
+    if (!gradeFilter && SHOWCASE_ROWS.length) {
       const mappedShowcase = SHOWCASE_ROWS.map(mapWithGrade);
       filteredShowcase = q
         ? mappedShowcase.filter((row) => matchesQuery(row, q))
@@ -146,7 +161,7 @@ const StableLeaderboardView = ({ rows, loading, error, windowDays }) => {
     }
 
     const displayRows = [...pageRows, ...pageShowcase];
-    const combinedAll = [...filteredReal, ...filteredShowcase];
+    const combinedAll = [...gradeFilteredReal, ...filteredShowcase];
 
     return {
       filtered: displayRows,
@@ -155,8 +170,27 @@ const StableLeaderboardView = ({ rows, loading, error, windowDays }) => {
       current,
       all: combinedAll,
       hasShowcase: filteredShowcase.length > 0,
+      pageRealCount: pageRows.length,
+      availableGrades: presentGrades,
     };
-  }, [rows, query, page, pageSize]);
+  }, [rows, query, page, pageSize, gradeFilter]);
+
+  const visibleGrades = useMemo(() => {
+    const present = new Set(prepared.availableGrades || []);
+    return DISPLAY_GRADE_SCALE.map(([, label]) => label)
+      .slice()
+      .reverse()
+      .filter((label) => present.has(label));
+  }, [prepared.availableGrades]);
+
+  const pageRangeStart = prepared.total === 0 ? 0 : (prepared.current - 1) * pageSize + 1;
+  const pageRangeEnd = prepared.total === 0
+    ? 0
+    : Math.min(pageRangeStart + prepared.pageRealCount - 1, prepared.total);
+
+  const scrollTableToTop = useCallback(() => {
+    setTableScrollKey((key) => key + 1);
+  }, []);
 
   const gotoPage = useCallback(
     (value) => {
@@ -168,45 +202,39 @@ const StableLeaderboardView = ({ rows, loading, error, windowDays }) => {
     [prepared.pageCount]
   );
 
-  useCrackleEffect(rootRef, [rows, query, page, pageSize, jumpGrade, isDesktop]);
+  useCrackleEffect(rootRef, [rows, query, page, pageSize, gradeFilter, isDesktop]);
 
   const clearHighlightLater = useCallback(() => {
     if (highlightTimerRef.current) clearTimeout(highlightTimerRef.current);
     highlightTimerRef.current = setTimeout(() => setHighlightId(null), 3000);
   }, []);
 
-  const gotoGrade = useCallback(
-    (gradeValue) => {
-      const label = String(gradeValue || "").trim();
-      if (!label) return;
+  const applyGradeFilter = useCallback(
+    (value, { scroll = true } = {}) => {
+      const label = String(value || "").trim();
+      setGradeFilter(label);
+      setPage(1);
+      setHighlightId(null);
 
-      const idx = prepared.all.findIndex((r) => r._grade === label);
-      if (idx < 0) return;
+      if (scroll) {
+        scrollTableToTop();
+      }
 
-      const realCount = prepared.total;
-      const isShowcaseRow = idx >= realCount;
-      const targetPage = isShowcaseRow
-        ? 1
-        : Math.floor(idx / pageSize) + 1;
-
-      setQuery("");
-      setPage(targetPage);
-      setJumpGrade(label);
-
-      try {
-        const row = prepared.all[idx];
-        if (row?.player_id) {
-          setHighlightId(row.player_id);
-          clearHighlightLater();
-        }
-        const url = new URL(window.location.href);
-        url.searchParams.set("grade", label);
-        url.searchParams.delete("player");
-        url.searchParams.delete("rank");
-        window.history.replaceState(null, "", url.toString());
-      } catch {}
+      if (typeof window !== "undefined") {
+        try {
+          const url = new URL(window.location.href);
+          if (label) {
+            url.searchParams.set("grade", label);
+          } else {
+            url.searchParams.delete("grade");
+          }
+          url.searchParams.delete("player");
+          url.searchParams.delete("rank");
+          window.history.replaceState(null, "", url.toString());
+        } catch {}
+      }
     },
-    [prepared.all, prepared.total, pageSize, clearHighlightLater]
+    [scrollTableToTop]
   );
 
   const gotoPlayerId = useCallback(
@@ -246,10 +274,11 @@ const StableLeaderboardView = ({ rows, loading, error, windowDays }) => {
       const url = new URL(window.location.href);
       const qPlayer = url.searchParams.get("player");
       const qGrade = url.searchParams.get("grade");
+      if (qGrade) {
+        applyGradeFilter(qGrade, { scroll: false });
+      }
       if (qPlayer) {
         gotoPlayerId(qPlayer);
-      } else if (qGrade) {
-        gotoGrade(qGrade);
       }
     } catch {}
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -264,33 +293,33 @@ const StableLeaderboardView = ({ rows, loading, error, windowDays }) => {
     setPage(1);
   }, []);
 
-  const handleJumpPlayerSubmit = useCallback(
-    (event) => {
-      event.preventDefault();
-      gotoPlayerId(jumpPlayerId.trim());
+  const handleSelectGrade = useCallback(
+    (value) => {
+      applyGradeFilter(value);
     },
-    [gotoPlayerId, jumpPlayerId]
+    [applyGradeFilter]
+  );
+
+  const handleControlPageSizeChange = useCallback(
+    (size) => {
+      if (size === pageSize) return;
+      scrollTableToTop();
+      handlePageSizeChange(size);
+    },
+    [pageSize, scrollTableToTop, handlePageSizeChange]
+  );
+
+  const handlePageRequest = useCallback(
+    (targetPage) => {
+      scrollTableToTop();
+      gotoPage(targetPage);
+    },
+    [scrollTableToTop, gotoPage]
   );
 
   const handleQueryChange = useCallback((value) => {
     setQuery(value);
     setPage(1);
-  }, []);
-
-  const handleScrollToControls = useCallback(() => {
-    try {
-      footerRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
-    } catch {
-      /* no-op */
-    }
-  }, []);
-
-  const handleScrollToTop = useCallback(() => {
-    try {
-      rootRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
-    } catch {
-      /* no-op */
-    }
   }, []);
 
   let content;
@@ -302,36 +331,35 @@ const StableLeaderboardView = ({ rows, loading, error, windowDays }) => {
     content = <EmptyState query={query} />;
   } else {
     content = (
-      <>
-        <StableLeaderboardTable rows={prepared.filtered} highlightId={highlightId} windowDays={windowDays} />
-        <StableLeaderboardFooter
-          pageCount={prepared.pageCount}
-          currentPage={prepared.current}
-          totalPlayers={prepared.total}
-          allRows={prepared.all}
-          pageSize={pageSize}
-          onPageSizeChange={handlePageSizeChange}
-          onGotoPage={gotoPage}
-          jumpGrade={jumpGrade}
-          onGotoGrade={gotoGrade}
-          jumpPlayerId={jumpPlayerId}
-          onJumpPlayerChange={setJumpPlayerId}
-          onJumpPlayerSubmit={handleJumpPlayerSubmit}
-          ref={footerRef}
-          onJumpToTop={handleScrollToTop}
-        />
-      </>
+      <StableLeaderboardTable
+        rows={prepared.filtered}
+        highlightId={highlightId}
+        windowDays={windowDays}
+        scrollResetKey={tableScrollKey}
+        page={prepared.current}
+        pageCount={prepared.pageCount}
+        totalRows={prepared.total}
+        pageRangeStart={pageRangeStart}
+        pageRangeEnd={pageRangeEnd}
+        pageRealCount={prepared.pageRealCount}
+        onRequestPage={handlePageRequest}
+      />
     );
   }
 
-  const showScrollButton = !loading && !error && prepared.total > 0;
-
   return (
     <section ref={rootRef}>
-      <StableLeaderboardHeader
+      <StableLeaderboardHeader />
+      <StableLeaderboardControls
         query={query}
         onQueryChange={handleQueryChange}
-        onScrollToControls={showScrollButton ? handleScrollToControls : undefined}
+        grades={visibleGrades}
+        selectedGrade={gradeFilter}
+        onSelectGrade={handleSelectGrade}
+        pageSize={pageSize}
+        onPageSizeChange={handleControlPageSizeChange}
+        onRefresh={onRefresh}
+        refreshing={loading}
       />
       {content}
     </section>
