@@ -9,6 +9,7 @@ import httpx
 from fastapi import APIRouter, HTTPException, Request
 from fastapi.responses import HTMLResponse
 from pydantic import BaseModel
+from redis.exceptions import RedisError
 from sqlalchemy.dialects.postgresql import insert as pg_insert
 
 from fast_api_app.connections import (
@@ -424,8 +425,16 @@ async def infer(inference_request: InferenceRequest, request: Request):
             model_response = ModelResponse(**raw_result)
             predictions = model_response.predictions
 
-            redis_conn.hset(redis_key, abilities_hash, str(predictions))
-            redis_conn.expire(redis_key, model_queue.cache_expiration)
+            try:
+                pipe = redis_conn.pipeline(transaction=True)
+                pipe.hset(redis_key, abilities_hash, str(predictions))
+                pipe.expire(redis_key, model_queue.cache_expiration)
+                pipe.execute()
+            except RedisError:
+                logger.warning(
+                    "Failed to persist model predictions to redis cache",
+                    exc_info=True,
+                )
 
         except Exception as e:
             logger.error(f"Error sending request to model server: {e}")

@@ -46,6 +46,8 @@ spec:
                 secretKeyRef:
                   name: db-secrets
                   key: DB_PORT
+            - name: COMP_LEADERBOARD_ENABLED
+              value: "true"
           resources:
             requests:
               memory: "32Mi"

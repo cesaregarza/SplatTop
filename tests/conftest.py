@@ -133,6 +133,10 @@ class FakeRedis:
         self._kv[key] = val
         return True
 
+    def setex(self, key, ttl, value):
+        self._kv[key] = value
+        return True
+
     def delete(self, key):
         self._kv.pop(key, None)
         self._hashes.pop(key, None)
@@ -343,12 +347,16 @@ def app(fake_redis, monkeypatch):
     import fast_api_app.auth as auth_mod
     import fast_api_app.middleware as mw_mod
     import fast_api_app.routes.admin_tokens as admin_mod
+    import fast_api_app.routes.ripple_public as ripple_public_mod
 
     # Patch Redis in all modules that captured it at import time
     monkeypatch.setattr(app_mod, "redis_conn", fake_redis, raising=False)
     monkeypatch.setattr(auth_mod, "redis_conn", fake_redis, raising=False)
     monkeypatch.setattr(mw_mod, "redis_conn", fake_redis, raising=False)
     monkeypatch.setattr(admin_mod, "redis_conn", fake_redis, raising=False)
+    monkeypatch.setattr(
+        ripple_public_mod, "redis_conn", fake_redis, raising=False
+    )
 
     # Disable side effects in lifespan
     class _DummyCelery:
@@ -426,6 +434,7 @@ def client_factory(fake_redis, monkeypatch):
                 "fast_api_app.middleware",
                 "fast_api_app.auth",
                 "fast_api_app.routes.ripple",
+                "fast_api_app.routes.ripple_public",
                 "fast_api_app.routes.admin_tokens",
                 "fast_api_app.app",
             ]:
@@ -439,6 +448,7 @@ def client_factory(fake_redis, monkeypatch):
             mw_mod = sys.modules["fast_api_app.middleware"]
             admin_mod = sys.modules["fast_api_app.routes.admin_tokens"]
             ripple_mod = sys.modules["fast_api_app.routes.ripple"]
+            ripple_public_mod = sys.modules["fast_api_app.routes.ripple_public"]
 
             r = redis or fake_redis
             # Patch Redis connections in reloaded modules
@@ -447,6 +457,9 @@ def client_factory(fake_redis, monkeypatch):
             monkeypatch.setattr(mw_mod, "redis_conn", r, raising=False)
             monkeypatch.setattr(admin_mod, "redis_conn", r, raising=False)
             monkeypatch.setattr(ripple_mod, "redis_conn", r, raising=False)
+            monkeypatch.setattr(
+                ripple_public_mod, "redis_conn", r, raising=False
+            )
 
             # Disable side effects
             class _DummyCelery:

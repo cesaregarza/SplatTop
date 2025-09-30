@@ -18,3 +18,6 @@ spec:
           imagePullPolicy: Never
           ports:
             - containerPort: 80
+          env:
+            - name: REACT_APP_SHOWCASE_STABLE_LEADERBOARD
+              value: "true"

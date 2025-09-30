@@ -1,13 +1,16 @@
 from __future__ import annotations
 
+import hashlib
 import math
 from typing import Any, Dict, List, Optional
 
+import orjson
 from fastapi import APIRouter, Depends, Query
 from fastapi.responses import HTMLResponse
+from redis.exceptions import RedisError
 
 from fast_api_app.auth import require_scopes
-from fast_api_app.connections import rankings_async_session
+from fast_api_app.connections import rankings_async_session, redis_conn
 from shared_lib.queries.ripple_queries import (
     fetch_ripple_danger,
     fetch_ripple_page,
@@ -20,6 +23,49 @@ router = APIRouter(
 
 # Public docs router for ripple endpoints (no auth required)
 docs_router = APIRouter(prefix="/api/ripple")
+
+
+_CACHE_PREFIX = "api:ripple:cache:"
+_CACHE_TTL_SECONDS = 300
+
+
+def _cache_key(kind: str, params: Dict[str, Any]) -> str:
+    serialized = orjson.dumps(params, option=orjson.OPT_SORT_KEYS)
+    digest = hashlib.sha256(serialized).hexdigest()
+    return f"{_CACHE_PREFIX}{kind}:{digest}"
+
+
+def _get_cached(kind: str, params: Dict[str, Any]) -> Optional[Dict[str, Any]]:
+    key = _cache_key(kind, params)
+    try:
+        cached = redis_conn.get(key)
+    except RedisError:
+        return None
+    if not cached:
+        return None
+    try:
+        payload = (
+            cached
+            if isinstance(cached, (bytes, bytearray, memoryview))
+            else str(cached).encode("utf-8")
+        )
+        return orjson.loads(payload)
+    except orjson.JSONDecodeError:
+        try:
+            redis_conn.delete(key)
+        except RedisError:
+            pass
+        return None
+
+
+def _set_cached(
+    kind: str, params: Dict[str, Any], payload: Dict[str, Any]
+) -> None:
+    key = _cache_key(kind, params)
+    try:
+        redis_conn.setex(key, _CACHE_TTL_SECONDS, orjson.dumps(payload))
+    except RedisError:
+        return None
 
 
 @docs_router.get("/docs", response_class=HTMLResponse)
@@ -203,7 +249,7 @@ def _display_score(
 @router.get("")
 async def get_ripple_leaderboard(
     # Pagination
-    limit: Optional[int] = Query(None, ge=1, le=500),
+    limit: int = Query(50, ge=1, le=500),
     offset: int = Query(0, ge=0),
     # Run selection
     build: Optional[str] = Query(None, description="Filter to a build_version"),
@@ -232,6 +278,22 @@ async def get_ripple_leaderboard(
 
     The default run is the latest `calculated_at_ms`. Provide `build` or `ts_ms` to override.
     """
+
+    cache_params = {
+        "limit": limit,
+        "offset": offset,
+        "build": build,
+        "ts_ms": ts_ms,
+        "min_tournaments": min_tournaments,
+        "tournament_window_days": tournament_window_days,
+        "ranked_only": ranked_only,
+        "score_multiplier": score_multiplier,
+        "score_offset": score_offset,
+    }
+
+    cached = _get_cached("leaderboard", cache_params)
+    if cached is not None:
+        return cached
 
     async with rankings_async_session() as session:
         rows, total, calc_ts, build_version = await fetch_ripple_page(
@@ -269,7 +331,7 @@ async def get_ripple_leaderboard(
 
     items: List[Dict[str, Any]] = [to_item(dict(r)) for r in rows]
 
-    return {
+    response_payload = {
         "build_version": build_version,
         "calculated_at_ms": calc_ts,
         "limit": limit,
@@ -277,6 +339,10 @@ async def get_ripple_leaderboard(
         "total": total,
         "data": items,
     }
+
+    _set_cached("leaderboard", cache_params, response_payload)
+
+    return response_payload
 
 
 @router.get("/raw")
@@ -290,6 +356,21 @@ async def get_ripple_raw(
     ranked_only: bool = Query(True),
 ) -> Dict[str, Any]:
     """Return raw ripple rows as stored in the DB join (token-protected)."""
+
+    cache_params = {
+        "limit": limit,
+        "offset": offset,
+        "build": build,
+        "ts_ms": ts_ms,
+        "min_tournaments": min_tournaments,
+        "tournament_window_days": tournament_window_days,
+        "ranked_only": ranked_only,
+    }
+
+    cached = _get_cached("raw", cache_params)
+    if cached is not None:
+        return cached
+
     async with rankings_async_session() as session:
         rows, total, calc_ts, build_version = await fetch_ripple_page(
             session,
@@ -303,7 +384,7 @@ async def get_ripple_raw(
         )
 
     items: List[Dict[str, Any]] = [dict(r) for r in rows]
-    return {
+    response_payload = {
         "build_version": build_version,
         "calculated_at_ms": calc_ts,
         "limit": limit,
@@ -311,6 +392,10 @@ async def get_ripple_raw(
         "total": total,
         "data": items,
     }
+
+    _set_cached("raw", cache_params, response_payload)
+
+    return response_payload
 
 
 @router.get("/danger")
@@ -323,6 +408,20 @@ async def get_ripple_danger(
     build: Optional[str] = Query(None),
     ts_ms: Optional[int] = Query(None),
 ):
+    cache_params = {
+        "limit": limit,
+        "offset": offset,
+        "min_tournaments": min_tournaments,
+        "tournament_window_days": tournament_window_days,
+        "ranked_only": ranked_only,
+        "build": build,
+        "ts_ms": ts_ms,
+    }
+
+    cached = _get_cached("danger", cache_params)
+    if cached is not None:
+        return cached
+
     async with rankings_async_session() as session:
         rows, total, calc_ts, build_version = await fetch_ripple_danger(
             session,
@@ -355,7 +454,7 @@ async def get_ripple_danger(
         }
 
     items: List[Dict[str, Any]] = [to_item(dict(r)) for r in rows]
-    return {
+    response_payload = {
         "build_version": build_version,
         "calculated_at_ms": calc_ts,
         "limit": limit,
@@ -363,3 +462,7 @@ async def get_ripple_danger(
         "total": total,
         "data": items,
     }
+
+    _set_cached("danger", cache_params, response_payload)
+
+    return response_payload

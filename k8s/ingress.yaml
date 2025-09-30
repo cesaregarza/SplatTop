@@ -11,9 +11,34 @@ spec:
   tls:
     - hosts:
         - splat.top
+        - comp.splat.top
       secretName: tls-secret
   rules:
     - host: splat.top
+      http:
+        paths:
+          - path: /api
+            pathType: Prefix
+            backend:
+              service:
+                name: fast-api-app-service
+                port:
+                  number: 8000
+          - path: /ws
+            pathType: Prefix
+            backend:
+              service:
+                name: fast-api-app-service
+                port:
+                  number: 8001
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: react-app-service
+                port:
+                  number: 80
+    - host: comp.splat.top
       http:
         paths:
           - path: /api

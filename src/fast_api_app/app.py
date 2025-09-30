@@ -11,6 +11,7 @@ from slowapi.errors import RateLimitExceeded
 
 from fast_api_app.background_tasks import background_runner
 from fast_api_app.connections import celery, limiter
+from fast_api_app.feature_flags import is_comp_leaderboard_enabled
 from fast_api_app.middleware import (
     APITokenRateLimitMiddleware,
     APITokenUsageMiddleware,
@@ -23,6 +24,7 @@ from fast_api_app.routes import (
     ping_router,
     player_detail_router,
     ripple_docs_router,
+    ripple_public_router,
     ripple_router,
     search_router,
     weapon_info_router,
@@ -46,6 +48,8 @@ async def lifespan(app: FastAPI):
     celery.send_task("tasks.update_lorenz_and_gini")
     celery.send_task("tasks.fetch_weapon_leaderboard")
     celery.send_task("tasks.fetch_season_results")
+    if is_comp_leaderboard_enabled():
+        celery.send_task("tasks.refresh_ripple_snapshots")
 
     start_pubsub_listener()
     asyncio.create_task(background_runner.run())
@@ -58,16 +62,11 @@ app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
 app.add_middleware(APITokenUsageMiddleware)
 app.add_middleware(APITokenRateLimitMiddleware)
 
-# Setup CORS
-if os.getenv("ENV") == "development":
-    origins = ["http://localhost:3000"]
-else:
-    origins = ["*"]
-
+# Setup CORS - public API, so allow any origin.
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=origins,
-    allow_credentials=True,
+    allow_origins=["*"],
+    allow_credentials=False,
     allow_methods=["*"],
     allow_headers=["*"],
 )
@@ -82,6 +81,7 @@ app.include_router(infer_router)
 app.include_router(ping_router)
 app.include_router(ripple_docs_router)
 app.include_router(ripple_router)
+app.include_router(ripple_public_router)
 app.include_router(admin_tokens_router)
 
 
