@@ -4,6 +4,7 @@ import hashlib
 import math
 from typing import Any, Dict, List, Optional
 
+import orjson
 from fastapi import APIRouter, Depends, Query
 from fastapi.responses import HTMLResponse
 
@@ -13,8 +14,6 @@ from shared_lib.queries.ripple_queries import (
     fetch_ripple_danger,
     fetch_ripple_page,
 )
-
-import orjson
 
 router = APIRouter(
     prefix="/api/ripple",

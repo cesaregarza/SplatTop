@@ -22,6 +22,7 @@ from shared_lib.constants import (
     RIPPLE_STABLE_LATEST_KEY,
     RIPPLE_STABLE_META_KEY,
     RIPPLE_STABLE_STATE_KEY,
+    RIPPLE_SNAPSHOT_LOCK_KEY,
 )
 
 
@@ -239,3 +240,26 @@ def test_existing_state_preserves_stable_score(monkeypatch):
     state = orjson.loads(fake_redis.get(RIPPLE_STABLE_STATE_KEY))
     assert state["p1"]["stable_score"] == pytest.approx(0.5)
     assert state["p1"]["updated_at_ms"] == 4_000
+
+
+def test_refresh_ripple_snapshots_skips_when_locked(monkeypatch):
+    fake_redis = FakeRedis()
+    fake_redis.set(RIPPLE_SNAPSHOT_LOCK_KEY, "existing")
+    monkeypatch.setattr(snapshot_mod, "redis_conn", fake_redis, raising=False)
+
+    called = {"value": False}
+
+    async def _should_not_run():
+        called["value"] = True
+        return {}
+
+    monkeypatch.setattr(
+        snapshot_mod,
+        "_refresh_snapshots_async",
+        _should_not_run,
+        raising=False,
+    )
+
+    result = snapshot_mod.refresh_ripple_snapshots()
+    assert result == {"skipped": True, "reason": "locked"}
+    assert called["value"] is False

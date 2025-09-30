@@ -7,6 +7,7 @@ import time
 from bisect import bisect_right
 from collections.abc import Mapping
 from typing import Any, Dict, List, Tuple
+from uuid import uuid4
 
 import orjson
 from sqlalchemy import text
@@ -18,10 +19,14 @@ from shared_lib.constants import (
     RIPPLE_STABLE_META_KEY,
     RIPPLE_STABLE_PERCENTILES_KEY,
     RIPPLE_STABLE_STATE_KEY,
+    RIPPLE_SNAPSHOT_LOCK_KEY,
 )
 from shared_lib.queries import ripple_queries
 
 logger = logging.getLogger(__name__)
+
+
+LOCK_TTL_SECONDS = 15 * 60
 
 # Fetch the complete snapshot so the public cache can serve every stable row;
 # pagination happens on the consumer side.
@@ -477,4 +482,25 @@ async def _refresh_snapshots_async() -> Dict[str, Any]:
 
 def refresh_ripple_snapshots() -> Dict[str, Any]:
     """Celery entrypoint to refresh cached ripple leaderboard snapshots."""
-    return asyncio.run(_refresh_snapshots_async())
+    token = str(uuid4())
+    acquired = redis_conn.set(
+        RIPPLE_SNAPSHOT_LOCK_KEY,
+        token,
+        nx=True,
+        ex=LOCK_TTL_SECONDS,
+    )
+    if not acquired:
+        logger.info("Skipping ripple snapshot refresh; lock is already held")
+        return {"skipped": True, "reason": "locked"}
+
+    try:
+        result = asyncio.run(_refresh_snapshots_async())
+    finally:
+        try:
+            current = redis_conn.get(RIPPLE_SNAPSHOT_LOCK_KEY)
+            if current == token:
+                redis_conn.delete(RIPPLE_SNAPSHOT_LOCK_KEY)
+        except Exception:
+            logger.exception("Failed to release ripple snapshot lock")
+
+    return result
