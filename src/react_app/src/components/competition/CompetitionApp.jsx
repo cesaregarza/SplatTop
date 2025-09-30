@@ -5,6 +5,22 @@ import StableLeaderboardView from "./StableLeaderboardView";
 import CompetitionFaq from "./CompetitionFaq";
 import useCompetitionSnapshot from "../../hooks/useCompetitionSnapshot";
 
+const resolveMainSiteUrl = () => {
+  const override = process.env.REACT_APP_MAIN_SITE_URL;
+  if (override) return override;
+
+  if (typeof window !== "undefined") {
+    const { protocol, hostname } = window.location;
+    if (hostname === "comp.localhost") {
+      return `${protocol}//localhost:3000/`;
+    }
+  }
+
+  return "https://splat.top/";
+};
+
+const MAIN_SITE_URL = resolveMainSiteUrl();
+
 const CompetitionLeaderboardPage = ({ snapshot }) => {
   const { loading, error, disabled, stable, danger, refresh } = snapshot;
 
@@ -63,7 +79,7 @@ const CompetitionLeaderboardPage = ({ snapshot }) => {
       onRefresh={refresh}
       faqLinkHref="/faq"
       faqLinkLabel="Read FAQ"
-      top500Href="/top500"
+      top500Href={MAIN_SITE_URL}
     >
       {error && (
         <div className="mb-6 rounded-md border border-rose-500/40 bg-rose-500/10 px-4 py-3 text-sm text-rose-200">
@@ -104,7 +120,7 @@ const CompetitionFaqPage = ({ snapshot }) => {
       loading={loading}
       faqLinkHref="/"
       faqLinkLabel="View leaderboard"
-      top500Href="/top500"
+      top500Href={MAIN_SITE_URL}
     >
       {disabled && (
         <div className="mb-6 rounded-md border border-amber-500/40 bg-amber-500/10 px-4 py-3 text-sm text-amber-200">

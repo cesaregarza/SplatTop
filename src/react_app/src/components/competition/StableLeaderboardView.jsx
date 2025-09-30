@@ -85,12 +85,9 @@ const StableLeaderboardView = ({ rows, loading, error, windowDays }) => {
   const footerRef = useRef(null);
 
   const prepared = useMemo(() => {
-    // The snapshot includes at most a few hundred rows, so filtering and
-    // sorting on the client keeps the UI responsive without extra workers.
     const data = Array.isArray(rows) ? rows : [];
-    const augmented = SHOWCASE_ROWS.length ? [...data, ...SHOWCASE_ROWS] : data;
 
-    const mapped = augmented.map((row) => {
+    const mapWithGrade = (row) => {
       const baseDisplay = row.display_score ?? null;
       const shifted = baseDisplay == null ? null : baseDisplay + 150;
       const rawScore =
@@ -107,27 +104,56 @@ const StableLeaderboardView = ({ rows, loading, error, windowDays }) => {
           : null;
       const grade = gradeMetric == null ? "—" : gradeFor(gradeMetric);
       return { ...row, _shifted: shifted, _grade: grade };
-    });
+    };
+
+    const matchesQuery = (row, needle) =>
+      row.display_name?.toLowerCase().includes(needle) ||
+      String(row.player_id ?? "").toLowerCase().includes(needle);
 
     const q = query.trim().toLowerCase();
-    const filtered = q
-      ? mapped.filter(
-          (row) =>
-            row.display_name?.toLowerCase().includes(q) ||
-            String(row.player_id ?? "").toLowerCase().includes(q)
-        )
-      : mapped.slice();
 
-    filtered.sort((a, b) => (a.stable_rank ?? Infinity) - (b.stable_rank ?? Infinity));
+    const mappedReal = data.map(mapWithGrade);
+    const filteredReal = q
+      ? mappedReal.filter((row) => matchesQuery(row, q))
+      : mappedReal.slice();
 
-    const total = filtered.length;
-    const pageCount = Math.max(1, Math.ceil(total / pageSize));
-    const current = Math.min(page, pageCount);
+    filteredReal.sort(
+      (a, b) => (a.stable_rank ?? Infinity) - (b.stable_rank ?? Infinity)
+    );
+
+    const total = filteredReal.length;
+    const effectivePageCount = Math.max(1, Math.ceil(Math.max(total, 1) / pageSize));
+    const current = Math.min(page, effectivePageCount);
     const start = (current - 1) * pageSize;
     const end = start + pageSize;
-    const pageRows = filtered.slice(start, end);
+    const pageRows = filteredReal.slice(start, end);
 
-    return { filtered: pageRows, total, pageCount, current, all: filtered };
+    let filteredShowcase = [];
+    let pageShowcase = [];
+    if (SHOWCASE_ROWS.length) {
+      const mappedShowcase = SHOWCASE_ROWS.map(mapWithGrade);
+      filteredShowcase = q
+        ? mappedShowcase.filter((row) => matchesQuery(row, q))
+        : mappedShowcase.slice();
+      filteredShowcase.sort((a, b) => {
+        const orderA = a.showcase_order ?? Number.MAX_SAFE_INTEGER;
+        const orderB = b.showcase_order ?? Number.MAX_SAFE_INTEGER;
+        return orderA - orderB;
+      });
+      pageShowcase = current === 1 ? filteredShowcase : [];
+    }
+
+    const displayRows = [...pageRows, ...pageShowcase];
+    const combinedAll = [...filteredReal, ...filteredShowcase];
+
+    return {
+      filtered: displayRows,
+      total,
+      pageCount: effectivePageCount,
+      current,
+      all: combinedAll,
+      hasShowcase: filteredShowcase.length > 0,
+    };
   }, [rows, query, page, pageSize]);
 
   const gotoPage = useCallback(
@@ -260,7 +286,7 @@ const StableLeaderboardView = ({ rows, loading, error, windowDays }) => {
     content = <LoadingSkeleton />;
   } else if (error) {
     content = <ErrorBanner message={error} />;
-  } else if (!prepared.total) {
+  } else if (!prepared.total && !prepared.hasShowcase) {
     content = <EmptyState query={query} />;
   } else {
     content = (
