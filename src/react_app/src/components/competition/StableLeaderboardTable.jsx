@@ -12,37 +12,6 @@ import {
 } from "./stableLeaderboardUtils";
 import useMediaQuery from "../../hooks/useMediaQuery";
 
-const copyTextToClipboard = async (value) => {
-  if (!value) return false;
-  if (typeof navigator !== "undefined" && navigator.clipboard?.writeText) {
-    try {
-      await navigator.clipboard.writeText(value);
-      return true;
-    } catch {
-      // fall through to manual fallback
-    }
-  }
-
-  if (typeof document !== "undefined") {
-    try {
-      const textarea = document.createElement("textarea");
-      textarea.value = value;
-      textarea.setAttribute("readonly", "");
-      textarea.style.position = "absolute";
-      textarea.style.left = "-9999px";
-      document.body.appendChild(textarea);
-      textarea.select();
-      document.execCommand("copy");
-      document.body.removeChild(textarea);
-      return true;
-    } catch {
-      return false;
-    }
-  }
-
-  return false;
-};
-
 const GradeBadge = ({ label }) => {
   if (!label)
     return (
@@ -110,43 +79,6 @@ const ScoreBar = ({ value, highlightClass = "" }) => {
       <div className={`h-full ${barClass}`} style={{ width: `${pct}%` }} aria-hidden />
       {glow}
     </div>
-  );
-};
-
-const CopyPlayerIdButton = ({ playerId }) => {
-  const [copied, setCopied] = useState(false);
-  const timerRef = useRef(null);
-
-  useEffect(() => {
-    return () => {
-      if (timerRef.current) {
-        clearTimeout(timerRef.current);
-      }
-    };
-  }, []);
-
-  if (!playerId) return null;
-
-  const handleCopy = async () => {
-    const success = await copyTextToClipboard(playerId);
-    if (!success) return;
-    setCopied(true);
-    if (timerRef.current) clearTimeout(timerRef.current);
-    timerRef.current = setTimeout(() => setCopied(false), 1500);
-  };
-
-  const label = copied ? "Copied ID" : `Copy ${playerId}`;
-
-  return (
-    <button
-      type="button"
-      onClick={handleCopy}
-      className="inline-flex h-6 w-6 shrink-0 items-center justify-center rounded border border-slate-700 bg-slate-900/70 text-[0.7rem] text-slate-300 transition hover:bg-slate-900"
-      title={label}
-      aria-label={label}
-    >
-      {copied ? "✓" : "⧉"}
-    </button>
   );
 };
 
@@ -335,12 +267,12 @@ const DesktopLeaderboardRow = ({ entry, isLast, isFirst, windowDays }) => {
             {row.display_name}
           </span>
         )}
-        <div className="mt-0.5 flex min-w-0 items-center gap-1 text-xs text-slate-500 font-data">
-          <span className="truncate" title={row.player_id || undefined}>
-            {row.player_id || "—"}
-          </span>
-          <CopyPlayerIdButton playerId={row.player_id} />
-        </div>
+        <span
+          className="mt-0.5 truncate text-xs text-slate-500 font-data"
+          title={row.player_id || undefined}
+        >
+          {row.player_id || "—"}
+        </span>
       </div>
 
       <div className="min-w-0">
@@ -438,8 +370,6 @@ const DesktopPaginationFooter = ({
   pageRealCount = 0,
   onRequestPage,
 }) => {
-  if (totalRows <= 0 && pageRealCount <= 0) return null;
-
   const safePage = Math.max(1, page);
   const safePageCount = Math.max(1, pageCount);
   const canPrev = safePage > 1;
@@ -451,10 +381,32 @@ const DesktopPaginationFooter = ({
   const rangeEndLabel = hasRange ? nf0.format(pageRangeEnd) : "—";
   const totalLabel = totalRows > 0 ? nf0.format(totalRows) : "—";
 
+  const [pageInput, setPageInput] = useState(String(safePage));
+
+  useEffect(() => {
+    setPageInput(String(safePage));
+  }, [safePage]);
+
+  if (totalRows <= 0 && pageRealCount <= 0) return null;
+
   const requestPage = (target) => {
     if (typeof onRequestPage === "function") {
       onRequestPage(target);
     }
+  };
+
+  const submitPage = () => {
+    if (!pageInput.trim()) return;
+    const parsed = Number(pageInput);
+    if (!Number.isFinite(parsed)) return;
+    const normalized = Math.min(Math.max(Math.floor(parsed), 1), safePageCount);
+    if (normalized === safePage) return;
+    requestPage(normalized);
+  };
+
+  const handleSubmit = (event) => {
+    event.preventDefault();
+    submitPage();
   };
 
   return (
@@ -475,6 +427,41 @@ const DesktopPaginationFooter = ({
           <span className="text-xs uppercase tracking-wide text-slate-500">
             Page {safePage} / {safePageCount}
           </span>
+          <form
+            onSubmit={handleSubmit}
+            className="flex items-center gap-1 rounded-full border border-slate-800 bg-slate-950/60 px-2 py-1 text-[11px] text-slate-400"
+          >
+            <label htmlFor="desktop-pagination-input" className="sr-only">
+              Jump to page
+            </label>
+            <span>Jump to</span>
+            <input
+              id="desktop-pagination-input"
+              type="text"
+              inputMode="numeric"
+              pattern="[0-9]*"
+              value={pageInput}
+              onChange={(event) => setPageInput(event.target.value)}
+              onKeyDown={(event) => {
+                if (event.key === "Enter") {
+                  event.preventDefault();
+                  submitPage();
+                }
+              }}
+              onBlur={() => {
+                if (!pageInput.trim()) {
+                  setPageInput(String(safePage));
+                }
+              }}
+              className="h-6 w-14 rounded bg-slate-900/80 px-2 text-center font-data text-slate-100 outline-none focus:ring-1 focus:ring-fuchsia-500/50"
+            />
+            <button
+              type="submit"
+              className="rounded bg-fuchsia-500/80 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-white hover:bg-fuchsia-400"
+            >
+              Go
+            </button>
+          </form>
           <button
             type="button"
             onClick={() => requestPage(safePage + 1)}
@@ -499,13 +486,24 @@ const StableLeaderboardMobileList = ({
   pageRangeEnd,
   pageRealCount,
   onRequestPage,
+  containerRef,
 }) => {
   const windowLabel = windowDays ?? 120;
 
   if (!rows.length) return null;
 
   return (
-    <div className="space-y-3">
+    <div className="space-y-3" ref={containerRef}>
+      <MobilePaginationControls
+        page={page}
+        pageCount={pageCount}
+        totalRows={totalRows}
+        pageRangeStart={pageRangeStart}
+        pageRangeEnd={pageRangeEnd}
+        pageRealCount={pageRealCount}
+        onRequestPage={onRequestPage}
+        className="mb-3"
+      />
       {rows.map((entry) => {
         const {
           row,
@@ -562,11 +560,11 @@ const StableLeaderboardMobileList = ({
                     {row.display_name}
                   </span>
                 )}
-                <div className="mt-1 flex items-center gap-1 text-xs text-slate-500 font-data">
-                  <span className="truncate" title={row.player_id || undefined}>
-                    {row.player_id || "—"}
-                  </span>
-                  <CopyPlayerIdButton playerId={row.player_id} />
+                <div
+                  className="mt-1 truncate text-xs text-slate-500 font-data"
+                  title={row.player_id || undefined}
+                >
+                  {row.player_id || "—"}
                 </div>
               </div>
             </div>
@@ -611,7 +609,7 @@ const StableLeaderboardMobileList = ({
           </article>
         );
       })}
-      <MobilePaginationFooter
+      <MobilePaginationControls
         page={page}
         pageCount={pageCount}
         totalRows={totalRows}
@@ -624,7 +622,7 @@ const StableLeaderboardMobileList = ({
   );
 };
 
-const MobilePaginationFooter = ({
+const MobilePaginationControls = ({
   page = 1,
   pageCount = 1,
   totalRows = 0,
@@ -632,9 +630,8 @@ const MobilePaginationFooter = ({
   pageRangeEnd = 0,
   pageRealCount = 0,
   onRequestPage,
+  className = "",
 }) => {
-  if (totalRows <= 0 && pageRealCount <= 0) return null;
-
   const safePage = Math.max(1, page);
   const safePageCount = Math.max(1, pageCount);
   const canPrev = safePage > 1;
@@ -646,14 +643,40 @@ const MobilePaginationFooter = ({
   const rangeEndLabel = hasRange ? nf0.format(pageRangeEnd) : "—";
   const totalLabel = totalRows > 0 ? nf0.format(totalRows) : "—";
 
+  const [pageInput, setPageInput] = useState(String(safePage));
+
+  useEffect(() => {
+    setPageInput(String(safePage));
+  }, [safePage]);
+
+  if (totalRows <= 0 && pageRealCount <= 0) return null;
+
   const requestPage = (target) => {
     if (typeof onRequestPage === "function") {
       onRequestPage(target);
     }
   };
 
+  const submitPage = () => {
+    if (!pageInput.trim()) return;
+    const parsed = Number(pageInput);
+    if (!Number.isFinite(parsed)) return;
+    const normalized = Math.min(Math.max(Math.floor(parsed), 1), safePageCount);
+    if (normalized === safePage) return;
+    requestPage(normalized);
+  };
+
+  const handleSubmit = (event) => {
+    event.preventDefault();
+    submitPage();
+  };
+
   return (
-    <div className="rounded-lg border border-slate-800 bg-slate-900/70 px-4 py-3 text-sm text-slate-200">
+    <div
+      className={`${
+        className ? `${className} ` : ""
+      }rounded-lg border border-slate-800 bg-slate-900/70 px-4 py-3 text-sm text-slate-200`}
+    >
       <div className="font-data tabular-nums text-slate-300">
         Showing {hasRange ? `${rangeStartLabel}–${rangeEndLabel}` : "—"} of {totalLabel} players
       </div>
@@ -678,6 +701,41 @@ const MobilePaginationFooter = ({
           Next
         </button>
       </div>
+      <form
+        onSubmit={handleSubmit}
+        className="mt-3 flex items-center justify-center gap-2 text-xs text-slate-400"
+      >
+        <label htmlFor="mobile-pagination-input" className="sr-only">
+          Jump to page
+        </label>
+        <span>Jump to</span>
+        <input
+          id="mobile-pagination-input"
+          type="text"
+          inputMode="numeric"
+          pattern="[0-9]*"
+          value={pageInput}
+          onChange={(event) => setPageInput(event.target.value)}
+          onKeyDown={(event) => {
+            if (event.key === "Enter") {
+              event.preventDefault();
+              submitPage();
+            }
+          }}
+          onBlur={() => {
+            if (!pageInput.trim()) {
+              setPageInput(String(safePage));
+            }
+          }}
+          className="h-7 w-16 rounded bg-slate-950/80 px-2 text-center font-data text-slate-100 outline-none focus:ring-1 focus:ring-fuchsia-500/50"
+        />
+        <button
+          type="submit"
+          className="rounded bg-fuchsia-500/80 px-2 py-1 text-[10px] font-semibold uppercase tracking-wide text-white hover:bg-fuchsia-400"
+        >
+          Go
+        </button>
+      </form>
     </div>
   );
 };
@@ -700,6 +758,8 @@ const StableLeaderboardTable = ({
     [rows, highlightId]
   );
   const virtuosoRef = useRef(null);
+  const mobileContainerRef = useRef(null);
+  const isDesktop = useMediaQuery(DESKTOP_MEDIA_QUERY);
 
   useEffect(() => {
     if (scrollResetKey === undefined || scrollResetKey === null) return;
@@ -712,7 +772,15 @@ const StableLeaderboardTable = ({
     }
   }, [scrollResetKey]);
 
-  const isDesktop = useMediaQuery(DESKTOP_MEDIA_QUERY);
+  useEffect(() => {
+    if (scrollResetKey === undefined || scrollResetKey === null) return;
+    if (isDesktop) return;
+    const node = mobileContainerRef.current;
+    if (!node) return;
+    try {
+      node.scrollIntoView({ behavior: "smooth", block: "start" });
+    } catch {}
+  }, [scrollResetKey, isDesktop]);
 
   return (
     <div className="space-y-4">
@@ -740,6 +808,7 @@ const StableLeaderboardTable = ({
           pageRangeEnd={pageRangeEnd}
           pageRealCount={pageRealCount}
           onRequestPage={onRequestPage}
+          containerRef={mobileContainerRef}
         />
       )}
     </div>

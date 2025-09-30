@@ -48,12 +48,13 @@ export const severityOf = (days) => {
   if (days < 0) return "expired";
   if (days <= 7) return "critical";
   if (days <= 30) return "watch";
-  return "ok";
+  return "buffer";
 };
 
 export const chipClass = (severity) =>
   ({
     ok: "bg-sky-500/15 text-sky-100 ring-1 ring-sky-400/20",
+    buffer: "bg-emerald-500/15 text-emerald-100 ring-1 ring-emerald-400/20",
     watch: "bg-yellow-500/15 text-yellow-100 ring-1 ring-yellow-400/25",
     warn: "bg-amber-500/15 text-amber-200 ring-1 ring-amber-400/20",
     critical: "bg-red-500/15 text-red-200 ring-1 ring-red-400/25",

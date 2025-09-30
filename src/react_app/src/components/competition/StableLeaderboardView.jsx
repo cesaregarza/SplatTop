@@ -86,7 +86,7 @@ const StableLeaderboardView = ({ rows, loading, error, windowDays, onRefresh }) 
   const [query, setQuery] = useState("");
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(25);
-  const [jumpGrade, setJumpGrade] = useState("");
+  const [gradeFilter, setGradeFilter] = useState("");
   const [highlightId, setHighlightId] = useState(null);
   const [tableScrollKey, setTableScrollKey] = useState(0);
   const highlightTimerRef = useRef(null);
@@ -122,6 +122,10 @@ const StableLeaderboardView = ({ rows, loading, error, windowDays, onRefresh }) 
     const q = query.trim().toLowerCase();
 
     const mappedReal = data.map(mapWithGrade);
+    const presentGrades = Array.from(
+      new Set(mappedReal.map((row) => row._grade).filter((value) => value && value !== "—"))
+    );
+
     const filteredReal = q
       ? mappedReal.filter((row) => matchesQuery(row, q))
       : mappedReal.slice();
@@ -130,16 +134,20 @@ const StableLeaderboardView = ({ rows, loading, error, windowDays, onRefresh }) 
       (a, b) => (a.stable_rank ?? Infinity) - (b.stable_rank ?? Infinity)
     );
 
-    const total = filteredReal.length;
+    const gradeFilteredReal = gradeFilter
+      ? filteredReal.filter((row) => row._grade === gradeFilter)
+      : filteredReal;
+
+    const total = gradeFilteredReal.length;
     const effectivePageCount = Math.max(1, Math.ceil(Math.max(total, 1) / pageSize));
     const current = Math.min(page, effectivePageCount);
     const start = (current - 1) * pageSize;
     const end = start + pageSize;
-    const pageRows = filteredReal.slice(start, end);
+    const pageRows = gradeFilteredReal.slice(start, end);
 
     let filteredShowcase = [];
     let pageShowcase = [];
-    if (SHOWCASE_ROWS.length) {
+    if (!gradeFilter && SHOWCASE_ROWS.length) {
       const mappedShowcase = SHOWCASE_ROWS.map(mapWithGrade);
       filteredShowcase = q
         ? mappedShowcase.filter((row) => matchesQuery(row, q))
@@ -153,7 +161,7 @@ const StableLeaderboardView = ({ rows, loading, error, windowDays, onRefresh }) 
     }
 
     const displayRows = [...pageRows, ...pageShowcase];
-    const combinedAll = [...filteredReal, ...filteredShowcase];
+    const combinedAll = [...gradeFilteredReal, ...filteredShowcase];
 
     return {
       filtered: displayRows,
@@ -163,18 +171,17 @@ const StableLeaderboardView = ({ rows, loading, error, windowDays, onRefresh }) 
       all: combinedAll,
       hasShowcase: filteredShowcase.length > 0,
       pageRealCount: pageRows.length,
+      availableGrades: presentGrades,
     };
-  }, [rows, query, page, pageSize]);
+  }, [rows, query, page, pageSize, gradeFilter]);
 
   const visibleGrades = useMemo(() => {
-    const present = new Set(
-      prepared.all.map((row) => row._grade).filter((value) => value && value !== "—")
-    );
+    const present = new Set(prepared.availableGrades || []);
     return DISPLAY_GRADE_SCALE.map(([, label]) => label)
       .slice()
       .reverse()
       .filter((label) => present.has(label));
-  }, [prepared.all]);
+  }, [prepared.availableGrades]);
 
   const pageRangeStart = prepared.total === 0 ? 0 : (prepared.current - 1) * pageSize + 1;
   const pageRangeEnd = prepared.total === 0
@@ -195,45 +202,39 @@ const StableLeaderboardView = ({ rows, loading, error, windowDays, onRefresh }) 
     [prepared.pageCount]
   );
 
-  useCrackleEffect(rootRef, [rows, query, page, pageSize, jumpGrade, isDesktop]);
+  useCrackleEffect(rootRef, [rows, query, page, pageSize, gradeFilter, isDesktop]);
 
   const clearHighlightLater = useCallback(() => {
     if (highlightTimerRef.current) clearTimeout(highlightTimerRef.current);
     highlightTimerRef.current = setTimeout(() => setHighlightId(null), 3000);
   }, []);
 
-  const gotoGrade = useCallback(
-    (gradeValue) => {
-      const label = String(gradeValue || "").trim();
-      if (!label) return;
+  const applyGradeFilter = useCallback(
+    (value, { scroll = true } = {}) => {
+      const label = String(value || "").trim();
+      setGradeFilter(label);
+      setPage(1);
+      setHighlightId(null);
 
-      const idx = prepared.all.findIndex((r) => r._grade === label);
-      if (idx < 0) return;
+      if (scroll) {
+        scrollTableToTop();
+      }
 
-      const realCount = prepared.total;
-      const isShowcaseRow = idx >= realCount;
-      const targetPage = isShowcaseRow
-        ? 1
-        : Math.floor(idx / pageSize) + 1;
-
-      setQuery("");
-      setPage(targetPage);
-      setJumpGrade(label);
-
-      try {
-        const row = prepared.all[idx];
-        if (row?.player_id) {
-          setHighlightId(row.player_id);
-          clearHighlightLater();
-        }
-        const url = new URL(window.location.href);
-        url.searchParams.set("grade", label);
-        url.searchParams.delete("player");
-        url.searchParams.delete("rank");
-        window.history.replaceState(null, "", url.toString());
-      } catch {}
+      if (typeof window !== "undefined") {
+        try {
+          const url = new URL(window.location.href);
+          if (label) {
+            url.searchParams.set("grade", label);
+          } else {
+            url.searchParams.delete("grade");
+          }
+          url.searchParams.delete("player");
+          url.searchParams.delete("rank");
+          window.history.replaceState(null, "", url.toString());
+        } catch {}
+      }
     },
-    [prepared.all, prepared.total, pageSize, clearHighlightLater]
+    [scrollTableToTop]
   );
 
   const gotoPlayerId = useCallback(
@@ -273,10 +274,11 @@ const StableLeaderboardView = ({ rows, loading, error, windowDays, onRefresh }) 
       const url = new URL(window.location.href);
       const qPlayer = url.searchParams.get("player");
       const qGrade = url.searchParams.get("grade");
+      if (qGrade) {
+        applyGradeFilter(qGrade, { scroll: false });
+      }
       if (qPlayer) {
         gotoPlayerId(qPlayer);
-      } else if (qGrade) {
-        gotoGrade(qGrade);
       }
     } catch {}
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -293,20 +295,9 @@ const StableLeaderboardView = ({ rows, loading, error, windowDays, onRefresh }) 
 
   const handleSelectGrade = useCallback(
     (value) => {
-      if (!value) {
-        setJumpGrade("");
-        if (typeof window !== "undefined") {
-          try {
-            const url = new URL(window.location.href);
-            url.searchParams.delete("grade");
-            window.history.replaceState(null, "", url.toString());
-          } catch {}
-        }
-        return;
-      }
-      gotoGrade(value);
+      applyGradeFilter(value);
     },
-    [gotoGrade]
+    [applyGradeFilter]
   );
 
   const handleControlPageSizeChange = useCallback(
@@ -363,7 +354,7 @@ const StableLeaderboardView = ({ rows, loading, error, windowDays, onRefresh }) 
         query={query}
         onQueryChange={handleQueryChange}
         grades={visibleGrades}
-        selectedGrade={jumpGrade}
+        selectedGrade={gradeFilter}
         onSelectGrade={handleSelectGrade}
         pageSize={pageSize}
         onPageSizeChange={handleControlPageSizeChange}
