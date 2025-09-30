@@ -7,6 +7,7 @@ from typing import Any, Dict, List, Optional
 import orjson
 from fastapi import APIRouter, Depends, Query
 from fastapi.responses import HTMLResponse
+from redis.exceptions import RedisError
 
 from fast_api_app.auth import require_scopes
 from fast_api_app.connections import rankings_async_session, redis_conn
@@ -36,7 +37,10 @@ def _cache_key(kind: str, params: Dict[str, Any]) -> str:
 
 def _get_cached(kind: str, params: Dict[str, Any]) -> Optional[Dict[str, Any]]:
     key = _cache_key(kind, params)
-    cached = redis_conn.get(key)
+    try:
+        cached = redis_conn.get(key)
+    except RedisError:
+        return None
     if not cached:
         return None
     try:
@@ -47,13 +51,19 @@ def _get_cached(kind: str, params: Dict[str, Any]) -> Optional[Dict[str, Any]]:
         )
         return orjson.loads(payload)
     except orjson.JSONDecodeError:
-        redis_conn.delete(key)
+        try:
+            redis_conn.delete(key)
+        except RedisError:
+            pass
         return None
 
 
 def _set_cached(kind: str, params: Dict[str, Any], payload: Dict[str, Any]) -> None:
     key = _cache_key(kind, params)
-    redis_conn.setex(key, _CACHE_TTL_SECONDS, orjson.dumps(payload))
+    try:
+        redis_conn.setex(key, _CACHE_TTL_SECONDS, orjson.dumps(payload))
+    except RedisError:
+        return None
 
 
 @docs_router.get("/docs", response_class=HTMLResponse)
@@ -104,7 +114,7 @@ async def ripple_instructions():
       </div>
       <h4>Query Parameters</h4>
       <ul>
-        <li><code>limit</code> (int, optional, 1–500)</li>
+        <li><code>limit</code> (int, default 50, 1–500)</li>
         <li><code>offset</code> (int, default 0)</li>
         <li><code>build</code> (string, optional): filter by build_version</li>
         <li><code>ts_ms</code> (int, optional): specific <code>calculated_at_ms</code> snapshot</li>
@@ -237,7 +247,7 @@ def _display_score(
 @router.get("")
 async def get_ripple_leaderboard(
     # Pagination
-    limit: Optional[int] = Query(None, ge=1, le=500),
+    limit: int = Query(50, ge=1, le=500),
     offset: int = Query(0, ge=0),
     # Run selection
     build: Optional[str] = Query(None, description="Filter to a build_version"),
