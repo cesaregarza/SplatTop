@@ -62,16 +62,11 @@ app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
 app.add_middleware(APITokenUsageMiddleware)
 app.add_middleware(APITokenRateLimitMiddleware)
 
-# Setup CORS
-if os.getenv("ENV") == "development":
-    origins = ["http://localhost:3000", "http://comp.localhost:3000"]
-else:
-    origins = ["https://splat.top", "https://comp.splat.top"]
-
+# Setup CORS - public API, so allow any origin.
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=origins,
-    allow_credentials=True,
+    allow_origins=["*"],
+    allow_credentials=False,
     allow_methods=["*"],
     allow_headers=["*"],
 )

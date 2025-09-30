@@ -133,6 +133,10 @@ class FakeRedis:
         self._kv[key] = val
         return True
 
+    def setex(self, key, ttl, value):
+        self._kv[key] = value
+        return True
+
     def delete(self, key):
         self._kv.pop(key, None)
         self._hashes.pop(key, None)
