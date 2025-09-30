@@ -1,4 +1,4 @@
-import React, { forwardRef, memo, useEffect, useMemo, useRef } from "react";
+import React, { forwardRef, memo, useEffect, useMemo, useRef, useState } from "react";
 import { Virtuoso } from "react-virtuoso";
 import {
   CRACKLE_PURPLE,
@@ -11,6 +11,37 @@ import {
   tierFor,
 } from "./stableLeaderboardUtils";
 import useMediaQuery from "../../hooks/useMediaQuery";
+
+const copyTextToClipboard = async (value) => {
+  if (!value) return false;
+  if (typeof navigator !== "undefined" && navigator.clipboard?.writeText) {
+    try {
+      await navigator.clipboard.writeText(value);
+      return true;
+    } catch {
+      // fall through to manual fallback
+    }
+  }
+
+  if (typeof document !== "undefined") {
+    try {
+      const textarea = document.createElement("textarea");
+      textarea.value = value;
+      textarea.setAttribute("readonly", "");
+      textarea.style.position = "absolute";
+      textarea.style.left = "-9999px";
+      document.body.appendChild(textarea);
+      textarea.select();
+      document.execCommand("copy");
+      document.body.removeChild(textarea);
+      return true;
+    } catch {
+      return false;
+    }
+  }
+
+  return false;
+};
 
 const GradeBadge = ({ label }) => {
   if (!label)
@@ -82,6 +113,43 @@ const ScoreBar = ({ value, highlightClass = "" }) => {
   );
 };
 
+const CopyPlayerIdButton = ({ playerId }) => {
+  const [copied, setCopied] = useState(false);
+  const timerRef = useRef(null);
+
+  useEffect(() => {
+    return () => {
+      if (timerRef.current) {
+        clearTimeout(timerRef.current);
+      }
+    };
+  }, []);
+
+  if (!playerId) return null;
+
+  const handleCopy = async () => {
+    const success = await copyTextToClipboard(playerId);
+    if (!success) return;
+    setCopied(true);
+    if (timerRef.current) clearTimeout(timerRef.current);
+    timerRef.current = setTimeout(() => setCopied(false), 1500);
+  };
+
+  const label = copied ? "Copied ID" : `Copy ${playerId}`;
+
+  return (
+    <button
+      type="button"
+      onClick={handleCopy}
+      className="inline-flex h-6 w-6 shrink-0 items-center justify-center rounded border border-slate-700 bg-slate-900/70 text-[0.7rem] text-slate-300 transition hover:bg-slate-900"
+      title={label}
+      aria-label={label}
+    >
+      {copied ? "✓" : "⧉"}
+    </button>
+  );
+};
+
 const buildRowView = (row, highlightId) => {
   const rank = row.stable_rank ?? "—";
   const grade = row._grade;
@@ -110,8 +178,8 @@ const buildRowView = (row, highlightId) => {
     }
   } else if (windowCount != null && windowCount >= 3) {
     severity = "ok";
-    daysLabel = "Active";
-    daysTitle = "Player is tracked and safely within the 120 day active window.";
+    daysLabel = "OK";
+    daysTitle = "Player meets the ranked activity requirement; countdown resumes when they fall back to three events in the 120 day window.";
   } else if (windowCount == null || windowCount < 3) {
     daysLabel = "Not tracking";
     daysTitle = "Fewer than three ranked tournaments in the current window, so inactivity countdown is not tracked yet.";
@@ -246,7 +314,7 @@ const DesktopLeaderboardRow = ({ entry, isLast, isFirst, windowDays }) => {
 
   return (
     <div className={baseClasses.filter(Boolean).join(" ")} style={style}>
-      <div className="font-semibold font-data text-slate-200 whitespace-nowrap">{rank}</div>
+      <div className="font-semibold font-data tabular-nums text-slate-200 whitespace-nowrap">{rank}</div>
 
       <div className="min-w-0 flex flex-col">
         {row.player_id ? (
@@ -267,9 +335,12 @@ const DesktopLeaderboardRow = ({ entry, isLast, isFirst, windowDays }) => {
             {row.display_name}
           </span>
         )}
-        <span className="text-xs text-slate-500 truncate font-data" title={row.player_id || undefined}>
-          {row.player_id}
-        </span>
+        <div className="mt-0.5 flex min-w-0 items-center gap-1 text-xs text-slate-500 font-data">
+          <span className="truncate" title={row.player_id || undefined}>
+            {row.player_id || "—"}
+          </span>
+          <CopyPlayerIdButton playerId={row.player_id} />
+        </div>
       </div>
 
       <div className="min-w-0">
@@ -303,7 +374,18 @@ const DesktopLeaderboardRow = ({ entry, isLast, isFirst, windowDays }) => {
   );
 };
 
-const DesktopLeaderboardTableView = ({ rows, windowDays, virtuosoRef }) => {
+const DesktopLeaderboardTableView = ({
+  rows,
+  windowDays,
+  virtuosoRef,
+  page,
+  pageCount,
+  totalRows,
+  pageRangeStart,
+  pageRangeEnd,
+  pageRealCount,
+  onRequestPage,
+}) => {
   if (!rows.length) return null;
 
   const estimatedHeight = Math.min(
@@ -334,11 +416,90 @@ const DesktopLeaderboardTableView = ({ rows, windowDays, virtuosoRef }) => {
           />
         )}
       />
+      <DesktopPaginationFooter
+        page={page}
+        pageCount={pageCount}
+        totalRows={totalRows}
+        pageRangeStart={pageRangeStart}
+        pageRangeEnd={pageRangeEnd}
+        pageRealCount={pageRealCount}
+        onRequestPage={onRequestPage}
+      />
     </div>
   );
 };
 
-const StableLeaderboardMobileList = ({ rows, windowDays }) => {
+const DesktopPaginationFooter = ({
+  page = 1,
+  pageCount = 1,
+  totalRows = 0,
+  pageRangeStart = 0,
+  pageRangeEnd = 0,
+  pageRealCount = 0,
+  onRequestPage,
+}) => {
+  if (totalRows <= 0 && pageRealCount <= 0) return null;
+
+  const safePage = Math.max(1, page);
+  const safePageCount = Math.max(1, pageCount);
+  const canPrev = safePage > 1;
+  const canNext = safePage < safePageCount;
+  const hasRange =
+    totalRows > 0 && pageRealCount > 0 && pageRangeStart > 0 && pageRangeEnd >= pageRangeStart;
+
+  const rangeStartLabel = hasRange ? nf0.format(pageRangeStart) : "—";
+  const rangeEndLabel = hasRange ? nf0.format(pageRangeEnd) : "—";
+  const totalLabel = totalRows > 0 ? nf0.format(totalRows) : "—";
+
+  const requestPage = (target) => {
+    if (typeof onRequestPage === "function") {
+      onRequestPage(target);
+    }
+  };
+
+  return (
+    <div className="border-t border-slate-800 bg-slate-900/60 px-4 py-3">
+      <div className="flex flex-wrap items-center justify-between gap-3 text-sm">
+        <span className="font-data tabular-nums text-slate-300">
+          Showing {hasRange ? `${rangeStartLabel}–${rangeEndLabel}` : "—"} of {totalLabel} players
+        </span>
+        <div className="flex items-center gap-2">
+          <button
+            type="button"
+            onClick={() => requestPage(safePage - 1)}
+            disabled={!canPrev}
+            className="rounded-full border border-slate-800 bg-slate-950/80 px-3 py-1.5 text-xs font-semibold uppercase tracking-wide text-slate-200 transition hover:bg-slate-900 disabled:opacity-50 disabled:hover:bg-slate-950/80"
+          >
+            Prev
+          </button>
+          <span className="text-xs uppercase tracking-wide text-slate-500">
+            Page {safePage} / {safePageCount}
+          </span>
+          <button
+            type="button"
+            onClick={() => requestPage(safePage + 1)}
+            disabled={!canNext}
+            className="rounded-full border border-slate-800 bg-slate-950/80 px-3 py-1.5 text-xs font-semibold uppercase tracking-wide text-slate-200 transition hover:bg-slate-900 disabled:opacity-50 disabled:hover:bg-slate-950/80"
+          >
+            Next
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+const StableLeaderboardMobileList = ({
+  rows,
+  windowDays,
+  page,
+  pageCount,
+  totalRows,
+  pageRangeStart,
+  pageRangeEnd,
+  pageRealCount,
+  onRequestPage,
+}) => {
   const windowLabel = windowDays ?? 120;
 
   if (!rows.length) return null;
@@ -376,7 +537,7 @@ const StableLeaderboardMobileList = ({ rows, windowDays }) => {
             <div className="flex items-center justify-between gap-3">
               <span className="inline-flex items-baseline gap-1 rounded-full bg-slate-800/80 px-2.5 py-0.5 text-xs font-semibold uppercase tracking-wide text-slate-300">
                 <span>Rank</span>
-                <span className="text-slate-100">{rank}</span>
+                <span className="text-slate-100 font-data tabular-nums">{rank}</span>
               </span>
               <GradeBadge label={grade} />
             </div>
@@ -401,8 +562,11 @@ const StableLeaderboardMobileList = ({ rows, windowDays }) => {
                     {row.display_name}
                   </span>
                 )}
-                <div className="text-xs text-slate-500 truncate font-data" title={row.player_id || undefined}>
-                  {row.player_id || "—"}
+                <div className="mt-1 flex items-center gap-1 text-xs text-slate-500 font-data">
+                  <span className="truncate" title={row.player_id || undefined}>
+                    {row.player_id || "—"}
+                  </span>
+                  <CopyPlayerIdButton playerId={row.player_id} />
                 </div>
               </div>
             </div>
@@ -447,11 +611,90 @@ const StableLeaderboardMobileList = ({ rows, windowDays }) => {
           </article>
         );
       })}
+      <MobilePaginationFooter
+        page={page}
+        pageCount={pageCount}
+        totalRows={totalRows}
+        pageRangeStart={pageRangeStart}
+        pageRangeEnd={pageRangeEnd}
+        pageRealCount={pageRealCount}
+        onRequestPage={onRequestPage}
+      />
     </div>
   );
 };
 
-const StableLeaderboardTable = ({ rows, highlightId, windowDays, scrollResetKey }) => {
+const MobilePaginationFooter = ({
+  page = 1,
+  pageCount = 1,
+  totalRows = 0,
+  pageRangeStart = 0,
+  pageRangeEnd = 0,
+  pageRealCount = 0,
+  onRequestPage,
+}) => {
+  if (totalRows <= 0 && pageRealCount <= 0) return null;
+
+  const safePage = Math.max(1, page);
+  const safePageCount = Math.max(1, pageCount);
+  const canPrev = safePage > 1;
+  const canNext = safePage < safePageCount;
+  const hasRange =
+    totalRows > 0 && pageRealCount > 0 && pageRangeStart > 0 && pageRangeEnd >= pageRangeStart;
+
+  const rangeStartLabel = hasRange ? nf0.format(pageRangeStart) : "—";
+  const rangeEndLabel = hasRange ? nf0.format(pageRangeEnd) : "—";
+  const totalLabel = totalRows > 0 ? nf0.format(totalRows) : "—";
+
+  const requestPage = (target) => {
+    if (typeof onRequestPage === "function") {
+      onRequestPage(target);
+    }
+  };
+
+  return (
+    <div className="rounded-lg border border-slate-800 bg-slate-900/70 px-4 py-3 text-sm text-slate-200">
+      <div className="font-data tabular-nums text-slate-300">
+        Showing {hasRange ? `${rangeStartLabel}–${rangeEndLabel}` : "—"} of {totalLabel} players
+      </div>
+      <div className="mt-3 flex items-center justify-between gap-3">
+        <button
+          type="button"
+          onClick={() => requestPage(safePage - 1)}
+          disabled={!canPrev}
+          className="flex-1 rounded-md border border-slate-800 bg-slate-950/80 px-3 py-2 text-xs font-semibold uppercase tracking-wide text-slate-100 transition hover:bg-slate-900 disabled:opacity-50 disabled:hover:bg-slate-950/80"
+        >
+          Prev
+        </button>
+        <span className="text-xs uppercase tracking-wide text-slate-500">
+          Page {safePage} / {safePageCount}
+        </span>
+        <button
+          type="button"
+          onClick={() => requestPage(safePage + 1)}
+          disabled={!canNext}
+          className="flex-1 rounded-md border border-slate-800 bg-slate-950/80 px-3 py-2 text-xs font-semibold uppercase tracking-wide text-slate-100 transition hover:bg-slate-900 disabled:opacity-50 disabled:hover:bg-slate-950/80"
+        >
+          Next
+        </button>
+      </div>
+    </div>
+  );
+};
+
+const StableLeaderboardTable = ({
+  rows,
+  highlightId,
+  windowDays,
+  scrollResetKey,
+  page,
+  pageCount,
+  totalRows,
+  pageRangeStart,
+  pageRangeEnd,
+  pageRealCount,
+  onRequestPage,
+}) => {
   const preparedRows = useMemo(
     () => rows.map((row) => buildRowView(row, highlightId)),
     [rows, highlightId]
@@ -478,9 +721,26 @@ const StableLeaderboardTable = ({ rows, highlightId, windowDays, scrollResetKey 
           rows={preparedRows}
           windowDays={windowDays}
           virtuosoRef={virtuosoRef}
+          page={page}
+          pageCount={pageCount}
+          totalRows={totalRows}
+          pageRangeStart={pageRangeStart}
+          pageRangeEnd={pageRangeEnd}
+          pageRealCount={pageRealCount}
+          onRequestPage={onRequestPage}
         />
       ) : (
-        <StableLeaderboardMobileList rows={preparedRows} windowDays={windowDays} />
+        <StableLeaderboardMobileList
+          rows={preparedRows}
+          windowDays={windowDays}
+          page={page}
+          pageCount={pageCount}
+          totalRows={totalRows}
+          pageRangeStart={pageRangeStart}
+          pageRangeEnd={pageRangeEnd}
+          pageRealCount={pageRealCount}
+          onRequestPage={onRequestPage}
+        />
       )}
     </div>
   );

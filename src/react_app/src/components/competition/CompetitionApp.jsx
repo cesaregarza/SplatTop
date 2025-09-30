@@ -93,6 +93,7 @@ const CompetitionLeaderboardPage = ({ snapshot }) => {
           loading={loading}
           error={error}
           windowDays={windowDays}
+          onRefresh={refresh}
         />
       </div>
     </CompetitionLayout>

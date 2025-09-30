@@ -3,9 +3,9 @@ import "./StableLeaderboardView.css";
 import useCrackleEffect from "../../hooks/useCrackleEffect";
 import useMediaQuery from "../../hooks/useMediaQuery";
 import StableLeaderboardHeader from "./StableLeaderboardHeader";
+import StableLeaderboardControls from "./StableLeaderboardControls";
 import StableLeaderboardTable from "./StableLeaderboardTable";
-import StableLeaderboardFooter from "./StableLeaderboardFooter";
-import { createGradeShowcaseRows, gradeFor } from "./stableLeaderboardUtils";
+import { DISPLAY_GRADE_SCALE, createGradeShowcaseRows, gradeFor } from "./stableLeaderboardUtils";
 
 const rawShowcaseFlag = process.env.REACT_APP_SHOWCASE_STABLE_LEADERBOARD;
 const ENABLE_SHOWCASE_ROWS =
@@ -82,17 +82,15 @@ const EmptyState = memo(({ query }) => (
 
 EmptyState.displayName = "StableLeaderboardEmptyState";
 
-const StableLeaderboardView = ({ rows, loading, error, windowDays }) => {
+const StableLeaderboardView = ({ rows, loading, error, windowDays, onRefresh }) => {
   const [query, setQuery] = useState("");
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(25);
-  const [jumpPlayerId, setJumpPlayerId] = useState("");
   const [jumpGrade, setJumpGrade] = useState("");
   const [highlightId, setHighlightId] = useState(null);
   const [tableScrollKey, setTableScrollKey] = useState(0);
   const highlightTimerRef = useRef(null);
   const rootRef = useRef(null);
-  const footerRef = useRef(null);
   const isDesktop = useMediaQuery("(min-width: 768px)");
 
   const prepared = useMemo(() => {
@@ -164,8 +162,24 @@ const StableLeaderboardView = ({ rows, loading, error, windowDays }) => {
       current,
       all: combinedAll,
       hasShowcase: filteredShowcase.length > 0,
+      pageRealCount: pageRows.length,
     };
   }, [rows, query, page, pageSize]);
+
+  const visibleGrades = useMemo(() => {
+    const present = new Set(
+      prepared.all.map((row) => row._grade).filter((value) => value && value !== "—")
+    );
+    return DISPLAY_GRADE_SCALE.map(([, label]) => label)
+      .slice()
+      .reverse()
+      .filter((label) => present.has(label));
+  }, [prepared.all]);
+
+  const pageRangeStart = prepared.total === 0 ? 0 : (prepared.current - 1) * pageSize + 1;
+  const pageRangeEnd = prepared.total === 0
+    ? 0
+    : Math.min(pageRangeStart + prepared.pageRealCount - 1, prepared.total);
 
   const scrollTableToTop = useCallback(() => {
     setTableScrollKey((key) => key + 1);
@@ -277,33 +291,44 @@ const StableLeaderboardView = ({ rows, loading, error, windowDays }) => {
     setPage(1);
   }, []);
 
-  const handleJumpPlayerSubmit = useCallback(
-    (event) => {
-      event.preventDefault();
-      gotoPlayerId(jumpPlayerId.trim());
+  const handleSelectGrade = useCallback(
+    (value) => {
+      if (!value) {
+        setJumpGrade("");
+        if (typeof window !== "undefined") {
+          try {
+            const url = new URL(window.location.href);
+            url.searchParams.delete("grade");
+            window.history.replaceState(null, "", url.toString());
+          } catch {}
+        }
+        return;
+      }
+      gotoGrade(value);
     },
-    [gotoPlayerId, jumpPlayerId]
+    [gotoGrade]
+  );
+
+  const handleControlPageSizeChange = useCallback(
+    (size) => {
+      if (size === pageSize) return;
+      scrollTableToTop();
+      handlePageSizeChange(size);
+    },
+    [pageSize, scrollTableToTop, handlePageSizeChange]
+  );
+
+  const handlePageRequest = useCallback(
+    (targetPage) => {
+      scrollTableToTop();
+      gotoPage(targetPage);
+    },
+    [scrollTableToTop, gotoPage]
   );
 
   const handleQueryChange = useCallback((value) => {
     setQuery(value);
     setPage(1);
-  }, []);
-
-  const handleScrollToControls = useCallback(() => {
-    try {
-      footerRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
-    } catch {
-      /* no-op */
-    }
-  }, []);
-
-  const handleScrollToTop = useCallback(() => {
-    try {
-      rootRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
-    } catch {
-      /* no-op */
-    }
   }, []);
 
   let content;
@@ -315,42 +340,35 @@ const StableLeaderboardView = ({ rows, loading, error, windowDays }) => {
     content = <EmptyState query={query} />;
   } else {
     content = (
-      <>
-        <StableLeaderboardTable
-          rows={prepared.filtered}
-          highlightId={highlightId}
-          windowDays={windowDays}
-          scrollResetKey={tableScrollKey}
-        />
-        <StableLeaderboardFooter
-          pageCount={prepared.pageCount}
-          currentPage={prepared.current}
-          totalPlayers={prepared.total}
-          allRows={prepared.all}
-          pageSize={pageSize}
-          onPageSizeChange={handlePageSizeChange}
-          onGotoPage={gotoPage}
-          onPaginate={scrollTableToTop}
-          jumpGrade={jumpGrade}
-          onGotoGrade={gotoGrade}
-          jumpPlayerId={jumpPlayerId}
-          onJumpPlayerChange={setJumpPlayerId}
-          onJumpPlayerSubmit={handleJumpPlayerSubmit}
-          ref={footerRef}
-          onJumpToTop={handleScrollToTop}
-        />
-      </>
+      <StableLeaderboardTable
+        rows={prepared.filtered}
+        highlightId={highlightId}
+        windowDays={windowDays}
+        scrollResetKey={tableScrollKey}
+        page={prepared.current}
+        pageCount={prepared.pageCount}
+        totalRows={prepared.total}
+        pageRangeStart={pageRangeStart}
+        pageRangeEnd={pageRangeEnd}
+        pageRealCount={prepared.pageRealCount}
+        onRequestPage={handlePageRequest}
+      />
     );
   }
 
-  const showScrollButton = !loading && !error && prepared.total > 0;
-
   return (
     <section ref={rootRef}>
-      <StableLeaderboardHeader
+      <StableLeaderboardHeader />
+      <StableLeaderboardControls
         query={query}
         onQueryChange={handleQueryChange}
-        onScrollToControls={showScrollButton ? handleScrollToControls : undefined}
+        grades={visibleGrades}
+        selectedGrade={jumpGrade}
+        onSelectGrade={handleSelectGrade}
+        pageSize={pageSize}
+        onPageSizeChange={handleControlPageSizeChange}
+        onRefresh={onRefresh}
+        refreshing={loading}
       />
       {content}
     </section>
