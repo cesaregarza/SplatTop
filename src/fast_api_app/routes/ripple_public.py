@@ -9,10 +9,10 @@ from fastapi import APIRouter, HTTPException
 from fast_api_app.connections import redis_conn
 from fast_api_app.feature_flags import is_comp_leaderboard_enabled
 from shared_lib.constants import (
-    COMP_LEADERBOARD_FLAG_KEY,
     RIPPLE_DANGER_LATEST_KEY,
     RIPPLE_STABLE_LATEST_KEY,
     RIPPLE_STABLE_META_KEY,
+    RIPPLE_STABLE_PERCENTILES_KEY,
 )
 
 router = APIRouter(prefix="/api/ripple/public", tags=["ripple-public"])
@@ -50,6 +50,20 @@ def _empty_payload() -> Dict[str, Any]:
     }
 
 
+def _empty_percentiles_payload() -> Dict[str, Any]:
+    return {
+        "generated_at_ms": None,
+        "record_count": 0,
+        "score_population": 0,
+        "grade_thresholds": [],
+        "transform": {
+            "score_offset": 0.0,
+            "display_offset": 0.0,
+            "multiplier": 1.0,
+        },
+    }
+
+
 def _decorate(payload: Dict[str, Any]) -> Dict[str, Any]:
     generated_at_ms = payload.get("generated_at_ms")
     now_ms = int(time.time() * 1000)
@@ -64,6 +78,12 @@ def _decorate(payload: Dict[str, Any]) -> Dict[str, Any]:
     enriched["stale"] = stale
     enriched["retrieved_at_ms"] = now_ms
     return enriched
+
+
+def _decorate_percentiles(payload: Dict[str, Any]) -> Dict[str, Any]:
+    base = _decorate(payload)
+    # Percentiles payloads don't carry build metadata, so drop unused keys.
+    return base
 
 
 @router.get("", name="public-ripple-stable")
@@ -98,8 +118,19 @@ async def get_public_ripple_meta() -> Dict[str, Any]:
             "stale": _decorate(danger or _empty_payload())["stale"],
         },
         "feature_flag": {
-            "key": COMP_LEADERBOARD_FLAG_KEY,
+            # Expose only the effective state; omit Redis key names to avoid
+            # leaking internal implementation details.
             "enabled": True,
         },
         "retrieved_at_ms": now_ms,
     }
+
+
+@router.get("/percentiles", name="public-ripple-percentiles")
+async def get_public_ripple_percentiles() -> Dict[str, Any]:
+    _ensure_enabled()
+    payload = (
+        _load_payload(RIPPLE_STABLE_PERCENTILES_KEY)
+        or _empty_percentiles_payload()
+    )
+    return _decorate_percentiles(payload)

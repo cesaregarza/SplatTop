@@ -84,7 +84,7 @@ const CompetitionLeaderboardPage = ({ snapshot }) => {
 };
 
 const CompetitionFaqPage = ({ snapshot }) => {
-  const { loading, stable, danger, disabled } = snapshot;
+  const { loading, stable, danger, disabled, percentiles } = snapshot;
 
   useEffect(() => {
     const previous = document.title;
@@ -112,7 +112,7 @@ const CompetitionFaqPage = ({ snapshot }) => {
           still review how the system works below.
         </div>
       )}
-      <CompetitionFaq />
+      <CompetitionFaq percentiles={percentiles} />
     </CompetitionLayout>
   );
 };

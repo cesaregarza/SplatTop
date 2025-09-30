@@ -50,6 +50,7 @@ RIPPLE_STABLE_STATE_KEY = "ripple:stable:state"
 RIPPLE_STABLE_LATEST_KEY = "ripple:stable:latest"
 RIPPLE_STABLE_META_KEY = "ripple:stable:meta"
 RIPPLE_DANGER_LATEST_KEY = "ripple:danger:latest"
+RIPPLE_STABLE_PERCENTILES_KEY = "ripple:stable:percentiles"
 COMP_LEADERBOARD_FLAG_KEY = "feature:comp_leaderboard"
 
 # API token management (Redis keys)

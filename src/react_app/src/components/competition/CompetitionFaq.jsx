@@ -1,9 +1,62 @@
-import React, { useState } from "react";
+import React, { useMemo, useRef, useState } from "react";
+import "./StableLeaderboardView.css";
+import {
+  CRACKLE_PURPLE,
+  DISPLAY_GRADE_SCALE,
+  gradeChipClass,
+  isXX,
+  rateFor,
+} from "./stableLeaderboardUtils";
+import useCrackleEffect from "../../hooks/useCrackleEffect";
 
-const CompetitionFaq = () => {
+const gradeBreakpoints = DISPLAY_GRADE_SCALE.filter(
+  ([, label]) => label !== "XX★"
+).map(([ceilingDisplay, label], index, array) => ({
+  label,
+  ceilingDisplay,
+  floorDisplay: index === 0 ? null : array[index - 1][0],
+}));
+
+const formatThreshold = (value) => {
+  if (value == null) return "—";
+  if (!Number.isFinite(value)) return "∞";
+  if (Number.isInteger(value)) return value;
+  const rounded = Number.parseFloat(value.toFixed(1));
+  return Number.isInteger(rounded) ? rounded : rounded.toFixed(1);
+};
+
+const formatTimestamp = (ms) => {
+  if (!ms) return null;
+  const date = new Date(ms);
+  if (Number.isNaN(date.getTime())) return null;
+  return date.toLocaleString();
+};
+
+const CompetitionFaq = ({ percentiles }) => {
   const [showExtendedVersion, setShowExtendedVersion] = useState(false);
   const [showNerdVersion, setShowNerdVersion] = useState(false);
   const [showGradeNerdVersion, setShowGradeNerdVersion] = useState(false);
+  const rootRef = useRef(null);
+
+  useCrackleEffect(rootRef, [showGradeNerdVersion]);
+
+  const gradeThresholds = percentiles?.grade_thresholds;
+  const gradeStatsByLabel = useMemo(() => {
+    const map = new Map();
+    const entries = Array.isArray(gradeThresholds) ? gradeThresholds : [];
+    entries.forEach((entry) => {
+      if (entry && entry.label) {
+        map.set(entry.label, entry);
+      }
+    });
+    return map;
+  }, [gradeThresholds]);
+
+  const scorePopulation = percentiles?.score_population ?? null;
+  const percentilesStale = Boolean(percentiles?.stale);
+  const percentilesRetrievedAt = percentiles?.retrieved_at_ms
+    ? formatTimestamp(percentiles.retrieved_at_ms)
+    : null;
 
   const faqs = [
     {
@@ -94,10 +147,11 @@ const CompetitionFaq = () => {
                 </li>
               </ol>
               <p>
-            Long-gap inactivity decay is available (delay ~ 180 days with a
-            small daily rate). The raw log-odds output is then converted to
-            display units via <code className="mx-1">display = 250 + 50 * raw</code>
-            and frozen until you appear in another eligible tournament.
+                Long-gap inactivity decay is available (delay ~ 180 days with a
+                small daily rate). The raw log-odds output is then converted to
+                display units via <code className="mx-1">display = 150 + 25 * raw</code>
+                (multiply by 25, then add 150) and frozen until you appear in another
+                eligible tournament.
               </p>
             </div>
           )}
@@ -176,6 +230,90 @@ const CompetitionFaq = () => {
             XS, XS+) to highlight the competitive tier. They're derived from
             the same score shown on the table and don't depend on team or region.
           </p>
+          <div className="rounded-md border border-slate-800/60 bg-slate-900/50 p-3 text-sm text-slate-200">
+            <p className="font-semibold text-center text-slate-100">Grade floors &amp; percentiles</p>
+            <p className="mt-1 text-center text-xs text-slate-400">
+              Each floor is the minimum display score to hold that grade; share shows the
+              portion of tracked players at or above it.
+            </p>
+            <div className="mt-3 flex justify-center">
+              <div className="w-full max-w-md overflow-x-auto">
+                <table className="w-full table-auto border-separate border-spacing-y-2 text-center text-sm text-slate-200">
+                  <thead className="text-xs uppercase tracking-wide text-slate-400/90">
+                    <tr>
+                      <th scope="col" className="px-3 py-2 font-semibold">
+                        Grade
+                      </th>
+                      <th scope="col" className="px-3 py-2 font-semibold">
+                        Display score ≥
+                      </th>
+                      <th scope="col" className="px-3 py-2 font-semibold">
+                        Share ≥
+                      </th>
+                      <th scope="col" className="px-3 py-2 font-semibold">
+                        Players ≥
+                      </th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {gradeBreakpoints.map(({ label, floorDisplay }, index) => {
+                      const crackle = isXX(label);
+                      const crackleProps = crackle
+                        ? { "data-color": CRACKLE_PURPLE, "data-rate": rateFor(label) }
+                        : {};
+                      const chipClassName = `${gradeChipClass(label, false)} ${crackle ? "crackle" : ""}`.trim();
+                      const stats = gradeStatsByLabel.get(label);
+                      const percentileDisplay =
+                        typeof stats?.percentile === "number"
+                          ? `Top ${(stats.percentile * 100).toFixed(1)}%`
+                          : "—";
+                      const countDisplay =
+                        typeof stats?.count === "number"
+                          ? stats.count.toLocaleString()
+                          : "—";
+                      const fallbackFloor =
+                        index === 0
+                          ? null
+                          : gradeBreakpoints[index - 1]?.ceilingDisplay ?? null;
+                      const thresholdValue =
+                        typeof stats?.display_floor === "number"
+                          ? stats.display_floor
+                          : floorDisplay ?? fallbackFloor;
+                      const floorText =
+                        thresholdValue == null
+                          ? "—"
+                          : `≥ ${formatThreshold(thresholdValue)}`;
+                      return (
+                        <tr key={label} className="rounded-lg">
+                          <td className="px-3 py-2">
+                            <span className={chipClassName} {...crackleProps}>
+                              {label}
+                            </span>
+                          </td>
+                          <td className="px-3 py-2 font-data text-slate-100">
+                            {floorText}
+                          </td>
+                          <td className="px-3 py-2 font-data text-slate-200">
+                            {percentileDisplay}
+                          </td>
+                          <td className="px-3 py-2 font-data text-slate-300">
+                            {countDisplay}
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+            <p className="mt-3 text-xs text-slate-400 text-center">
+              {scorePopulation != null
+                ? `${scorePopulation.toLocaleString()} players counted.`
+                : "Player counts pending."}
+              {percentilesRetrievedAt && ` Snapshot taken ${percentilesRetrievedAt}.`}
+              {percentilesStale && " (May be stale)"}
+            </p>
+          </div>
           <button
             type="button"
             className="block rounded-md border border-fuchsia-500/40 bg-fuchsia-500/10 px-3 py-1 text-xs font-semibold uppercase tracking-wide text-fuchsia-200 hover:bg-fuchsia-500/20"
@@ -187,12 +325,18 @@ const CompetitionFaq = () => {
             <div className="rounded-md border border-fuchsia-500/30 bg-slate-900/70 p-4 text-sm text-fuchsia-100 space-y-3">
               <p>
                 The scoring engine produces a raw log-odds value. We map it to
-                display units using <code className="mx-1">display = 250 + 50 * raw</code>
+                display units using <code className="mx-1">display = 150 + 25 * raw</code>
                 so the numbers are easier to read, but grade thresholds are defined
                 on the raw scale. Each integer step in the raw score is about e
                 times harder to reach than the previous one, and we label the
                 resulting bands with the X-prefixed Splatoon grades (for example
                 XB, XA, XS, XS+).
+              </p>
+              <p>
+                XS- (display score 150+) marks the point where the win and loss flows
+                balance—your PageRank odds match the overall competitive field. It's a
+                meaningful milestone, though not the 50th percentile. Percentile markers
+                are planned for a future update.
               </p>
             </div>
           )}
@@ -227,7 +371,7 @@ const CompetitionFaq = () => {
   ];
 
   return (
-    <div className="space-y-10">
+    <div ref={rootRef} className="space-y-10">
       <section className="rounded-lg border border-slate-800 bg-slate-900/60 px-6 py-6">
         <h2 className="text-2xl font-semibold text-white">Competition FAQ</h2>
         <p className="mt-3 text-slate-300">

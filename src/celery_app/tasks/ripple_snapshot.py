@@ -2,9 +2,11 @@ from __future__ import annotations
 
 import asyncio
 import logging
+import math
 import time
+from bisect import bisect_right
 from collections.abc import Mapping
-from typing import Any, Dict, List
+from typing import Any, Dict, List, Tuple
 
 import orjson
 from sqlalchemy import text
@@ -14,17 +16,35 @@ from shared_lib.constants import (
     RIPPLE_DANGER_LATEST_KEY,
     RIPPLE_STABLE_LATEST_KEY,
     RIPPLE_STABLE_META_KEY,
+    RIPPLE_STABLE_PERCENTILES_KEY,
     RIPPLE_STABLE_STATE_KEY,
 )
 from shared_lib.queries import ripple_queries
 
 logger = logging.getLogger(__name__)
 
+# Fetch the complete snapshot so the public cache can serve every stable row;
+# pagination happens on the consumer side.
 DEFAULT_LIMIT = None
 DEFAULT_TOURNAMENT_WINDOW_DAYS = 120
 SCORE_OFFSET = 0.0
 SCORE_MULTIPLIER = 25.0
+DISPLAY_OFFSET = 150.0
 MS_PER_DAY = 86_400_000
+
+GRADE_THRESHOLDS = [
+    ("XB-", -5.0),
+    ("XB", -4.0),
+    ("XB+", -3.0),
+    ("XA-", -2.0),
+    ("XA", -1.0),
+    ("XA+", 0.0),
+    ("XS-", 0.8),
+    ("XS", 1.5),
+    ("XS+", 2.4),
+    ("XX", 4.0),
+    ("XX+", 5.0),
+]
 
 DEFAULT_PAGE_PARAMS = {
     "limit": DEFAULT_LIMIT,
@@ -45,6 +65,62 @@ DEFAULT_DANGER_PARAMS = {
 
 def _display_score(score: float) -> float:
     return (score + SCORE_OFFSET) * SCORE_MULTIPLIER
+
+
+def _grade_threshold_percentiles(
+    stable_rows: List[Mapping[str, Any]]
+) -> Tuple[List[Dict[str, Any]], int]:
+    scores = sorted(
+        float(row["stable_score"])
+        for row in stable_rows
+        if row.get("stable_score") is not None
+    )
+    total = len(scores)
+    results: List[Dict[str, Any]] = []
+
+    previous_threshold = float("-inf")
+    for label, raw_ceiling in GRADE_THRESHOLDS:
+        raw_floor = previous_threshold
+        if total == 0:
+            count_at_or_above = 0
+        elif math.isfinite(raw_floor):
+            idx = bisect_right(scores, raw_floor)
+            count_at_or_above = total - idx
+        else:
+            count_at_or_above = total
+
+        percentile = 0.0 if total == 0 else count_at_or_above / total
+
+        results.append(
+            {
+                "label": label,
+                "raw_floor": None
+                if not math.isfinite(raw_floor)
+                else round(raw_floor, 4),
+                "raw_ceiling": round(raw_ceiling, 4),
+                "display_floor": None
+                if not math.isfinite(raw_floor)
+                else round(raw_floor * SCORE_MULTIPLIER + DISPLAY_OFFSET, 2),
+                "display_ceiling": round(
+                    raw_ceiling * SCORE_MULTIPLIER + DISPLAY_OFFSET, 2
+                ),
+                "count": count_at_or_above,
+                "percentile": round(percentile, 4),
+            }
+        )
+
+        previous_threshold = raw_ceiling
+
+    if total == 0:
+        return results, total
+
+    # Ensure percentiles are monotonically non-increasing even with rounding
+    running_min = 1.0
+    for entry in results:
+        running_min = min(running_min, entry["percentile"])
+        entry["percentile"] = running_min
+
+    return results, total
 
 
 def _now_ms() -> int:
@@ -72,6 +148,8 @@ def _load_state() -> Dict[str, Any]:
 
 
 def _persist_state(state: Dict[str, Any]) -> None:
+    # Keep player IDs as strings so reloads round-trip cleanly and remain
+    # compatible with existing Redis payloads.
     serializable = {str(player_id): value for player_id, value in state.items()}
     redis_conn.set(RIPPLE_STABLE_STATE_KEY, orjson.dumps(serializable))
 
@@ -149,6 +227,7 @@ async def _bootstrap_state(
     events: Dict[str, Dict[str, Any]],
     now_ms: int,
 ) -> Dict[str, Any]:
+    """Build the stable cache from scratch when Redis lacks history."""
     state: Dict[str, Any] = {}
     for row in rows:
         player_id = row.get("player_id")
@@ -335,6 +414,10 @@ async def _refresh_snapshots_async() -> Dict[str, Any]:
     }
     danger_payload = _serialize_danger(danger_rows, display_map)
 
+    grade_percentiles, score_population = _grade_threshold_percentiles(
+        stable_rows
+    )
+
     stable_payload = {
         "build_version": build_version,
         "calculated_at_ms": calc_ts_int,
@@ -362,10 +445,23 @@ async def _refresh_snapshots_async() -> Dict[str, Any]:
         "build_version": build_version,
     }
 
+    percentiles_payload = {
+        "generated_at_ms": generated_at_ms,
+        "record_count": len(stable_rows),
+        "score_population": score_population,
+        "grade_thresholds": grade_percentiles,
+        "transform": {
+            "score_offset": SCORE_OFFSET,
+            "display_offset": DISPLAY_OFFSET,
+            "multiplier": SCORE_MULTIPLIER,
+        },
+    }
+
     _persist_state(new_state)
     _persist_payload(RIPPLE_STABLE_LATEST_KEY, stable_payload)
     _persist_payload(RIPPLE_DANGER_LATEST_KEY, danger_snapshot)
     _persist_payload(RIPPLE_STABLE_META_KEY, meta_payload)
+    _persist_payload(RIPPLE_STABLE_PERCENTILES_KEY, percentiles_payload)
 
     logger.info(
         "Refreshed ripple snapshots: %s stable rows, %s danger rows",

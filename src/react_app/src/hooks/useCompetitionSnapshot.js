@@ -4,6 +4,7 @@ import axios from "axios";
 const STABLE_ENDPOINT = "/api/ripple/public";
 const DANGER_ENDPOINT = "/api/ripple/public/danger";
 const META_ENDPOINT = "/api/ripple/public/meta";
+const PERCENTILES_ENDPOINT = "/api/ripple/public/percentiles";
 
 const initialState = {
   loading: true,
@@ -12,6 +13,7 @@ const initialState = {
   stable: null,
   danger: null,
   meta: null,
+  percentiles: null,
 };
 
 const normalizeError = (err) => {
@@ -31,10 +33,11 @@ export default function useCompetitionSnapshot() {
     setState((prev) => ({ ...prev, loading: true, error: null }));
 
     try {
-      const [stableRes, dangerRes, metaRes] = await Promise.all([
+      const [stableRes, dangerRes, metaRes, percentilesRes] = await Promise.all([
         axios.get(STABLE_ENDPOINT),
         axios.get(DANGER_ENDPOINT),
         axios.get(META_ENDPOINT),
+        axios.get(PERCENTILES_ENDPOINT),
       ]);
 
       setState({
@@ -44,6 +47,7 @@ export default function useCompetitionSnapshot() {
         stable: stableRes.data,
         danger: dangerRes.data,
         meta: metaRes.data,
+        percentiles: percentilesRes.data,
       });
     } catch (err) {
       if (axios.isAxiosError(err) && err.response?.status === 404) {
@@ -54,6 +58,7 @@ export default function useCompetitionSnapshot() {
           stable: null,
           danger: null,
           meta: null,
+          percentiles: null,
         });
         return;
       }
@@ -62,6 +67,7 @@ export default function useCompetitionSnapshot() {
         ...prev,
         loading: false,
         error: normalizeError(err),
+        percentiles: prev.percentiles,
       }));
     }
   }, []);

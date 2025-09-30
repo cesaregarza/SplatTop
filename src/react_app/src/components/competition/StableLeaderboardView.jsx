@@ -85,6 +85,8 @@ const StableLeaderboardView = ({ rows, loading, error, windowDays }) => {
   const footerRef = useRef(null);
 
   const prepared = useMemo(() => {
+    // The snapshot includes at most a few hundred rows, so filtering and
+    // sorting on the client keeps the UI responsive without extra workers.
     const data = Array.isArray(rows) ? rows : [];
     const augmented = SHOWCASE_ROWS.length ? [...data, ...SHOWCASE_ROWS] : data;
 
