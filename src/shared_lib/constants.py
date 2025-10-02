@@ -48,6 +48,7 @@ SEASON_RESULTS_REDIS_KEY = "season_results"
 # Competition ripple leaderboard cache keys
 RIPPLE_STABLE_STATE_KEY = "ripple:stable:state"
 RIPPLE_STABLE_LATEST_KEY = "ripple:stable:latest"
+RIPPLE_STABLE_DELTAS_KEY = "ripple:stable:deltas"
 RIPPLE_STABLE_META_KEY = "ripple:stable:meta"
 RIPPLE_DANGER_LATEST_KEY = "ripple:danger:latest"
 RIPPLE_STABLE_PERCENTILES_KEY = "ripple:stable:percentiles"

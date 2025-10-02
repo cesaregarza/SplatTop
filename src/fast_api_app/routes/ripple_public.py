@@ -10,6 +10,7 @@ from fast_api_app.connections import redis_conn
 from fast_api_app.feature_flags import is_comp_leaderboard_enabled
 from shared_lib.constants import (
     RIPPLE_DANGER_LATEST_KEY,
+    RIPPLE_STABLE_DELTAS_KEY,
     RIPPLE_STABLE_LATEST_KEY,
     RIPPLE_STABLE_META_KEY,
     RIPPLE_STABLE_PERCENTILES_KEY,
@@ -64,6 +65,18 @@ def _empty_percentiles_payload() -> Dict[str, Any]:
     }
 
 
+def _empty_deltas_payload() -> Dict[str, Any]:
+    return {
+        "generated_at_ms": None,
+        "baseline_generated_at_ms": None,
+        "record_count": 0,
+        "comparison_count": 0,
+        "players": {},
+        "newcomers": [],
+        "dropouts": [],
+    }
+
+
 def _decorate(payload: Dict[str, Any]) -> Dict[str, Any]:
     generated_at_ms = payload.get("generated_at_ms")
     now_ms = int(time.time() * 1000)
@@ -90,7 +103,10 @@ def _decorate_percentiles(payload: Dict[str, Any]) -> Dict[str, Any]:
 async def get_public_ripple_leaderboard() -> Dict[str, Any]:
     _ensure_enabled()
     payload = _load_payload(RIPPLE_STABLE_LATEST_KEY) or _empty_payload()
-    return _decorate(payload)
+    deltas = _load_payload(RIPPLE_STABLE_DELTAS_KEY) or _empty_deltas_payload()
+    enriched = _decorate(payload)
+    enriched["deltas"] = _decorate(deltas)
+    return enriched
 
 
 @router.get("/danger", name="public-ripple-danger")
