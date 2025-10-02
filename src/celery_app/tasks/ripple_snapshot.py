@@ -10,12 +10,13 @@ from typing import Any, Dict, List, Tuple
 from uuid import uuid4
 
 import orjson
-from sqlalchemy import text
+from sqlalchemy import BigInteger, bindparam, text
 
 from celery_app.connections import rankings_async_session, redis_conn
 from shared_lib.constants import (
     RIPPLE_DANGER_LATEST_KEY,
     RIPPLE_SNAPSHOT_LOCK_KEY,
+    RIPPLE_STABLE_DELTAS_KEY,
     RIPPLE_STABLE_LATEST_KEY,
     RIPPLE_STABLE_META_KEY,
     RIPPLE_STABLE_PERCENTILES_KEY,
@@ -36,6 +37,7 @@ SCORE_OFFSET = 0.0
 SCORE_MULTIPLIER = 25.0
 DISPLAY_OFFSET = 150.0
 MS_PER_DAY = 86_400_000
+SCORE_DELTA_VISIBILITY_MS = 3 * MS_PER_DAY
 
 GRADE_THRESHOLDS = [
     ("XB-", -5.0),
@@ -141,15 +143,13 @@ def _to_int(value: Any) -> int | None:
         return None
 
 
-def _load_state() -> Dict[str, Any]:
-    payload = redis_conn.get(RIPPLE_STABLE_STATE_KEY)
-    if not payload:
-        return {}
+def _to_float(value: Any) -> float | None:
+    if value is None:
+        return None
     try:
-        return orjson.loads(payload)
-    except orjson.JSONDecodeError:
-        logger.warning("Failed to parse ripple stable state; rebuilding")
-        return {}
+        return float(value)
+    except (TypeError, ValueError):
+        return None
 
 
 def _persist_state(state: Dict[str, Any]) -> None:
@@ -161,6 +161,361 @@ def _persist_state(state: Dict[str, Any]) -> None:
 
 def _persist_payload(key: str, payload: Mapping[str, Any]) -> None:
     redis_conn.set(key, orjson.dumps(payload))
+
+
+def _load_previous_stable_payload() -> Dict[str, Any] | None:
+    raw = redis_conn.get(RIPPLE_STABLE_LATEST_KEY)
+    if not raw:
+        return None
+    try:
+        return orjson.loads(raw)
+    except orjson.JSONDecodeError:
+        logger.warning(
+            "Failed to parse previous ripple stable payload; skipping deltas"
+        )
+        return None
+
+
+async def _previous_calculated_at_ms(
+    session,
+    current_ts: int | None,
+) -> int | None:
+    schema = ripple_queries._schema()
+    schema_sql = f'"{schema}"'
+
+    if current_ts is not None:
+        query = text(
+            f"""
+            SELECT MAX(calculated_at_ms)::bigint AS ts
+            FROM {schema_sql}.player_rankings
+            WHERE calculated_at_ms < :current_ts
+            """
+        )
+        params = {"current_ts": int(current_ts)}
+    else:
+        query = text(
+            f"""
+            SELECT NULLIF((SELECT MAX(calculated_at_ms) FROM {schema_sql}.player_rankings), NULL)::bigint AS ts
+            """
+        )
+        params: Dict[str, Any] = {}
+
+    result = await session.execute(query, params)
+    value = result.scalar()
+    return None if value is None else int(value)
+
+
+async def _latest_calculated_at_at_or_before(
+    session,
+    cutoff_ms: int | None,
+) -> int | None:
+    if cutoff_ms is None:
+        return None
+
+    schema = ripple_queries._schema()
+    schema_sql = f'"{schema}"'
+
+    query = text(
+        f"""
+        SELECT MAX(calculated_at_ms)::bigint AS ts
+        FROM {schema_sql}.player_rankings
+        WHERE calculated_at_ms <= :cutoff
+        """
+    )
+    result = await session.execute(query, {"cutoff": int(cutoff_ms)})
+    value = result.scalar()
+    return None if value is None else int(value)
+
+
+async def _load_baseline_snapshot_from_db(
+    session,
+    *,
+    current_calc_ts: int | None,
+    baseline_ts: int | None = None,
+) -> Dict[str, Any] | None:
+    if baseline_ts is None:
+        baseline_ts = await _previous_calculated_at_ms(session, current_calc_ts)
+    if baseline_ts is None:
+        return None
+
+    (
+        rows,
+        total,
+        calc_ts,
+        build_version,
+    ) = await ripple_queries.fetch_ripple_page(
+        session,
+        **DEFAULT_PAGE_PARAMS,
+        ts_ms=baseline_ts,
+    )
+
+    if not rows:
+        return None
+
+    player_ids = [
+        str(row.get("player_id")) for row in rows if row.get("player_id")
+    ]
+    events = await _fetch_player_events(session, player_ids)
+    players_with_events = {
+        player_id: ms
+        for player_id, info in events.items()
+        if (ms := _to_int(info.get("latest_event_ms"))) is not None
+        and (baseline_ts is None or ms <= baseline_ts)
+    }
+    event_scores = await _first_scores_after_events(
+        session, players_with_events, cutoff_ms=baseline_ts
+    )
+
+    stable_rows: List[Dict[str, Any]] = []
+    for row in rows:
+        player_id = row.get("player_id")
+        if player_id is None:
+            continue
+        player_key = str(player_id)
+        event_info = events.get(player_key, {})
+        latest_event_ms = _to_int(event_info.get("latest_event_ms"))
+        score = event_scores.get(player_key)
+        if score is None:
+            score = float(row.get("score") or 0.0)
+        else:
+            score = float(score)
+        stable_rows.append(
+            {
+                "player_id": player_key,
+                "display_name": row.get("display_name"),
+                "stable_score": score,
+                "display_score": _display_score(score),
+                "tournament_count": _to_int(row.get("tournament_count")),
+                "window_tournament_count": _to_int(row.get("window_count")),
+                "last_active_ms": latest_event_ms
+                if latest_event_ms is not None
+                else _to_int(row.get("last_active_ms")),
+                "last_tournament_ms": latest_event_ms
+                if latest_event_ms is not None
+                else _to_int(row.get("last_active_ms")),
+                "stable_rank": _to_int(row.get("rank")),
+            }
+        )
+
+    stable_rows.sort(key=lambda r: (-float(r["stable_score"]), r["player_id"]))
+    for idx, entry in enumerate(stable_rows, start=1):
+        entry["stable_rank"] = idx
+
+    return {
+        "build_version": build_version,
+        "calculated_at_ms": _to_int(calc_ts),
+        "generated_at_ms": baseline_ts,
+        "query_params": dict(DEFAULT_PAGE_PARAMS) | {"ts_ms": baseline_ts},
+        "record_count": len(stable_rows),
+        "total": _to_int(total),
+        "data": stable_rows,
+    }
+
+
+def _compute_delta_payload(
+    stable_rows: List[Dict[str, Any]],
+    previous_payload: Dict[str, Any] | None,
+    previous_state: Dict[str, Any],
+    current_state: Dict[str, Any],
+    generated_at_ms: int,
+) -> Dict[str, Any]:
+    baseline_generated_at_ms = None
+    if previous_payload:
+        baseline_generated_at_ms = _to_int(
+            previous_payload.get("generated_at_ms")
+        )
+
+    if not previous_payload or not isinstance(
+        previous_payload.get("data"), list
+    ):
+        return {
+            "generated_at_ms": generated_at_ms,
+            "baseline_generated_at_ms": baseline_generated_at_ms,
+            "record_count": 0,
+            "comparison_count": 0,
+            "players": {},
+            "newcomers": [],
+            "dropouts": [],
+        }
+
+    previous_index: Dict[str, Dict[str, Any]] = {}
+    for entry in previous_payload.get("data", []):
+        player_id = entry.get("player_id")
+        if player_id is None:
+            continue
+        player_key = str(player_id)
+        stable_score = entry.get("stable_score")
+        try:
+            stable_score_value = (
+                None if stable_score is None else float(stable_score)
+            )
+        except (TypeError, ValueError):
+            stable_score_value = None
+        previous_index[player_key] = {
+            "rank": _to_int(entry.get("stable_rank")),
+            "stable_score": stable_score_value,
+            "display_score": entry.get("display_score"),
+        }
+
+    player_deltas: Dict[str, Dict[str, Any]] = {}
+    newcomers: List[str] = []
+    remaining_previous = set(previous_index.keys())
+    previous_state_index = {
+        str(player_id): value for player_id, value in previous_state.items()
+    }
+    current_state_index = {
+        str(player_id): value for player_id, value in current_state.items()
+    }
+
+    for row in stable_rows:
+        player_id = row.get("player_id")
+        if not player_id:
+            continue
+        player_key = str(player_id)
+        previous = previous_index.get(player_key)
+        state_entry = previous_state_index.get(player_key)
+        current_state_entry = current_state_index.get(player_key, {})
+
+        current_score_raw = row.get("stable_score")
+        try:
+            current_score_value = (
+                None if current_score_raw is None else float(current_score_raw)
+            )
+        except (TypeError, ValueError):
+            current_score_value = None
+
+        state_score_value: float | None = None
+        if state_entry is not None:
+            state_score_raw = state_entry.get("stable_score")
+            try:
+                state_score_value = (
+                    None if state_score_raw is None else float(state_score_raw)
+                )
+            except (TypeError, ValueError):
+                state_score_value = None
+
+        stored_delta_value = _to_float(
+            current_state_entry.get("recent_score_delta")
+        )
+        stored_delta_ms = _to_int(
+            current_state_entry.get("recent_score_delta_ms")
+        )
+        stored_last_event_ms = _to_int(
+            current_state_entry.get("last_tournament_ms")
+        )
+
+        rank_delta = None
+        previous_rank = None
+        previous_score_value: float | None = None
+        previous_display_score_value: float | None = None
+        is_new = False
+
+        if previous:
+            previous_rank = previous.get("rank")
+            previous_payload_score = previous.get("stable_score")
+            if previous_payload_score is not None:
+                previous_score_value = previous_payload_score
+            previous_payload_display = previous.get("display_score")
+            if previous_payload_display is not None:
+                try:
+                    previous_display_score_value = float(
+                        previous_payload_display
+                    )
+                except (TypeError, ValueError):
+                    previous_display_score_value = None
+
+            current_rank = _to_int(row.get("stable_rank"))
+            if previous_rank is not None and current_rank is not None:
+                rank_delta = previous_rank - current_rank
+
+            remaining_previous.discard(player_key)
+
+        if state_score_value is not None:
+            previous_score_value = state_score_value
+            previous_display_score_value = _display_score(state_score_value)
+
+        if previous is None and state_entry is None:
+            is_new = True
+            newcomers.append(player_key)
+
+        score_delta = None
+        display_score_delta = None
+        delta_visible_by_state = False
+        if stored_delta_value is not None:
+            delta_anchor_ms = stored_delta_ms or stored_last_event_ms
+            if delta_anchor_ms is None:
+                delta_anchor_ms = _to_int(row.get("last_tournament_ms"))
+            if generated_at_ms is None or delta_anchor_ms is None:
+                delta_visible_by_state = True
+            else:
+                delta_visible_by_state = (
+                    generated_at_ms - delta_anchor_ms
+                ) <= SCORE_DELTA_VISIBILITY_MS
+
+        if current_score_value is not None and previous_score_value is not None:
+            score_delta = current_score_value - previous_score_value
+            display_score_delta = _display_score(
+                current_score_value
+            ) - _display_score(previous_score_value)
+        elif (
+            current_score_value is not None
+            and previous_display_score_value is not None
+        ):
+            display_score_delta = (
+                _display_score(current_score_value)
+                - previous_display_score_value
+            )
+
+        if delta_visible_by_state and current_score_value is not None:
+            score_delta = stored_delta_value
+            if score_delta is not None:
+                reconstructed_previous = current_score_value - score_delta
+                previous_score_value = reconstructed_previous
+                previous_display_score_value = _display_score(
+                    reconstructed_previous
+                )
+                display_score_delta = _display_score(
+                    current_score_value
+                ) - _display_score(reconstructed_previous)
+        elif not delta_visible_by_state and stored_delta_value is not None:
+            score_delta = None
+            display_score_delta = None
+            if previous_score_value is not None:
+                previous_display_score_value = _display_score(
+                    previous_score_value
+                )
+
+        player_deltas[player_key] = {
+            "rank_delta": rank_delta,
+            "score_delta": score_delta,
+            "display_score_delta": display_score_delta,
+            "previous_rank": previous_rank,
+            "previous_score": previous_score_value,
+            "previous_display_score": previous_display_score_value,
+            "is_new": is_new,
+        }
+
+    dropouts: List[Dict[str, Any]] = []
+    for player_key in remaining_previous:
+        previous = previous_index[player_key]
+        dropouts.append(
+            {
+                "player_id": player_key,
+                "previous_rank": previous.get("rank"),
+                "previous_score": previous.get("stable_score"),
+                "previous_display_score": previous.get("display_score"),
+            }
+        )
+
+    return {
+        "generated_at_ms": generated_at_ms,
+        "baseline_generated_at_ms": baseline_generated_at_ms,
+        "record_count": len(player_deltas),
+        "comparison_count": len(previous_index),
+        "players": player_deltas,
+        "newcomers": newcomers,
+        "dropouts": dropouts,
+    }
 
 
 async def _fetch_player_events(
@@ -203,6 +558,8 @@ async def _fetch_player_events(
 async def _first_scores_after_events(
     session,
     player_events: Dict[str, int],
+    *,
+    cutoff_ms: int | None = None,
 ) -> Dict[str, float]:
     if not player_events:
         return {}
@@ -227,12 +584,18 @@ async def _first_scores_after_events(
         JOIN {schema_sql}.player_rankings pr
           ON pr.player_id::text = p.player_id
          AND pr.calculated_at_ms >= p.event_ms
+         AND (:cutoff_ms IS NULL OR pr.calculated_at_ms <= :cutoff_ms)
         ORDER BY pr.player_id, pr.calculated_at_ms
         """
-    )
+    ).bindparams(bindparam("cutoff_ms", type_=BigInteger))
 
     result = await session.execute(
-        query, {"player_ids": player_ids, "event_ms": event_ms}
+        query,
+        {
+            "player_ids": player_ids,
+            "event_ms": event_ms,
+            "cutoff_ms": None if cutoff_ms is None else int(cutoff_ms),
+        },
     )
 
     out: Dict[str, float] = {}
@@ -248,9 +611,10 @@ async def _bootstrap_state(
     rows: List[Mapping[str, Any]],
     events: Dict[str, Dict[str, Any]],
     now_ms: int,
-) -> Dict[str, Any]:
-    """Build the stable cache from scratch when Redis lacks history."""
+) -> tuple[Dict[str, Any], List[Dict[str, Any]]]:
+    """Rebuild the stable state and rows from scratch."""
     state: Dict[str, Any] = {}
+    stable_rows: List[Dict[str, Any]] = []
 
     players_with_events = {
         player_id: info["latest_event_ms"]
@@ -269,95 +633,49 @@ async def _bootstrap_state(
         event_info = events.get(player_key, {})
         latest_event_ms = _to_int(event_info.get("latest_event_ms"))
         tournament_count = event_info.get("tournament_count")
+        if tournament_count is None:
+            tournament_count = _to_int(row.get("tournament_count"))
         stable_score = event_scores.get(player_key)
         if stable_score is None:
             score = row.get("score") or 0.0
             stable_score = float(score)
+        else:
+            stable_score = float(stable_score)
+
+        last_ms = latest_event_ms
+        if last_ms is None:
+            last_ms = _to_int(row.get("last_active_ms"))
+
         state[player_key] = {
             "stable_score": stable_score,
             "last_tournament_ms": latest_event_ms,
-            # Align last_active_ms to last_tournament_ms to prevent desyncs
-            "last_active_ms": latest_event_ms,
-            "tournament_count": tournament_count
-            or _to_int(row.get("tournament_count")),
-            "updated_at_ms": now_ms,
-        }
-    return state
-
-
-def _merge_state(
-    rows: List[Mapping[str, Any]],
-    events: Dict[str, Dict[str, Any]],
-    previous_state: Dict[str, Any],
-    now_ms: int,
-) -> tuple[List[Dict[str, Any]], Dict[str, Any]]:
-    new_state = {
-        str(player_id): value for player_id, value in previous_state.items()
-    }
-    stable_rows: List[Dict[str, Any]] = []
-
-    for row in rows:
-        player_id = row.get("player_id")
-        if not player_id:
-            continue
-        player_key = str(player_id)
-        score = float(row.get("score") or 0.0)
-        display_name = row.get("display_name")
-        event_info = events.get(player_key, {})
-        latest_event_ms = _to_int(event_info.get("latest_event_ms"))
-        tournament_count = event_info.get("tournament_count")
-        if tournament_count is None:
-            tournament_count = _to_int(row.get("tournament_count"))
-        # We intentionally align last_active_ms with last_tournament_ms so that
-        # the public snapshot displays a single coherent timestamp for both.
-        last_active_ms = None  # will be set after last_tournament_ms determined
-
-        existing = new_state.get(player_key, {})
-        stable_score = existing.get("stable_score")
-        last_tournament_ms = existing.get("last_tournament_ms")
-
-        if latest_event_ms is not None and (
-            last_tournament_ms is None or latest_event_ms > last_tournament_ms
-        ):
-            stable_score = score
-            last_tournament_ms = latest_event_ms
-        elif stable_score is None:
-            stable_score = score
-        if last_tournament_ms is None:
-            last_tournament_ms = latest_event_ms
-
-        # Finalize last_active_ms to match last_tournament_ms
-        last_active_ms = last_tournament_ms
-
-        new_state[player_key] = {
-            "stable_score": stable_score,
-            "last_tournament_ms": last_tournament_ms,
-            "last_active_ms": last_active_ms,
+            "last_active_ms": last_ms,
             "tournament_count": tournament_count,
             "updated_at_ms": now_ms,
+            "recent_score_delta": None,
+            "recent_score_delta_ms": None,
         }
 
-        # Include 90d window count from the page row when available so the
-        # public stable payload can show window counts even if a player does
-        # not appear in the danger set.
         stable_rows.append(
             {
                 "player_id": player_key,
-                "display_name": display_name,
+                "display_name": row.get("display_name"),
                 "stable_score": stable_score,
                 "display_score": _display_score(stable_score),
                 "tournament_count": tournament_count,
                 "window_tournament_count": _to_int(row.get("window_count")),
-                "last_active_ms": last_active_ms,
-                "last_tournament_ms": last_tournament_ms,
+                "last_active_ms": last_ms,
+                "last_tournament_ms": latest_event_ms
+                if latest_event_ms is not None
+                else last_ms,
             }
         )
 
-    stable_rows.sort(key=lambda r: (-r["stable_score"], r["player_id"]))
-    for idx, row in enumerate(stable_rows, start=1):
-        row["stable_rank"] = idx
+    stable_rows.sort(key=lambda r: (-float(r["stable_score"]), r["player_id"]))
+    for idx, entry in enumerate(stable_rows, start=1):
+        entry["stable_rank"] = idx
 
-    return stable_rows, new_state
+    return state, stable_rows
 
 
 def _serialize_danger(
@@ -403,6 +721,10 @@ async def _refresh_snapshots_async() -> Dict[str, Any]:
     danger_build: Any = None
     events: Dict[str, Dict[str, Any]] = {}
     state: Dict[str, Any] = {}
+    stable_rows: List[Dict[str, Any]] = []
+    previous_stable_payload = _load_previous_stable_payload()
+    yesterday_payload: Dict[str, Any] | None = None
+    delta_state_reference: Dict[str, Any] | None = None
     try:
         async with rankings_async_session() as session:
             (
@@ -428,13 +750,46 @@ async def _refresh_snapshots_async() -> Dict[str, Any]:
                 if row.get("player_id")
             ]
             events = await _fetch_player_events(session, player_ids)
+            state, stable_rows = await _bootstrap_state(
+                session, rows, events, generated_at_ms
+            )
 
-            state = _load_state()
-            if not state:
-                logger.info("Bootstrapping ripple stable state")
-                state = await _bootstrap_state(
-                    session, rows, events, generated_at_ms
+            day_start_ms = (generated_at_ms // MS_PER_DAY) * MS_PER_DAY
+            if day_start_ms:
+                yesterday_cutoff_ms = day_start_ms - 1
+                baseline_ts = await _latest_calculated_at_at_or_before(
+                    session, yesterday_cutoff_ms
                 )
+                if baseline_ts is not None:
+                    payload = await _load_baseline_snapshot_from_db(
+                        session,
+                        current_calc_ts=_to_int(calc_ts),
+                        baseline_ts=baseline_ts,
+                    )
+                    if payload and payload.get("data"):
+                        yesterday_payload = payload
+                        delta_state_reference = {
+                            str(row["player_id"]): {
+                                "stable_score": row.get("stable_score"),
+                                "last_tournament_ms": row.get(
+                                    "last_tournament_ms"
+                                ),
+                            }
+                            for row in payload["data"]
+                            if row.get("player_id") is not None
+                        }
+
+            if not previous_stable_payload or not previous_stable_payload.get(
+                "data"
+            ):
+                if yesterday_payload:
+                    previous_stable_payload = yesterday_payload
+                else:
+                    fallback_payload = await _load_baseline_snapshot_from_db(
+                        session, current_calc_ts=_to_int(calc_ts)
+                    )
+                    if fallback_payload:
+                        previous_stable_payload = fallback_payload
     finally:
         rankings_async_session.remove()
 
@@ -443,7 +798,7 @@ async def _refresh_snapshots_async() -> Dict[str, Any]:
     stable_total = _to_int(total)
     danger_total_value = _to_int(danger_total)
 
-    stable_rows, new_state = _merge_state(rows, events, state, generated_at_ms)
+    new_state = state
     display_map = {
         row["player_id"]: row["display_score"] for row in stable_rows
     }
@@ -452,6 +807,23 @@ async def _refresh_snapshots_async() -> Dict[str, Any]:
     grade_percentiles, score_population = _grade_threshold_percentiles(
         stable_rows
     )
+
+    comparison_payload = yesterday_payload or previous_stable_payload
+    if (
+        delta_state_reference is None
+        and comparison_payload
+        and comparison_payload.get("data")
+    ):
+        delta_state_reference = {
+            str(row["player_id"]): {
+                "stable_score": row.get("stable_score"),
+                "last_tournament_ms": row.get("last_tournament_ms"),
+            }
+            for row in comparison_payload["data"]
+            if row.get("player_id") is not None
+        }
+
+    reference_state_for_delta = delta_state_reference or {}
 
     stable_payload = {
         "build_version": build_version,
@@ -492,11 +864,20 @@ async def _refresh_snapshots_async() -> Dict[str, Any]:
         },
     }
 
+    delta_payload = _compute_delta_payload(
+        stable_rows,
+        comparison_payload,
+        reference_state_for_delta,
+        new_state,
+        generated_at_ms,
+    )
+
     _persist_state(new_state)
     _persist_payload(RIPPLE_STABLE_LATEST_KEY, stable_payload)
     _persist_payload(RIPPLE_DANGER_LATEST_KEY, danger_snapshot)
     _persist_payload(RIPPLE_STABLE_META_KEY, meta_payload)
     _persist_payload(RIPPLE_STABLE_PERCENTILES_KEY, percentiles_payload)
+    _persist_payload(RIPPLE_STABLE_DELTAS_KEY, delta_payload)
 
     logger.info(
         "Refreshed ripple snapshots: %s stable rows, %s danger rows",

@@ -349,11 +349,12 @@ const CompetitionFaq = ({ percentiles }) => {
         <div className="space-y-3">
           <p>
             Only finalized sendou.ink tournaments that are explicitly marked
-            RANKED are used. Byes/forfeits don't create wins or losses. When
-            available, per-match player appearances are preferred; otherwise the
-            team's active roster is used for that match. If you play as a
-            substitute for a match but are not in the active roster, the match
-            will count but the tournament will not for purposes of eligibility.
+            RANKED are used. Byes are ignored, so they do not create wins or
+            losses. When available, per-match player appearances are preferred;
+            otherwise the team's active roster is used for that match. If you
+            play as a substitute for a match but are not in the active roster,
+            the match will count but the tournament will not for purposes of
+            eligibility.
           </p>
         </div>
       ),

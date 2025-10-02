@@ -90,6 +90,17 @@ const buildRowView = (row, highlightId) => {
   const totalTournaments = row.tournament_count ?? null;
   const hasDangerMetric = row.danger_days_left != null;
   const days = hasDangerMetric ? row.danger_days_left : null;
+  const hasBaseline = Boolean(row.delta_has_baseline);
+  const rankDeltaRaw = hasBaseline ? row.rank_delta : null;
+  const displayScoreDelta = hasBaseline ? row.display_score_delta : null;
+  const isNewEntry = hasBaseline ? Boolean(row.delta_is_new) : false;
+
+  let windowCountClass = "text-slate-200";
+  if (windowCount === 3) {
+    windowCountClass = "text-rose-400";
+  } else if (windowCount != null && windowCount < 6) {
+    windowCountClass = "text-amber-200";
+  }
 
   let severity = "neutral";
   let daysLabel = "Not tracking";
@@ -147,6 +158,41 @@ const buildRowView = (row, highlightId) => {
     ? "ring-2 ring-fuchsia-500/40 ring-offset-0"
     : "";
 
+  let rankChangeLabel = null;
+  let rankChangeClass = "";
+  let rankChangeTitle = "";
+  if (hasBaseline) {
+    if (isNewEntry) {
+      rankChangeLabel = "NEW";
+      rankChangeClass = "text-emerald-300";
+      rankChangeTitle = "New entrant compared to the previous snapshot.";
+    } else if (Number.isFinite(rankDeltaRaw) && rankDeltaRaw !== 0) {
+      const improved = rankDeltaRaw > 0;
+      const prefix = improved ? "+" : "";
+      rankChangeLabel = `${prefix}${rankDeltaRaw}`;
+      rankChangeClass = improved ? "text-emerald-300" : "text-rose-300";
+      rankChangeTitle = improved
+        ? "Rank has improved since the previous snapshot."
+        : "Rank has fallen since the previous snapshot.";
+    }
+  }
+
+  let scoreChangeLabel = null;
+  let scoreChangeClass = "";
+  let scoreChangeTitle = "";
+  if (hasBaseline && !isNewEntry && Number.isFinite(displayScoreDelta)) {
+    if (Math.abs(displayScoreDelta) >= 0.01) {
+      const improved = displayScoreDelta > 0;
+      const prefix = improved ? "+" : "-";
+      const magnitude = nf2.format(Math.abs(displayScoreDelta));
+      scoreChangeLabel = `${prefix}${magnitude}`;
+      scoreChangeClass = improved ? "text-emerald-300" : "text-rose-300";
+      scoreChangeTitle = improved
+        ? "Rank score has increased since the previous snapshot."
+        : "Rank score has decreased since the previous snapshot.";
+    }
+  }
+
   return {
     row,
     rank,
@@ -160,10 +206,17 @@ const buildRowView = (row, highlightId) => {
     daysLabel,
     daysTitle,
     windowCount,
+    windowCountClass,
     totalTournaments,
     highlighted,
     highlightClass,
     scoreTitle,
+    rankChangeLabel,
+    rankChangeClass,
+    rankChangeTitle,
+    scoreChangeLabel,
+    scoreChangeClass,
+    scoreChangeTitle,
   };
 };
 
@@ -222,9 +275,16 @@ const DesktopLeaderboardRow = ({ entry, isLast, isFirst, windowDays }) => {
     daysLabel,
     daysTitle,
     windowCount,
+    windowCountClass,
     totalTournaments,
     highlightClass,
     scoreTitle,
+    rankChangeLabel,
+    rankChangeClass,
+    rankChangeTitle,
+    scoreChangeLabel,
+    scoreChangeClass,
+    scoreChangeTitle,
   } = entry;
 
   const baseClasses = [
@@ -246,7 +306,17 @@ const DesktopLeaderboardRow = ({ entry, isLast, isFirst, windowDays }) => {
 
   return (
     <div className={baseClasses.filter(Boolean).join(" ")} style={style}>
-      <div className="font-semibold font-data tabular-nums text-slate-200 whitespace-nowrap">{rank}</div>
+      <div className="flex flex-col font-data tabular-nums text-slate-200 whitespace-nowrap">
+        <span className="font-semibold text-slate-200">{rank}</span>
+        {rankChangeLabel ? (
+          <span
+            className={`mt-1 text-[11px] font-semibold uppercase tracking-wide ${rankChangeClass}`}
+            title={rankChangeTitle || undefined}
+          >
+            {rankChangeLabel}
+          </span>
+        ) : null}
+      </div>
 
       <div className="min-w-0 flex flex-col">
         {row.player_id ? (
@@ -276,8 +346,16 @@ const DesktopLeaderboardRow = ({ entry, isLast, isFirst, windowDays }) => {
       </div>
 
       <div className="min-w-0">
-        <div className={scoreClassName} {...scoreDataProps} title={scoreTitle} aria-label={scoreTitle}>
-          {rankScoreDisplay}
+        <div className={`${scoreClassName} flex items-baseline gap-2`} {...scoreDataProps} title={scoreTitle} aria-label={scoreTitle}>
+          <span>{rankScoreDisplay}</span>
+          {scoreChangeLabel ? (
+            <span
+              className={`text-xs font-semibold ${scoreChangeClass}`}
+              title={scoreChangeTitle || undefined}
+            >
+              {scoreChangeLabel}
+            </span>
+          ) : null}
         </div>
         <ScoreBar value={rankScore} highlightClass={barHighlightClass} />
       </div>
@@ -296,7 +374,7 @@ const DesktopLeaderboardRow = ({ entry, isLast, isFirst, windowDays }) => {
       </div>
 
       <div className="text-slate-200 whitespace-nowrap text-right" title={tournamentsTitle}>
-        <span className="font-data tabular-nums font-medium">
+        <span className={`font-data tabular-nums font-medium ${windowCountClass}`}>
           {windowDisplay}
         </span>
         <span className="mx-1 text-slate-500">/</span>
@@ -518,9 +596,16 @@ const StableLeaderboardMobileList = ({
           daysLabel,
           daysTitle,
           windowCount,
+          windowCountClass,
           totalTournaments,
           highlightClass,
           scoreTitle,
+          rankChangeLabel,
+          rankChangeClass,
+          rankChangeTitle,
+          scoreChangeLabel,
+          scoreChangeClass,
+          scoreChangeTitle,
         } = entry;
         const key = row.player_id || `${row.display_name || "player"}-${rank}`;
         const cardClasses = [
@@ -536,6 +621,14 @@ const StableLeaderboardMobileList = ({
               <span className="inline-flex items-baseline gap-1 rounded-full bg-slate-800/80 px-2.5 py-0.5 text-xs font-semibold uppercase tracking-wide text-slate-300">
                 <span>Rank</span>
                 <span className="text-slate-100 font-data tabular-nums">{rank}</span>
+                {rankChangeLabel ? (
+                  <span
+                    className={`ml-1 text-[11px] font-semibold ${rankChangeClass}`}
+                    title={rankChangeTitle || undefined}
+                  >
+                    {rankChangeLabel}
+                  </span>
+                ) : null}
               </span>
               <GradeBadge label={grade} />
             </div>
@@ -574,6 +667,14 @@ const StableLeaderboardMobileList = ({
               <div className={scoreClassName} {...scoreDataProps} title={scoreTitle} aria-label={scoreTitle}>
                 {rankScoreDisplay}
               </div>
+              {scoreChangeLabel ? (
+                <div
+                  className={`text-xs font-semibold font-data ${scoreChangeClass}`}
+                  title={scoreChangeTitle || undefined}
+                >
+                  {scoreChangeLabel}
+                </div>
+              ) : null}
               <ScoreBar value={rankScore} highlightClass={barHighlightClass} />
             </div>
 
@@ -596,7 +697,7 @@ const StableLeaderboardMobileList = ({
                   </span>
                 </p>
                 <div className="mt-1 text-slate-100" title={`Ranked tournaments in the last ${windowLabel} days versus lifetime total.`}>
-                  <span className="font-semibold font-data tabular-nums">
+                  <span className={`font-semibold font-data tabular-nums ${windowCountClass}`}>
                     {windowCount != null ? nf0.format(windowCount) : "—"}
                   </span>
                   <span className="mx-1 text-slate-500">/</span>

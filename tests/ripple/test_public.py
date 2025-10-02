@@ -4,6 +4,7 @@ import orjson
 
 from shared_lib.constants import (
     RIPPLE_DANGER_LATEST_KEY,
+    RIPPLE_STABLE_DELTAS_KEY,
     RIPPLE_STABLE_LATEST_KEY,
     RIPPLE_STABLE_META_KEY,
 )
@@ -55,6 +56,27 @@ def test_public_leaderboard_returns_cached_payload(client_factory, fake_redis):
     }
     fake_redis.set(RIPPLE_STABLE_LATEST_KEY, orjson.dumps(payload))
 
+    delta_payload = {
+        "generated_at_ms": generated_at,
+        "baseline_generated_at_ms": generated_at - 86_400_000,
+        "record_count": 2,
+        "comparison_count": 2,
+        "players": {
+            "p1": {
+                "rank_delta": 1,
+                "score_delta": 0.2,
+                "display_score_delta": 5.0,
+                "previous_rank": 2,
+                "previous_score": 12.1,
+                "previous_display_score": 302.5,
+                "is_new": False,
+            }
+        },
+        "newcomers": [],
+        "dropouts": [],
+    }
+    fake_redis.set(RIPPLE_STABLE_DELTAS_KEY, orjson.dumps(delta_payload))
+
     with client_factory(
         env={"COMP_LEADERBOARD_ENABLED": "true"}, redis=fake_redis
     ) as client:
@@ -66,6 +88,12 @@ def test_public_leaderboard_returns_cached_payload(client_factory, fake_redis):
         assert data["data"][0]["player_id"] == "p1"
         assert data["stale"] is False
         assert isinstance(data["retrieved_at_ms"], int)
+        assert (
+            data["deltas"]["baseline_generated_at_ms"]
+            == generated_at - 86_400_000
+        )
+        assert data["deltas"]["players"]["p1"]["rank_delta"] == 1
+        assert data["deltas"]["stale"] is False
 
 
 def test_public_danger_returns_cached_payload(client_factory, fake_redis):
