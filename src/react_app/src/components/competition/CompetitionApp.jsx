@@ -41,7 +41,7 @@ const CompetitionLeaderboardPage = ({ snapshot }) => {
     const deltaPlayers = deltas?.players ?? {};
     const hasBaseline = deltas?.baseline_generated_at_ms != null;
     const newcomerIds = new Set(deltas?.newcomers ?? []);
-    const deltaWindowMs = 3 * 24 * 60 * 60 * 1000;
+    const deltaWindowMs = 24 * 60 * 60 * 1000;
 
     const resolveDisplayDelta = (entry) => {
       if (!entry) return null;

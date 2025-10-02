@@ -164,10 +164,6 @@ def test_refresh_ripple_snapshots_persists_payloads(monkeypatch):
     assert set(state.keys()) == {"p1", "p2"}
     assert state["p1"]["stable_score"] == pytest.approx(1.2)
     assert state["p1"]["tournament_count"] == 6
-    assert state["p1"].get("recent_score_delta") is None
-    assert state["p1"].get("recent_score_delta_ms") is None
-    assert state["p2"].get("recent_score_delta") is None
-    assert state["p2"].get("recent_score_delta_ms") is None
 
 
 def test_refresh_ripple_snapshots_computes_deltas(monkeypatch):
@@ -337,11 +333,6 @@ def test_refresh_ripple_snapshots_computes_deltas(monkeypatch):
     assert score_map["p1"] == pytest.approx(1.25)
     assert score_map["p3"] == pytest.approx(0.82)
 
-    state = orjson.loads(fake_redis.get(RIPPLE_STABLE_STATE_KEY))
-    assert state["p1"]["recent_score_delta"] == pytest.approx(0.25)
-    assert state["p1"]["recent_score_delta_ms"] == 1_500
-    assert state["p3"].get("recent_score_delta") is None
-
 
 def test_refresh_ripple_snapshots_waits_for_post_event_scores(monkeypatch):
     fake_redis = FakeRedis()
@@ -493,8 +484,11 @@ def test_refresh_ripple_snapshots_waits_for_post_event_scores(monkeypatch):
 
     state = orjson.loads(fake_redis.get(RIPPLE_STABLE_STATE_KEY))
     assert state["p1"]["stable_score"] == pytest.approx(1.0)
-    assert state["p1"]["last_tournament_ms"] == 900
-    assert state["p1"].get("recent_score_delta") is None
+    assert state["p1"]["last_tournament_ms"] == 1_500
+
+    delta_payload = orjson.loads(fake_redis.get(RIPPLE_STABLE_DELTAS_KEY))
+    players = delta_payload["players"]
+    assert players["p1"]["score_delta"] in (None, 0.0)
 
     # Second run: rankings available; provide override
     pending_scores["result"] = {"p1": 1.35}
@@ -507,8 +501,10 @@ def test_refresh_ripple_snapshots_waits_for_post_event_scores(monkeypatch):
     state = orjson.loads(fake_redis.get(RIPPLE_STABLE_STATE_KEY))
     assert state["p1"]["stable_score"] == pytest.approx(1.35)
     assert state["p1"]["last_tournament_ms"] == 1_500
-    assert state["p1"]["recent_score_delta"] == pytest.approx(0.35)
-    assert state["p1"]["recent_score_delta_ms"] == 1_500
+
+    delta_payload = orjson.loads(fake_redis.get(RIPPLE_STABLE_DELTAS_KEY))
+    players = delta_payload["players"]
+    assert players["p1"]["score_delta"] == pytest.approx(0.35)
 
     stable_payload = orjson.loads(fake_redis.get(RIPPLE_STABLE_LATEST_KEY))
     entry = stable_payload["data"][0]
@@ -516,7 +512,7 @@ def test_refresh_ripple_snapshots_waits_for_post_event_scores(monkeypatch):
     assert entry["last_tournament_ms"] == 1_500
 
 
-def test_score_delta_visibility_window(monkeypatch):
+def test_delta_resets_after_followup_snapshot(monkeypatch):
     fake_redis = FakeRedis()
     monkeypatch.setattr(snapshot_mod, "redis_conn", fake_redis, raising=False)
 
@@ -574,8 +570,6 @@ def test_score_delta_visibility_window(monkeypatch):
         first_score_calls.append(
             {"events": dict(player_events), "cutoff_ms": cutoff_ms}
         )
-        if cutoff_ms is not None:
-            return {"p1": 0.75}
         return {"p1": 0.8}
 
     monkeypatch.setattr(
@@ -606,13 +600,14 @@ def test_score_delta_visibility_window(monkeypatch):
     now_values = [
         2_500,
         2_500 + snapshot_mod.MS_PER_DAY,
-        2_000 + snapshot_mod.SCORE_DELTA_VISIBILITY_MS + 10,
     ]
 
     def fake_now():
         return now_values.pop(0)
 
     monkeypatch.setattr(snapshot_mod, "_now_ms", fake_now, raising=False)
+
+    baseline_values = [4_000]
 
     class FakeSession:
         async def execute(self, _query, params=None):
@@ -623,7 +618,8 @@ def test_score_delta_visibility_window(monkeypatch):
                 def scalar(self):
                     return self._value
 
-            return FakeResult(1_500)
+            value = baseline_values.pop(0) if baseline_values else 4_000
+            return FakeResult(value)
 
     @asynccontextmanager
     async def fake_session_ctx():
@@ -648,22 +644,12 @@ def test_score_delta_visibility_window(monkeypatch):
     assert player_delta["display_score_delta"] == pytest.approx(2.5)
     assert first_score_calls == [{"events": {"p1": 2_000}, "cutoff_ms": None}]
 
-    state = orjson.loads(fake_redis.get(RIPPLE_STABLE_STATE_KEY))
-    assert state["p1"]["recent_score_delta"] == pytest.approx(0.1)
-
     snapshot_mod.refresh_ripple_snapshots()
+
     delta_payload = orjson.loads(fake_redis.get(RIPPLE_STABLE_DELTAS_KEY))
     player_delta = delta_payload["players"]["p1"]
-    assert player_delta["display_score_delta"] == pytest.approx(2.5)
-    # Ensure we did not request overrides again when no new events are present
-    assert len(first_score_calls) == 1
-
-    snapshot_mod.refresh_ripple_snapshots()
-    delta_payload = orjson.loads(fake_redis.get(RIPPLE_STABLE_DELTAS_KEY))
-    player_delta = delta_payload["players"]["p1"]
-    assert player_delta["display_score_delta"] in (None, 0.0)
-    state = orjson.loads(fake_redis.get(RIPPLE_STABLE_STATE_KEY))
-    assert state["p1"].get("recent_score_delta") is None
+    assert player_delta["score_delta"] in (None, pytest.approx(0.0))
+    assert player_delta["display_score_delta"] in (None, pytest.approx(0.0))
 
 
 def test_refresh_ripple_snapshots_backfills_previous_payload(monkeypatch):
@@ -804,7 +790,7 @@ def test_refresh_ripple_snapshots_backfills_previous_payload(monkeypatch):
     assert players["p2"]["previous_score"] == pytest.approx(0.88)
 
 
-def test_existing_state_preserves_stable_score(monkeypatch):
+def test_bootstrap_rebuilds_stable_state(monkeypatch):
     fake_redis = FakeRedis()
     # Prepopulate state with old tournament timestamp
     state_payload = {
@@ -901,14 +887,13 @@ def test_existing_state_preserves_stable_score(monkeypatch):
 
     stable_payload = orjson.loads(fake_redis.get(RIPPLE_STABLE_LATEST_KEY))
     item = stable_payload["data"][0]
-    # Since latest_event_ms (400) <= stored last_tournament_ms (500), stable score stays 0.5
-    assert item["stable_score"] == pytest.approx(0.5)
-    assert item["last_tournament_ms"] == 500
+    # Bootstrap ignores previously cached stable score and rebuilds from source data.
+    assert item["stable_score"] == pytest.approx(0.9)
+    assert item["last_tournament_ms"] == 400
 
     state = orjson.loads(fake_redis.get(RIPPLE_STABLE_STATE_KEY))
-    assert state["p1"]["stable_score"] == pytest.approx(0.5)
+    assert state["p1"]["stable_score"] == pytest.approx(0.9)
     assert state["p1"]["updated_at_ms"] == 4_000
-    assert state["p1"].get("recent_score_delta") is None
 
 
 def test_refresh_ripple_snapshots_skips_when_locked(monkeypatch):

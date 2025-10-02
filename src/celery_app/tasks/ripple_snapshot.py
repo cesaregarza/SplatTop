@@ -37,7 +37,6 @@ SCORE_OFFSET = 0.0
 SCORE_MULTIPLIER = 25.0
 DISPLAY_OFFSET = 150.0
 MS_PER_DAY = 86_400_000
-SCORE_DELTA_VISIBILITY_MS = 3 * MS_PER_DAY
 
 GRADE_THRESHOLDS = [
     ("XB-", -5.0),
@@ -315,8 +314,6 @@ async def _load_baseline_snapshot_from_db(
 def _compute_delta_payload(
     stable_rows: List[Dict[str, Any]],
     previous_payload: Dict[str, Any] | None,
-    previous_state: Dict[str, Any],
-    current_state: Dict[str, Any],
     generated_at_ms: int,
 ) -> Dict[str, Any]:
     baseline_generated_at_ms = None
@@ -344,65 +341,25 @@ def _compute_delta_payload(
         if player_id is None:
             continue
         player_key = str(player_id)
-        stable_score = entry.get("stable_score")
-        try:
-            stable_score_value = (
-                None if stable_score is None else float(stable_score)
-            )
-        except (TypeError, ValueError):
-            stable_score_value = None
         previous_index[player_key] = {
             "rank": _to_int(entry.get("stable_rank")),
-            "stable_score": stable_score_value,
-            "display_score": entry.get("display_score"),
+            "stable_score": _to_float(entry.get("stable_score")),
+            "display_score": _to_float(entry.get("display_score")),
         }
 
     player_deltas: Dict[str, Dict[str, Any]] = {}
     newcomers: List[str] = []
     remaining_previous = set(previous_index.keys())
-    previous_state_index = {
-        str(player_id): value for player_id, value in previous_state.items()
-    }
-    current_state_index = {
-        str(player_id): value for player_id, value in current_state.items()
-    }
 
     for row in stable_rows:
         player_id = row.get("player_id")
         if not player_id:
             continue
         player_key = str(player_id)
+
         previous = previous_index.get(player_key)
-        state_entry = previous_state_index.get(player_key)
-        current_state_entry = current_state_index.get(player_key, {})
-
-        current_score_raw = row.get("stable_score")
-        try:
-            current_score_value = (
-                None if current_score_raw is None else float(current_score_raw)
-            )
-        except (TypeError, ValueError):
-            current_score_value = None
-
-        state_score_value: float | None = None
-        if state_entry is not None:
-            state_score_raw = state_entry.get("stable_score")
-            try:
-                state_score_value = (
-                    None if state_score_raw is None else float(state_score_raw)
-                )
-            except (TypeError, ValueError):
-                state_score_value = None
-
-        stored_delta_value = _to_float(
-            current_state_entry.get("recent_score_delta")
-        )
-        stored_delta_ms = _to_int(
-            current_state_entry.get("recent_score_delta_ms")
-        )
-        stored_last_event_ms = _to_int(
-            current_state_entry.get("last_tournament_ms")
-        )
+        current_score_value = _to_float(row.get("stable_score"))
+        current_rank = _to_int(row.get("stable_rank"))
 
         rank_delta = None
         previous_rank = None
@@ -412,46 +369,17 @@ def _compute_delta_payload(
 
         if previous:
             previous_rank = previous.get("rank")
-            previous_payload_score = previous.get("stable_score")
-            if previous_payload_score is not None:
-                previous_score_value = previous_payload_score
-            previous_payload_display = previous.get("display_score")
-            if previous_payload_display is not None:
-                try:
-                    previous_display_score_value = float(
-                        previous_payload_display
-                    )
-                except (TypeError, ValueError):
-                    previous_display_score_value = None
-
-            current_rank = _to_int(row.get("stable_rank"))
+            previous_score_value = previous.get("stable_score")
+            previous_display_score_value = previous.get("display_score")
             if previous_rank is not None and current_rank is not None:
                 rank_delta = previous_rank - current_rank
-
             remaining_previous.discard(player_key)
-
-        if state_score_value is not None:
-            previous_score_value = state_score_value
-            previous_display_score_value = _display_score(state_score_value)
-
-        if previous is None and state_entry is None:
+        else:
             is_new = True
             newcomers.append(player_key)
 
         score_delta = None
         display_score_delta = None
-        delta_visible_by_state = False
-        if stored_delta_value is not None:
-            delta_anchor_ms = stored_delta_ms or stored_last_event_ms
-            if delta_anchor_ms is None:
-                delta_anchor_ms = _to_int(row.get("last_tournament_ms"))
-            if generated_at_ms is None or delta_anchor_ms is None:
-                delta_visible_by_state = True
-            else:
-                delta_visible_by_state = (
-                    generated_at_ms - delta_anchor_ms
-                ) <= SCORE_DELTA_VISIBILITY_MS
-
         if current_score_value is not None and previous_score_value is not None:
             score_delta = current_score_value - previous_score_value
             display_score_delta = _display_score(
@@ -465,25 +393,6 @@ def _compute_delta_payload(
                 _display_score(current_score_value)
                 - previous_display_score_value
             )
-
-        if delta_visible_by_state and current_score_value is not None:
-            score_delta = stored_delta_value
-            if score_delta is not None:
-                reconstructed_previous = current_score_value - score_delta
-                previous_score_value = reconstructed_previous
-                previous_display_score_value = _display_score(
-                    reconstructed_previous
-                )
-                display_score_delta = _display_score(
-                    current_score_value
-                ) - _display_score(reconstructed_previous)
-        elif not delta_visible_by_state and stored_delta_value is not None:
-            score_delta = None
-            display_score_delta = None
-            if previous_score_value is not None:
-                previous_display_score_value = _display_score(
-                    previous_score_value
-                )
 
         player_deltas[player_key] = {
             "rank_delta": rank_delta,
@@ -724,7 +633,6 @@ async def _refresh_snapshots_async() -> Dict[str, Any]:
     stable_rows: List[Dict[str, Any]] = []
     previous_stable_payload = _load_previous_stable_payload()
     yesterday_payload: Dict[str, Any] | None = None
-    delta_state_reference: Dict[str, Any] | None = None
     try:
         async with rankings_async_session() as session:
             (
@@ -768,16 +676,6 @@ async def _refresh_snapshots_async() -> Dict[str, Any]:
                     )
                     if payload and payload.get("data"):
                         yesterday_payload = payload
-                        delta_state_reference = {
-                            str(row["player_id"]): {
-                                "stable_score": row.get("stable_score"),
-                                "last_tournament_ms": row.get(
-                                    "last_tournament_ms"
-                                ),
-                            }
-                            for row in payload["data"]
-                            if row.get("player_id") is not None
-                        }
 
             if not previous_stable_payload or not previous_stable_payload.get(
                 "data"
@@ -809,21 +707,6 @@ async def _refresh_snapshots_async() -> Dict[str, Any]:
     )
 
     comparison_payload = yesterday_payload or previous_stable_payload
-    if (
-        delta_state_reference is None
-        and comparison_payload
-        and comparison_payload.get("data")
-    ):
-        delta_state_reference = {
-            str(row["player_id"]): {
-                "stable_score": row.get("stable_score"),
-                "last_tournament_ms": row.get("last_tournament_ms"),
-            }
-            for row in comparison_payload["data"]
-            if row.get("player_id") is not None
-        }
-
-    reference_state_for_delta = delta_state_reference or {}
 
     stable_payload = {
         "build_version": build_version,
@@ -867,8 +750,6 @@ async def _refresh_snapshots_async() -> Dict[str, Any]:
     delta_payload = _compute_delta_payload(
         stable_rows,
         comparison_payload,
-        reference_state_for_delta,
-        new_state,
         generated_at_ms,
     )
 
