@@ -633,6 +633,7 @@ async def _refresh_snapshots_async() -> Dict[str, Any]:
     stable_rows: List[Dict[str, Any]] = []
     previous_stable_payload = _load_previous_stable_payload()
     yesterday_payload: Dict[str, Any] | None = None
+    yesterday_cutoff_ms: int | None = None
     try:
         async with rankings_async_session() as session:
             (
@@ -665,29 +666,6 @@ async def _refresh_snapshots_async() -> Dict[str, Any]:
             day_start_ms = (generated_at_ms // MS_PER_DAY) * MS_PER_DAY
             if day_start_ms:
                 yesterday_cutoff_ms = day_start_ms - 1
-                baseline_ts = await _latest_calculated_at_at_or_before(
-                    session, yesterday_cutoff_ms
-                )
-                if baseline_ts is not None:
-                    payload = await _load_baseline_snapshot_from_db(
-                        session,
-                        current_calc_ts=_to_int(calc_ts),
-                        baseline_ts=baseline_ts,
-                    )
-                    if payload and payload.get("data"):
-                        yesterday_payload = payload
-
-            if not previous_stable_payload or not previous_stable_payload.get(
-                "data"
-            ):
-                if yesterday_payload:
-                    previous_stable_payload = yesterday_payload
-                else:
-                    fallback_payload = await _load_baseline_snapshot_from_db(
-                        session, current_calc_ts=_to_int(calc_ts)
-                    )
-                    if fallback_payload:
-                        previous_stable_payload = fallback_payload
     finally:
         rankings_async_session.remove()
 
@@ -695,6 +673,38 @@ async def _refresh_snapshots_async() -> Dict[str, Any]:
     danger_calc_ts_int = _to_int(danger_calc_ts)
     stable_total = _to_int(total)
     danger_total_value = _to_int(danger_total)
+
+    if yesterday_cutoff_ms is not None:
+        try:
+            async with rankings_async_session() as session:
+                baseline_ts = await _latest_calculated_at_at_or_before(
+                    session, yesterday_cutoff_ms
+                )
+                if baseline_ts is not None:
+                    payload = await _load_baseline_snapshot_from_db(
+                        session,
+                        current_calc_ts=calc_ts_int,
+                        baseline_ts=baseline_ts,
+                    )
+                    if payload and payload.get("data"):
+                        yesterday_payload = payload
+        finally:
+            rankings_async_session.remove()
+
+    if not previous_stable_payload or not previous_stable_payload.get("data"):
+        if yesterday_payload:
+            previous_stable_payload = yesterday_payload
+        else:
+            try:
+                async with rankings_async_session() as session:
+                    fallback_payload = await _load_baseline_snapshot_from_db(
+                        session,
+                        current_calc_ts=calc_ts_int,
+                    )
+                    if fallback_payload:
+                        previous_stable_payload = fallback_payload
+            finally:
+                rankings_async_session.remove()
 
     new_state = state
     display_map = {
