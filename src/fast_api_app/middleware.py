@@ -14,6 +14,7 @@ from fast_api_app.auth import _get_header_token
 from fast_api_app.connections import redis_conn
 from fast_api_app.utils import get_client_ip
 from shared_lib.constants import API_USAGE_QUEUE_KEY
+from shared_lib.monitoring import RATE_LIMIT_EVENTS, metrics_enabled
 
 
 class APITokenUsageMiddleware(BaseHTTPMiddleware):
@@ -118,6 +119,8 @@ class APITokenRateLimitMiddleware(BaseHTTPMiddleware):
                     self.per_min and int(min_count) > self.per_min
                 ):
                     # Too many requests
+                    if metrics_enabled():
+                        RATE_LIMIT_EVENTS.labels(outcome="throttled").inc()
                     return JSONResponse(
                         status_code=429,
                         content={"detail": "Rate limit exceeded"},
@@ -125,11 +128,20 @@ class APITokenRateLimitMiddleware(BaseHTTPMiddleware):
             except Exception:
                 # Redis unavailable: fail-closed by default (configurable)
                 if not self.fail_open:
+                    if metrics_enabled():
+                        RATE_LIMIT_EVENTS.labels(outcome="backend_error").inc()
+                        RATE_LIMIT_EVENTS.labels(outcome="fail_closed").inc()
                     return JSONResponse(
                         status_code=429,
                         content={
                             "detail": "Rate limit temporarily unavailable"
                         },
                     )
+                if metrics_enabled():
+                    RATE_LIMIT_EVENTS.labels(outcome="backend_error").inc()
+                    RATE_LIMIT_EVENTS.labels(outcome="fail_open").inc()
+            else:
+                if metrics_enabled():
+                    RATE_LIMIT_EVENTS.labels(outcome="allowed").inc()
 
         return await call_next(request)

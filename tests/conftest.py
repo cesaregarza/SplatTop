@@ -32,10 +32,12 @@ class _FakePipeline:
         self._ops.append(("set", key, val))
         return self
 
-    def hset(self, key, mapping=None, **kwargs):
-        if mapping is None:
-            mapping = kwargs
-        self._ops.append(("hset", key, mapping))
+    def hset(self, key, field=None, value=None, mapping=None, **kwargs):
+        if mapping is not None and not isinstance(mapping, dict):
+            raise TypeError("mapping must be a dict if provided")
+        if kwargs:
+            mapping = {**(mapping or {}), **kwargs}
+        self._ops.append(("hset", key, field, value, mapping))
         return self
 
     def sadd(self, key, member):
@@ -71,10 +73,13 @@ class _FakePipeline:
                 self._store._kv[key] = val
                 out.append(True)
             elif name == "hset":
-                _, key, mapping = op
+                _, key, field, value, mapping = op
                 self._store._hashes.setdefault(key, {})
-                for k, v in mapping.items():
-                    self._store._hashes[key][k] = v
+                if mapping:
+                    for k, v in mapping.items():
+                        self._store._hashes[key][k] = v
+                if field is not None:
+                    self._store._hashes[key][field] = value
                 out.append(True)
             elif name == "sadd":
                 _, key, member = op
@@ -88,6 +93,15 @@ class _FakePipeline:
                 ):
                     self._store._sets[key].remove(member)
                 out.append(True)
+            elif name == "hdel":
+                _, key, fields = op
+                out.append(self._store.hdel(key, *fields))
+            elif name == "hincrby":
+                _, key, field, amount = op
+                out.append(self._store.hincrby(key, field, amount))
+            elif name == "hincrbyfloat":
+                _, key, field, amount = op
+                out.append(self._store.hincrbyfloat(key, field, amount))
             elif name == "delete":
                 _, key = op
                 self._store._kv.pop(key, None)
@@ -147,11 +161,48 @@ class FakeRedis:
     def hgetall(self, key):
         return self._hashes.get(key, {}).copy()
 
-    def hset(self, key, mapping=None, **kwargs):
-        if mapping is None:
-            mapping = kwargs
+    def hset(self, key, field=None, value=None, mapping=None, **kwargs):
         self._hashes.setdefault(key, {})
-        self._hashes[key].update(mapping)
+        if mapping is not None:
+            if not isinstance(mapping, dict):
+                raise TypeError("mapping must be a dict if provided")
+            self._hashes[key].update(mapping)
+        if kwargs:
+            self._hashes[key].update(kwargs)
+        if field is not None:
+            self._hashes[key][field] = value
+        return 1
+
+    def hget(self, key, field):
+        return self._hashes.get(key, {}).get(field)
+
+    def hdel(self, key, *fields):
+        if not fields:
+            return 0
+        removed = 0
+        if key in self._hashes:
+            store = self._hashes[key]
+            for field in fields:
+                if field in store:
+                    del store[field]
+                    removed += 1
+            if not store:
+                del self._hashes[key]
+        return removed
+
+    def hincrby(self, key, field, amount=1):
+        self._hashes.setdefault(key, {})
+        current = int(self._hashes[key].get(field, 0))
+        current += int(amount)
+        self._hashes[key][field] = str(current)
+        return current
+
+    def hincrbyfloat(self, key, field, amount=1.0):
+        self._hashes.setdefault(key, {})
+        current = float(self._hashes[key].get(field, 0))
+        current += float(amount)
+        self._hashes[key][field] = str(current)
+        return current
 
     # List ops used by usage middleware
     def rpush(self, key, value):
@@ -348,6 +399,7 @@ def app(fake_redis, monkeypatch):
     import fast_api_app.middleware as mw_mod
     import fast_api_app.routes.admin_tokens as admin_mod
     import fast_api_app.routes.ripple_public as ripple_public_mod
+    import fast_api_app.connections as conn_mod
 
     # Patch Redis in all modules that captured it at import time
     monkeypatch.setattr(app_mod, "redis_conn", fake_redis, raising=False)
@@ -357,6 +409,7 @@ def app(fake_redis, monkeypatch):
     monkeypatch.setattr(
         ripple_public_mod, "redis_conn", fake_redis, raising=False
     )
+    monkeypatch.setattr(conn_mod, "redis_conn", fake_redis, raising=False)
 
     # Disable side effects in lifespan
     class _DummyCelery:

@@ -1,4 +1,5 @@
 import logging
+from time import perf_counter
 
 import numpy as np
 import orjson
@@ -14,6 +15,11 @@ from shared_lib.constants import (
 )
 from shared_lib.queries.front_page_queries import LEADERBOARD_MAIN_QUERY
 from shared_lib.utils import get_badge_image, get_banner_image, get_weapon_image
+from shared_lib.monitoring import (
+    DATA_PULL_DURATION,
+    DATA_PULL_ROWS,
+    metrics_enabled,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -35,11 +41,16 @@ def fetch_and_store_leaderboard_data(mode: str, region_bool: bool) -> list:
         "Takoroka" if region_bool else "Tentatek",
     )
     query = text(LEADERBOARD_MAIN_QUERY)
+    start = perf_counter()
     with Session() as session:
         result = session.execute(
             query, {"mode": mode, "region": region_bool}
         ).fetchall()
         players = [{**row._asdict()} for row in result]
+    if metrics_enabled():
+        label = f"front_page.fetch_leaderboard:{mode}:{int(region_bool)}"
+        DATA_PULL_DURATION.labels(task=label).observe(perf_counter() - start)
+        DATA_PULL_ROWS.labels(task=label).set(len(players))
 
     for player in players:
         player["weapon_image"] = get_weapon_image(int(player["weapon_id"]))
@@ -78,6 +89,7 @@ def process_all_data(df: pd.DataFrame) -> list[tuple[str, pd.DataFrame]]:
         region and its processed DataFrame.
     """
     logger.info("Processing all data")
+    start = perf_counter()
     keys_to_keep = ["player_id", "x_power", "weapon_id", "mode", "region"]
     df = df.loc[:, keys_to_keep]
     out = []
@@ -96,6 +108,14 @@ def process_all_data(df: pd.DataFrame) -> list[tuple[str, pd.DataFrame]]:
                 .apply(get_weapon_image)
             )
         out.append((region, region_df))
+        if metrics_enabled():
+            DATA_PULL_ROWS.labels(
+                task=f"front_page.process_region:{region}"
+            ).set(len(region_df))
+    if metrics_enabled():
+        DATA_PULL_DURATION.labels(task="front_page.process_all").observe(
+            perf_counter() - start
+        )
     return out
 
 
@@ -140,6 +160,7 @@ def pull_data() -> None:
     Redis.
     """
     logger.info("Pulling data")
+    pull_start = perf_counter()
     dfs = []
     for mode in MODES:
         for region in REGIONS:
@@ -150,9 +171,23 @@ def pull_data() -> None:
             df["region"] = region
             dfs.append(df)
 
+    if metrics_enabled():
+        total_raw_rows = sum(len(df) for df in dfs)
+        DATA_PULL_ROWS.labels(task="front_page.pull_data:raw_rows").set(
+            total_raw_rows
+        )
+
     for region, processed_df in process_all_data(pd.concat(dfs)):
         redis_key = f"leaderboard_data:All Modes:{region}"
         redis_conn.set(
             redis_key, processed_df.reset_index().to_json(orient="records")
         )
         logger.info(f"All data for region: {region} saved to Redis")
+        if metrics_enabled():
+            DATA_PULL_ROWS.labels(
+                task=f"front_page.leaderboard_payload:{region}"
+            ).set(len(processed_df))
+    if metrics_enabled():
+        DATA_PULL_DURATION.labels(task="front_page.pull_data").observe(
+            perf_counter() - pull_start
+        )

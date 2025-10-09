@@ -3,6 +3,7 @@ import logging
 from celery import Celery
 
 # Connections MUST be imported to start up the connections.
+from celery_app import metrics as _metrics  # noqa: F401 - ensure signal registration
 from celery_app.connections import Session, redis_conn
 from celery_app.tasks.analytics.lorenz import compute_lorenz_and_gini
 from celery_app.tasks.analytics.skill_offset import compute_skill_offset

@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import hashlib
 import math
+from time import perf_counter
 from typing import Any, Dict, List, Optional
 
 import orjson
@@ -11,6 +12,12 @@ from redis.exceptions import RedisError
 
 from fast_api_app.auth import require_scopes
 from fast_api_app.connections import rankings_async_session, redis_conn
+from shared_lib.monitoring import (
+    RIPPLE_CACHE_PAYLOAD_BYTES,
+    RIPPLE_CACHE_REQUESTS,
+    RIPPLE_QUERY_DURATION,
+    metrics_enabled,
+)
 from shared_lib.queries.ripple_queries import (
     fetch_ripple_danger,
     fetch_ripple_page,
@@ -40,8 +47,12 @@ def _get_cached(kind: str, params: Dict[str, Any]) -> Optional[Dict[str, Any]]:
     try:
         cached = redis_conn.get(key)
     except RedisError:
+        if metrics_enabled():
+            RIPPLE_CACHE_REQUESTS.labels(kind, "redis_error").inc()
         return None
     if not cached:
+        if metrics_enabled():
+            RIPPLE_CACHE_REQUESTS.labels(kind, "miss").inc()
         return None
     try:
         payload = (
@@ -49,23 +60,33 @@ def _get_cached(kind: str, params: Dict[str, Any]) -> Optional[Dict[str, Any]]:
             if isinstance(cached, (bytes, bytearray, memoryview))
             else str(cached).encode("utf-8")
         )
-        return orjson.loads(payload)
+        data = orjson.loads(payload)
     except orjson.JSONDecodeError:
+        if metrics_enabled():
+            RIPPLE_CACHE_REQUESTS.labels(kind, "decode_error").inc()
         try:
             redis_conn.delete(key)
         except RedisError:
             pass
         return None
+    if metrics_enabled():
+        RIPPLE_CACHE_REQUESTS.labels(kind, "hit").inc()
+    return data
 
 
 def _set_cached(
     kind: str, params: Dict[str, Any], payload: Dict[str, Any]
 ) -> None:
     key = _cache_key(kind, params)
+    serialized = orjson.dumps(payload)
     try:
-        redis_conn.setex(key, _CACHE_TTL_SECONDS, orjson.dumps(payload))
+        redis_conn.setex(key, _CACHE_TTL_SECONDS, serialized)
     except RedisError:
+        if metrics_enabled():
+            RIPPLE_CACHE_REQUESTS.labels(kind, "store_error").inc()
         return None
+    if metrics_enabled():
+        RIPPLE_CACHE_PAYLOAD_BYTES.labels(kind=kind).set(len(serialized))
 
 
 @docs_router.get("/docs", response_class=HTMLResponse)
@@ -295,6 +316,7 @@ async def get_ripple_leaderboard(
     if cached is not None:
         return cached
 
+    start = perf_counter()
     async with rankings_async_session() as session:
         rows, total, calc_ts, build_version = await fetch_ripple_page(
             session,
@@ -305,6 +327,10 @@ async def get_ripple_leaderboard(
             ranked_only=ranked_only,
             build=build,
             ts_ms=ts_ms,
+        )
+    if metrics_enabled():
+        RIPPLE_QUERY_DURATION.labels(kind="leaderboard").observe(
+            perf_counter() - start
         )
 
     def to_item(r: Dict[str, Any]) -> Dict[str, Any]:
@@ -371,6 +397,7 @@ async def get_ripple_raw(
     if cached is not None:
         return cached
 
+    start = perf_counter()
     async with rankings_async_session() as session:
         rows, total, calc_ts, build_version = await fetch_ripple_page(
             session,
@@ -381,6 +408,10 @@ async def get_ripple_raw(
             ranked_only=ranked_only,
             build=build,
             ts_ms=ts_ms,
+        )
+    if metrics_enabled():
+        RIPPLE_QUERY_DURATION.labels(kind="raw").observe(
+            perf_counter() - start
         )
 
     items: List[Dict[str, Any]] = [dict(r) for r in rows]
@@ -422,6 +453,7 @@ async def get_ripple_danger(
     if cached is not None:
         return cached
 
+    start = perf_counter()
     async with rankings_async_session() as session:
         rows, total, calc_ts, build_version = await fetch_ripple_danger(
             session,
@@ -432,6 +464,10 @@ async def get_ripple_danger(
             ranked_only=ranked_only,
             build=build,
             ts_ms=ts_ms,
+        )
+    if metrics_enabled():
+        RIPPLE_QUERY_DURATION.labels(kind="danger").observe(
+            perf_counter() - start
         )
 
     def to_item(r: Dict[str, Any]) -> Dict[str, Any]:

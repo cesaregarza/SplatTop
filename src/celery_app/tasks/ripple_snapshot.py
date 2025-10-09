@@ -18,6 +18,8 @@ from shared_lib.constants import (
     RIPPLE_SNAPSHOT_LOCK_KEY,
     RIPPLE_STABLE_DELTAS_KEY,
     RIPPLE_STABLE_LATEST_KEY,
+    RIPPLE_STABLE_PREVIOUS_KEY,
+    RIPPLE_STABLE_PREVIOUS_META_KEY,
     RIPPLE_STABLE_META_KEY,
     RIPPLE_STABLE_PERCENTILES_KEY,
     RIPPLE_STABLE_STATE_KEY,
@@ -162,17 +164,56 @@ def _persist_payload(key: str, payload: Mapping[str, Any]) -> None:
     redis_conn.set(key, orjson.dumps(payload))
 
 
-def _load_previous_stable_payload() -> Dict[str, Any] | None:
-    raw = redis_conn.get(RIPPLE_STABLE_LATEST_KEY)
-    if not raw:
-        return None
+def _load_previous_stable_payload() -> Tuple[Dict[str, Any] | None, str | None]:
+    candidates = (
+        (RIPPLE_STABLE_LATEST_KEY, "redis_latest"),
+        (RIPPLE_STABLE_PREVIOUS_KEY, "redis_previous"),
+    )
+    for key, source in candidates:
+        raw = redis_conn.get(key)
+        if not raw:
+            continue
+        try:
+            payload = orjson.loads(raw)
+        except orjson.JSONDecodeError:
+            if key == RIPPLE_STABLE_LATEST_KEY:
+                logger.warning(
+                    "Failed to parse previous ripple stable payload; skipping deltas"
+                )
+            else:
+                logger.debug(
+                    "Failed to parse preserved ripple stable payload from %s",
+                    key,
+                )
+            continue
+        if isinstance(payload, dict):
+            return payload, source
+    return None, None
+
+
+def _persist_previous_payload(
+    payload: Mapping[str, Any] | None,
+    *,
+    preserved_at_ms: int,
+    source: str | None,
+) -> None:
+    if not payload or not isinstance(payload, Mapping) or not payload.get("data"):
+        redis_conn.delete(RIPPLE_STABLE_PREVIOUS_KEY)
+        redis_conn.delete(RIPPLE_STABLE_PREVIOUS_META_KEY)
+        return
+
+    envelope = {
+        "preserved_at_ms": preserved_at_ms,
+        "source": source or "unknown",
+        "payload_generated_at_ms": _to_int(payload.get("generated_at_ms")),
+    }
+
+    serializable = dict(payload) if not isinstance(payload, dict) else payload
     try:
-        return orjson.loads(raw)
-    except orjson.JSONDecodeError:
-        logger.warning(
-            "Failed to parse previous ripple stable payload; skipping deltas"
-        )
-        return None
+        redis_conn.set(RIPPLE_STABLE_PREVIOUS_KEY, orjson.dumps(serializable))
+        redis_conn.set(RIPPLE_STABLE_PREVIOUS_META_KEY, orjson.dumps(envelope))
+    except Exception as exc:  # pragma: no cover - best effort telemetry
+        logger.debug("Failed to persist previous stable payload: %s", exc)
 
 
 async def _previous_calculated_at_ms(
@@ -631,7 +672,11 @@ async def _refresh_snapshots_async() -> Dict[str, Any]:
     events: Dict[str, Dict[str, Any]] = {}
     state: Dict[str, Any] = {}
     stable_rows: List[Dict[str, Any]] = []
-    previous_stable_payload = _load_previous_stable_payload()
+    previous_stable_payload, preserved_source = _load_previous_stable_payload()
+    preserved_payload: Dict[str, Any] | None = None
+    if previous_stable_payload and previous_stable_payload.get("data"):
+        preserved_payload = previous_stable_payload
+        preserved_source = preserved_source or "redis_latest"
     yesterday_payload: Dict[str, Any] | None = None
     yesterday_cutoff_ms: int | None = None
     try:
@@ -692,8 +737,10 @@ async def _refresh_snapshots_async() -> Dict[str, Any]:
             rankings_async_session.remove()
 
     if not previous_stable_payload or not previous_stable_payload.get("data"):
-        if yesterday_payload:
+        if yesterday_payload and yesterday_payload.get("data"):
             previous_stable_payload = yesterday_payload
+            preserved_payload = previous_stable_payload
+            preserved_source = "db_yesterday"
         else:
             try:
                 async with rankings_async_session() as session:
@@ -701,8 +748,10 @@ async def _refresh_snapshots_async() -> Dict[str, Any]:
                         session,
                         current_calc_ts=calc_ts_int,
                     )
-                    if fallback_payload:
+                    if fallback_payload and fallback_payload.get("data"):
                         previous_stable_payload = fallback_payload
+                        preserved_payload = previous_stable_payload
+                        preserved_source = "db_baseline"
             finally:
                 rankings_async_session.remove()
 
@@ -763,6 +812,11 @@ async def _refresh_snapshots_async() -> Dict[str, Any]:
         generated_at_ms,
     )
 
+    _persist_previous_payload(
+        preserved_payload,
+        preserved_at_ms=generated_at_ms,
+        source=preserved_source,
+    )
     _persist_state(new_state)
     _persist_payload(RIPPLE_STABLE_LATEST_KEY, stable_payload)
     _persist_payload(RIPPLE_DANGER_LATEST_KEY, danger_snapshot)

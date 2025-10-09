@@ -22,6 +22,8 @@ from shared_lib.constants import (
     RIPPLE_SNAPSHOT_LOCK_KEY,
     RIPPLE_STABLE_DELTAS_KEY,
     RIPPLE_STABLE_LATEST_KEY,
+    RIPPLE_STABLE_PREVIOUS_KEY,
+    RIPPLE_STABLE_PREVIOUS_META_KEY,
     RIPPLE_STABLE_META_KEY,
     RIPPLE_STABLE_STATE_KEY,
 )
@@ -332,6 +334,123 @@ def test_refresh_ripple_snapshots_computes_deltas(monkeypatch):
     }
     assert score_map["p1"] == pytest.approx(1.25)
     assert score_map["p3"] == pytest.approx(0.82)
+
+
+def test_refresh_ripple_snapshots_preserves_previous_payload(monkeypatch):
+    fake_redis = FakeRedis()
+    previous_payload = {
+        "build_version": "2024.09.01",
+        "calculated_at_ms": 1_000,
+        "generated_at_ms": 1_100,
+        "query_params": {},
+        "record_count": 1,
+        "total": 1,
+        "data": [
+            {
+                "player_id": "p1",
+                "display_name": "Player One",
+                "stable_score": 1.0,
+                "display_score": 175.0,
+                "stable_rank": 1,
+            }
+        ],
+    }
+    fake_redis.set(RIPPLE_STABLE_LATEST_KEY, orjson.dumps(previous_payload))
+    monkeypatch.setattr(snapshot_mod, "redis_conn", fake_redis, raising=False)
+
+    rows = [
+        {
+            "player_id": "p1",
+            "display_name": "Player One",
+            "score": 1.2,
+            "rank": 1,
+            "tournament_count": 6,
+            "window_count": 5,
+            "last_active_ms": 2_000,
+        }
+    ]
+
+    async def fake_fetch_page(session, **kwargs):
+        return rows, 1, 2_000, "2024.09.02"
+
+    async def fake_fetch_danger(session, **kwargs):
+        return [], 0, 2_000, "2024.09.02"
+
+    async def fake_fetch_events(session, player_ids):
+        return {
+            "p1": {"latest_event_ms": 1_900, "tournament_count": 6},
+        }
+
+    async def fake_first_scores(session, player_events, *, cutoff_ms=None):
+        return {"p1": 1.2}
+
+    monkeypatch.setattr(
+        snapshot_mod.ripple_queries,
+        "fetch_ripple_page",
+        fake_fetch_page,
+        raising=False,
+    )
+    monkeypatch.setattr(
+        snapshot_mod.ripple_queries,
+        "fetch_ripple_danger",
+        fake_fetch_danger,
+        raising=False,
+    )
+    monkeypatch.setattr(
+        snapshot_mod,
+        "_fetch_player_events",
+        fake_fetch_events,
+        raising=False,
+    )
+    monkeypatch.setattr(
+        snapshot_mod,
+        "_first_scores_after_events",
+        fake_first_scores,
+        raising=False,
+    )
+    monkeypatch.setattr(snapshot_mod, "_now_ms", lambda: 3_000, raising=False)
+
+    class FakeSession:
+        async def execute(self, _query, params=None):
+            class FakeResult:
+                def __init__(self, value):
+                    self._value = value
+
+                def scalar(self):
+                    return self._value
+
+                def mappings(self):
+                    return iter(())
+
+            return FakeResult(None)
+
+    @asynccontextmanager
+    async def fake_session_context():
+        yield FakeSession()
+
+    class FakeScoped:
+        def __call__(self):
+            return fake_session_context()
+
+        def remove(self):
+            pass
+
+    monkeypatch.setattr(
+        snapshot_mod, "rankings_async_session", FakeScoped(), raising=False
+    )
+
+    snapshot_mod.refresh_ripple_snapshots()
+
+    preserved_raw = fake_redis.get(RIPPLE_STABLE_PREVIOUS_KEY)
+    assert preserved_raw is not None
+    preserved_payload = orjson.loads(preserved_raw)
+    assert preserved_payload["data"][0]["stable_score"] == pytest.approx(1.0)
+
+    meta_raw = fake_redis.get(RIPPLE_STABLE_PREVIOUS_META_KEY)
+    assert meta_raw is not None
+    meta = orjson.loads(meta_raw)
+    assert meta["source"] == "redis_latest"
+    assert meta["payload_generated_at_ms"] == 1_100
 
 
 def test_refresh_ripple_snapshots_waits_for_post_event_scores(monkeypatch):
@@ -651,6 +770,120 @@ def test_delta_resets_after_followup_snapshot(monkeypatch):
     assert player_delta["score_delta"] in (None, pytest.approx(0.0))
     assert player_delta["display_score_delta"] in (None, pytest.approx(0.0))
 
+
+def test_refresh_ripple_snapshots_uses_preserved_payload_when_latest_missing(
+    monkeypatch,
+):
+    fake_redis = FakeRedis()
+    previous_payload = {
+        "build_version": "2024.09.01",
+        "calculated_at_ms": 1_000,
+        "generated_at_ms": 1_050,
+        "query_params": {},
+        "record_count": 1,
+        "total": 1,
+        "data": [
+            {
+                "player_id": "p1",
+                "display_name": "Player One",
+                "stable_score": 0.95,
+                "display_score": 173.75,
+                "stable_rank": 1,
+            }
+        ],
+    }
+    fake_redis.set(RIPPLE_STABLE_PREVIOUS_KEY, orjson.dumps(previous_payload))
+    monkeypatch.setattr(snapshot_mod, "redis_conn", fake_redis, raising=False)
+
+    current_rows = [
+        {
+            "player_id": "p1",
+            "display_name": "Player One",
+            "score": 1.05,
+            "rank": 1,
+            "tournament_count": 6,
+            "window_count": 4,
+            "last_active_ms": 2_500,
+        }
+    ]
+
+    async def fake_fetch_page(session, **kwargs):
+        return current_rows, 1, 2_500, "2024.09.02"
+
+    async def fake_fetch_danger(session, **kwargs):
+        return [], 0, 2_500, "2024.09.02"
+
+    async def fake_fetch_events(session, player_ids):
+        return {
+            "p1": {"latest_event_ms": 2_400, "tournament_count": 6},
+        }
+
+    async def fake_first_scores(session, player_events, *, cutoff_ms=None):
+        return {"p1": 1.05}
+
+    monkeypatch.setattr(
+        snapshot_mod.ripple_queries,
+        "fetch_ripple_page",
+        fake_fetch_page,
+        raising=False,
+    )
+    monkeypatch.setattr(
+        snapshot_mod.ripple_queries,
+        "fetch_ripple_danger",
+        fake_fetch_danger,
+        raising=False,
+    )
+    monkeypatch.setattr(
+        snapshot_mod,
+        "_fetch_player_events",
+        fake_fetch_events,
+        raising=False,
+    )
+    monkeypatch.setattr(
+        snapshot_mod,
+        "_first_scores_after_events",
+        fake_first_scores,
+        raising=False,
+    )
+    monkeypatch.setattr(snapshot_mod, "_now_ms", lambda: 3_000, raising=False)
+
+    class FakeSession:
+        async def execute(self, _query, params=None):
+            class FakeResult:
+                def __init__(self, value):
+                    self._value = value
+
+                def scalar(self):
+                    return self._value
+
+                def mappings(self):
+                    return iter(())
+
+            return FakeResult(None)
+
+    @asynccontextmanager
+    async def fake_session_context():
+        yield FakeSession()
+
+    class FakeScoped:
+        def __call__(self):
+            return fake_session_context()
+
+        def remove(self):
+            pass
+
+    monkeypatch.setattr(
+        snapshot_mod, "rankings_async_session", FakeScoped(), raising=False
+    )
+
+    snapshot_mod.refresh_ripple_snapshots()
+
+    delta_payload = orjson.loads(fake_redis.get(RIPPLE_STABLE_DELTAS_KEY))
+    player_delta = delta_payload["players"]["p1"]
+    assert player_delta["previous_score"] == pytest.approx(0.95)
+
+    meta = orjson.loads(fake_redis.get(RIPPLE_STABLE_PREVIOUS_META_KEY))
+    assert meta["source"] == "redis_previous"
 
 def test_refresh_ripple_snapshots_backfills_previous_payload(monkeypatch):
     fake_redis = FakeRedis()

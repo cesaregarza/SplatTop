@@ -1,0 +1,8 @@
+apiVersion: v1
+kind: Secret
+metadata:
+  name: grafana-basic-auth
+  namespace: monitoring
+type: Opaque
+stringData:
+  auth: "%GRAFANA_BASIC_AUTH_HTPASSWD%"

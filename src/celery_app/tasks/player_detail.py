@@ -1,4 +1,5 @@
 import logging
+from time import perf_counter
 
 import orjson
 import pandas as pd
@@ -14,6 +15,11 @@ from shared_lib.constants import (
 from shared_lib.queries.player_queries import (
     PLAYER_DATA_QUERY,
     SEASON_RESULTS_QUERY,
+)
+from shared_lib.monitoring import (
+    DATA_PULL_DURATION,
+    DATA_PULL_ROWS,
+    metrics_enabled,
 )
 
 logger = logging.getLogger(__name__)
@@ -74,12 +80,20 @@ def _fetch_player_data(player_id: str) -> list[dict]:
         list[dict]: A list of dictionaries containing player data.
     """
     base_query = text(PLAYER_DATA_QUERY)
+    start = perf_counter()
     with Session() as session:
         result = session.execute(
             base_query, {"player_id": player_id}
         ).fetchall()
 
     result = [{**row._asdict()} for row in result]
+    if metrics_enabled():
+        DATA_PULL_DURATION.labels(
+            task="player_detail.fetch_player_data"
+        ).observe(perf_counter() - start)
+        DATA_PULL_ROWS.labels(task="player_detail.fetch_player_data").set(
+            len(result)
+        )
     for player in result:
         player["timestamp"] = player["timestamp"].isoformat()
         player["rotation_start"] = player["rotation_start"].isoformat()
@@ -97,12 +111,20 @@ def _fetch_season_data(player_id: str) -> list[dict]:
         list[dict]: A list of dictionaries containing season data.
     """
     base_query = text(SEASON_RESULTS_QUERY)
+    start = perf_counter()
     with Session() as session:
         result = session.execute(
             base_query, {"player_id": player_id}
         ).fetchall()
 
     result = [{**row._asdict()} for row in result]
+    if metrics_enabled():
+        DATA_PULL_DURATION.labels(
+            task="player_detail.fetch_season_data"
+        ).observe(perf_counter() - start)
+        DATA_PULL_ROWS.labels(task="player_detail.fetch_season_data").set(
+            len(result)
+        )
 
     return result
 

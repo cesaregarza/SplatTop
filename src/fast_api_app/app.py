@@ -16,6 +16,7 @@ from fast_api_app.middleware import (
     APITokenRateLimitMiddleware,
     APITokenUsageMiddleware,
 )
+from fast_api_app.metrics import setup_metrics
 from fast_api_app.pubsub import start_pubsub_listener
 from fast_api_app.routes import (
     admin_tokens_router,
@@ -84,6 +85,8 @@ app.include_router(ripple_router)
 app.include_router(ripple_public_router)
 app.include_router(admin_tokens_router)
 
+setup_metrics(app)
+
 
 # Base route that lists all available routes
 @app.get("/api", response_class=HTMLResponse)
@@ -97,7 +100,7 @@ async def list_routes():
         "/redoc",
         "/api/search/",
     ]
-    exclude_exact = ["/api"]
+    exclude_exact = ["/api", "/metrics"]
     for route in app.routes:
         if (
             hasattr(route, "path")

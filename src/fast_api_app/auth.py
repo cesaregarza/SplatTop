@@ -17,9 +17,15 @@ from shared_lib.constants import (
     API_TOKENS_ACTIVE_SET,
     API_USAGE_QUEUE_KEY,
 )
+from shared_lib.monitoring import AUTH_FAILURES, metrics_enabled
 
 TOKEN_RE = re.compile(rf"^{API_TOKEN_PREFIX}_(.+)$")
 logger = logging.getLogger(__name__)
+
+
+def _record_auth_failure(reason: str) -> None:
+    if metrics_enabled():
+        AUTH_FAILURES.labels(reason=reason).inc()
 
 
 def _pepper() -> str:
@@ -27,6 +33,7 @@ def _pepper() -> str:
     if not p:
         # Fail closed if no tokens configured.
         logger.error("API token system pepper missing; failing closed")
+        _record_auth_failure("pepper_missing")
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="API token system is not configured",
@@ -106,6 +113,7 @@ def require_api_token(
             "Missing API token on protected route",
             extra={"path": str(request.url.path)},
         )
+        _record_auth_failure("missing_token")
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Missing API token",
@@ -119,6 +127,7 @@ def require_api_token(
         raise
     except Exception:
         logger.warning("Invalid API token format")
+        _record_auth_failure("invalid_format")
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Invalid API token format",
@@ -128,6 +137,7 @@ def require_api_token(
     try:
         if not redis_conn.sismember(API_TOKENS_ACTIVE_SET, token_hash):
             logger.warning("Invalid or revoked API token")
+            _record_auth_failure("revoked")
             raise HTTPException(
                 status_code=status.HTTP_401_UNAUTHORIZED,
                 detail="Invalid or revoked API token",
@@ -144,6 +154,7 @@ def require_api_token(
                 exp = int(meta.get("expires_at_ms", 0) or 0)
                 if exp and exp > 0 and int(time.time() * 1000) > exp:
                     logger.warning("Expired API token used")
+                    _record_auth_failure("expired")
                     raise HTTPException(
                         status_code=status.HTTP_401_UNAUTHORIZED,
                         detail="Expired API token",
@@ -153,6 +164,7 @@ def require_api_token(
         raise
     except Exception:
         logger.error("Auth Redis unavailable; failing closed")
+        _record_auth_failure("backend_unavailable")
         raise HTTPException(status_code=503, detail="Auth backend unavailable")
 
     request.state.token_id = token_id

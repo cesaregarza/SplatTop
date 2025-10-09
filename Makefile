@@ -1,5 +1,5 @@
 KIND_CONTEXT ?= kind-kind
-DEV_PORTS ?= 3000 4000 5000 8001 8080
+DEV_PORTS ?= 3000 4000 5000 8001 8080 9090
 
 .PHONY: ensure-kind
 ensure-kind:
@@ -39,26 +39,52 @@ build-no-cache:
 
 .PHONY: port-forward
 port-forward: ensure-kind
+	$(MAKE) stop-port-forward || true
+	kubectl wait --for=condition=Ready pod -l app=fast-api-app -n default --timeout=180s
+	kubectl wait --for=condition=Ready pod -l app=react-app -n default --timeout=180s || true
+	kubectl wait --for=condition=Ready pod -l app.kubernetes.io/component=controller -n ingress-nginx --timeout=180s
+	kubectl wait --for=condition=Ready pod -l app=prometheus -n monitoring --timeout=180s
 	kubectl port-forward service/fast-api-app-service 5000:80 8001:8001 & echo $$! > /tmp/fast-apiport-forward.pid
 	kubectl port-forward service/react-app-service 4000:80 & echo $$! > /tmp/react-port-forward.pid
 	kubectl port-forward -n ingress-nginx service/ingress-nginx-controller 8080:80 & echo $$! > /tmp/ingress-port-forward.pid
+	kubectl port-forward -n monitoring service/prometheus 9090:9090 & echo $$! > /tmp/prometheus-port-forward.pid
 	echo "fast-api app is running at http://localhost:5000"
 	echo "Websocket is running at http://localhost:8001"
 	echo "React (prod) app is running at http://localhost:4000"
 	echo "Ingress is running at http://localhost:8080"
+	echo "Prometheus UI is running at http://localhost:9090"
 
 .PHONY: stop-port-forward
 stop-port-forward:
-	kill `cat /tmp/fast-apiport-forward.pid` || true
-	kill `cat /tmp/react-port-forward.pid` || true
-	kill `cat /tmp/ingress-port-forward.pid` || true
+	@if [ -f /tmp/fast-apiport-forward.pid ]; then kill `cat /tmp/fast-apiport-forward.pid` || true; fi
+	@if [ -f /tmp/react-port-forward.pid ]; then kill `cat /tmp/react-port-forward.pid` || true; fi
+	@if [ -f /tmp/ingress-port-forward.pid ]; then kill `cat /tmp/ingress-port-forward.pid` || true; fi
+	@if [ -f /tmp/prometheus-port-forward.pid ]; then kill `cat /tmp/prometheus-port-forward.pid` || true; fi
 	rm -f /tmp/fast-apiport-forward.pid
 	rm -f /tmp/react-port-forward.pid
 	rm -f /tmp/ingress-port-forward.pid
+	rm -f /tmp/prometheus-port-forward.pid
 
 .PHONY: deploy-core
 deploy-core: ensure-kind
+	kubectl apply -f k8s/monitoring/namespace.yaml
+	kubectl apply -f k8s/monitoring/grafana/secret-dev.yaml
 	kubectl apply -f k8s/secrets.yaml
+	kubectl apply -f k8s/monitoring/prometheus/rbac.yaml
+	kubectl apply -f k8s/monitoring/prometheus/pvc.yaml
+	kubectl apply -f k8s/monitoring/prometheus/configmap.yaml
+	kubectl apply -f k8s/monitoring/prometheus/deployment.yaml
+	kubectl apply -f k8s/monitoring/prometheus/service.yaml
+	kubectl rollout restart deployment/prometheus -n monitoring
+	kubectl rollout status deployment/prometheus -n monitoring --timeout=300s
+	kubectl apply -f k8s/monitoring/grafana/pvc.yaml
+	kubectl apply -f k8s/monitoring/grafana/configmap-datasources.yaml
+	kubectl apply -f k8s/monitoring/grafana/configmap-dashboard-providers.yaml
+	kubectl apply -f k8s/monitoring/grafana/deployment.yaml
+	kubectl apply -f k8s/monitoring/grafana/service.yaml
+	kubectl rollout restart deployment/grafana -n monitoring
+	kubectl rollout status deployment/grafana -n monitoring --timeout=300s
+	kubectl apply -f k8s/monitoring/grafana/ingress-dev.yaml
 	kubectl apply -f k8s/redis/redis-deployment.yaml
 	kubectl apply -f k8s/redis/redis-service.yaml
 	kubectl apply -f k8s/fast-api/fast-api-deployment-dev.yaml
@@ -84,29 +110,57 @@ deploy-dev: ensure-kind
 	make port-forward
 	cd src/react_app && npm start
 
+.PHONY: _undeploy-core-base
+_undeploy-core-base:
+	kubectl delete -f k8s/secrets.yaml || true
+	kubectl delete -f k8s/monitoring/grafana/secret-dev.yaml || true
+	kubectl delete -f k8s/monitoring/grafana/ingress-dev.yaml || true
+	kubectl delete -f k8s/monitoring/grafana/service.yaml || true
+	kubectl delete -f k8s/monitoring/grafana/deployment.yaml || true
+	kubectl delete -f k8s/monitoring/grafana/configmap-dashboard-providers.yaml || true
+	kubectl delete -f k8s/monitoring/grafana/configmap-datasources.yaml || true
+	kubectl delete -f k8s/monitoring/prometheus/service.yaml || true
+	kubectl delete -f k8s/monitoring/prometheus/deployment.yaml || true
+	kubectl delete -f k8s/monitoring/prometheus/configmap.yaml || true
+	kubectl delete -f k8s/monitoring/prometheus/rbac.yaml || true
+	kubectl delete -f k8s/redis/redis-deployment.yaml || true
+	kubectl delete -f k8s/redis/redis-service.yaml || true
+	kubectl delete -f k8s/fast-api/fast-api-deployment-dev.yaml || true
+	kubectl delete -f k8s/fast-api/fast-api-service-dev.yaml || true
+	kubectl delete -f k8s/celery-worker/celery-worker-deployment-dev.yaml || true
+	kubectl delete -f k8s/celery-beat/celery-beat-deployment-dev.yaml || true
+	kubectl delete -f k8s/react/react-deployment-dev.yaml || true
+	kubectl delete -f k8s/react/react-service-dev.yaml || true
+	kubectl delete -f k8s/splatgpt/splatgpt-deployment-dev.yaml || true
+	kubectl delete -f k8s/splatgpt/splatgpt-service.yaml || true
+
+.PHONY: _undeploy-core-persistent
+_undeploy-core-persistent:
+	kubectl delete -f k8s/monitoring/grafana/pvc.yaml || true
+	kubectl delete -f k8s/monitoring/prometheus/pvc.yaml || true
+	kubectl delete -f k8s/monitoring/namespace.yaml || true
+
 .PHONY: undeploy-core
-undeploy-core: ensure-kind
-	kubectl delete -f k8s/secrets.yaml
-	kubectl delete -f k8s/redis/redis-deployment.yaml
-	kubectl delete -f k8s/redis/redis-service.yaml
-	kubectl delete -f k8s/fast-api/fast-api-deployment-dev.yaml
-	kubectl delete -f k8s/fast-api/fast-api-service-dev.yaml
-	kubectl delete -f k8s/celery-worker/celery-worker-deployment-dev.yaml
-	kubectl delete -f k8s/celery-beat/celery-beat-deployment-dev.yaml
-	kubectl delete -f k8s/react/react-deployment-dev.yaml
-	kubectl delete -f k8s/react/react-service-dev.yaml
-	kubectl delete -f k8s/splatgpt/splatgpt-deployment-dev.yaml
-	kubectl delete -f k8s/splatgpt/splatgpt-service.yaml
+undeploy-core: ensure-kind _undeploy-core-base
+
+.PHONY: undeploy-core-hard
+undeploy-core-hard: ensure-kind _undeploy-core-base _undeploy-core-persistent
 
 .PHONY: undeploy
-undeploy: ensure-kind
-	make undeploy-core
-	kubectl delete -f k8s/ingress-dev.yaml
+undeploy: undeploy-core
+	kubectl delete -f k8s/ingress-dev.yaml || true
+
+.PHONY: undeploy-hard
+undeploy-hard: undeploy-core-hard
+	kubectl delete -f k8s/ingress-dev.yaml || true
 
 .PHONY: undeploy-dev
-undeploy-dev: ensure-kind
-	make undeploy-core
-	make stop-port-forward
+undeploy-dev: undeploy-core
+	$(MAKE) stop-port-forward
+
+.PHONY: undeploy-dev-hard
+undeploy-dev-hard: undeploy-core-hard
+	$(MAKE) stop-port-forward
 
 .PHONY: redeploy
 redeploy: ensure-kind undeploy deploy
@@ -119,6 +173,9 @@ update: ensure-kind undeploy build deploy
 
 .PHONY: update-dev
 update-dev: ensure-kind undeploy-dev build deploy-dev
+
+.PHONY: update-dev-hard
+update-dev-hard: ensure-kind undeploy-dev-hard build deploy-dev
 
 .PHONY: fast-api-logs
 fast-api-logs: ensure-kind
@@ -139,6 +196,14 @@ react-logs: ensure-kind
 .PHONY: redis-logs
 redis-logs: ensure-kind
 	kubectl logs -f `kubectl get pods -l app=redis -o jsonpath='{.items[0].metadata.name}'`
+
+.PHONY: grafana-logs
+grafana-logs: ensure-kind
+	kubectl logs -f `kubectl get pods -n monitoring -l app=grafana -o jsonpath='{.items[0].metadata.name}'` -n monitoring
+
+.PHONY: prometheus-logs
+prometheus-logs: ensure-kind
+	kubectl logs -f `kubectl get pods -n monitoring -l app=prometheus -o jsonpath='{.items[0].metadata.name}'` -n monitoring
 
 .PHONY: splatgpt-logs
 splatgpt-logs: ensure-kind

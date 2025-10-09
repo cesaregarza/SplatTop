@@ -25,6 +25,12 @@ from shared_lib.constants import (
     STANDARD_ABILITIES,
 )
 from shared_lib.models import FeedbackLog, ModelInferenceLog
+from shared_lib.monitoring import (
+    SPLATGPT_CACHE_REQUESTS,
+    SPLATGPT_ERRORS,
+    SPLATGPT_INFERENCE_DURATION,
+    metrics_enabled,
+)
 
 router = APIRouter()
 
@@ -393,6 +399,7 @@ async def infer(inference_request: InferenceRequest, request: Request):
 
     cache_status = "miss"
     model_response = None
+    predictions: list | None = None
 
     processing_start = time.time()
 
@@ -409,10 +416,23 @@ async def infer(inference_request: InferenceRequest, request: Request):
     abilities_hash = hash(abilities_str)
     cached_result = redis_conn.hget(redis_key, abilities_hash)
 
+    model_request: dict | None = None
+
     if cached_result:
         logger.info(f"Cache hit, hash: {abilities_hash}")
         cache_status = "hit"
-        predictions = eval(cached_result)
+        try:
+            predictions = eval(cached_result)
+        except Exception:
+            if metrics_enabled():
+                SPLATGPT_ERRORS.labels(stage="cache_deserialize").inc()
+            logger.exception("Failed to deserialize cached inference payload")
+            cache_status = "miss"
+            predictions = None
+            model_request = {
+                "target": inference_request.abilities,
+                "weapon_id": inference_request.weapon_id,
+            }
     else:
         logger.info(f"Cache miss, hash: {abilities_hash}")
         model_request = {
@@ -420,6 +440,15 @@ async def infer(inference_request: InferenceRequest, request: Request):
             "weapon_id": inference_request.weapon_id,
         }
 
+    if metrics_enabled():
+        SPLATGPT_CACHE_REQUESTS.labels(status=cache_status).inc()
+
+    if predictions is None:
+        if model_request is None:
+            model_request = {
+                "target": inference_request.abilities,
+                "weapon_id": inference_request.weapon_id,
+            }
         try:
             raw_result = await model_queue.add_to_queue(model_request)
             model_response = ModelResponse(**raw_result)
@@ -438,12 +467,19 @@ async def infer(inference_request: InferenceRequest, request: Request):
 
         except Exception as e:
             logger.error(f"Error sending request to model server: {e}")
+            if metrics_enabled():
+                SPLATGPT_ERRORS.labels(stage="model_request").inc()
             raise HTTPException(
                 status_code=503,
                 detail="Error sending request to model server",
             )
 
     processing_time = int((time.time() - processing_start) * 1000)
+    if metrics_enabled() and cache_status in {"hit", "miss"}:
+        source = "cache" if cache_status == "hit" else "model"
+        SPLATGPT_INFERENCE_DURATION.labels(source=source).observe(
+            processing_time / 1000.0
+        )
 
     # Now wrap the response generation with the context manager, passing model_response
     async with log_inference_request(

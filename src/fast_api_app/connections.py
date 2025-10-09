@@ -2,6 +2,7 @@ import asyncio
 import logging
 import sqlite3
 import zlib
+from time import perf_counter
 
 import httpx
 import redis
@@ -15,6 +16,16 @@ from sqlalchemy.orm import scoped_session, sessionmaker
 from fast_api_app.utils import get_client_ip
 from shared_lib.constants import REDIS_HOST, REDIS_PORT
 from shared_lib.db import create_ranking_uri, create_uri
+from shared_lib.monitoring import (
+    SPLATGPT_ERRORS,
+    SPLATGPT_INFLIGHT,
+    SPLATGPT_QUEUE_SIZE,
+    WEBSOCKET_BROADCAST_DURATION,
+    WEBSOCKET_BYTES_SENT,
+    WEBSOCKET_CONNECTIONS,
+    WEBSOCKET_EVENTS,
+    metrics_enabled,
+)
 
 # Setup logger
 logger = logging.getLogger(__name__)
@@ -66,6 +77,11 @@ class ConnectionManager:
         if player_id not in self.active_connections:
             self.active_connections[player_id] = {}
         self.active_connections[player_id][connection_id] = websocket
+        if metrics_enabled():
+            WEBSOCKET_EVENTS.labels(event="connected").inc()
+            WEBSOCKET_CONNECTIONS.labels(player_id=player_id).set(
+                len(self.active_connections[player_id])
+            )
         logger.info(
             "Client connected and added to room: %s with connection id: %s",
             player_id,
@@ -82,6 +98,17 @@ class ConnectionManager:
             del self.active_connections[player_id][connection_id]
             if not self.active_connections[player_id]:
                 del self.active_connections[player_id]
+                if metrics_enabled():
+                    try:
+                        WEBSOCKET_CONNECTIONS.remove(player_id)
+                    except KeyError:
+                        pass
+            elif metrics_enabled():
+                WEBSOCKET_CONNECTIONS.labels(player_id=player_id).set(
+                    len(self.active_connections[player_id])
+                )
+            if metrics_enabled():
+                WEBSOCKET_EVENTS.labels(event="disconnected").inc()
             logger.info(
                 "Client disconnected, id: %s, connection id: %s",
                 player_id,
@@ -98,6 +125,8 @@ class ConnectionManager:
             await self.active_connections[player_id][connection_id].send_text(
                 message
             )
+            if metrics_enabled():
+                WEBSOCKET_EVENTS.labels(event="personal_message").inc()
 
     async def broadcast(self, message: str):
         for player_id in self.active_connections:
@@ -105,10 +134,13 @@ class ConnectionManager:
                 await self.active_connections[player_id][
                     connection_id
                 ].send_text(message)
+                if metrics_enabled():
+                    WEBSOCKET_EVENTS.labels(event="broadcast_message").inc()
 
     async def broadcast_player_data(self, message: str, player_id: str):
         logger.info("Broadcasting player data for: %s", player_id)
         if player_id in self.active_connections:
+            start = perf_counter()
             compressed_message = zlib.compress(message.encode())
             logger.info("Player is connected, sending compressed data")
             logger.info(
@@ -116,13 +148,25 @@ class ConnectionManager:
                 f"{len(message):,}",
                 f"{len(compressed_message):,}",
             )
+            recipients = len(self.active_connections[player_id])
             for connection_id in self.active_connections[player_id]:
                 await self.active_connections[player_id][
                     connection_id
                 ].send_bytes(compressed_message)
+            if metrics_enabled():
+                duration = perf_counter() - start
+                WEBSOCKET_EVENTS.labels(event="broadcast").inc(recipients)
+                WEBSOCKET_BROADCAST_DURATION.labels(player_id=player_id).observe(
+                    duration
+                )
+                WEBSOCKET_BYTES_SENT.labels(player_id=player_id).inc(
+                    len(compressed_message) * recipients
+                )
             logger.info("Compressed data sent")
         else:
             logger.info("Player %s not connected", player_id)
+            if metrics_enabled():
+                WEBSOCKET_EVENTS.labels(event="broadcast_dropped").inc()
 
 
 connection_manager = ConnectionManager()
@@ -143,6 +187,9 @@ class ModelQueue:
         self.client = httpx.AsyncClient()
         self.cache_key_prefix = "splatgpt"
         self.cache_expiration = cache_expiration
+        if metrics_enabled():
+            SPLATGPT_QUEUE_SIZE.set(0)
+            SPLATGPT_INFLIGHT.set(0)
 
     async def process_queue(self):
         if self.processing:
@@ -152,6 +199,9 @@ class ModelQueue:
         try:
             while True:
                 request, future = await self.queue.get()
+                if metrics_enabled():
+                    SPLATGPT_QUEUE_SIZE.set(self.queue.qsize())
+                    SPLATGPT_INFLIGHT.inc()
                 try:
                     response = await self.client.post(
                         "http://splatnlp-service:9000/infer",
@@ -162,17 +212,25 @@ class ModelQueue:
                     future.set_result(result)
                 except Exception as e:
                     future.set_exception(e)
+                    if metrics_enabled():
+                        SPLATGPT_ERRORS.labels(stage="model_http").inc()
                 finally:
                     self.queue.task_done()
+                    if metrics_enabled():
+                        SPLATGPT_INFLIGHT.dec()
 
                 if self.queue.empty():
                     break
         finally:
+            if metrics_enabled():
+                SPLATGPT_QUEUE_SIZE.set(self.queue.qsize())
             self.processing = False
 
     async def add_to_queue(self, request: dict) -> dict:
         future = asyncio.Future()
         await self.queue.put((request, future))
+        if metrics_enabled():
+            SPLATGPT_QUEUE_SIZE.set(self.queue.qsize())
         asyncio.create_task(self.process_queue())
         return await future
 

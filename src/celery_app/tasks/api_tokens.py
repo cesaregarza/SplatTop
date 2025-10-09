@@ -3,6 +3,7 @@ from __future__ import annotations
 import json
 import logging
 import time
+from time import perf_counter
 from typing import Any, Dict, List, Optional
 
 from sqlalchemy import text
@@ -14,6 +15,12 @@ from shared_lib.constants import (
     API_USAGE_LOCK_KEY,
     API_USAGE_PROCESSING_KEY,
     API_USAGE_QUEUE_KEY,
+)
+from shared_lib.monitoring import (
+    API_USAGE_BATCH_DURATION,
+    API_USAGE_EVENTS,
+    API_USAGE_RECOVERED,
+    metrics_enabled,
 )
 
 logger = logging.getLogger(__name__)
@@ -95,9 +102,13 @@ def flush_api_usage(batch_size: int | None = None) -> int:
     lock_ttl = int(os.getenv("API_USAGE_LOCK_TTL", "55"))
     lock_key = API_USAGE_LOCK_KEY
     worker_id = f"worker:{int(time.time()*1000)}"
+    batch_start = perf_counter()
 
     # Acquire lock to avoid overlapping flushers
     if not redis_conn.set(lock_key, worker_id, nx=True, ex=lock_ttl):
+        if metrics_enabled():
+            API_USAGE_EVENTS.labels(result="lock_missed").inc()
+            API_USAGE_BATCH_DURATION.observe(perf_counter() - batch_start)
         return 0
 
     try:
@@ -112,6 +123,8 @@ def flush_api_usage(batch_size: int | None = None) -> int:
                     break
                 redis_conn.lpush(API_USAGE_QUEUE_KEY, orphan)
                 recovered += 1
+                if metrics_enabled():
+                    API_USAGE_RECOVERED.inc()
         except Exception as e:
             # Best-effort recovery; log and continue for visibility
             logger.warning("Processing-list orphan recovery failed: %s", e)
@@ -132,7 +145,9 @@ def flush_api_usage(batch_size: int | None = None) -> int:
                 logger.warning("Malformed usage event; sending to DLQ")
                 redis_conn.lrem(processing_key, 1, item)
                 redis_conn.lpush(dlq_key, item)
-                redis_conn.incr("api:usage:metrics:malformed")
+                if metrics_enabled():
+                    API_USAGE_EVENTS.labels(result="malformed").inc()
+                    API_USAGE_EVENTS.labels(result="dlq").inc()
                 # Remove last raw to keep alignment with events
                 try:
                     raw_items.pop()
@@ -141,6 +156,9 @@ def flush_api_usage(batch_size: int | None = None) -> int:
                 continue
 
         if not events:
+            if metrics_enabled():
+                API_USAGE_EVENTS.labels(result="empty").inc()
+                API_USAGE_BATCH_DURATION.observe(perf_counter() - batch_start)
             return 0
         with Session() as session:
             ack_items: List[str] = []
@@ -224,14 +242,16 @@ def flush_api_usage(batch_size: int | None = None) -> int:
                                         "Usage event moved to DLQ after max attempts"
                                     )
                                     redis_conn.lpush(dlq_key, json.dumps(e))
-                                    redis_conn.incr("api:usage:metrics:dlq")
+                                    if metrics_enabled():
+                                        API_USAGE_EVENTS.labels(result="dlq").inc()
                                 else:
                                     redis_conn.rpush(
                                         API_USAGE_QUEUE_KEY, json.dumps(e)
                                     )
-                                    redis_conn.incr(
-                                        "api:usage:metrics:requeued"
-                                    )
+                                    if metrics_enabled():
+                                        API_USAGE_EVENTS.labels(
+                                            result="requeued"
+                                        ).inc()
                                 continue
                         else:
                             # No meta; requeue with attempts or DLQ
@@ -243,12 +263,14 @@ def flush_api_usage(batch_size: int | None = None) -> int:
                                     "Usage event moved to DLQ (no meta)"
                                 )
                                 redis_conn.lpush(dlq_key, json.dumps(e))
-                                redis_conn.incr("api:usage:metrics:dlq")
+                                if metrics_enabled():
+                                    API_USAGE_EVENTS.labels(result="dlq").inc()
                             else:
                                 redis_conn.rpush(
                                     API_USAGE_QUEUE_KEY, json.dumps(e)
                                 )
-                                redis_conn.incr("api:usage:metrics:requeued")
+                                if metrics_enabled():
+                                    API_USAGE_EVENTS.labels(result="requeued").inc()
                             continue
                     else:
                         # No token id; requeue with attempts or DLQ
@@ -260,10 +282,12 @@ def flush_api_usage(batch_size: int | None = None) -> int:
                                 "Usage event moved to DLQ (no token_id)"
                             )
                             redis_conn.lpush(dlq_key, json.dumps(e))
-                            redis_conn.incr("api:usage:metrics:dlq")
+                            if metrics_enabled():
+                                API_USAGE_EVENTS.labels(result="dlq").inc()
                         else:
                             redis_conn.rpush(API_USAGE_QUEUE_KEY, json.dumps(e))
-                            redis_conn.incr("api:usage:metrics:requeued")
+                            if metrics_enabled():
+                                API_USAGE_EVENTS.labels(result="requeued").inc()
                         continue
 
                 # Update counters after successful insert
@@ -281,6 +305,11 @@ def flush_api_usage(batch_size: int | None = None) -> int:
             except Exception as exc:
                 session.rollback()
                 logger.error("Failed to commit API usage batch: %s", exc)
+                if metrics_enabled():
+                    API_USAGE_EVENTS.labels(result="db_error").inc()
+                    API_USAGE_BATCH_DURATION.observe(
+                        perf_counter() - batch_start
+                    )
                 return processed
 
             acked = 0
@@ -293,6 +322,8 @@ def flush_api_usage(batch_size: int | None = None) -> int:
                     logger.warning(
                         "Failed to ack usage event from processing: %s", ack_exc
                     )
+            if metrics_enabled() and acked:
+                API_USAGE_EVENTS.labels(result="processed").inc(acked)
             processed += acked
     finally:
         # Release lock if we still own it
@@ -302,4 +333,6 @@ def flush_api_usage(batch_size: int | None = None) -> int:
                 redis_conn.delete(lock_key)
         except Exception:
             pass
+    if metrics_enabled():
+        API_USAGE_BATCH_DURATION.observe(perf_counter() - batch_start)
     return processed

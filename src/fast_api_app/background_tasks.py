@@ -1,5 +1,6 @@
 import asyncio
 import logging
+from time import perf_counter
 
 from fast_api_app.sqlite_tables import (
     AliasManager,
@@ -11,6 +12,12 @@ from shared_lib.constants import (
     ALIASES_REDIS_KEY,
     SEASON_RESULTS_REDIS_KEY,
     WEAPON_LEADERBOARD_PEAK_REDIS_KEY,
+)
+from shared_lib.monitoring import (
+    TABLE_REFRESH_DURATION,
+    TABLE_REFRESH_SLEEP_SECONDS,
+    TABLE_REFRESH_TOTAL,
+    metrics_enabled,
 )
 
 logger = logging.getLogger(__name__)
@@ -25,11 +32,26 @@ class BackgroundRunner:
     async def update_table(self, manager: TableManager):
         logger.info("Updating table %s", manager.table_name)
         sleep_time = manager.cadence
+        outcome = "success"
+        start = perf_counter()
         try:
             manager.update_database()
         except Exception as e:
             logger.error(f"Error updating table {manager.table_name}: {e}")
             sleep_time = manager.retry_cadence
+            outcome = "error"
+        finally:
+            duration = perf_counter() - start
+            if metrics_enabled():
+                TABLE_REFRESH_DURATION.labels(manager.table_name).observe(
+                    duration
+                )
+                TABLE_REFRESH_TOTAL.labels(
+                    manager.table_name, outcome
+                ).inc()
+                TABLE_REFRESH_SLEEP_SECONDS.labels(manager.table_name).set(
+                    float(sleep_time)
+                )
 
         logger.info(
             "Sleeping %s for %d seconds", manager.table_name, sleep_time
