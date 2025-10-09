@@ -53,7 +53,7 @@ spec:
               memory: 2Gi
           securityContext:
             allowPrivilegeEscalation: false
-            readOnlyRootFilesystem: false
+            readOnlyRootFilesystem: true
             runAsGroup: 65534
             runAsNonRoot: true
             runAsUser: 65534
@@ -67,6 +67,8 @@ spec:
               mountPath: /prometheus
             - name: prometheus-rules
               mountPath: /etc/prometheus/rules
+            - name: prometheus-tmp
+              mountPath: /tmp
       volumes:
         - name: prometheus-config
           configMap:
@@ -74,6 +76,8 @@ spec:
         - name: prometheus-rules
           configMap:
             name: prometheus-rules
+        - name: prometheus-tmp
+          emptyDir: {}
   volumeClaimTemplates:
     - metadata:
         name: prometheus-data

@@ -51,9 +51,11 @@ spec:
             - name: grafana-dashboard-core
               mountPath: /var/lib/grafana/dashboards/auto/core
               readOnly: true
+            - name: grafana-tmp
+              mountPath: /tmp
           securityContext:
             allowPrivilegeEscalation: false
-            readOnlyRootFilesystem: false
+            readOnlyRootFilesystem: true
             runAsGroup: 472
             runAsNonRoot: true
             runAsUser: 472
@@ -92,3 +94,5 @@ spec:
         - name: grafana-dashboard-core
           configMap:
             name: grafana-dashboard-core
+        - name: grafana-tmp
+          emptyDir: {}

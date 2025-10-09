@@ -292,7 +292,6 @@ jobs:
           ALERTMANAGER_SLACK_WEBHOOK_URL: ${{ secrets.ALERTMANAGER_SLACK_WEBHOOK_URL }}
           ALERTMANAGER_SLACK_CHANNEL: ${{ secrets.ALERTMANAGER_SLACK_CHANNEL }}
           ALERTMANAGER_DISCORD_WEBHOOK_URL: ${{ secrets.ALERTMANAGER_DISCORD_WEBHOOK_URL }}
-          ALERTMANAGER_DISCORD_CHANNEL: ${{ secrets.ALERTMANAGER_DISCORD_CHANNEL }}
         run: |
           set -euo pipefail
           if [ -z "${GRAFANA_ADMIN_USER}" ] || [ -z "${GRAFANA_ADMIN_PASSWORD}" ]; then
@@ -303,13 +302,10 @@ jobs:
             echo "Grafana basic auth secret not provided" >&2
             exit 1
           fi
-          webhook_url="${ALERTMANAGER_SLACK_WEBHOOK_URL:-}"
+          discord_url="${ALERTMANAGER_DISCORD_WEBHOOK_URL:-}"
+          slack_url="${ALERTMANAGER_SLACK_WEBHOOK_URL:-}"
           channel="${ALERTMANAGER_SLACK_CHANNEL:-#alerts}"
-          if [ -n "${ALERTMANAGER_DISCORD_WEBHOOK_URL:-}" ]; then
-            webhook_url="${ALERTMANAGER_DISCORD_WEBHOOK_URL}"
-            channel="${ALERTMANAGER_DISCORD_CHANNEL:-}"
-          fi
-          if [ -z "${webhook_url}" ]; then
+          if [ -z "${discord_url}" ] && [ -z "${slack_url}" ]; then
             echo "Alertmanager webhook not provided" >&2
             exit 1
           fi
@@ -323,11 +319,30 @@ jobs:
             --namespace monitoring \
             --from-literal=auth="${GRAFANA_BASIC_AUTH_HTPASSWD}" \
             --dry-run=client -o yaml | kubectl apply -f -
-          channel_line=""
-          if [ -n "${channel}" ]; then
-            channel_line="        channel: '${channel}'"
-          fi
-          cat <<EOF >/tmp/alertmanager.yaml
+          if [ -n "${discord_url}" ]; then
+            cat <<EOF >/tmp/alertmanager.yaml
+global:
+  resolve_timeout: 5m
+
+route:
+  receiver: discord-critical
+  group_by: ['alertname']
+  group_wait: 30s
+  group_interval: 5m
+  repeat_interval: 4h
+
+receivers:
+  - name: discord-critical
+    discord_configs:
+      - webhook_url: '${discord_url}'
+        send_resolved: true
+EOF
+          else
+            channel_line=""
+            if [ -n "${channel}" ]; then
+              channel_line="        channel: '${channel}'"
+            fi
+            cat <<EOF >/tmp/alertmanager.yaml
 global:
   resolve_timeout: 5m
 
@@ -341,7 +356,7 @@ route:
 receivers:
   - name: slack-critical
     slack_configs:
-      - api_url: '${webhook_url}'
+      - api_url: '${slack_url}'
 ${channel_line}
         send_resolved: true
         icon_emoji: ':rotating_light:'
@@ -350,6 +365,7 @@ ${channel_line}
           {{ range .Alerts }}*{{ .Labels.alertname }}*: {{ .Annotations.description }}
           {{ end }}
 EOF
+          fi
           kubectl create secret generic alertmanager-config \
             --namespace monitoring \
             --from-file=alertmanager.yaml=/tmp/alertmanager.yaml \
