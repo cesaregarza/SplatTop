@@ -284,6 +284,102 @@ jobs:
             --from-literal=RANKINGS_DB_NAME="${RANKINGS_DB}" \
             --dry-run=client -o yaml | kubectl apply -f -
 
+      - name: Apply monitoring stack
+        env:
+          GRAFANA_ADMIN_USER: ${{ secrets.GRAFANA_ADMIN_USER }}
+          GRAFANA_ADMIN_PASSWORD: ${{ secrets.GRAFANA_ADMIN_PASSWORD }}
+          GRAFANA_BASIC_AUTH_HTPASSWD: ${{ secrets.GRAFANA_BASIC_AUTH_HTPASSWD }}
+          ALERTMANAGER_SLACK_WEBHOOK_URL: ${{ secrets.ALERTMANAGER_SLACK_WEBHOOK_URL }}
+          ALERTMANAGER_SLACK_CHANNEL: ${{ secrets.ALERTMANAGER_SLACK_CHANNEL }}
+          ALERTMANAGER_DISCORD_WEBHOOK_URL: ${{ secrets.ALERTMANAGER_DISCORD_WEBHOOK_URL }}
+          ALERTMANAGER_DISCORD_CHANNEL: ${{ secrets.ALERTMANAGER_DISCORD_CHANNEL }}
+        run: |
+          set -euo pipefail
+          if [ -z "${GRAFANA_ADMIN_USER}" ] || [ -z "${GRAFANA_ADMIN_PASSWORD}" ]; then
+            echo "Grafana admin credentials not provided" >&2
+            exit 1
+          fi
+          if [ -z "${GRAFANA_BASIC_AUTH_HTPASSWD}" ]; then
+            echo "Grafana basic auth secret not provided" >&2
+            exit 1
+          fi
+          webhook_url="${ALERTMANAGER_SLACK_WEBHOOK_URL:-}"
+          channel="${ALERTMANAGER_SLACK_CHANNEL:-#alerts}"
+          if [ -n "${ALERTMANAGER_DISCORD_WEBHOOK_URL:-}" ]; then
+            webhook_url="${ALERTMANAGER_DISCORD_WEBHOOK_URL}"
+            channel="${ALERTMANAGER_DISCORD_CHANNEL:-}"
+          fi
+          if [ -z "${webhook_url}" ]; then
+            echo "Alertmanager webhook not provided" >&2
+            exit 1
+          fi
+          kubectl apply -f k8s/monitoring/namespace.yaml
+          kubectl create secret generic grafana-admin-credentials \
+            --namespace monitoring \
+            --from-literal=admin-user="${GRAFANA_ADMIN_USER}" \
+            --from-literal=admin-password="${GRAFANA_ADMIN_PASSWORD}" \
+            --dry-run=client -o yaml | kubectl apply -f -
+          kubectl create secret generic grafana-basic-auth \
+            --namespace monitoring \
+            --from-literal=auth="${GRAFANA_BASIC_AUTH_HTPASSWD}" \
+            --dry-run=client -o yaml | kubectl apply -f -
+          channel_line=""
+          if [ -n "${channel}" ]; then
+            channel_line="        channel: '${channel}'"
+          fi
+          cat <<EOF >/tmp/alertmanager.yaml
+global:
+  resolve_timeout: 5m
+
+route:
+  receiver: slack-critical
+  group_by: ['alertname']
+  group_wait: 30s
+  group_interval: 5m
+  repeat_interval: 4h
+
+receivers:
+  - name: slack-critical
+    slack_configs:
+      - api_url: '${webhook_url}'
+${channel_line}
+        send_resolved: true
+        icon_emoji: ':rotating_light:'
+        title: '[${GITHUB_REPOSITORY}] {{ .CommonLabels.alertname }}'
+        text: |-
+          {{ range .Alerts }}*{{ .Labels.alertname }}*: {{ .Annotations.description }}
+          {{ end }}
+EOF
+          kubectl create secret generic alertmanager-config \
+            --namespace monitoring \
+            --from-file=alertmanager.yaml=/tmp/alertmanager.yaml \
+            --dry-run=client -o yaml | kubectl apply -f -
+          rm -f /tmp/alertmanager.yaml
+          kubectl apply -f k8s/monitoring/prometheus/rbac.yaml
+          kubectl apply -f k8s/monitoring/prometheus/configmap.yaml
+          kubectl apply -f k8s/monitoring/prometheus/rules.yaml
+          kubectl apply -f k8s/monitoring/prometheus/service.yaml
+          kubectl apply -f k8s/monitoring/prometheus/statefulset.yaml
+          kubectl apply -f k8s/monitoring/prometheus/pdb.yaml
+          kubectl apply -f k8s/monitoring/prometheus/networkpolicy.yaml
+          kubectl apply -f k8s/monitoring/grafana/pvc.yaml
+          kubectl apply -f k8s/monitoring/grafana/configmap-datasources.yaml
+          kubectl apply -f k8s/monitoring/grafana/configmap-dashboard-providers.yaml
+          kubectl apply -f k8s/monitoring/grafana/dashboard-core.yaml
+          kubectl apply -f k8s/monitoring/grafana/deployment.yaml
+          kubectl apply -f k8s/monitoring/grafana/service.yaml
+          kubectl apply -f k8s/monitoring/grafana/pdb.yaml
+          kubectl apply -f k8s/monitoring/grafana/networkpolicy.yaml
+          kubectl apply -f k8s/monitoring/alertmanager/deployment.yaml
+          kubectl apply -f k8s/monitoring/alertmanager/service.yaml
+          kubectl apply -f k8s/monitoring/alertmanager/pdb.yaml
+          kubectl apply -f k8s/monitoring/alertmanager/networkpolicy.yaml
+          kubectl apply -f k8s/monitoring/networkpolicy-default-deny.yaml
+          kubectl apply -f k8s/monitoring/grafana/ingress.yaml
+          kubectl rollout status statefulset/prometheus -n monitoring --timeout=300s
+          kubectl rollout status deployment/alertmanager -n monitoring --timeout=300s
+          kubectl rollout status deployment/grafana -n monitoring --timeout=300s
+
       - name: Apply base Kubernetes manifests
         run: |
           kubectl apply -f k8s/redis/redis-deployment.yaml
