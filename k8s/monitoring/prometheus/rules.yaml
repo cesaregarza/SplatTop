@@ -1,0 +1,69 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: prometheus-rules
+  namespace: monitoring
+data:
+  critical-alerts.yaml: |
+    groups:
+      - name: splattop-critical
+        rules:
+          - alert: FastAPIDown
+            expr: sum(up{job="fastapi"}) == 0
+            for: 5m
+            labels:
+              severity: critical
+            annotations:
+              summary: FastAPI service is unreachable
+              description: Prometheus cannot scrape the FastAPI endpoints for 5 minutes.
+
+          - alert: FastAPIFiveHundreds
+            expr: |
+              sum(rate(fastapi_requests_total{status=~"5.."}[5m]))
+                /
+              sum(rate(fastapi_requests_total[5m])) > 0.05
+                and sum(rate(fastapi_requests_total[5m])) > 0.1
+            for: 10m
+            labels:
+              severity: critical
+            annotations:
+              summary: Elevated 5xx error rate detected on FastAPI
+              description: More than 5% of requests have failed with 5xx responses over the last 10 minutes.
+
+          - alert: FastAPIHighLatencyP95
+            expr: |
+              histogram_quantile(0.95, sum by (le) (rate(fastapi_request_duration_seconds_bucket[5m]))) > 1
+                and sum(rate(fastapi_requests_total[5m])) > 0.1
+            for: 10m
+            labels:
+              severity: warning
+            annotations:
+              summary: FastAPI P95 latency above 1s
+              description: 95th percentile request latency is above 1 second for 10 minutes.
+
+          - alert: CeleryTaskFailures
+            expr: increase(celery_task_failures_total[10m]) > 0
+            for: 10m
+            labels:
+              severity: critical
+            annotations:
+              summary: Celery task failures detected
+              description: One or more Celery tasks failed during the last 10 minutes.
+
+          - alert: CeleryWorkersStuck
+            expr: max(celery_tasks_in_progress) > 25
+            for: 15m
+            labels:
+              severity: warning
+            annotations:
+              summary: Celery workers stuck processing tasks
+              description: Over 25 Celery tasks remained in-flight for more than 15 minutes.
+
+          - alert: APIUsageQueueBacklog
+            expr: max(api_usage_queue_length) > 100
+            for: 15m
+            labels:
+              severity: warning
+            annotations:
+              summary: API usage queue backlog
+              description: api_usage_queue_length exceeded 100 items for 15 minutes; batch flusher may be stalled.
