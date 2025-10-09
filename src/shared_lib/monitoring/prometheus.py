@@ -7,10 +7,10 @@ from typing import Iterable, Iterator
 
 from prometheus_client import (
     CONTENT_TYPE_LATEST,
+    REGISTRY,
     Counter,
     Gauge,
     Histogram,
-    REGISTRY,
     generate_latest,
 )
 from prometheus_client.core import CounterMetricFamily, GaugeMetricFamily

@@ -12,14 +12,14 @@ from shared_lib.constants import (
     PLAYER_PUBSUB_CHANNEL,
     REGIONS,
 )
-from shared_lib.queries.player_queries import (
-    PLAYER_DATA_QUERY,
-    SEASON_RESULTS_QUERY,
-)
 from shared_lib.monitoring import (
     DATA_PULL_DURATION,
     DATA_PULL_ROWS,
     metrics_enabled,
+)
+from shared_lib.queries.player_queries import (
+    PLAYER_DATA_QUERY,
+    SEASON_RESULTS_QUERY,
 )
 
 logger = logging.getLogger(__name__)

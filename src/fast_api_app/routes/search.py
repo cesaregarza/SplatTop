@@ -5,7 +5,11 @@ from fastapi import APIRouter, HTTPException, Request
 
 from fast_api_app.connections import limiter, redis_conn, sqlite_cursor
 from shared_lib.constants import AUTOMATON_IS_VALID_REDIS_KEY
-from shared_lib.monitoring import SEARCH_LATENCY, SEARCH_RESULTS, metrics_enabled
+from shared_lib.monitoring import (
+    SEARCH_LATENCY,
+    SEARCH_RESULTS,
+    metrics_enabled,
+)
 
 router = APIRouter()
 logger = logging.getLogger(__name__)

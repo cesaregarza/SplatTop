@@ -10,17 +10,17 @@ from shared_lib.constants import (
     SEASON_RESULTS_REDIS_KEY,
     WEAPON_LEADERBOARD_PEAK_REDIS_KEY,
 )
+from shared_lib.monitoring import (
+    DATA_PULL_DURATION,
+    DATA_PULL_ROWS,
+    metrics_enabled,
+)
 from shared_lib.queries.leaderboard_queries import (
     LIVE_WEAPON_LEADERBOARD_QUERY,
     SEASON_RESULTS_QUERY,
     WEAPON_LEADERBOARD_QUERY,
 )
 from shared_lib.utils import get_all_alt_kits
-from shared_lib.monitoring import (
-    DATA_PULL_DURATION,
-    DATA_PULL_ROWS,
-    metrics_enabled,
-)
 
 logger = logging.getLogger(__name__)
 
@@ -149,9 +149,9 @@ def fetch_season_results() -> pd.DataFrame:
         orjson.dumps(season_results.to_dict(orient="records")),
     )
     if metrics_enabled():
-        DATA_PULL_DURATION.labels(
-            task="celery.season_results.fetch"
-        ).observe(perf_counter() - start)
+        DATA_PULL_DURATION.labels(task="celery.season_results.fetch").observe(
+            perf_counter() - start
+        )
         DATA_PULL_ROWS.labels(task="celery.season_results.fetch").set(
             len(season_results)
         )

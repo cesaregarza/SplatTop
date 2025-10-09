@@ -38,10 +38,6 @@ def test_metrics_endpoint_includes_celery_state(client, fake_redis):
     assert metrics_resp.status_code == 200
     body = metrics_resp.text
 
-    assert (
-        f'celery_task_executions_total{{task="{task_name}"}} 3.0' in body
-    )
-    assert (
-        f'celery_task_failures_total{{task="{task_name}"}} 1.0' in body
-    )
+    assert f'celery_task_executions_total{{task="{task_name}"}} 3.0' in body
+    assert f'celery_task_failures_total{{task="{task_name}"}} 1.0' in body
     assert "celery_tasks_in_progress" in body

@@ -32,7 +32,9 @@ def setup_metrics(app: FastAPI) -> None:
     app.add_middleware(PrometheusMiddleware)
 
     # Avoid registering the endpoint twice when the app reloads in dev.
-    if not any(getattr(route, "path", None) == "/metrics" for route in app.routes):
+    if not any(
+        getattr(route, "path", None) == "/metrics" for route in app.routes
+    ):
         app.add_api_route(
             "/metrics",
             metrics_endpoint,

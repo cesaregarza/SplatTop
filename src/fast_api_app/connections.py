@@ -156,9 +156,9 @@ class ConnectionManager:
             if metrics_enabled():
                 duration = perf_counter() - start
                 WEBSOCKET_EVENTS.labels(event="broadcast").inc(recipients)
-                WEBSOCKET_BROADCAST_DURATION.labels(player_id=player_id).observe(
-                    duration
-                )
+                WEBSOCKET_BROADCAST_DURATION.labels(
+                    player_id=player_id
+                ).observe(duration)
                 WEBSOCKET_BYTES_SENT.labels(player_id=player_id).inc(
                     len(compressed_message) * recipients
                 )

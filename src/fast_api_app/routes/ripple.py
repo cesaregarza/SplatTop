@@ -410,9 +410,7 @@ async def get_ripple_raw(
             ts_ms=ts_ms,
         )
     if metrics_enabled():
-        RIPPLE_QUERY_DURATION.labels(kind="raw").observe(
-            perf_counter() - start
-        )
+        RIPPLE_QUERY_DURATION.labels(kind="raw").observe(perf_counter() - start)
 
     items: List[Dict[str, Any]] = [dict(r) for r in rows]
     response_payload = {

@@ -396,10 +396,10 @@ def app(fake_redis, monkeypatch):
     # Import modules
     import fast_api_app.app as app_mod
     import fast_api_app.auth as auth_mod
+    import fast_api_app.connections as conn_mod
     import fast_api_app.middleware as mw_mod
     import fast_api_app.routes.admin_tokens as admin_mod
     import fast_api_app.routes.ripple_public as ripple_public_mod
-    import fast_api_app.connections as conn_mod
 
     # Patch Redis in all modules that captured it at import time
     monkeypatch.setattr(app_mod, "redis_conn", fake_redis, raising=False)

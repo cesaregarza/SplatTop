@@ -22,9 +22,9 @@ from shared_lib.constants import (
     RIPPLE_SNAPSHOT_LOCK_KEY,
     RIPPLE_STABLE_DELTAS_KEY,
     RIPPLE_STABLE_LATEST_KEY,
+    RIPPLE_STABLE_META_KEY,
     RIPPLE_STABLE_PREVIOUS_KEY,
     RIPPLE_STABLE_PREVIOUS_META_KEY,
-    RIPPLE_STABLE_META_KEY,
     RIPPLE_STABLE_STATE_KEY,
 )
 
@@ -884,6 +884,7 @@ def test_refresh_ripple_snapshots_uses_preserved_payload_when_latest_missing(
 
     meta = orjson.loads(fake_redis.get(RIPPLE_STABLE_PREVIOUS_META_KEY))
     assert meta["source"] == "redis_previous"
+
 
 def test_refresh_ripple_snapshots_backfills_previous_payload(monkeypatch):
     fake_redis = FakeRedis()

@@ -46,9 +46,7 @@ class BackgroundRunner:
                 TABLE_REFRESH_DURATION.labels(manager.table_name).observe(
                     duration
                 )
-                TABLE_REFRESH_TOTAL.labels(
-                    manager.table_name, outcome
-                ).inc()
+                TABLE_REFRESH_TOTAL.labels(manager.table_name, outcome).inc()
                 TABLE_REFRESH_SLEEP_SECONDS.labels(manager.table_name).set(
                     float(sleep_time)
                 )

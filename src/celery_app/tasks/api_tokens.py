@@ -243,7 +243,9 @@ def flush_api_usage(batch_size: int | None = None) -> int:
                                     )
                                     redis_conn.lpush(dlq_key, json.dumps(e))
                                     if metrics_enabled():
-                                        API_USAGE_EVENTS.labels(result="dlq").inc()
+                                        API_USAGE_EVENTS.labels(
+                                            result="dlq"
+                                        ).inc()
                                 else:
                                     redis_conn.rpush(
                                         API_USAGE_QUEUE_KEY, json.dumps(e)
@@ -270,7 +272,9 @@ def flush_api_usage(batch_size: int | None = None) -> int:
                                     API_USAGE_QUEUE_KEY, json.dumps(e)
                                 )
                                 if metrics_enabled():
-                                    API_USAGE_EVENTS.labels(result="requeued").inc()
+                                    API_USAGE_EVENTS.labels(
+                                        result="requeued"
+                                    ).inc()
                             continue
                     else:
                         # No token id; requeue with attempts or DLQ

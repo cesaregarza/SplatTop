@@ -13,13 +13,13 @@ from shared_lib.constants import (
     MODES_SNAKE_CASE,
     REGIONS,
 )
-from shared_lib.queries.front_page_queries import LEADERBOARD_MAIN_QUERY
-from shared_lib.utils import get_badge_image, get_banner_image, get_weapon_image
 from shared_lib.monitoring import (
     DATA_PULL_DURATION,
     DATA_PULL_ROWS,
     metrics_enabled,
 )
+from shared_lib.queries.front_page_queries import LEADERBOARD_MAIN_QUERY
+from shared_lib.utils import get_badge_image, get_banner_image, get_weapon_image
 
 logger = logging.getLogger(__name__)
 

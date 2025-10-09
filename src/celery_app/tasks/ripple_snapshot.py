@@ -18,10 +18,10 @@ from shared_lib.constants import (
     RIPPLE_SNAPSHOT_LOCK_KEY,
     RIPPLE_STABLE_DELTAS_KEY,
     RIPPLE_STABLE_LATEST_KEY,
-    RIPPLE_STABLE_PREVIOUS_KEY,
-    RIPPLE_STABLE_PREVIOUS_META_KEY,
     RIPPLE_STABLE_META_KEY,
     RIPPLE_STABLE_PERCENTILES_KEY,
+    RIPPLE_STABLE_PREVIOUS_KEY,
+    RIPPLE_STABLE_PREVIOUS_META_KEY,
     RIPPLE_STABLE_STATE_KEY,
 )
 from shared_lib.queries import ripple_queries
@@ -197,7 +197,11 @@ def _persist_previous_payload(
     preserved_at_ms: int,
     source: str | None,
 ) -> None:
-    if not payload or not isinstance(payload, Mapping) or not payload.get("data"):
+    if (
+        not payload
+        or not isinstance(payload, Mapping)
+        or not payload.get("data")
+    ):
         redis_conn.delete(RIPPLE_STABLE_PREVIOUS_KEY)
         redis_conn.delete(RIPPLE_STABLE_PREVIOUS_META_KEY)
         return

@@ -12,11 +12,11 @@ from slowapi.errors import RateLimitExceeded
 from fast_api_app.background_tasks import background_runner
 from fast_api_app.connections import celery, limiter
 from fast_api_app.feature_flags import is_comp_leaderboard_enabled
+from fast_api_app.metrics import setup_metrics
 from fast_api_app.middleware import (
     APITokenRateLimitMiddleware,
     APITokenUsageMiddleware,
 )
-from fast_api_app.metrics import setup_metrics
 from fast_api_app.pubsub import start_pubsub_listener
 from fast_api_app.routes import (
     admin_tokens_router,
