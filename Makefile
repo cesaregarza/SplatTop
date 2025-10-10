@@ -77,8 +77,9 @@ deploy-core: ensure-kind
 	kubectl apply -f k8s/monitoring/prometheus/statefulset.yaml
 	kubectl apply -f k8s/monitoring/prometheus/service.yaml
 	kubectl apply -f k8s/monitoring/prometheus/pdb.yaml
-	kubectl get statefulset/prometheus -n monitoring >/dev/null 2>&1 && \
-	  kubectl rollout restart statefulset/prometheus -n monitoring || true
+	if kubectl get statefulset/prometheus -n monitoring >/dev/null 2>&1; then \
+	  kubectl rollout restart statefulset/prometheus -n monitoring; \
+	fi
 	kubectl rollout status statefulset/prometheus -n monitoring --timeout=300s
 	kubectl apply -f k8s/monitoring/grafana/pvc.yaml
 	kubectl apply -f k8s/monitoring/grafana/configmap-datasources.yaml
@@ -94,11 +95,13 @@ deploy-core: ensure-kind
 	kubectl apply -f k8s/monitoring/alertmanager/pdb.yaml
 	kubectl apply -f k8s/monitoring/alertmanager/networkpolicy.yaml
 	kubectl apply -f k8s/monitoring/networkpolicy-default-deny.yaml
-	kubectl get deployment/alertmanager -n monitoring >/dev/null 2>&1 && \
-	  kubectl rollout restart deployment/alertmanager -n monitoring || true
+	if kubectl get deployment/alertmanager -n monitoring >/dev/null 2>&1; then \
+	  kubectl rollout restart deployment/alertmanager -n monitoring; \
+	fi
 	kubectl rollout status deployment/alertmanager -n monitoring --timeout=300s
-	kubectl get deployment/grafana -n monitoring >/dev/null 2>&1 && \
-	  kubectl rollout restart deployment/grafana -n monitoring || true
+	if kubectl get deployment/grafana -n monitoring >/dev/null 2>&1; then \
+	  kubectl rollout restart deployment/grafana -n monitoring; \
+	fi
 	kubectl rollout status deployment/grafana -n monitoring --timeout=300s
 	kubectl apply -f k8s/monitoring/grafana/ingress-dev.yaml
 	kubectl apply -f k8s/redis/redis-deployment.yaml

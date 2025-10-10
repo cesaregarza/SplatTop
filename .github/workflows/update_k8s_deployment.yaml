@@ -221,6 +221,36 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
+      - name: Validate Prometheus config
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+from pathlib import Path
+
+configmap = Path("k8s/monitoring/prometheus/configmap.yaml").read_text().splitlines()
+start = None
+for idx, line in enumerate(configmap):
+    if line.strip() == "prometheus.yml: |":
+        start = idx + 1
+        break
+
+if start is None:
+    raise SystemExit("prometheus.yml entry not found in configmap")
+
+embedded = []
+for line in configmap[start:]:
+    if line.startswith("    "):
+        embedded.append(line[4:])
+    elif line.strip() == "":
+        embedded.append("")
+    else:
+        break
+
+Path("prometheus_tmp.yml").write_text("\n".join(embedded).strip() + "\n")
+PY
+          docker run --rm -v "$PWD/prometheus_tmp.yml":/etc/prometheus/prometheus.yml prom/prometheus:v2.52.0 promtool check config /etc/prometheus/prometheus.yml
+          rm -f prometheus_tmp.yml
+
       - name: Install doctl
         uses: digitalocean/action-doctl@v2
         with:
@@ -304,6 +334,10 @@ jobs:
           fi
           discord_url="${ALERTMANAGER_DISCORD_WEBHOOK_URL:-}"
           slack_url="${ALERTMANAGER_SLACK_WEBHOOK_URL:-}"
+          if [ -n "${discord_url}" ] && [ -n "${slack_url}" ]; then
+            echo "Provide only one Alertmanager webhook URL (Discord or Slack)" >&2
+            exit 1
+          fi
           channel="${ALERTMANAGER_SLACK_CHANNEL:-#alerts}"
           if [ -z "${discord_url}" ] && [ -z "${slack_url}" ]; then
             echo "Alertmanager webhook not provided" >&2
