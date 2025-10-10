@@ -32,6 +32,8 @@ spec:
               mountPath: /etc/alertmanager
             - name: data
               mountPath: /alertmanager
+            - name: tmp
+              mountPath: /tmp
           readinessProbe:
             httpGet:
               path: /-/ready
@@ -46,7 +48,7 @@ spec:
             periodSeconds: 30
           securityContext:
             allowPrivilegeEscalation: false
-            readOnlyRootFilesystem: false
+            readOnlyRootFilesystem: true
             runAsGroup: 65534
             runAsNonRoot: true
             runAsUser: 65534
@@ -65,4 +67,6 @@ spec:
           secret:
             secretName: alertmanager-config
         - name: data
+          emptyDir: {}
+        - name: tmp
           emptyDir: {}
