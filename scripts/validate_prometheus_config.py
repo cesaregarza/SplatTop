@@ -2,6 +2,7 @@
 """Validate embedded Prometheus configuration and rules using promtool."""
 from __future__ import annotations
 
+import os
 import subprocess
 import sys
 import tempfile
@@ -102,9 +103,11 @@ def run_promtool_config(config_text: str) -> None:
                 "docker",
                 "run",
                 "--rm",
+                "-u",
+                f"{os.getuid()}:{os.getgid()}",
                 "--entrypoint=promtool",
                 "-v",
-                f"{cfg_dir}:/etc/prometheus/conf:ro",
+                f"{cfg_dir}:/etc/prometheus/conf",
                 PROMTOOL_IMAGE,
                 "check",
                 "config",
@@ -126,9 +129,11 @@ def run_promtool_rules(rule_files: dict[str, str]) -> None:
                 "docker",
                 "run",
                 "--rm",
+                "-u",
+                f"{os.getuid()}:{os.getgid()}",
                 "--entrypoint=promtool",
                 "-v",
-                f"{rules_dir}:/etc/prometheus/rules:ro",
+                f"{rules_dir}:/etc/prometheus/rules",
                 PROMTOOL_IMAGE,
                 "check",
                 "rules",
