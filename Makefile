@@ -77,7 +77,8 @@ deploy-core: ensure-kind
 	kubectl apply -f k8s/monitoring/prometheus/statefulset.yaml
 	kubectl apply -f k8s/monitoring/prometheus/service.yaml
 	kubectl apply -f k8s/monitoring/prometheus/pdb.yaml
-	kubectl rollout restart statefulset/prometheus -n monitoring
+	kubectl get statefulset/prometheus -n monitoring >/dev/null 2>&1 && \
+	  kubectl rollout restart statefulset/prometheus -n monitoring || true
 	kubectl rollout status statefulset/prometheus -n monitoring --timeout=300s
 	kubectl apply -f k8s/monitoring/grafana/pvc.yaml
 	kubectl apply -f k8s/monitoring/grafana/configmap-datasources.yaml
@@ -93,9 +94,11 @@ deploy-core: ensure-kind
 	kubectl apply -f k8s/monitoring/alertmanager/pdb.yaml
 	kubectl apply -f k8s/monitoring/alertmanager/networkpolicy.yaml
 	kubectl apply -f k8s/monitoring/networkpolicy-default-deny.yaml
-	kubectl rollout restart deployment/alertmanager -n monitoring
+	kubectl get deployment/alertmanager -n monitoring >/dev/null 2>&1 && \
+	  kubectl rollout restart deployment/alertmanager -n monitoring || true
 	kubectl rollout status deployment/alertmanager -n monitoring --timeout=300s
-	kubectl rollout restart deployment/grafana -n monitoring
+	kubectl get deployment/grafana -n monitoring >/dev/null 2>&1 && \
+	  kubectl rollout restart deployment/grafana -n monitoring || true
 	kubectl rollout status deployment/grafana -n monitoring --timeout=300s
 	kubectl apply -f k8s/monitoring/grafana/ingress-dev.yaml
 	kubectl apply -f k8s/redis/redis-deployment.yaml

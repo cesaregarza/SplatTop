@@ -22,7 +22,7 @@ data:
               sum(rate(fastapi_requests_total{status=~"5.."}[5m]))
                 /
               sum(rate(fastapi_requests_total[5m])) > 0.05
-                and sum(rate(fastapi_requests_total[5m])) > 0.1
+                and sum(rate(fastapi_requests_total[5m])) >= 1
             for: 10m
             labels:
               severity: critical
@@ -43,7 +43,7 @@ data:
 
           - alert: CeleryTaskFailures
             expr: increase(celery_task_failures_total[10m]) > 0
-            for: 10m
+            for: 5m
             labels:
               severity: critical
             annotations:
@@ -67,3 +67,13 @@ data:
             annotations:
               summary: API usage queue backlog
               description: api_usage_queue_length exceeded 100 items for 15 minutes; batch flusher may be stalled.
+
+          - alert: PrometheusTSDBCapacityHigh
+            expr: |
+              sum(prometheus_tsdb_storage_blocks_bytes{job="prometheus"}) > 1.6e10
+            for: 15m
+            labels:
+              severity: warning
+            annotations:
+              summary: Prometheus TSDB nearing capacity
+              description: Prometheus TSDB storage usage exceeded ~80% of the 20Gi PVC for 15 minutes; consider scaling storage or reducing retention.

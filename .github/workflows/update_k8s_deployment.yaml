@@ -319,8 +319,11 @@ jobs:
             --namespace monitoring \
             --from-literal=auth="${GRAFANA_BASIC_AUTH_HTPASSWD}" \
             --dry-run=client -o yaml | kubectl apply -f -
+          umask 077
+          tmpfile=$(mktemp)
+          trap 'rm -f "$tmpfile"' EXIT
           if [ -n "${discord_url}" ]; then
-            cat <<EOF >/tmp/alertmanager.yaml
+            cat <<EOF >"${tmpfile}"
 global:
   resolve_timeout: 5m
 
@@ -342,7 +345,7 @@ EOF
             if [ -n "${channel}" ]; then
               channel_line="        channel: '${channel}'"
             fi
-            cat <<EOF >/tmp/alertmanager.yaml
+            cat <<EOF >"${tmpfile}"
 global:
   resolve_timeout: 5m
 
@@ -368,9 +371,8 @@ EOF
           fi
           kubectl create secret generic alertmanager-config \
             --namespace monitoring \
-            --from-file=alertmanager.yaml=/tmp/alertmanager.yaml \
+            --from-file=alertmanager.yaml="${tmpfile}" \
             --dry-run=client -o yaml | kubectl apply -f -
-          rm -f /tmp/alertmanager.yaml
           kubectl apply -f k8s/monitoring/prometheus/rbac.yaml
           kubectl apply -f k8s/monitoring/prometheus/configmap.yaml
           kubectl apply -f k8s/monitoring/prometheus/rules.yaml
@@ -391,10 +393,10 @@ EOF
           kubectl apply -f k8s/monitoring/alertmanager/pdb.yaml
           kubectl apply -f k8s/monitoring/alertmanager/networkpolicy.yaml
           kubectl apply -f k8s/monitoring/networkpolicy-default-deny.yaml
-          kubectl apply -f k8s/monitoring/grafana/ingress.yaml
           kubectl rollout status statefulset/prometheus -n monitoring --timeout=300s
           kubectl rollout status deployment/alertmanager -n monitoring --timeout=300s
           kubectl rollout status deployment/grafana -n monitoring --timeout=300s
+          kubectl apply -f k8s/monitoring/grafana/ingress.yaml
 
       - name: Apply base Kubernetes manifests
         run: |

@@ -19,3 +19,6 @@ spec:
     - to:
         - ipBlock:
             cidr: 0.0.0.0/0
+      ports:
+        - protocol: TCP
+          port: 443
