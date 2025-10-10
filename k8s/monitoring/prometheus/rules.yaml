@@ -85,3 +85,21 @@ data:
             annotations:
               summary: Prometheus TSDB nearing capacity
               description: PVC usage for Prometheus exceeded 85% for 15 minutes; consider scaling storage or reducing retention.
+
+          - alert: AlertmanagerDown
+            expr: sum(up{job="alertmanager"}) == 0
+            for: 5m
+            labels:
+              severity: critical
+            annotations:
+              summary: Alertmanager is unreachable
+              description: Prometheus could not scrape the Alertmanager endpoints for 5 minutes.
+
+          - alert: GrafanaDown
+            expr: sum(up{job="grafana"}) == 0
+            for: 5m
+            labels:
+              severity: warning
+            annotations:
+              summary: Grafana is unreachable
+              description: Grafana metrics endpoint has been unreachable for 5 minutes.
