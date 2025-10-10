@@ -570,6 +570,15 @@ wheels = [
 ]
 
 [[package]]
+name = "htpasswd"
+version = "2.3"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "orderedmultidict" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/b9/2f/8b76f8b77125b75c3532966f3291f9e8787268be65fc4c9694887cba9375/htpasswd-2.3.tar.gz", hash = "sha256:565f0b647a32549c663ccfddd1f501891daaf29242bbc6174bdd448120383e3d", size = 3837, upload-time = "2015-05-03T00:04:43.749Z" }
+
+[[package]]
 name = "httpcore"
 version = "1.0.6"
 source = { registry = "https://pypi.org/simple" }
@@ -827,6 +836,18 @@ wheels = [
     { url = "https://files.pythonhosted.org/packages/df/a0/4e0f14d847cfc2a633a1c8621d00724f3206cfeddeb66d35698c4e2cf3d2/numpy-1.26.4-cp311-cp311-musllinux_1_1_x86_64.whl", hash = "sha256:60dedbb91afcbfdc9bc0b1f3f402804070deed7392c23eb7a7f07fa857868e8a", size = 18093567, upload-time = "2024-02-05T23:54:11.696Z" },
     { url = "https://files.pythonhosted.org/packages/d2/b7/a734c733286e10a7f1a8ad1ae8c90f2d33bf604a96548e0a4a3a6739b468/numpy-1.26.4-cp311-cp311-win32.whl", hash = "sha256:1af303d6b2210eb850fcf03064d364652b7120803a0b872f5211f5234b399f20", size = 5968812, upload-time = "2024-02-05T23:54:26.453Z" },
     { url = "https://files.pythonhosted.org/packages/3f/6b/5610004206cf7f8e7ad91c5a85a8c71b2f2f8051a0c0c4d5916b76d6cbb2/numpy-1.26.4-cp311-cp311-win_amd64.whl", hash = "sha256:cd25bcecc4974d09257ffcd1f098ee778f7834c3ad767fe5db785be9a4aa9cb2", size = 15811913, upload-time = "2024-02-05T23:54:53.933Z" },
+]
+
+[[package]]
+name = "orderedmultidict"
+version = "1.0.1"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "six" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/53/4e/3823a27d764bb8388711f4cb6f24e58453e92d6928f4163fdb01e3a3789f/orderedmultidict-1.0.1.tar.gz", hash = "sha256:04070bbb5e87291cc9bfa51df413677faf2141c73c61d2a5f7b26bea3cd882ad", size = 20706, upload-time = "2019-07-10T20:11:47.305Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/04/16/5e95c70bda8fe6ea715005c0db8e602400bdba50ae3c72cb380eba551289/orderedmultidict-1.0.1-py2.py3-none-any.whl", hash = "sha256:43c839a17ee3cdd62234c47deca1a8508a3f2ca1d0678a3bf791c87cf84adbf3", size = 11699, upload-time = "2019-07-10T20:11:45.622Z" },
 ]
 
 [[package]]
@@ -1291,7 +1312,7 @@ wheels = [
 
 [[package]]
 name = "splat-top"
-version = "0.1.0"
+version = "0.2.0"
 source = { editable = "." }
 dependencies = [
     { name = "asyncpg" },
@@ -1299,6 +1320,7 @@ dependencies = [
     { name = "celery" },
     { name = "fastapi" },
     { name = "gunicorn" },
+    { name = "htpasswd" },
     { name = "httpx" },
     { name = "numpy" },
     { name = "orjson" },
@@ -1333,6 +1355,7 @@ requires-dist = [
     { name = "celery", specifier = ">=5.3.6,<6" },
     { name = "fastapi", specifier = ">=0.110.2,<0.111" },
     { name = "gunicorn", specifier = ">=22.0.0,<23" },
+    { name = "htpasswd", specifier = ">=2.3" },
     { name = "httpx", specifier = ">=0.27.2,<0.28" },
     { name = "numpy", specifier = ">=1.26.0,<2" },
     { name = "orjson", specifier = ">=3.10.1,<4" },
