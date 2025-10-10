@@ -120,9 +120,12 @@ def run_promtool_config(config_text: str) -> None:
 def run_promtool_rules(rule_files: dict[str, str]) -> None:
     with tempfile.TemporaryDirectory() as tempdir:
         rules_dir = Path(tempdir)
-        for name, contents in rule_files.items():
+        container_files: list[str] = []
+        for name, contents in sorted(rule_files.items()):
             safe_name = Path(name).name
-            (rules_dir / safe_name).write_text(contents)
+            target = rules_dir / safe_name
+            target.write_text(contents)
+            container_files.append(f"/etc/prometheus/rules/{safe_name}")
 
         subprocess.run(
             [
@@ -137,7 +140,7 @@ def run_promtool_rules(rule_files: dict[str, str]) -> None:
                 PROMTOOL_IMAGE,
                 "check",
                 "rules",
-                "/etc/prometheus/rules",
+                *container_files,
             ],
             check=True,
         )
