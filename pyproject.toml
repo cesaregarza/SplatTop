@@ -1,6 +1,6 @@
 [project]
 name = "splat_top"
-version = "0.1.0"
+version = "0.2.0"
 description = ""
 authors = [{ name = "Cesar E Garza", email = "cesar@cegarza.com" }]
 requires-python = ">=3.10.0, <3.12"
@@ -24,6 +24,7 @@ dependencies = [
     "requests>=2.31.0,<3",
     "numpy>=1.26.0,<2",
     "prometheus-client>=0.20.0,<1",
+    "htpasswd>=2.3",
 ]
 
 [project.scripts]

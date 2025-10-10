@@ -13,6 +13,11 @@ spec:
       labels:
         app: grafana
     spec:
+      securityContext:
+        fsGroup: 472
+        runAsNonRoot: true
+        seccompProfile:
+          type: RuntimeDefault
       containers:
         - name: grafana
           image: grafana/grafana:10.4.3
@@ -32,6 +37,8 @@ spec:
                   key: admin-password
             - name: GF_AUTH_ANONYMOUS_ENABLED
               value: "false"
+            - name: GF_METRICS_ENABLED
+              value: "true"
           volumeMounts:
             - name: grafana-storage
               mountPath: /var/lib/grafana
@@ -41,8 +48,27 @@ spec:
             - name: grafana-dashboard-providers
               mountPath: /etc/grafana/provisioning/dashboards
               readOnly: true
-            - name: grafana-dashboard-definitions
-              mountPath: /var/lib/grafana/dashboards/auto
+            - name: grafana-dashboard-core
+              mountPath: /var/lib/grafana/dashboards/auto/core
+              readOnly: true
+            - name: grafana-tmp
+              mountPath: /tmp
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            runAsGroup: 472
+            runAsNonRoot: true
+            runAsUser: 472
+            capabilities:
+              drop:
+                - ALL
+          resources:
+            requests:
+              cpu: 100m
+              memory: 256Mi
+            limits:
+              cpu: 500m
+              memory: 512Mi
           readinessProbe:
             httpGet:
               path: /api/health
@@ -65,5 +91,8 @@ spec:
         - name: grafana-dashboard-providers
           configMap:
             name: grafana-dashboard-providers
-        - name: grafana-dashboard-definitions
+        - name: grafana-dashboard-core
+          configMap:
+            name: grafana-dashboard-core
+        - name: grafana-tmp
           emptyDir: {}

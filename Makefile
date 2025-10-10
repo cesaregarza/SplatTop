@@ -69,20 +69,39 @@ stop-port-forward:
 deploy-core: ensure-kind
 	kubectl apply -f k8s/monitoring/namespace.yaml
 	kubectl apply -f k8s/monitoring/grafana/secret-dev.yaml
+	kubectl apply -f k8s/monitoring/alertmanager/secret-dev.yaml
 	kubectl apply -f k8s/secrets.yaml
 	kubectl apply -f k8s/monitoring/prometheus/rbac.yaml
-	kubectl apply -f k8s/monitoring/prometheus/pvc.yaml
 	kubectl apply -f k8s/monitoring/prometheus/configmap.yaml
-	kubectl apply -f k8s/monitoring/prometheus/deployment.yaml
+	kubectl apply -f k8s/monitoring/prometheus/rules.yaml
+	kubectl apply -f k8s/monitoring/prometheus/statefulset.yaml
 	kubectl apply -f k8s/monitoring/prometheus/service.yaml
-	kubectl rollout restart deployment/prometheus -n monitoring
-	kubectl rollout status deployment/prometheus -n monitoring --timeout=300s
+	kubectl apply -f k8s/monitoring/prometheus/pdb.yaml
+	if kubectl get statefulset/prometheus -n monitoring >/dev/null 2>&1; then \
+	  kubectl rollout restart statefulset/prometheus -n monitoring; \
+	fi
+	kubectl rollout status statefulset/prometheus -n monitoring --timeout=300s
 	kubectl apply -f k8s/monitoring/grafana/pvc.yaml
 	kubectl apply -f k8s/monitoring/grafana/configmap-datasources.yaml
 	kubectl apply -f k8s/monitoring/grafana/configmap-dashboard-providers.yaml
+	kubectl apply -f k8s/monitoring/grafana/dashboard-core.yaml
 	kubectl apply -f k8s/monitoring/grafana/deployment.yaml
 	kubectl apply -f k8s/monitoring/grafana/service.yaml
-	kubectl rollout restart deployment/grafana -n monitoring
+	kubectl apply -f k8s/monitoring/grafana/pdb.yaml
+	kubectl apply -f k8s/monitoring/grafana/networkpolicy.yaml
+	kubectl apply -f k8s/monitoring/prometheus/networkpolicy.yaml
+	kubectl apply -f k8s/monitoring/alertmanager/deployment.yaml
+	kubectl apply -f k8s/monitoring/alertmanager/service.yaml
+	kubectl apply -f k8s/monitoring/alertmanager/pdb.yaml
+	kubectl apply -f k8s/monitoring/alertmanager/networkpolicy.yaml
+	kubectl apply -f k8s/monitoring/networkpolicy-default-deny.yaml
+	if kubectl get deployment/alertmanager -n monitoring >/dev/null 2>&1; then \
+	  kubectl rollout restart deployment/alertmanager -n monitoring; \
+	fi
+	kubectl rollout status deployment/alertmanager -n monitoring --timeout=300s
+	if kubectl get deployment/grafana -n monitoring >/dev/null 2>&1; then \
+	  kubectl rollout restart deployment/grafana -n monitoring; \
+	fi
 	kubectl rollout status deployment/grafana -n monitoring --timeout=300s
 	kubectl apply -f k8s/monitoring/grafana/ingress-dev.yaml
 	kubectl apply -f k8s/redis/redis-deployment.yaml
@@ -118,11 +137,19 @@ _undeploy-core-base:
 	kubectl delete -f k8s/monitoring/grafana/service.yaml || true
 	kubectl delete -f k8s/monitoring/grafana/deployment.yaml || true
 	kubectl delete -f k8s/monitoring/grafana/configmap-dashboard-providers.yaml || true
+	kubectl delete -f k8s/monitoring/grafana/dashboard-core.yaml || true
 	kubectl delete -f k8s/monitoring/grafana/configmap-datasources.yaml || true
 	kubectl delete -f k8s/monitoring/prometheus/service.yaml || true
-	kubectl delete -f k8s/monitoring/prometheus/deployment.yaml || true
+	kubectl delete -f k8s/monitoring/prometheus/rules.yaml || true
+	kubectl delete -f k8s/monitoring/prometheus/statefulset.yaml || true
+	kubectl delete -f k8s/monitoring/prometheus/pdb.yaml || true
+	kubectl delete -f k8s/monitoring/prometheus/networkpolicy.yaml || true
 	kubectl delete -f k8s/monitoring/prometheus/configmap.yaml || true
 	kubectl delete -f k8s/monitoring/prometheus/rbac.yaml || true
+	kubectl delete -f k8s/monitoring/alertmanager/networkpolicy.yaml || true
+	kubectl delete -f k8s/monitoring/alertmanager/pdb.yaml || true
+	kubectl delete -f k8s/monitoring/alertmanager/service.yaml || true
+	kubectl delete -f k8s/monitoring/alertmanager/deployment.yaml || true
 	kubectl delete -f k8s/redis/redis-deployment.yaml || true
 	kubectl delete -f k8s/redis/redis-service.yaml || true
 	kubectl delete -f k8s/fast-api/fast-api-deployment-dev.yaml || true
@@ -133,11 +160,13 @@ _undeploy-core-base:
 	kubectl delete -f k8s/react/react-service-dev.yaml || true
 	kubectl delete -f k8s/splatgpt/splatgpt-deployment-dev.yaml || true
 	kubectl delete -f k8s/splatgpt/splatgpt-service.yaml || true
+	kubectl delete -f k8s/monitoring/grafana/networkpolicy.yaml || true
+	kubectl delete -f k8s/monitoring/networkpolicy-default-deny.yaml || true
+	kubectl delete -f k8s/monitoring/alertmanager/secret-dev.yaml || true
 
 .PHONY: _undeploy-core-persistent
 _undeploy-core-persistent:
 	kubectl delete -f k8s/monitoring/grafana/pvc.yaml || true
-	kubectl delete -f k8s/monitoring/prometheus/pvc.yaml || true
 	kubectl delete -f k8s/monitoring/namespace.yaml || true
 
 .PHONY: undeploy-core
