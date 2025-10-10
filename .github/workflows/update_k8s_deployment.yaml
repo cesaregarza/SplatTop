@@ -222,34 +222,7 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Validate Prometheus config
-        run: |
-          set -euo pipefail
-          python3 - <<'PY'
-from pathlib import Path
-
-configmap = Path("k8s/monitoring/prometheus/configmap.yaml").read_text().splitlines()
-start = None
-for idx, line in enumerate(configmap):
-    if line.strip() == "prometheus.yml: |":
-        start = idx + 1
-        break
-
-if start is None:
-    raise SystemExit("prometheus.yml entry not found in configmap")
-
-embedded = []
-for line in configmap[start:]:
-    if line.startswith("    "):
-        embedded.append(line[4:])
-    elif line.strip() == "":
-        embedded.append("")
-    else:
-        break
-
-Path("prometheus_tmp.yml").write_text("\n".join(embedded).strip() + "\n")
-PY
-          docker run --rm -v "$PWD/prometheus_tmp.yml":/etc/prometheus/prometheus.yml prom/prometheus:v2.52.0 promtool check config /etc/prometheus/prometheus.yml
-          rm -f prometheus_tmp.yml
+        run: python3 scripts/validate_prometheus_config.py
 
       - name: Install doctl
         uses: digitalocean/action-doctl@v2
@@ -335,8 +308,8 @@ PY
           discord_url="${ALERTMANAGER_DISCORD_WEBHOOK_URL:-}"
           slack_url="${ALERTMANAGER_SLACK_WEBHOOK_URL:-}"
           if [ -n "${discord_url}" ] && [ -n "${slack_url}" ]; then
-            echo "Provide only one Alertmanager webhook URL (Discord or Slack)" >&2
-            exit 1
+            echo "Both Alertmanager webhooks provided; defaulting to Discord" >&2
+            slack_url=""
           fi
           channel="${ALERTMANAGER_SLACK_CHANNEL:-#alerts}"
           if [ -z "${discord_url}" ] && [ -z "${slack_url}" ]; then
@@ -357,51 +330,52 @@ PY
           tmpfile=$(mktemp)
           trap 'rm -f "$tmpfile"' EXIT
           if [ -n "${discord_url}" ]; then
-            cat <<EOF >"${tmpfile}"
-global:
-  resolve_timeout: 5m
-
-route:
-  receiver: discord-critical
-  group_by: ['alertname']
-  group_wait: 30s
-  group_interval: 5m
-  repeat_interval: 4h
-
-receivers:
-  - name: discord-critical
-    discord_configs:
-      - webhook_url: '${discord_url}'
-        send_resolved: true
-EOF
+            {
+              printf '%s\n' \
+                "global:" \
+                "  resolve_timeout: 5m" \
+                "" \
+                "route:" \
+                "  receiver: discord-critical" \
+                "  group_by: ['alertname']" \
+                "  group_wait: 30s" \
+                "  group_interval: 5m" \
+                "  repeat_interval: 4h" \
+                "" \
+                "receivers:" \
+                "  - name: discord-critical" \
+                "    discord_configs:" \
+                "      - webhook_url: '${discord_url}'" \
+                "        send_resolved: true"
+            } >"${tmpfile}"
           else
-            channel_line=""
-            if [ -n "${channel}" ]; then
-              channel_line="        channel: '${channel}'"
-            fi
-            cat <<EOF >"${tmpfile}"
-global:
-  resolve_timeout: 5m
-
-route:
-  receiver: slack-critical
-  group_by: ['alertname']
-  group_wait: 30s
-  group_interval: 5m
-  repeat_interval: 4h
-
-receivers:
-  - name: slack-critical
-    slack_configs:
-      - api_url: '${slack_url}'
-${channel_line}
-        send_resolved: true
-        icon_emoji: ':rotating_light:'
-        title: '[${GITHUB_REPOSITORY}] {{ .CommonLabels.alertname }}'
-        text: |-
-          {{ range .Alerts }}*{{ .Labels.alertname }}*: {{ .Annotations.description }}
-          {{ end }}
-EOF
+            {
+              printf '%s\n' \
+                "global:" \
+                "  resolve_timeout: 5m" \
+                "" \
+                "route:" \
+                "  receiver: slack-critical" \
+                "  group_by: ['alertname']" \
+                "  group_wait: 30s" \
+                "  group_interval: 5m" \
+                "  repeat_interval: 4h" \
+                "" \
+                "receivers:" \
+                "  - name: slack-critical" \
+                "    slack_configs:" \
+                "      - api_url: '${slack_url}'"
+              if [ -n "${channel}" ]; then
+                printf "        channel: '%s'\n" "${channel}"
+              fi
+              printf '%s\n' \
+                "        send_resolved: true" \
+                "        icon_emoji: ':rotating_light:'" \
+                "        title: '[${GITHUB_REPOSITORY}] {{ .CommonLabels.alertname }}'" \
+                "        text: |-" \
+                "          {{ range .Alerts }}*{{ .Labels.alertname }}*: {{ .Annotations.description }}" \
+                "          {{ end }}"
+            } >"${tmpfile}"
           fi
           kubectl create secret generic alertmanager-config \
             --namespace monitoring \
