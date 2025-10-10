@@ -42,13 +42,17 @@ data:
               description: 95th percentile request latency is above 1 second for 10 minutes.
 
           - alert: CeleryTaskFailures
-            expr: increase(celery_task_failures_total[10m]) > 0
-            for: 5m
+            expr: |
+              sum(rate(celery_task_failures_total[5m]))
+                /
+              clamp_min(sum(rate(celery_task_executions_total[5m])), 1) > 0.05
+                and sum(rate(celery_task_executions_total[5m])) >= 0.5
+            for: 10m
             labels:
               severity: critical
             annotations:
               summary: Celery task failures detected
-              description: One or more Celery tasks failed during the last 10 minutes.
+              description: Failure rate exceeded 5% with at least 0.5 tasks/sec over the last 10 minutes.
 
           - alert: CeleryWorkersStuck
             expr: max(celery_tasks_in_progress) > 25
@@ -70,10 +74,14 @@ data:
 
           - alert: PrometheusTSDBCapacityHigh
             expr: |
-              sum(prometheus_tsdb_storage_blocks_bytes{job="prometheus"}) > 1.6e10
+              max by (persistentvolumeclaim) (
+                kubelet_volume_stats_used_bytes{namespace="monitoring", persistentvolumeclaim=~"prometheus-data.*"}
+                  /
+                kubelet_volume_stats_capacity_bytes{namespace="monitoring", persistentvolumeclaim=~"prometheus-data.*"}
+              ) > 0.85
             for: 15m
             labels:
               severity: warning
             annotations:
               summary: Prometheus TSDB nearing capacity
-              description: Prometheus TSDB storage usage exceeded ~80% of the 20Gi PVC for 15 minutes; consider scaling storage or reducing retention.
+              description: PVC usage for Prometheus exceeded 85% for 15 minutes; consider scaling storage or reducing retention.
