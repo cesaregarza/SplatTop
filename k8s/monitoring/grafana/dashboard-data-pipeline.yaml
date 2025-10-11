@@ -1,0 +1,189 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: grafana-dashboard-data-pipeline
+  namespace: monitoring
+data:
+  data-pipelines.json: |
+    {
+      "uid": "data-pipelines",
+      "title": "Data Pipelines",
+      "tags": ["splattop", "celery"],
+      "schemaVersion": 39,
+      "version": 1,
+      "refresh": "30s",
+      "panels": [
+        {
+          "id": 1,
+          "type": "timeseries",
+          "title": "Celery Task Runtime (Avg)",
+          "datasource": {"type": "prometheus", "uid": "prometheus"},
+          "gridPos": {"h": 7, "w": 12, "x": 0, "y": 0},
+          "fieldConfig": {
+            "defaults": {
+              "color": {"mode": "palette-classic"},
+              "unit": "s",
+              "thresholds": {"mode": "absolute", "steps": [{"color": "green", "value": null}]}
+            },
+            "overrides": []
+          },
+          "options": {
+            "legend": {"displayMode": "table", "placement": "bottom"},
+            "tooltip": {"mode": "single"}
+          },
+          "targets": [
+            {
+              "expr": "max(celery_task_runtime_seconds_avg) by (task)",
+              "legendFormat": "{{task}}"
+            }
+          ]
+        },
+        {
+          "id": 2,
+          "type": "timeseries",
+          "title": "Celery Task Failures",
+          "datasource": {"type": "prometheus", "uid": "prometheus"},
+          "gridPos": {"h": 7, "w": 12, "x": 12, "y": 0},
+          "fieldConfig": {
+            "defaults": {
+              "color": {"mode": "palette-classic"},
+              "thresholds": {"mode": "absolute", "steps": [{"color": "green", "value": null}]}
+            },
+            "overrides": []
+          },
+          "options": {
+            "legend": {"displayMode": "table", "placement": "bottom"},
+            "tooltip": {"mode": "single"}
+          },
+          "targets": [
+            {
+              "expr": "sum(rate(celery_task_failures_total[5m])) by (task)",
+              "legendFormat": "{{task}}"
+            }
+          ]
+        },
+        {
+          "id": 3,
+          "type": "table",
+          "title": "Minutes Since Last Completion",
+          "datasource": {"type": "prometheus", "uid": "prometheus"},
+          "gridPos": {"h": 7, "w": 12, "x": 0, "y": 7},
+          "fieldConfig": {
+            "defaults": {
+              "unit": "m",
+              "custom": {"align": "auto"}
+            },
+            "overrides": []
+          },
+          "options": {
+            "showHeader": true,
+            "footer": {"show": false, "fields": "*", "reducer": ["last"]}
+          },
+          "targets": [
+            {
+              "expr": "(time() - max(celery_task_last_finished_timestamp_seconds) by (task)) / 60",
+              "format": "table"
+            }
+          ]
+        },
+        {
+          "id": 4,
+          "type": "timeseries",
+          "title": "Data Pull Duration (P95/P50)",
+          "datasource": {"type": "prometheus", "uid": "prometheus"},
+          "gridPos": {"h": 7, "w": 12, "x": 12, "y": 7},
+          "fieldConfig": {
+            "defaults": {
+              "color": {"mode": "palette-classic"},
+              "unit": "s",
+              "thresholds": {
+                "mode": "absolute",
+                "steps": [
+                  {"color": "green", "value": null},
+                  {"color": "orange", "value": 5},
+                  {"color": "red", "value": 10}
+                ]
+              }
+            },
+            "overrides": []
+          },
+          "options": {
+            "legend": {"displayMode": "table", "placement": "bottom"},
+            "tooltip": {"mode": "single"}
+          },
+          "targets": [
+            {
+              "expr": "histogram_quantile(0.95, sum by (task, le) (rate(celery_data_pull_duration_seconds_bucket[5m])))",
+              "legendFormat": "{{task}} P95"
+            },
+            {
+              "expr": "histogram_quantile(0.5, sum by (task, le) (rate(celery_data_pull_duration_seconds_bucket[5m])))",
+              "legendFormat": "{{task}} P50"
+            }
+          ]
+        },
+        {
+          "id": 5,
+          "type": "table",
+          "title": "Data Pull Row Counts",
+          "datasource": {"type": "prometheus", "uid": "prometheus"},
+          "gridPos": {"h": 7, "w": 12, "x": 0, "y": 14},
+          "fieldConfig": {
+            "defaults": {
+              "unit": "short",
+              "custom": {"align": "auto"}
+            },
+            "overrides": []
+          },
+          "options": {
+            "showHeader": true,
+            "footer": {"show": false, "fields": "*", "reducer": ["last"]}
+          },
+          "targets": [
+            {
+              "expr": "max(celery_data_pull_rows) by (task)",
+              "format": "table"
+            }
+          ]
+        },
+        {
+          "id": 6,
+          "type": "timeseries",
+          "title": "Table Refresh Duration",
+          "datasource": {"type": "prometheus", "uid": "prometheus"},
+          "gridPos": {"h": 7, "w": 12, "x": 12, "y": 14},
+          "fieldConfig": {
+            "defaults": {
+              "color": {"mode": "palette-classic"},
+              "unit": "s",
+              "thresholds": {
+                "mode": "absolute",
+                "steps": [
+                  {"color": "green", "value": null},
+                  {"color": "orange", "value": 2},
+                  {"color": "red", "value": 5}
+                ]
+              }
+            },
+            "overrides": []
+          },
+          "options": {
+            "legend": {"displayMode": "table", "placement": "bottom"},
+            "tooltip": {"mode": "single"}
+          },
+          "targets": [
+            {
+              "expr": "histogram_quantile(0.95, sum by (table, le) (rate(fastapi_table_refresh_duration_seconds_bucket[5m])))",
+              "legendFormat": "{{table}} P95"
+            },
+            {
+              "expr": "histogram_quantile(0.5, sum by (table, le) (rate(fastapi_table_refresh_duration_seconds_bucket[5m])))",
+              "legendFormat": "{{table}} P50"
+            }
+          ]
+        }
+      ],
+      "templating": {"list": []},
+      "time": {"from": "now-24h", "to": "now"},
+      "timepicker": {"refresh_intervals": ["30s", "1m", "5m", "15m", "1h"]}
+    }

@@ -1,0 +1,192 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: grafana-dashboard-realtime
+  namespace: monitoring
+data:
+  realtime-channels.json: |
+    {
+      "uid": "realtime",
+      "title": "Realtime Channels",
+      "tags": ["splattop", "realtime"],
+      "schemaVersion": 39,
+      "version": 1,
+      "refresh": "15s",
+      "panels": [
+        {
+          "id": 1,
+          "type": "timeseries",
+          "title": "Active WebSocket Connections",
+          "datasource": {"type": "prometheus", "uid": "prometheus"},
+          "gridPos": {"h": 7, "w": 12, "x": 0, "y": 0},
+          "fieldConfig": {
+            "defaults": {
+              "color": {"mode": "palette-classic"},
+              "thresholds": {"mode": "absolute", "steps": [{"color": "green", "value": null}]}
+            },
+            "overrides": []
+          },
+          "options": {
+            "legend": {"displayMode": "bottom", "placement": "bottom"},
+            "tooltip": {"mode": "single"}
+          },
+          "targets": [
+            {
+              "expr": "sum(fastapi_websocket_connections)",
+              "legendFormat": "Connections"
+            }
+          ]
+        },
+        {
+          "id": 2,
+          "type": "timeseries",
+          "title": "WebSocket Events",
+          "datasource": {"type": "prometheus", "uid": "prometheus"},
+          "gridPos": {"h": 7, "w": 12, "x": 12, "y": 0},
+          "fieldConfig": {
+            "defaults": {
+              "color": {"mode": "palette-classic"},
+              "thresholds": {"mode": "absolute", "steps": [{"color": "green", "value": null}]}
+            },
+            "overrides": []
+          },
+          "options": {
+            "legend": {"displayMode": "table", "placement": "bottom"},
+            "tooltip": {"mode": "single"}
+          },
+          "targets": [
+            {
+              "expr": "sum(rate(fastapi_websocket_events_total[5m])) by (event)",
+              "legendFormat": "{{event}}"
+            }
+          ]
+        },
+        {
+          "id": 3,
+          "type": "timeseries",
+          "title": "Broadcast Throughput",
+          "datasource": {"type": "prometheus", "uid": "prometheus"},
+          "gridPos": {"h": 7, "w": 24, "x": 0, "y": 7},
+          "fieldConfig": {
+            "defaults": {
+              "color": {"mode": "palette-classic"},
+              "unit": "bytespersecond",
+              "thresholds": {"mode": "absolute", "steps": [{"color": "green", "value": null}]}
+            },
+            "overrides": []
+          },
+          "options": {
+            "legend": {"displayMode": "list", "placement": "bottom"},
+            "tooltip": {"mode": "single"}
+          },
+          "targets": [
+            {
+              "expr": "sum(rate(fastapi_websocket_bytes_total[5m]))",
+              "legendFormat": "Bytes/s"
+            }
+          ]
+        },
+        {
+          "id": 4,
+          "type": "stat",
+          "title": "PubSub Listener State",
+          "datasource": {"type": "prometheus", "uid": "prometheus"},
+          "gridPos": {"h": 6, "w": 6, "x": 0, "y": 14},
+          "fieldConfig": {
+            "defaults": {
+              "color": {"mode": "thresholds"},
+              "thresholds": {
+                "mode": "absolute",
+                "steps": [
+                  {"color": "red", "value": 0},
+                  {"color": "green", "value": 1}
+                ]
+              }
+            },
+            "overrides": []
+          },
+          "options": {
+            "colorMode": "value",
+            "graphMode": "area",
+            "justifyMode": "center",
+            "orientation": "auto",
+            "reduceOptions": {
+              "calcs": ["lastNotNull"],
+              "fields": "",
+              "values": false
+            }
+          },
+          "targets": [
+            {
+              "expr": "max(fastapi_pubsub_listener_active)",
+              "legendFormat": "active"
+            }
+          ]
+        },
+        {
+          "id": 5,
+          "type": "stat",
+          "title": "Listener Restarts (6h)",
+          "datasource": {"type": "prometheus", "uid": "prometheus"},
+          "gridPos": {"h": 6, "w": 6, "x": 6, "y": 14},
+          "fieldConfig": {
+            "defaults": {
+              "color": {"mode": "thresholds"},
+              "thresholds": {
+                "mode": "absolute",
+                "steps": [
+                  {"color": "green", "value": null},
+                  {"color": "orange", "value": 1},
+                  {"color": "red", "value": 3}
+                ]
+              }
+            },
+            "overrides": []
+          },
+          "options": {
+            "colorMode": "value",
+            "graphMode": "area",
+            "justifyMode": "center",
+            "orientation": "auto",
+            "reduceOptions": {
+              "calcs": ["lastNotNull"],
+              "fields": "",
+              "values": false
+            }
+          },
+          "targets": [
+            {
+              "expr": "increase(fastapi_pubsub_listener_restarts_total[6h])",
+              "legendFormat": "restarts"
+            }
+          ]
+        },
+        {
+          "id": 6,
+          "type": "timeseries",
+          "title": "PubSub Events",
+          "datasource": {"type": "prometheus", "uid": "prometheus"},
+          "gridPos": {"h": 6, "w": 12, "x": 12, "y": 14},
+          "fieldConfig": {
+            "defaults": {
+              "color": {"mode": "palette-classic"},
+              "thresholds": {"mode": "absolute", "steps": [{"color": "green", "value": null}]}
+            },
+            "overrides": []
+          },
+          "options": {
+            "legend": {"displayMode": "table", "placement": "bottom"},
+            "tooltip": {"mode": "single"}
+          },
+          "targets": [
+            {
+              "expr": "sum(rate(fastapi_pubsub_messages_total[5m])) by (event)",
+              "legendFormat": "{{event}}"
+            }
+          ]
+        }
+      ],
+      "templating": {"list": []},
+      "time": {"from": "now-6h", "to": "now"},
+      "timepicker": {"refresh_intervals": ["5s", "15s", "30s", "1m", "5m"]}
+    }

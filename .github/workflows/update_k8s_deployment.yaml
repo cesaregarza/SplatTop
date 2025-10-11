@@ -392,6 +392,12 @@ jobs:
           kubectl apply -f k8s/monitoring/grafana/configmap-datasources.yaml
           kubectl apply -f k8s/monitoring/grafana/configmap-dashboard-providers.yaml
           kubectl apply -f k8s/monitoring/grafana/dashboard-core.yaml
+          kubectl apply -f k8s/monitoring/grafana/dashboard-splatgpt.yaml
+          kubectl apply -f k8s/monitoring/grafana/dashboard-auth-rate.yaml
+          kubectl apply -f k8s/monitoring/grafana/dashboard-realtime.yaml
+          kubectl apply -f k8s/monitoring/grafana/dashboard-ripple.yaml
+          kubectl apply -f k8s/monitoring/grafana/dashboard-api-usage.yaml
+          kubectl apply -f k8s/monitoring/grafana/dashboard-data-pipeline.yaml
           kubectl apply -f k8s/monitoring/grafana/deployment.yaml
           kubectl apply -f k8s/monitoring/grafana/service.yaml
           kubectl apply -f k8s/monitoring/grafana/pdb.yaml

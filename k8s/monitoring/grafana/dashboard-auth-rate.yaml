@@ -1,0 +1,168 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: grafana-dashboard-auth-rate
+  namespace: monitoring
+data:
+  auth-and-rate.json: |
+    {
+      "uid": "auth-rate",
+      "title": "API Auth & Rate Limiting",
+      "tags": ["splattop", "auth"],
+      "schemaVersion": 39,
+      "version": 1,
+      "refresh": "30s",
+      "panels": [
+        {
+          "id": 1,
+          "type": "timeseries",
+          "title": "Rate Limit Outcomes",
+          "datasource": {"type": "prometheus", "uid": "prometheus"},
+          "gridPos": {"h": 7, "w": 16, "x": 0, "y": 0},
+          "fieldConfig": {
+            "defaults": {
+              "color": {"mode": "palette-classic"},
+              "thresholds": {"mode": "absolute", "steps": [{"color": "green", "value": null}]}
+            },
+            "overrides": []
+          },
+          "options": {
+            "legend": {"displayMode": "table", "placement": "bottom"},
+            "tooltip": {"mode": "single"}
+          },
+          "targets": [
+            {
+              "expr": "sum(rate(fastapi_rate_limit_events_total[5m])) by (outcome)",
+              "legendFormat": "{{outcome}}"
+            }
+          ]
+        },
+        {
+          "id": 2,
+          "type": "timeseries",
+          "title": "Throttled Percentage",
+          "datasource": {"type": "prometheus", "uid": "prometheus"},
+          "gridPos": {"h": 7, "w": 8, "x": 16, "y": 0},
+          "fieldConfig": {
+            "defaults": {
+              "color": {"mode": "palette-classic"},
+              "unit": "percent",
+              "thresholds": {
+                "mode": "percentage",
+                "steps": [
+                  {"color": "green", "value": null},
+                  {"color": "orange", "value": 5},
+                  {"color": "red", "value": 10}
+                ]
+              }
+            },
+            "overrides": []
+          },
+          "options": {
+            "legend": {"displayMode": "list", "placement": "bottom"},
+            "tooltip": {"mode": "single"}
+          },
+          "targets": [
+            {
+              "expr": "100 * sum(rate(fastapi_rate_limit_events_total{outcome=\\"throttled\\"}[5m])) / clamp_min(sum(rate(fastapi_rate_limit_events_total[5m])), 1)",
+              "legendFormat": "Throttled %"
+            }
+          ]
+        },
+        {
+          "id": 3,
+          "type": "timeseries",
+          "title": "Auth Failures by Reason",
+          "datasource": {"type": "prometheus", "uid": "prometheus"},
+          "gridPos": {"h": 7, "w": 16, "x": 0, "y": 7},
+          "fieldConfig": {
+            "defaults": {
+              "color": {"mode": "palette-classic"},
+              "thresholds": {"mode": "absolute", "steps": [{"color": "green", "value": null}]}
+            },
+            "overrides": []
+          },
+          "options": {
+            "legend": {"displayMode": "table", "placement": "bottom"},
+            "tooltip": {"mode": "single"}
+          },
+          "targets": [
+            {
+              "expr": "sum(rate(fastapi_auth_failures_total[5m])) by (reason)",
+              "legendFormat": "{{reason}}"
+            }
+          ]
+        },
+        {
+          "id": 4,
+          "type": "stat",
+          "title": "Pepper Missing Incidents (1h)",
+          "datasource": {"type": "prometheus", "uid": "prometheus"},
+          "gridPos": {"h": 7, "w": 8, "x": 16, "y": 7},
+          "fieldConfig": {
+            "defaults": {
+              "color": {
+                "mode": "thresholds"
+              },
+              "thresholds": {
+                "mode": "absolute",
+                "steps": [
+                  {"color": "green", "value": null},
+                  {"color": "orange", "value": 1},
+                  {"color": "red", "value": 5}
+                ]
+              }
+            },
+            "overrides": []
+          },
+          "options": {
+            "colorMode": "value",
+            "graphMode": "area",
+            "justifyMode": "auto",
+            "orientation": "auto",
+            "reduceOptions": {
+              "calcs": ["lastNotNull"],
+              "fields": "",
+              "values": false
+            }
+          },
+          "targets": [
+            {
+              "expr": "increase(fastapi_auth_failures_total{reason=\\"pepper_missing\\"}[1h])",
+              "legendFormat": "pepper_missing"
+            }
+          ]
+        },
+        {
+          "id": 5,
+          "type": "timeseries",
+          "title": "Unauthorized Response Rate",
+          "datasource": {"type": "prometheus", "uid": "prometheus"},
+          "gridPos": {"h": 7, "w": 24, "x": 0, "y": 14},
+          "fieldConfig": {
+            "defaults": {
+              "color": {"mode": "palette-classic"},
+              "thresholds": {"mode": "absolute", "steps": [{"color": "green", "value": null}]}
+            },
+            "overrides": []
+          },
+          "options": {
+            "legend": {"displayMode": "list", "placement": "bottom"},
+            "tooltip": {"mode": "single"}
+          },
+          "targets": [
+            {
+              "expr": "sum(rate(fastapi_requests_total{status=\"401\"}[5m]))",
+              "legendFormat": "401 rate"
+            },
+            {
+              "expr": "sum(rate(fastapi_requests_total{status=\"403\"}[5m]))",
+              "legendFormat": "403 rate"
+            }
+          ]
+        }
+      ],
+      "templating": {"list": []},
+      "time": {"from": "now-6h", "to": "now"},
+      "timepicker": {"refresh_intervals": ["10s", "30s", "1m", "5m", "15m"]}
+    }

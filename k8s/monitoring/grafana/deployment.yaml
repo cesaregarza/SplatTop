@@ -57,6 +57,24 @@ spec:
             - name: grafana-dashboard-core
               mountPath: /var/lib/grafana/dashboards/auto/core
               readOnly: true
+            - name: grafana-dashboard-splatgpt
+              mountPath: /var/lib/grafana/dashboards/auto/splatgpt
+              readOnly: true
+            - name: grafana-dashboard-auth-rate
+              mountPath: /var/lib/grafana/dashboards/auto/auth-rate
+              readOnly: true
+            - name: grafana-dashboard-realtime
+              mountPath: /var/lib/grafana/dashboards/auto/realtime
+              readOnly: true
+            - name: grafana-dashboard-ripple
+              mountPath: /var/lib/grafana/dashboards/auto/ripple
+              readOnly: true
+            - name: grafana-dashboard-api-usage
+              mountPath: /var/lib/grafana/dashboards/auto/api-usage
+              readOnly: true
+            - name: grafana-dashboard-data-pipeline
+              mountPath: /var/lib/grafana/dashboards/auto/data-pipeline
+              readOnly: true
             - name: grafana-tmp
               mountPath: /tmp
           securityContext:
@@ -100,5 +118,23 @@ spec:
         - name: grafana-dashboard-core
           configMap:
             name: grafana-dashboard-core
+        - name: grafana-dashboard-splatgpt
+          configMap:
+            name: grafana-dashboard-splatgpt
+        - name: grafana-dashboard-auth-rate
+          configMap:
+            name: grafana-dashboard-auth-rate
+        - name: grafana-dashboard-realtime
+          configMap:
+            name: grafana-dashboard-realtime
+        - name: grafana-dashboard-ripple
+          configMap:
+            name: grafana-dashboard-ripple
+        - name: grafana-dashboard-api-usage
+          configMap:
+            name: grafana-dashboard-api-usage
+        - name: grafana-dashboard-data-pipeline
+          configMap:
+            name: grafana-dashboard-data-pipeline
         - name: grafana-tmp
           emptyDir: {}

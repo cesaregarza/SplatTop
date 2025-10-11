@@ -1,0 +1,178 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: grafana-dashboard-api-usage
+  namespace: monitoring
+data:
+  api-usage-pipeline.json: |
+    {
+      "uid": "api-usage",
+      "title": "API Usage Pipeline",
+      "tags": ["splattop", "usage"],
+      "schemaVersion": 39,
+      "version": 1,
+      "refresh": "30s",
+      "panels": [
+        {
+          "id": 1,
+          "type": "timeseries",
+          "title": "Queue Length",
+          "datasource": {"type": "prometheus", "uid": "prometheus"},
+          "gridPos": {"h": 7, "w": 12, "x": 0, "y": 0},
+          "fieldConfig": {
+            "defaults": {
+              "color": {"mode": "palette-classic"},
+              "unit": "short",
+              "thresholds": {
+                "mode": "absolute",
+                "steps": [
+                  {"color": "green", "value": null},
+                  {"color": "orange", "value": 100},
+                  {"color": "red", "value": 500}
+                ]
+              }
+            },
+            "overrides": []
+          },
+          "options": {
+            "legend": {"displayMode": "list", "placement": "bottom"},
+            "tooltip": {"mode": "single"}
+          },
+          "targets": [
+            {
+              "expr": "max(api_usage_queue_length)",
+              "legendFormat": "Backlog"
+            }
+          ]
+        },
+        {
+          "id": 2,
+          "type": "timeseries",
+          "title": "Flush Duration",
+          "datasource": {"type": "prometheus", "uid": "prometheus"},
+          "gridPos": {"h": 7, "w": 12, "x": 12, "y": 0},
+          "fieldConfig": {
+            "defaults": {
+              "color": {"mode": "palette-classic"},
+              "unit": "s",
+              "thresholds": {
+                "mode": "absolute",
+                "steps": [
+                  {"color": "green", "value": null},
+                  {"color": "orange", "value": 5},
+                  {"color": "red", "value": 10}
+                ]
+              }
+            },
+            "overrides": []
+          },
+          "options": {
+            "legend": {"displayMode": "list", "placement": "bottom"},
+            "tooltip": {"mode": "single"}
+          },
+          "targets": [
+            {
+              "expr": "histogram_quantile(0.95, sum by (le) (rate(api_usage_flush_duration_seconds_bucket[5m])))",
+              "legendFormat": "P95"
+            },
+            {
+              "expr": "histogram_quantile(0.5, sum by (le) (rate(api_usage_flush_duration_seconds_bucket[5m])))",
+              "legendFormat": "P50"
+            }
+          ]
+        },
+        {
+          "id": 3,
+          "type": "timeseries",
+          "title": "Event Outcomes",
+          "datasource": {"type": "prometheus", "uid": "prometheus"},
+          "gridPos": {"h": 7, "w": 12, "x": 0, "y": 7},
+          "fieldConfig": {
+            "defaults": {
+              "color": {"mode": "palette-classic"},
+              "thresholds": {"mode": "absolute", "steps": [{"color": "green", "value": null}]}
+            },
+            "overrides": []
+          },
+          "options": {
+            "legend": {"displayMode": "table", "placement": "bottom"},
+            "tooltip": {"mode": "single"}
+          },
+          "targets": [
+            {
+              "expr": "sum(rate(api_usage_events_total[5m])) by (result)",
+              "legendFormat": "{{result}}"
+            }
+          ]
+        },
+        {
+          "id": 4,
+          "type": "stat",
+          "title": "Recovered Events (1h)",
+          "datasource": {"type": "prometheus", "uid": "prometheus"},
+          "gridPos": {"h": 7, "w": 6, "x": 12, "y": 7},
+          "fieldConfig": {
+            "defaults": {
+              "color": {"mode": "thresholds"},
+              "thresholds": {
+                "mode": "absolute",
+                "steps": [
+                  {"color": "green", "value": null},
+                  {"color": "orange", "value": 10},
+                  {"color": "red", "value": 50}
+                ]
+              }
+            },
+            "overrides": []
+          },
+          "options": {
+            "colorMode": "value",
+            "graphMode": "area",
+            "justifyMode": "center",
+            "orientation": "auto",
+            "reduceOptions": {
+              "calcs": ["lastNotNull"],
+              "fields": "",
+              "values": false
+            }
+          },
+          "targets": [
+            {
+              "expr": "increase(api_usage_recovered_total[1h])",
+              "legendFormat": "recovered"
+            }
+          ]
+        },
+        {
+          "id": 5,
+          "type": "timeseries",
+          "title": "Processed vs DLQ",
+          "datasource": {"type": "prometheus", "uid": "prometheus"},
+          "gridPos": {"h": 7, "w": 6, "x": 18, "y": 7},
+          "fieldConfig": {
+            "defaults": {
+              "color": {"mode": "palette-classic"},
+              "thresholds": {"mode": "absolute", "steps": [{"color": "green", "value": null}]}
+            },
+            "overrides": []
+          },
+          "options": {
+            "legend": {"displayMode": "list", "placement": "bottom"},
+            "tooltip": {"mode": "single"}
+          },
+          "targets": [
+            {
+              "expr": "sum(rate(api_usage_events_total{result=\\"processed\\"}[5m]))",
+              "legendFormat": "processed"
+            },
+            {
+              "expr": "sum(rate(api_usage_events_total{result=\\"dlq\\"}[5m]))",
+              "legendFormat": "dlq"
+            }
+          ]
+        }
+      ],
+      "templating": {"list": []},
+      "time": {"from": "now-6h", "to": "now"},
+      "timepicker": {"refresh_intervals": ["10s", "30s", "1m", "5m", "15m"]}
+    }
