@@ -1,0 +1,17 @@
+{{- if and .Values.splatgpt.enabled .Values.splatgpt.service.enabled }}
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "splattop.fullname" . }}-splatgpt
+  labels:
+    {{- include "splattop.labels" . | nindent 4 }}
+    {{- include "splattop.splatgpt.matchLabels" . | nindent 4 }}
+spec:
+  type: {{ .Values.splatgpt.service.type }}
+  selector:
+    {{- include "splattop.splatgpt.matchLabels" . | nindent 4 }}
+  ports:
+    - name: http
+      port: {{ .Values.splatgpt.service.port }}
+      targetPort: {{ .Values.splatgpt.service.targetPort }}
+{{- end }}

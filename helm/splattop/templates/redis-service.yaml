@@ -1,0 +1,17 @@
+{{- if and .Values.redis.enabled .Values.redis.service.enabled }}
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "splattop.fullname" . }}-redis
+  labels:
+    {{- include "splattop.labels" . | nindent 4 }}
+    {{- include "splattop.redis.matchLabels" . | nindent 4 }}
+spec:
+  type: {{ .Values.redis.service.type }}
+  selector:
+    {{- include "splattop.redis.matchLabels" . | nindent 4 }}
+  ports:
+    - name: redis
+      port: {{ .Values.redis.service.port }}
+      targetPort: {{ .Values.redis.service.targetPort }}
+{{- end }}

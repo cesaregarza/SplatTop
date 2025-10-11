@@ -35,3 +35,19 @@ app: {{ default "fast-api-app" .Values.fastApi.podLabel }}
 {{- define "splattop.react.matchLabels" -}}
 app: {{ default "react-app" .Values.react.podLabel }}
 {{- end -}}
+
+{{- define "splattop.celeryWorker.matchLabels" -}}
+app: {{ default "celery-worker" .Values.celeryWorker.podLabel }}
+{{- end -}}
+
+{{- define "splattop.celeryBeat.matchLabels" -}}
+app: {{ default "celery-beat" .Values.celeryBeat.podLabel }}
+{{- end -}}
+
+{{- define "splattop.redis.matchLabels" -}}
+app: {{ default "redis" .Values.redis.podLabel }}
+{{- end -}}
+
+{{- define "splattop.splatgpt.matchLabels" -}}
+app: {{ default "splatnlp" .Values.splatgpt.podLabel }}
+{{- end -}}

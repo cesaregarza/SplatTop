@@ -1,0 +1,65 @@
+{{- if .Values.splatgpt.enabled }}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "splattop.fullname" . }}-splatgpt
+  labels:
+    {{- include "splattop.labels" . | nindent 4 }}
+    {{- include "splattop.splatgpt.matchLabels" . | nindent 4 }}
+spec:
+  replicas: {{ .Values.splatgpt.replicaCount }}
+  selector:
+    matchLabels:
+      {{- include "splattop.splatgpt.matchLabels" . | nindent 6 }}
+  template:
+    metadata:
+      labels:
+        {{- include "splattop.splatgpt.matchLabels" . | nindent 8 }}
+    spec:
+      {{- if .Values.splatgpt.imagePullSecrets }}
+      imagePullSecrets:
+        {{- range .Values.splatgpt.imagePullSecrets }}
+        - name: {{ .name | default . }}
+        {{- end }}
+      {{- end }}
+      containers:
+        - name: splatnlp
+          image: "{{ .Values.splatgpt.image.repository }}:{{ .Values.splatgpt.image.tag }}"
+          imagePullPolicy: {{ .Values.splatgpt.image.pullPolicy }}
+          ports:
+            {{- range .Values.splatgpt.containerPorts }}
+            - name: {{ .name }}
+              containerPort: {{ .containerPort }}
+            {{- end }}
+          env:
+            {{- range $name, $value := .Values.splatgpt.env }}
+            - name: {{ $name }}
+              value: {{ $value | quote }}
+            {{- end }}
+            {{- $secret := .Values.splatgpt.secretRefs }}
+            {{- if and $secret $secret.name $secret.keys }}
+            {{- range $key := $secret.keys }}
+            - name: {{ $key }}
+              valueFrom:
+                secretKeyRef:
+                  name: {{ $secret.name }}
+                  key: {{ $key }}
+            {{- end }}
+            {{- end }}
+          {{- with .Values.splatgpt.resources }}
+          resources:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+      {{- with .Values.splatgpt.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.splatgpt.affinity }}
+      affinity:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.splatgpt.tolerations }}
+      tolerations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+{{- end }}

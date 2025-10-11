@@ -133,22 +133,21 @@ deploy-core: ensure-kind
 	fi
 	kubectl rollout status deployment/grafana -n monitoring --timeout=300s
 	kubectl apply -f k8s/monitoring/grafana/ingress-dev.yaml
-	kubectl apply -f k8s/redis/redis-deployment.yaml
-	kubectl apply -f k8s/redis/redis-service.yaml
 	if [ "$(USE_HELM)" = "1" ]; then \
 	  $(MAKE) helm-deploy-dev; \
 	else \
+	  kubectl apply -f k8s/redis/redis-deployment.yaml; \
+	  kubectl apply -f k8s/redis/redis-service.yaml; \
 	  kubectl apply -f k8s/fast-api/fast-api-deployment-dev.yaml; \
 	  kubectl apply -f k8s/fast-api/fast-api-service-dev.yaml; \
-	fi
-	kubectl apply -f k8s/celery-worker/celery-worker-deployment-dev.yaml
-	kubectl apply -f k8s/celery-beat/celery-beat-deployment-dev.yaml
-	if [ "$(USE_HELM)" != "1" ]; then \
 	  kubectl apply -f k8s/react/react-deployment-dev.yaml; \
 	  kubectl apply -f k8s/react/react-service-dev.yaml; \
+	  kubectl apply -f k8s/celery-worker/celery-worker-deployment-dev.yaml; \
+	  kubectl apply -f k8s/celery-worker/celery-worker-service.yaml; \
+	  kubectl apply -f k8s/celery-beat/celery-beat-deployment-dev.yaml; \
+	  kubectl apply -f k8s/splatgpt/splatgpt-deployment-dev.yaml; \
+	  kubectl apply -f k8s/splatgpt/splatgpt-service.yaml; \
 	fi
-	kubectl apply -f k8s/splatgpt/splatgpt-deployment-dev.yaml
-	kubectl apply -f k8s/splatgpt/splatgpt-service.yaml
 	kubectl apply -f https://raw.githubusercontent.com/kubernetes/ingress-nginx/controller-v1.0.0/deploy/static/provider/cloud/deploy.yaml
 
 .PHONY: deploy
@@ -191,20 +190,21 @@ _undeploy-core-base:
 	kubectl delete -f k8s/monitoring/alertmanager/pdb.yaml || true
 	kubectl delete -f k8s/monitoring/alertmanager/service.yaml || true
 	kubectl delete -f k8s/monitoring/alertmanager/deployment.yaml || true
-	kubectl delete -f k8s/redis/redis-deployment.yaml || true
-	kubectl delete -f k8s/redis/redis-service.yaml || true
 	if [ "$(USE_HELM)" = "1" ]; then \
 	  $(MAKE) helm-uninstall; \
 	else \
+	  kubectl delete -f k8s/redis/redis-deployment.yaml || true; \
+	  kubectl delete -f k8s/redis/redis-service.yaml || true; \
 	  kubectl delete -f k8s/fast-api/fast-api-deployment-dev.yaml || true; \
 	  kubectl delete -f k8s/fast-api/fast-api-service-dev.yaml || true; \
 	  kubectl delete -f k8s/react/react-deployment-dev.yaml || true; \
 	  kubectl delete -f k8s/react/react-service-dev.yaml || true; \
+	  kubectl delete -f k8s/celery-worker/celery-worker-deployment-dev.yaml || true; \
+	  kubectl delete -f k8s/celery-worker/celery-worker-service.yaml || true; \
+	  kubectl delete -f k8s/celery-beat/celery-beat-deployment-dev.yaml || true; \
+	  kubectl delete -f k8s/splatgpt/splatgpt-deployment-dev.yaml || true; \
+	  kubectl delete -f k8s/splatgpt/splatgpt-service.yaml || true; \
 	fi
-	kubectl delete -f k8s/celery-worker/celery-worker-deployment-dev.yaml || true
-	kubectl delete -f k8s/celery-beat/celery-beat-deployment-dev.yaml || true
-	kubectl delete -f k8s/splatgpt/splatgpt-deployment-dev.yaml || true
-	kubectl delete -f k8s/splatgpt/splatgpt-service.yaml || true
 	kubectl delete -f k8s/monitoring/grafana/networkpolicy.yaml || true
 	kubectl delete -f k8s/monitoring/networkpolicy-default-deny.yaml || true
 	kubectl delete -f k8s/monitoring/alertmanager/secret-dev.yaml || true

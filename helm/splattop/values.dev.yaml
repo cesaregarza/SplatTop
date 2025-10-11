@@ -28,3 +28,31 @@ react:
     type: ClusterIP
     port: 80
     targetPort: 80
+
+celeryWorker:
+  image:
+    repository: celery-worker
+    tag: latest
+    pullPolicy: Never
+  imagePullSecrets: []
+
+celeryBeat:
+  image:
+    repository: celery-worker
+    tag: latest
+    pullPolicy: Never
+  imagePullSecrets: []
+
+redis:
+  image:
+    tag: latest
+    pullPolicy: IfNotPresent
+
+splatgpt:
+  image:
+    repository: splatnlp
+    tag: latest
+    pullPolicy: Never
+  imagePullSecrets: []
+  env:
+    ENV: development

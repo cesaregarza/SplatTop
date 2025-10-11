@@ -66,3 +66,129 @@ react:
   nodeSelector: {}
   tolerations: []
   affinity: {}
+
+celeryWorker:
+  enabled: true
+  replicaCount: 1
+  podLabel: celery-worker
+  image:
+    repository: registry.digitalocean.com/sendouq/celery
+    tag: latest
+    pullPolicy: Always
+  imagePullSecrets:
+    - name: regcred
+  command:
+    - celery
+    - -A
+    - celery_app.app
+    - worker
+    - --loglevel=info
+  args: []
+  env:
+    COMP_LEADERBOARD_ENABLED: "true"
+  secretRefs:
+    name: db-secrets
+    keys:
+      - DB_HOST
+      - DB_USER
+      - DB_PASSWORD
+      - DB_NAME
+      - DB_PORT
+  service:
+    enabled: true
+    type: ClusterIP
+    port: 80
+    targetPort: 8000
+  resources: {}
+  nodeSelector: {}
+  tolerations: []
+  affinity: {}
+
+celeryBeat:
+  enabled: true
+  replicaCount: 1
+  podLabel: celery-beat
+  image:
+    repository: registry.digitalocean.com/sendouq/celery
+    tag: latest
+    pullPolicy: Always
+  imagePullSecrets:
+    - name: regcred
+  command:
+    - celery
+  args:
+    - -A
+    - celery_app.beat
+    - beat
+    - --loglevel=info
+  env:
+    COMP_LEADERBOARD_ENABLED: "true"
+  secretRefs:
+    name: db-secrets
+    keys:
+      - DB_HOST
+      - DB_USER
+      - DB_PASSWORD
+      - DB_NAME
+      - DB_PORT
+  resources:
+    requests:
+      memory: "32Mi"
+      cpu: "10m"
+    limits:
+      memory: "64Mi"
+      cpu: "20m"
+  nodeSelector: {}
+  tolerations: []
+  affinity: {}
+
+redis:
+  enabled: true
+  replicaCount: 1
+  podLabel: redis
+  image:
+    repository: redis
+    tag: latest
+    pullPolicy: IfNotPresent
+  containerPorts:
+    - name: redis
+      containerPort: 6379
+  service:
+    enabled: true
+    type: ClusterIP
+    port: 6379
+    targetPort: 6379
+  resources: {}
+  nodeSelector: {}
+  tolerations: []
+  affinity: {}
+
+splatgpt:
+  enabled: true
+  replicaCount: 1
+  podLabel: splatnlp
+  image:
+    repository: registry.digitalocean.com/sendouq/splatnlp
+    tag: latest
+    pullPolicy: Always
+  imagePullSecrets:
+    - name: regcred
+  containerPorts:
+    - name: http
+      containerPort: 9000
+  env:
+    ENV: production
+  secretRefs:
+    name: db-secrets
+    keys:
+      - DO_SPACES_ML_ENDPOINT
+      - DO_SPACES_ML_DIR
+  service:
+    enabled: true
+    type: ClusterIP
+    port: 9000
+    targetPort: 9000
+  resources: {}
+  nodeSelector: {}
+  tolerations: []
+  affinity: {}
