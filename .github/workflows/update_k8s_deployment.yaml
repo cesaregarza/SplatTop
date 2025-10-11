@@ -400,6 +400,7 @@ jobs:
           kubectl apply -f k8s/monitoring/alertmanager/service.yaml
           kubectl apply -f k8s/monitoring/alertmanager/pdb.yaml
           kubectl apply -f k8s/monitoring/alertmanager/networkpolicy.yaml
+          kubectl apply -f k8s/monitoring/networkpolicy-acme-solver.yaml
           kubectl apply -f k8s/monitoring/networkpolicy-default-deny.yaml
           kubectl rollout status statefulset/prometheus -n monitoring --timeout=300s
           kubectl rollout status deployment/alertmanager -n monitoring --timeout=300s
