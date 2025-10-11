@@ -20,6 +20,7 @@ on:
       - "src/**"
       - ".version"
       - "k8s/**"
+      - "helm/**"
       - "i18n/**"
 
 permissions:
@@ -232,6 +233,11 @@ jobs:
       - name: Save DigitalOcean kubeconfig
         run: doctl kubernetes cluster kubeconfig save ${{ secrets.DIGITALOCEAN_CLUSTER_ID }}
 
+      - name: Install Helm
+        uses: azure/setup-helm@v4
+        with:
+          version: v3.13.3
+
       - name: Ensure registry pull secret
         run: |
           kubectl delete secret regcred --ignore-not-found
@@ -414,41 +420,44 @@ jobs:
           kubectl rollout status deployment/grafana -n monitoring --timeout=300s
           kubectl apply -f k8s/monitoring/grafana/ingress.yaml
 
-      - name: Apply base Kubernetes manifests
-        run: |
-          kubectl apply -f k8s/redis/redis-deployment.yaml
-          kubectl apply -f k8s/redis/redis-service.yaml
-          kubectl apply -f k8s/celery-worker/celery-worker-deployment.yaml
-          kubectl apply -f k8s/celery-beat/celery-beat-deployment.yaml
-          kubectl apply -f k8s/fast-api/fast-api-deployment.yaml
-          kubectl apply -f k8s/fast-api/fast-api-service.yaml
-          kubectl apply -f k8s/react/react-deployment.yaml
-          kubectl apply -f k8s/react/react-service.yaml
-          kubectl apply -f k8s/splatgpt/splatgpt-deployment.yaml
-          kubectl apply -f k8s/splatgpt/splatgpt-service.yaml
-          kubectl apply -f k8s/ingress.yaml
-
-      - name: Update deployment images
+      - name: Deploy core workloads with Helm
         env:
           VERSION: ${{ needs.build.outputs.next_version }}
           PYTHON_CHANGED: ${{ needs.check.outputs.python_changed }}
           REACT_CHANGED: ${{ needs.check.outputs.react_changed }}
         run: |
-          TAG="v${VERSION}"
-          if [ -z "${VERSION}" ]; then
-            echo "Missing version output from build job" >&2
-            exit 1
-          fi
+          set -euo pipefail
+          HELM_ARGS="-f helm/splattop/values.yaml"
 
           if [ "${PYTHON_CHANGED}" = "true" ]; then
-            kubectl set image deployment/celery-worker celery-worker=registry.digitalocean.com/sendouq/celery:${TAG}
-            kubectl set image deployment/celery-beat celery-beat=registry.digitalocean.com/sendouq/celery:${TAG}
-            kubectl set image deployment/fast-api-app fast-api-app=registry.digitalocean.com/sendouq/fast-api:${TAG}
+            if [ -z "${VERSION}" ]; then
+              echo "Missing version output from build job" >&2
+              exit 1
+            fi
+            TAG="v${VERSION}"
+            HELM_ARGS="$HELM_ARGS --set fastApi.image.tag=${TAG} --set celeryWorker.image.tag=${TAG} --set celeryBeat.image.tag=${TAG}"
           fi
 
           if [ "${REACT_CHANGED}" = "true" ]; then
-            kubectl set image deployment/react-app react-app=registry.digitalocean.com/sendouq/react:${TAG}
+            if [ -z "${VERSION}" ]; then
+              echo "Missing version output from build job" >&2
+              exit 1
+            fi
+            TAG="v${VERSION}"
+            HELM_ARGS="$HELM_ARGS --set react.image.tag=${TAG}"
           fi
+
+          # shellcheck disable=SC2086
+          helm upgrade --install splattop helm/splattop \
+            --namespace default \
+            --create-namespace \
+            --wait \
+            --atomic \
+            --history-max 5 \
+            $HELM_ARGS
+
+      - name: Apply ingress manifest
+        run: kubectl apply -f k8s/ingress.yaml
 
   release:
     needs: [check, build, update-deployment]
