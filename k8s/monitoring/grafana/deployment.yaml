@@ -39,6 +39,12 @@ spec:
               value: "false"
             - name: GF_METRICS_ENABLED
               value: "true"
+            - name: GF_SERVER_DOMAIN
+              value: grafana.splat.top
+            - name: GF_SERVER_ROOT_URL
+              value: https://grafana.splat.top/
+            - name: GF_SERVER_ENFORCE_DOMAIN
+              value: "true"
           volumeMounts:
             - name: grafana-storage
               mountPath: /var/lib/grafana
