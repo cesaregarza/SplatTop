@@ -1,0 +1,6 @@
+apiVersion: v2
+name: splattop
+description: Helm chart for SplatTop core workloads
+version: 0.1.0
+appVersion: "1.0.0"
+type: application

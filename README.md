@@ -119,6 +119,8 @@ Frontend: http://localhost:3000 (hot-reload) or http://localhost:4000 (prod buil
 Backend API: http://localhost:5000
 Ingress (pre-prod): http://localhost:8080
 
+> Helm preview: Set `USE_HELM=1` to have `make deploy-dev` install the FastAPI and React workloads through the new chart (`helm/splattop`). You can inspect the rendered manifests with `make helm-template-dev` before enabling it.
+
 
 ### Secrets Configuration
 

@@ -1,0 +1,12 @@
+# Common VCS dirs
+.git/
+.hg/
+.svn/
+
+# IDE files
+.idea/
+.vscode/
+
+# Build artifacts
+*.swp
+*.tmp

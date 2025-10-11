@@ -1,0 +1,68 @@
+fastApi:
+  enabled: true
+  replicaCount: 2
+  podLabel: fast-api-app
+  image:
+    repository: registry.digitalocean.com/sendouq/fast-api
+    tag: latest
+    pullPolicy: Always
+  imagePullSecrets:
+    - name: regcred
+  containerPorts:
+    - name: http-internal
+      containerPort: 5000
+    - name: http
+      containerPort: 8000
+    - name: websocket
+      containerPort: 8001
+  env:
+    ENV: production
+    COMP_LEADERBOARD_ENABLED: "true"
+  secretRefs:
+    name: db-secrets
+    keys:
+      - RANKINGS_DB_NAME
+      - RANKINGS_DB_SCHEMA
+      - API_TOKEN_PEPPER
+      - ADMIN_TOKEN_PEPPER
+      - ADMIN_API_TOKENS_HASHED
+      - DB_HOST
+      - DB_USER
+      - DB_PASSWORD
+      - DB_NAME
+      - DB_PORT
+  service:
+    type: ClusterIP
+    httpPort: 8000
+    httpTargetPort: 8000
+    websocketPort: 8001
+    websocketTargetPort: 8001
+  resources: {}
+  nodeSelector: {}
+  tolerations: []
+  affinity: {}
+
+react:
+  enabled: true
+  replicaCount: 2
+  podLabel: react-app
+  image:
+    repository: registry.digitalocean.com/sendouq/react
+    tag: latest
+    pullPolicy: Always
+  imagePullSecrets:
+    - name: regcred
+  containerPorts:
+    - name: http
+      containerPort: 80
+  env:
+    ENV: production
+    REACT_APP_SHOWCASE_STABLE_LEADERBOARD: "false"
+  service:
+    type: ClusterIP
+    port: 80
+    targetPort: 80
+  resources: {}
+  nodeSelector: {}
+  tolerations: []
+  affinity: {}

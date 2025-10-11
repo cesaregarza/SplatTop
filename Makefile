@@ -1,9 +1,32 @@
 KIND_CONTEXT ?= kind-kind
 DEV_PORTS ?= 3000 4000 5000 8001 8080 9090
+USE_HELM ?= 0
+HELM_RELEASE ?= splattop
+HELM_NAMESPACE ?= default
+HELM_CHART ?= helm/splattop
+HELM_DEV_VALUES ?= $(HELM_CHART)/values.dev.yaml
+HELM_PROD_VALUES ?= $(HELM_CHART)/values.yaml
+HELM_EXTRA_ARGS ?=
 
 .PHONY: ensure-kind
 ensure-kind:
 	kubectl config use-context $(KIND_CONTEXT)
+
+.PHONY: helm-template-dev
+helm-template-dev: ensure-kind
+	helm template $(HELM_RELEASE) $(HELM_CHART) -n $(HELM_NAMESPACE) -f $(HELM_DEV_VALUES) $(HELM_EXTRA_ARGS)
+
+.PHONY: helm-deploy-dev
+helm-deploy-dev: ensure-kind
+	helm upgrade --install $(HELM_RELEASE) $(HELM_CHART) -n $(HELM_NAMESPACE) --create-namespace -f $(HELM_DEV_VALUES) --wait --atomic --history-max 5 $(HELM_EXTRA_ARGS)
+
+.PHONY: helm-deploy-prod
+helm-deploy-prod: ensure-kind
+	helm upgrade --install $(HELM_RELEASE) $(HELM_CHART) -n $(HELM_NAMESPACE) --create-namespace -f $(HELM_PROD_VALUES) --wait --atomic --history-max 5 $(HELM_EXTRA_ARGS)
+
+.PHONY: helm-uninstall
+helm-uninstall: ensure-kind
+	helm uninstall $(HELM_RELEASE) -n $(HELM_NAMESPACE) || true
 
 .PHONY: build
 build:
@@ -85,6 +108,12 @@ deploy-core: ensure-kind
 	kubectl apply -f k8s/monitoring/grafana/configmap-datasources.yaml
 	kubectl apply -f k8s/monitoring/grafana/configmap-dashboard-providers.yaml
 	kubectl apply -f k8s/monitoring/grafana/dashboard-core.yaml
+	kubectl apply -f k8s/monitoring/grafana/dashboard-auth-rate.yaml
+	kubectl apply -f k8s/monitoring/grafana/dashboard-api-usage.yaml
+	kubectl apply -f k8s/monitoring/grafana/dashboard-realtime.yaml
+	kubectl apply -f k8s/monitoring/grafana/dashboard-ripple.yaml
+	kubectl apply -f k8s/monitoring/grafana/dashboard-splatgpt.yaml
+	kubectl apply -f k8s/monitoring/grafana/dashboard-data-pipeline.yaml
 	kubectl apply -f k8s/monitoring/grafana/deployment.yaml
 	kubectl apply -f k8s/monitoring/grafana/service.yaml
 	kubectl apply -f k8s/monitoring/grafana/pdb.yaml
@@ -106,12 +135,18 @@ deploy-core: ensure-kind
 	kubectl apply -f k8s/monitoring/grafana/ingress-dev.yaml
 	kubectl apply -f k8s/redis/redis-deployment.yaml
 	kubectl apply -f k8s/redis/redis-service.yaml
-	kubectl apply -f k8s/fast-api/fast-api-deployment-dev.yaml
-	kubectl apply -f k8s/fast-api/fast-api-service-dev.yaml
+	if [ "$(USE_HELM)" = "1" ]; then \
+	  $(MAKE) helm-deploy-dev; \
+	else \
+	  kubectl apply -f k8s/fast-api/fast-api-deployment-dev.yaml; \
+	  kubectl apply -f k8s/fast-api/fast-api-service-dev.yaml; \
+	fi
 	kubectl apply -f k8s/celery-worker/celery-worker-deployment-dev.yaml
 	kubectl apply -f k8s/celery-beat/celery-beat-deployment-dev.yaml
-	kubectl apply -f k8s/react/react-deployment-dev.yaml
-	kubectl apply -f k8s/react/react-service-dev.yaml
+	if [ "$(USE_HELM)" != "1" ]; then \
+	  kubectl apply -f k8s/react/react-deployment-dev.yaml; \
+	  kubectl apply -f k8s/react/react-service-dev.yaml; \
+	fi
 	kubectl apply -f k8s/splatgpt/splatgpt-deployment-dev.yaml
 	kubectl apply -f k8s/splatgpt/splatgpt-service.yaml
 	kubectl apply -f https://raw.githubusercontent.com/kubernetes/ingress-nginx/controller-v1.0.0/deploy/static/provider/cloud/deploy.yaml
@@ -138,6 +173,12 @@ _undeploy-core-base:
 	kubectl delete -f k8s/monitoring/grafana/deployment.yaml || true
 	kubectl delete -f k8s/monitoring/grafana/configmap-dashboard-providers.yaml || true
 	kubectl delete -f k8s/monitoring/grafana/dashboard-core.yaml || true
+	kubectl delete -f k8s/monitoring/grafana/dashboard-auth-rate.yaml || true
+	kubectl delete -f k8s/monitoring/grafana/dashboard-api-usage.yaml || true
+	kubectl delete -f k8s/monitoring/grafana/dashboard-realtime.yaml || true
+	kubectl delete -f k8s/monitoring/grafana/dashboard-ripple.yaml || true
+	kubectl delete -f k8s/monitoring/grafana/dashboard-splatgpt.yaml || true
+	kubectl delete -f k8s/monitoring/grafana/dashboard-data-pipeline.yaml || true
 	kubectl delete -f k8s/monitoring/grafana/configmap-datasources.yaml || true
 	kubectl delete -f k8s/monitoring/prometheus/service.yaml || true
 	kubectl delete -f k8s/monitoring/prometheus/rules.yaml || true
@@ -152,12 +193,16 @@ _undeploy-core-base:
 	kubectl delete -f k8s/monitoring/alertmanager/deployment.yaml || true
 	kubectl delete -f k8s/redis/redis-deployment.yaml || true
 	kubectl delete -f k8s/redis/redis-service.yaml || true
-	kubectl delete -f k8s/fast-api/fast-api-deployment-dev.yaml || true
-	kubectl delete -f k8s/fast-api/fast-api-service-dev.yaml || true
+	if [ "$(USE_HELM)" = "1" ]; then \
+	  $(MAKE) helm-uninstall; \
+	else \
+	  kubectl delete -f k8s/fast-api/fast-api-deployment-dev.yaml || true; \
+	  kubectl delete -f k8s/fast-api/fast-api-service-dev.yaml || true; \
+	  kubectl delete -f k8s/react/react-deployment-dev.yaml || true; \
+	  kubectl delete -f k8s/react/react-service-dev.yaml || true; \
+	fi
 	kubectl delete -f k8s/celery-worker/celery-worker-deployment-dev.yaml || true
 	kubectl delete -f k8s/celery-beat/celery-beat-deployment-dev.yaml || true
-	kubectl delete -f k8s/react/react-deployment-dev.yaml || true
-	kubectl delete -f k8s/react/react-service-dev.yaml || true
 	kubectl delete -f k8s/splatgpt/splatgpt-deployment-dev.yaml || true
 	kubectl delete -f k8s/splatgpt/splatgpt-service.yaml || true
 	kubectl delete -f k8s/monitoring/grafana/networkpolicy.yaml || true

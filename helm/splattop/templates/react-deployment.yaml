@@ -1,0 +1,55 @@
+{{- if .Values.react.enabled }}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "splattop.fullname" . }}-react
+  labels:
+    {{- include "splattop.labels" . | nindent 4 }}
+    {{- include "splattop.react.matchLabels" . | nindent 4 }}
+spec:
+  replicas: {{ .Values.react.replicaCount }}
+  selector:
+    matchLabels:
+      {{- include "splattop.react.matchLabels" . | nindent 6 }}
+  template:
+    metadata:
+      labels:
+        {{- include "splattop.react.matchLabels" . | nindent 8 }}
+    spec:
+      {{- if .Values.react.imagePullSecrets }}
+      imagePullSecrets:
+        {{- range .Values.react.imagePullSecrets }}
+        - name: {{ .name | default . }}
+        {{- end }}
+      {{- end }}
+      containers:
+        - name: react-app
+          image: "{{ .Values.react.image.repository }}:{{ .Values.react.image.tag }}"
+          imagePullPolicy: {{ .Values.react.image.pullPolicy }}
+          ports:
+            {{- range .Values.react.containerPorts }}
+            - name: {{ .name }}
+              containerPort: {{ .containerPort }}
+            {{- end }}
+          env:
+            {{- range $name, $value := .Values.react.env }}
+            - name: {{ $name }}
+              value: {{ $value | quote }}
+            {{- end }}
+          {{- with .Values.react.resources }}
+          resources:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+      {{- if .Values.react.nodeSelector }}
+      nodeSelector:
+        {{- toYaml .Values.react.nodeSelector | nindent 8 }}
+      {{- end }}
+      {{- if .Values.react.affinity }}
+      affinity:
+        {{- toYaml .Values.react.affinity | nindent 8 }}
+      {{- end }}
+      {{- if .Values.react.tolerations }}
+      tolerations:
+        {{- toYaml .Values.react.tolerations | nindent 8 }}
+      {{- end }}
+{{- end }}

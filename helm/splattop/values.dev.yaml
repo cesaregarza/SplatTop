@@ -1,0 +1,30 @@
+fastApi:
+  replicaCount: 1
+  image:
+    repository: fast-api-app
+    tag: latest
+    pullPolicy: Never
+  imagePullSecrets: []
+  env:
+    ENV: development
+  service:
+    type: NodePort
+    httpPort: 80
+    httpTargetPort: 8000
+    websocketPort: 8001
+    websocketTargetPort: 8001
+
+react:
+  replicaCount: 1
+  image:
+    repository: react-app
+    tag: latest
+    pullPolicy: Never
+  imagePullSecrets: []
+  env:
+    ENV: development
+    REACT_APP_SHOWCASE_STABLE_LEADERBOARD: "true"
+  service:
+    type: ClusterIP
+    port: 80
+    targetPort: 80
