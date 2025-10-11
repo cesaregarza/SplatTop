@@ -8,6 +8,7 @@ fastApi:
   env:
     ENV: development
   service:
+    name: fast-api-app-service
     type: NodePort
     httpPort: 80
     httpTargetPort: 8000
@@ -25,6 +26,7 @@ react:
     ENV: development
     REACT_APP_SHOWCASE_STABLE_LEADERBOARD: "true"
   service:
+    name: react-app-service
     type: ClusterIP
     port: 80
     targetPort: 80

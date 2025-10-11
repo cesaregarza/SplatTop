@@ -2,7 +2,7 @@
 apiVersion: v1
 kind: Service
 metadata:
-  name: {{ include "splattop.fullname" . }}-celery-worker
+  name: {{ .Values.celeryWorker.service.name | default "celery-worker-service" }}
   labels:
     {{- include "splattop.labels" . | nindent 4 }}
     {{- include "splattop.celeryWorker.matchLabels" . | nindent 4 }}

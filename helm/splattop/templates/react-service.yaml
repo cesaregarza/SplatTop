@@ -2,7 +2,7 @@
 apiVersion: v1
 kind: Service
 metadata:
-  name: {{ include "splattop.fullname" . }}-react
+  name: {{ .Values.react.service.name | default "react-app-service" }}
   labels:
     {{- include "splattop.labels" . | nindent 4 }}
     {{- include "splattop.react.matchLabels" . | nindent 4 }}
