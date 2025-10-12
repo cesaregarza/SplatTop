@@ -151,6 +151,7 @@ input_files
 !tests/input_files
 *.json
 !tests/input_files/*.json
+!src/react_app/public/.well-known/jwks.json
 .python-version
 *.sh
 

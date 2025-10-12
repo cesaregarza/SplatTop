@@ -9,6 +9,13 @@ spec:
   rules:
     - http:
         paths:
+          - path: /.well-known/
+            pathType: Prefix
+            backend:
+              service:
+                name: fast-api-app-service
+                port:
+                  number: 80
           - path: /
             pathType: Prefix
             backend:
@@ -33,6 +40,13 @@ spec:
     - host: comp.localhost
       http:
         paths:
+          - path: /.well-known/
+            pathType: Prefix
+            backend:
+              service:
+                name: fast-api-app-service
+                port:
+                  number: 80
           - path: /
             pathType: Prefix
             backend:
