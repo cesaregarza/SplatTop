@@ -22,6 +22,7 @@ from fast_api_app.routes import (
     admin_tokens_router,
     front_page_router,
     infer_router,
+    jwks_router,
     ping_router,
     player_detail_router,
     ripple_docs_router,
@@ -74,6 +75,7 @@ app.add_middleware(
 
 # Register routers
 app.include_router(front_page_router)
+app.include_router(jwks_router)
 app.include_router(player_detail_router)
 app.include_router(search_router)
 app.include_router(weapon_info_router)
