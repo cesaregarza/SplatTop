@@ -24,6 +24,12 @@ spec:
             matchLabels:
               kubernetes.io/metadata.name: monitoring
     - to:
+        - ipBlock:
+            cidr: 10.108.0.0/20 # allow DO managed Postgres private endpoint
+      ports:
+        - protocol: TCP
+          port: 25060
+    - to:
         - namespaceSelector:
             matchLabels:
               kubernetes.io/metadata.name: kube-system

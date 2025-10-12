@@ -683,40 +683,35 @@ async def _refresh_snapshots_async() -> Dict[str, Any]:
         preserved_source = preserved_source or "redis_latest"
     yesterday_payload: Dict[str, Any] | None = None
     yesterday_cutoff_ms: int | None = None
-    try:
-        async with rankings_async_session() as session:
-            (
-                rows,
-                total,
-                calc_ts,
-                build_version,
-            ) = await ripple_queries.fetch_ripple_page(
-                session, **DEFAULT_PAGE_PARAMS
-            )
-            (
-                danger_rows_raw,
-                danger_total,
-                danger_calc_ts,
-                danger_build,
-            ) = await ripple_queries.fetch_ripple_danger(
-                session, **DEFAULT_DANGER_PARAMS
-            )
-            danger_rows = [dict(r) for r in danger_rows_raw]
-            player_ids = [
-                str(row.get("player_id"))
-                for row in rows
-                if row.get("player_id")
-            ]
-            events = await _fetch_player_events(session, player_ids)
-            state, stable_rows = await _bootstrap_state(
-                session, rows, events, generated_at_ms
-            )
+    async with rankings_async_session() as session:
+        (
+            rows,
+            total,
+            calc_ts,
+            build_version,
+        ) = await ripple_queries.fetch_ripple_page(
+            session, **DEFAULT_PAGE_PARAMS
+        )
+        (
+            danger_rows_raw,
+            danger_total,
+            danger_calc_ts,
+            danger_build,
+        ) = await ripple_queries.fetch_ripple_danger(
+            session, **DEFAULT_DANGER_PARAMS
+        )
+        danger_rows = [dict(r) for r in danger_rows_raw]
+        player_ids = [
+            str(row.get("player_id")) for row in rows if row.get("player_id")
+        ]
+        events = await _fetch_player_events(session, player_ids)
+        state, stable_rows = await _bootstrap_state(
+            session, rows, events, generated_at_ms
+        )
 
-            day_start_ms = (generated_at_ms // MS_PER_DAY) * MS_PER_DAY
-            if day_start_ms:
-                yesterday_cutoff_ms = day_start_ms - 1
-    finally:
-        rankings_async_session.remove()
+        day_start_ms = (generated_at_ms // MS_PER_DAY) * MS_PER_DAY
+        if day_start_ms:
+            yesterday_cutoff_ms = day_start_ms - 1
 
     calc_ts_int = _to_int(calc_ts)
     danger_calc_ts_int = _to_int(danger_calc_ts)
@@ -724,21 +719,18 @@ async def _refresh_snapshots_async() -> Dict[str, Any]:
     danger_total_value = _to_int(danger_total)
 
     if yesterday_cutoff_ms is not None:
-        try:
-            async with rankings_async_session() as session:
-                baseline_ts = await _latest_calculated_at_at_or_before(
-                    session, yesterday_cutoff_ms
+        async with rankings_async_session() as session:
+            baseline_ts = await _latest_calculated_at_at_or_before(
+                session, yesterday_cutoff_ms
+            )
+            if baseline_ts is not None:
+                payload = await _load_baseline_snapshot_from_db(
+                    session,
+                    current_calc_ts=calc_ts_int,
+                    baseline_ts=baseline_ts,
                 )
-                if baseline_ts is not None:
-                    payload = await _load_baseline_snapshot_from_db(
-                        session,
-                        current_calc_ts=calc_ts_int,
-                        baseline_ts=baseline_ts,
-                    )
-                    if payload and payload.get("data"):
-                        yesterday_payload = payload
-        finally:
-            rankings_async_session.remove()
+                if payload and payload.get("data"):
+                    yesterday_payload = payload
 
     if not previous_stable_payload or not previous_stable_payload.get("data"):
         if yesterday_payload and yesterday_payload.get("data"):
@@ -746,18 +738,15 @@ async def _refresh_snapshots_async() -> Dict[str, Any]:
             preserved_payload = previous_stable_payload
             preserved_source = "db_yesterday"
         else:
-            try:
-                async with rankings_async_session() as session:
-                    fallback_payload = await _load_baseline_snapshot_from_db(
-                        session,
-                        current_calc_ts=calc_ts_int,
-                    )
-                    if fallback_payload and fallback_payload.get("data"):
-                        previous_stable_payload = fallback_payload
-                        preserved_payload = previous_stable_payload
-                        preserved_source = "db_baseline"
-            finally:
-                rankings_async_session.remove()
+            async with rankings_async_session() as session:
+                fallback_payload = await _load_baseline_snapshot_from_db(
+                    session,
+                    current_calc_ts=calc_ts_int,
+                )
+                if fallback_payload and fallback_payload.get("data"):
+                    previous_stable_payload = fallback_payload
+                    preserved_payload = previous_stable_payload
+                    preserved_source = "db_baseline"
 
     new_state = state
     display_map = {
