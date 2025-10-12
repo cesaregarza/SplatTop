@@ -10,7 +10,11 @@ from celery import Celery
 from fastapi import WebSocket
 from slowapi import Limiter
 from sqlalchemy import create_engine
-from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine
+from sqlalchemy.ext.asyncio import (
+    AsyncSession,
+    async_sessionmaker,
+    create_async_engine,
+)
 from sqlalchemy.orm import scoped_session, sessionmaker
 
 from fast_api_app.utils import get_client_ip
@@ -41,15 +45,18 @@ rankings_async_engine = create_async_engine(create_ranking_uri())
 Session = scoped_session(sessionmaker(bind=sync_engine))
 
 # Asynchronous session with pool
-async_session_factory = sessionmaker(
-    bind=async_engine, class_=AsyncSession, expire_on_commit=False
+async_session_factory = async_sessionmaker(
+    async_engine,
+    class_=AsyncSession,
+    expire_on_commit=False,
 )
-async_session = scoped_session(async_session_factory)
+async_session = async_session_factory
 
-rankings_async_session_factory = sessionmaker(
-    bind=rankings_async_engine, class_=AsyncSession, expire_on_commit=False
+rankings_async_session = async_sessionmaker(
+    rankings_async_engine,
+    class_=AsyncSession,
+    expire_on_commit=False,
 )
-rankings_async_session = scoped_session(rankings_async_session_factory)
 
 REDIS_URI = f"redis://{REDIS_HOST}:{REDIS_PORT}"
 celery = Celery("tasks", broker=REDIS_URI, backend=REDIS_URI)

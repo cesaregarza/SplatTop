@@ -1,6 +1,10 @@
 import redis
 from sqlalchemy import create_engine
-from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine
+from sqlalchemy.ext.asyncio import (
+    AsyncSession,
+    async_sessionmaker,
+    create_async_engine,
+)
 from sqlalchemy.orm import scoped_session, sessionmaker
 
 from shared_lib.constants import REDIS_HOST, REDIS_PORT
@@ -13,10 +17,8 @@ redis_conn = redis.Redis(
 )
 
 rankings_async_engine = create_async_engine(create_ranking_uri())
-rankings_async_session = scoped_session(
-    sessionmaker(
-        bind=rankings_async_engine,
-        class_=AsyncSession,
-        expire_on_commit=False,
-    )
+rankings_async_session = async_sessionmaker(
+    rankings_async_engine,
+    class_=AsyncSession,
+    expire_on_commit=False,
 )
