@@ -16,7 +16,11 @@ redis_conn = redis.Redis(
     host=REDIS_HOST, port=REDIS_PORT, db=0, decode_responses=True
 )
 
-rankings_async_engine = create_async_engine(create_ranking_uri())
+rankings_async_engine = create_async_engine(
+    create_ranking_uri(),
+    pool_pre_ping=True,  # Test connection health before use
+    pool_recycle=3600,  # Recycle connections every hour
+)
 rankings_async_session = async_sessionmaker(
     rankings_async_engine,
     class_=AsyncSession,

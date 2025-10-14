@@ -11,8 +11,13 @@ from uuid import uuid4
 
 import orjson
 from sqlalchemy import BigInteger, bindparam, text
+from sqlalchemy.exc import InterfaceError
 
-from celery_app.connections import rankings_async_session, redis_conn
+from celery_app.connections import (
+    rankings_async_engine,
+    rankings_async_session,
+    redis_conn,
+)
 from shared_lib.constants import (
     RIPPLE_DANGER_LATEST_KEY,
     RIPPLE_SNAPSHOT_LOCK_KEY,
@@ -30,6 +35,7 @@ logger = logging.getLogger(__name__)
 
 
 LOCK_TTL_SECONDS = 15 * 60
+MAX_REFRESH_RETRIES = 3
 
 # Fetch the complete snapshot so the public cache can serve every stable row;
 # pagination happens on the consumer side.
@@ -663,7 +669,7 @@ def _serialize_danger(
     return serialized
 
 
-async def _refresh_snapshots_async() -> Dict[str, Any]:
+async def _refresh_snapshots_async_once() -> Dict[str, Any]:
     generated_at_ms = _now_ms()
     rows: List[Mapping[str, Any]] = []
     total: Any = 0
@@ -683,70 +689,80 @@ async def _refresh_snapshots_async() -> Dict[str, Any]:
         preserved_source = preserved_source or "redis_latest"
     yesterday_payload: Dict[str, Any] | None = None
     yesterday_cutoff_ms: int | None = None
+
+    # Use a single session for all database queries
     async with rankings_async_session() as session:
-        (
-            rows,
-            total,
-            calc_ts,
-            build_version,
-        ) = await ripple_queries.fetch_ripple_page(
-            session, **DEFAULT_PAGE_PARAMS
-        )
-        (
-            danger_rows_raw,
-            danger_total,
-            danger_calc_ts,
-            danger_build,
-        ) = await ripple_queries.fetch_ripple_danger(
-            session, **DEFAULT_DANGER_PARAMS
-        )
-        danger_rows = [dict(r) for r in danger_rows_raw]
-        player_ids = [
-            str(row.get("player_id")) for row in rows if row.get("player_id")
-        ]
-        events = await _fetch_player_events(session, player_ids)
-        state, stable_rows = await _bootstrap_state(
-            session, rows, events, generated_at_ms
-        )
-
-        day_start_ms = (generated_at_ms // MS_PER_DAY) * MS_PER_DAY
-        if day_start_ms:
-            yesterday_cutoff_ms = day_start_ms - 1
-
-    calc_ts_int = _to_int(calc_ts)
-    danger_calc_ts_int = _to_int(danger_calc_ts)
-    stable_total = _to_int(total)
-    danger_total_value = _to_int(danger_total)
-
-    if yesterday_cutoff_ms is not None:
-        async with rankings_async_session() as session:
-            baseline_ts = await _latest_calculated_at_at_or_before(
-                session, yesterday_cutoff_ms
+        # Main query block in its own transaction
+        async with session.begin():
+            (
+                rows,
+                total,
+                calc_ts,
+                build_version,
+            ) = await ripple_queries.fetch_ripple_page(
+                session, **DEFAULT_PAGE_PARAMS
             )
-            if baseline_ts is not None:
-                payload = await _load_baseline_snapshot_from_db(
-                    session,
-                    current_calc_ts=calc_ts_int,
-                    baseline_ts=baseline_ts,
-                )
-                if payload and payload.get("data"):
-                    yesterday_payload = payload
+            (
+                danger_rows_raw,
+                danger_total,
+                danger_calc_ts,
+                danger_build,
+            ) = await ripple_queries.fetch_ripple_danger(
+                session, **DEFAULT_DANGER_PARAMS
+            )
+            danger_rows = [dict(r) for r in danger_rows_raw]
+            player_ids = [
+                str(row.get("player_id"))
+                for row in rows
+                if row.get("player_id")
+            ]
+            events = await _fetch_player_events(session, player_ids)
+            state, stable_rows = await _bootstrap_state(
+                session, rows, events, generated_at_ms
+            )
 
-    if not previous_stable_payload or not previous_stable_payload.get("data"):
-        if yesterday_payload and yesterday_payload.get("data"):
-            previous_stable_payload = yesterday_payload
-            preserved_payload = previous_stable_payload
-            preserved_source = "db_yesterday"
-        else:
-            async with rankings_async_session() as session:
-                fallback_payload = await _load_baseline_snapshot_from_db(
-                    session,
-                    current_calc_ts=calc_ts_int,
+            day_start_ms = (generated_at_ms // MS_PER_DAY) * MS_PER_DAY
+            if day_start_ms:
+                yesterday_cutoff_ms = day_start_ms - 1
+
+        calc_ts_int = _to_int(calc_ts)
+        danger_calc_ts_int = _to_int(danger_calc_ts)
+        stable_total = _to_int(total)
+        danger_total_value = _to_int(danger_total)
+
+        # Load yesterday's baseline snapshot in a new transaction
+        if yesterday_cutoff_ms is not None:
+            async with session.begin():
+                baseline_ts = await _latest_calculated_at_at_or_before(
+                    session, yesterday_cutoff_ms
                 )
-                if fallback_payload and fallback_payload.get("data"):
-                    previous_stable_payload = fallback_payload
-                    preserved_payload = previous_stable_payload
-                    preserved_source = "db_baseline"
+                if baseline_ts is not None:
+                    payload = await _load_baseline_snapshot_from_db(
+                        session,
+                        current_calc_ts=calc_ts_int,
+                        baseline_ts=baseline_ts,
+                    )
+                    if payload and payload.get("data"):
+                        yesterday_payload = payload
+
+        # Load fallback snapshot if needed in a new transaction
+        if not previous_stable_payload or not previous_stable_payload.get(
+            "data"
+        ):
+            if yesterday_payload and yesterday_payload.get("data"):
+                previous_stable_payload = yesterday_payload
+                preserved_payload = previous_stable_payload
+                preserved_source = "db_yesterday"
+            else:
+                async with session.begin():
+                    fallback_payload = await _load_baseline_snapshot_from_db(
+                        session,
+                        current_calc_ts=calc_ts_int,
+                    )
+                    if fallback_payload and fallback_payload.get("data"):
+                        previous_stable_payload = fallback_payload
+                        preserved_payload = previous_stable_payload
+                        preserved_source = "db_baseline"
 
     new_state = state
     display_map = {
@@ -827,6 +843,27 @@ async def _refresh_snapshots_async() -> Dict[str, Any]:
         "stable_rows": len(stable_rows),
         "danger_rows": len(danger_payload),
     }
+
+
+async def _refresh_snapshots_async() -> Dict[str, Any]:
+    attempts = 0
+    while True:
+        try:
+            return await _refresh_snapshots_async_once()
+        except InterfaceError as exc:
+            attempts += 1
+            if attempts >= MAX_REFRESH_RETRIES:
+                logger.exception(
+                    "Failed to refresh ripple snapshots after %s attempts",
+                    attempts,
+                )
+                raise
+            logger.warning(
+                "Retrying ripple snapshot refresh after InterfaceError: %s",
+                exc,
+            )
+            await rankings_async_engine.dispose()
+            await asyncio.sleep(0.5)
 
 
 def refresh_ripple_snapshots() -> Dict[str, Any]:

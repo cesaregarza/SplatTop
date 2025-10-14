@@ -126,6 +126,10 @@ def test_refresh_ripple_snapshots_persists_payloads(monkeypatch):
                     async def execute(self, _query, params=None):
                         return FakeResult(None)
 
+                    @asynccontextmanager
+                    async def begin(self):
+                        yield
+
                 yield FakeSession()
 
             return fake_session()
@@ -299,6 +303,10 @@ def test_refresh_ripple_snapshots_computes_deltas(monkeypatch):
                     async def execute(self, _query, params=None):
                         return FakeResult(2_000)
 
+                    @asynccontextmanager
+                    async def begin(self):
+                        yield
+
                 yield FakeSession()
 
             return fake_session()
@@ -423,6 +431,10 @@ def test_refresh_ripple_snapshots_preserves_previous_payload(monkeypatch):
                     return iter(())
 
             return FakeResult(None)
+
+        @asynccontextmanager
+        async def begin(self):
+            yield
 
     @asynccontextmanager
     async def fake_session_context():
@@ -584,6 +596,10 @@ def test_refresh_ripple_snapshots_waits_for_post_event_scores(monkeypatch):
                     async def execute(self, _query, params=None):
                         return FakeResult(2_000)
 
+                    @asynccontextmanager
+                    async def begin(self):
+                        yield
+
                 yield FakeSession()
 
             return fake_session()
@@ -740,6 +756,10 @@ def test_delta_resets_after_followup_snapshot(monkeypatch):
             value = baseline_values.pop(0) if baseline_values else 4_000
             return FakeResult(value)
 
+        @asynccontextmanager
+        async def begin(self):
+            yield
+
     @asynccontextmanager
     async def fake_session_ctx():
         yield FakeSession()
@@ -860,6 +880,10 @@ def test_refresh_ripple_snapshots_uses_preserved_payload_when_latest_missing(
                     return iter(())
 
             return FakeResult(None)
+
+        @asynccontextmanager
+        async def begin(self):
+            yield
 
     @asynccontextmanager
     async def fake_session_context():
@@ -996,6 +1020,10 @@ def test_refresh_ripple_snapshots_backfills_previous_payload(monkeypatch):
 
             return FakeResult(2_000)
 
+        @asynccontextmanager
+        async def begin(self):
+            yield
+
     @asynccontextmanager
     async def fake_session_context():
         yield FakeSession()
@@ -1101,6 +1129,10 @@ def test_bootstrap_rebuilds_stable_state(monkeypatch):
                     return self._value
 
             return FakeResult(None)
+
+        @asynccontextmanager
+        async def begin(self):
+            yield
 
     @asynccontextmanager
     async def fake_session_context():
