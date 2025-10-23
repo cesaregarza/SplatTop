@@ -162,7 +162,7 @@ const CompetitionFaq = ({ percentiles }) => {
       question: "When does the leaderboard refresh?",
       answer: (
         <p>
-          Rankings are recomputed daily from finalized sendou.ink data at 00:15 UTC
+          Rankings are recomputed daily from finalized sendou.ink data at 00:30 UTC
           (7:15&nbsp;PM Eastern during standard time, 8:15&nbsp;PM Eastern during daylight time).
           Your entry updates the next time you play a new eligible tournament.
         </p>

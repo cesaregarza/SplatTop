@@ -879,8 +879,18 @@ def refresh_ripple_snapshots() -> Dict[str, Any]:
         logger.info("Skipping ripple snapshot refresh; lock is already held")
         return {"skipped": True, "reason": "locked"}
 
+    # Get existing event loop or create new one to work with Celery's process reuse
     try:
-        result = asyncio.run(_refresh_snapshots_async())
+        loop = asyncio.get_event_loop()
+        if loop.is_closed():
+            loop = asyncio.new_event_loop()
+            asyncio.set_event_loop(loop)
+    except RuntimeError:
+        loop = asyncio.new_event_loop()
+        asyncio.set_event_loop(loop)
+
+    try:
+        result = loop.run_until_complete(_refresh_snapshots_async())
     finally:
         try:
             current = redis_conn.get(RIPPLE_SNAPSHOT_LOCK_KEY)

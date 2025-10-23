@@ -40,7 +40,7 @@ celery.conf.beat_schedule = {
     },
     "fetch-ripple-stable-daily": {
         "task": "tasks.refresh_ripple_snapshots",
-        "schedule": crontab(minute=15, hour=0),
+        "schedule": crontab(minute=30, hour=0),
     },
     "flush-api-usage": {
         "task": "tasks.flush_api_usage",

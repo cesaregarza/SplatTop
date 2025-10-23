@@ -69,7 +69,10 @@ const CompetitionLayout = ({
   const timestampParts = formatTimestampParts(generatedAtMs);
 
   return (
-    <div className="min-h-screen bg-slate-950 text-slate-100">
+    <div
+      className="min-h-screen bg-slate-950 text-slate-100"
+      style={{ colorScheme: "dark" }}
+    >
       <header className="border-b border-slate-800 bg-slate-900/90">
         <div className="max-w-6xl mx-auto px-6 pt-6 pb-4">
           <div className="flex items-center justify-between">
@@ -92,7 +95,7 @@ const CompetitionLayout = ({
             Competitive Rankings
           </h1>
           <p className="mt-2 max-w-3xl text-slate-300">
-            Refreshed once daily at 00:15 UTC. Standings only move when new tournaments are recorded.
+            Refreshed once daily at 00:30 UTC. Standings only move when new tournaments are recorded.
           </p>
         </div>
       </header>
