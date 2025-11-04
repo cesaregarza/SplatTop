@@ -271,3 +271,97 @@ Environment variable
    - `auth.api_tokens` and `auth.api_token_usage` tables with appropriate indexes (e.g., `api_token_usage(token_id, ts)` for analytics).
 3. Deploy Redis (broker + cache) and Celery Beat/Workers.
 4. Tune rate-limits and flush cadence via env vars as above.
+
+### Deployment Webhook
+
+The backend exposes a rollout webhook for CI/CD jobs that need to restart Discord bot pods (or other approved workloads) once a new image is available.
+
+- Route: `POST /api/webhooks/deployments/rollout`
+- Auth: send a minted API token (`Authorization: Bearer rpl_<...>`). The usual rate-limit and usage tracking apply.
+
+**Headers**
+
+- `Content-Type: application/json`
+- `X-Timestamp`: Unix seconds when the payload was generated. Requests that drift more than `DEPLOY_WEBHOOK_MAX_SKEW_SECONDS` (default `300`) are rejected.
+- `X-Signature-256`: HMAC signature generated as `sha256=<hex>` where `hex = HMAC_SHA256(secret, f"{timestamp}\n{body}")`. Configure the shared secret via `DEPLOY_WEBHOOK_SECRET`.
+
+**Encrypted payload**
+
+The JSON body contains a single field: `{"token": "<fernet-token>"}`. The token is produced with the Fernet key stored in `DEPLOY_WEBHOOK_FERNET_KEY`. Decrypted payload fields:
+
+- `target` (string, required): lookup key in `DEPLOYMENT_WEBHOOK_TARGETS`.
+- `image` (string, optional): container image to pin on the rollout. If the target defines `image_prefixes`, the value must start with one of them.
+- `sha` (string, optional): Git commit SHA; persisted as an annotation.
+- `annotations` (object, optional): additional annotations applied to the pod template. Keys without a `/` prefix are automatically namespaced under `deploy-webhook.splat-top.dev/`.
+
+Targets are allow-listed via `DEPLOYMENT_WEBHOOK_TARGETS`, a JSON object stored in the environment. Example:
+
+```json
+{
+  "agent8s": {
+    "namespace": "discord-bots",
+    "deployment": "agent8s",
+    "container": "agent8s",
+    "image_prefixes": ["registry.digitalocean.com/splat-top/agent8s"]
+  }
+}
+```
+
+On each accepted request, the API patches the Kubernetes deployment by:
+
+1. Updating the container image if `image` is provided.
+2. Bumping pod-template annotations (always includes `deploy-webhook.splat-top.dev/last-triggered`, optionally `.../image`, `.../commit-sha`, and any custom annotations).
+
+**Example GitHub Actions snippet**
+
+```yaml
+      - name: Encrypt rollout payload
+        id: encrypt-payload
+        env:
+          WEBHOOK_FERNET_KEY: ${{ secrets.WEBHOOK_FERNET_KEY }}
+          IMAGE: ${{ format('{0}/agent8s@{1}', secrets.DO_REGISTRY_REPOSITORY, steps.build-image.outputs.digest) }}
+          COMMIT_SHA: ${{ github.sha }}
+        run: |
+          token=$(python - <<'PY'
+import os
+import orjson
+from cryptography.fernet import Fernet
+
+key = os.environ["WEBHOOK_FERNET_KEY"].encode()
+payload = {
+    "target": "agent8s",
+    "image": os.environ["IMAGE"],
+    "sha": os.environ["COMMIT_SHA"],
+}
+print(Fernet(key).encrypt(orjson.dumps(payload)).decode())
+PY
+          )
+          echo "token=$token" >> "$GITHUB_OUTPUT"
+        shell: bash
+
+      - name: Notify rollout webhook
+        env:
+          WEBHOOK_URL: ${{ secrets.K8S_DEPLOY_WEBHOOK_URL }}
+          WEBHOOK_SECRET: ${{ secrets.WEBHOOK_SECRET }}
+          WEBHOOK_TOKEN: ${{ secrets.WEBHOOK_TOKEN }} # minted API token
+          PAYLOAD_TOKEN: ${{ steps.encrypt-payload.outputs.token }}
+        run: |
+          timestamp=$(date +%s)
+          body=$(jq -n --arg token "$PAYLOAD_TOKEN" '{token:$token}')
+          signature=$(printf '%s\n%s' "$timestamp" "$body" \
+            | openssl dgst -sha256 -hmac "$WEBHOOK_SECRET" -binary | xxd -p -c 256)
+
+          curl -sSfL --retry 5 --retry-all-errors --connect-timeout 5 --max-time 60 \
+            -X POST "$WEBHOOK_URL?wait=true" \
+            -H "Authorization: Bearer $WEBHOOK_TOKEN" \
+            -H "Content-Type: application/json" \
+            -H "X-Timestamp: $timestamp" \
+            -H "X-Signature-256: sha256=$signature" \
+            -d "$body"
+```
+
+> Note: `WEBHOOK_TOKEN` should be a standard API token minted via `/api/admin/tokens`. The `WEBHOOK_SECRET`, `WEBHOOK_FERNET_KEY`, and `DEPLOYMENT_WEBHOOK_TARGETS` values belong in cluster secrets (or sealed secrets) and must match the CI configuration.
+
+Optional tuning:
+- `DEPLOY_WEBHOOK_TOKEN_TTL_SECONDS` (default `600`): maximum age of the Fernet token.
+- `DEPLOY_WEBHOOK_ANNOTATION_PREFIX` (default `deploy-webhook.splat-top.dev/`): override for generated annotation keys.
