@@ -1,0 +1,17 @@
+{{- if .Values.react.enabled }}
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "splattop.fullname" . }}-react
+  labels:
+    {{- include "splattop.componentLabels" (dict "component" "react" "root" .) | nindent 4 }}
+spec:
+  type: {{ .Values.react.service.type }}
+  ports:
+    - port: {{ .Values.react.service.port }}
+      targetPort: http
+      protocol: TCP
+      name: http
+  selector:
+    {{- include "splattop.componentSelectorLabels" (dict "component" "react" "root" .) | nindent 4 }}
+{{- end }}

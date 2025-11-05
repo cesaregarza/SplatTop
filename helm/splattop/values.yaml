@@ -1,0 +1,195 @@
+# Default values for splattop.
+# This is a YAML-formatted file.
+# Declare variables to be passed into your templates.
+
+# Global configuration
+global:
+  environment: development
+  imagePullSecrets:
+    - regcred
+  databaseSecretName: db-secrets
+
+# FastAPI backend configuration
+fastapi:
+  enabled: true
+  replicas: 1
+  image:
+    repository: registry.digitalocean.com/sendouq/fast-api
+    tag: latest
+    pullPolicy: Always
+  service:
+    type: ClusterIP
+    port: 8000
+    websocketPort: 8001
+  secretKeys:
+    - RANKINGS_DB_NAME
+    - RANKINGS_DB_SCHEMA
+    - API_TOKEN_PEPPER
+    - ADMIN_TOKEN_PEPPER
+    - ADMIN_API_TOKENS_HASHED
+    - DB_HOST
+    - DB_USER
+    - DB_PASSWORD
+    - DB_NAME
+    - DB_PORT
+  env:
+    COMP_LEADERBOARD_ENABLED: "false"
+  resources: {}
+  livenessProbe: {}
+  readinessProbe: {}
+
+# React frontend configuration
+react:
+  enabled: true
+  replicas: 1
+  image:
+    repository: registry.digitalocean.com/sendouq/react
+    tag: latest
+    pullPolicy: Always
+  service:
+    type: ClusterIP
+    port: 80
+  env:
+    REACT_APP_SHOWCASE_STABLE_LEADERBOARD: "false"
+  resources: {}
+  livenessProbe: {}
+  readinessProbe: {}
+
+# Celery worker configuration
+celeryWorker:
+  enabled: true
+  replicas: 1
+  image:
+    repository: registry.digitalocean.com/sendouq/celery
+    tag: latest
+    pullPolicy: Always
+  command:
+    - celery
+    - -A
+    - celery_app.app
+    - worker
+    - --loglevel=info
+  secretKeys:
+    - DB_HOST
+    - DB_USER
+    - DB_PASSWORD
+    - DB_NAME
+    - DB_PORT
+  env:
+    COMP_LEADERBOARD_ENABLED: "false"
+  service:
+    enabled: true
+    type: ClusterIP
+    port: 80
+  resources: {}
+
+# Celery beat configuration
+celeryBeat:
+  enabled: true
+  replicas: 1
+  image:
+    repository: registry.digitalocean.com/sendouq/celery
+    tag: latest
+    pullPolicy: Always
+  command:
+    - celery
+  args:
+    - -A
+    - celery_app.beat
+    - beat
+    - --loglevel=info
+  secretKeys:
+    - DB_HOST
+    - DB_USER
+    - DB_PASSWORD
+    - DB_NAME
+    - DB_PORT
+  env:
+    COMP_LEADERBOARD_ENABLED: "false"
+  resources:
+    requests:
+      memory: "32Mi"
+      cpu: "10m"
+    limits:
+      memory: "64Mi"
+      cpu: "20m"
+
+# Redis configuration
+redis:
+  enabled: true
+  replicas: 1
+  image:
+    repository: redis
+    tag: latest
+    pullPolicy: IfNotPresent
+  service:
+    type: ClusterIP
+    port: 6379
+  resources: {}
+
+# SplatNLP/SplatGPT configuration
+splatnlp:
+  enabled: true
+  replicas: 1
+  image:
+    repository: registry.digitalocean.com/sendouq/splatnlp
+    tag: latest
+    pullPolicy: Always
+  service:
+    type: ClusterIP
+    port: 9000
+  secretKeys:
+    - DO_SPACES_ML_ENDPOINT
+    - DO_SPACES_ML_DIR
+  env: {}
+  resources: {}
+
+# Ingress configuration
+ingress:
+  enabled: false
+  className: nginx
+  annotations:
+    nginx.org/websocket-services: "{{ .Release.Name }}-splattop-fastapi"
+    nginx.ingress.kubernetes.io/proxy-body-size: "10m"
+    cert-manager.io/cluster-issuer: "letsencrypt-prod"
+  hosts: []
+  # Example configuration (uncomment and modify for your needs):
+  # hosts:
+  #   - host: dev.splat.top
+  #     paths:
+  #       - path: /.well-known/
+  #         pathType: Prefix
+  #         serviceName: fastapi
+  #         servicePort: 8000
+  #       - path: /api
+  #         pathType: Prefix
+  #         serviceName: fastapi
+  #         servicePort: 8000
+  #       - path: /ws
+  #         pathType: Prefix
+  #         serviceName: fastapi
+  #         servicePort: 8001
+  #       - path: /
+  #         pathType: Prefix
+  #         serviceName: react
+  #         servicePort: 80
+  tls:
+    enabled: false
+    secretName: tls-secret
+    certificate:
+      enabled: false
+      issuerName: letsencrypt-prod
+      issuerKind: ClusterIssuer
+      commonName: splat.top
+      dnsNames:
+        - splat.top
+        - comp.splat.top
+
+# Service account configuration
+serviceAccount:
+  create: false
+  name: ""
+
+# Override chart name
+nameOverride: ""
+fullnameOverride: ""

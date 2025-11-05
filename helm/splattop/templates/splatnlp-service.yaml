@@ -1,0 +1,17 @@
+{{- if .Values.splatnlp.enabled }}
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "splattop.fullname" . }}-splatnlp
+  labels:
+    {{- include "splattop.componentLabels" (dict "component" "splatnlp" "root" .) | nindent 4 }}
+spec:
+  type: {{ .Values.splatnlp.service.type }}
+  ports:
+    - port: {{ .Values.splatnlp.service.port }}
+      targetPort: http
+      protocol: TCP
+      name: http
+  selector:
+    {{- include "splattop.componentSelectorLabels" (dict "component" "splatnlp" "root" .) | nindent 4 }}
+{{- end }}

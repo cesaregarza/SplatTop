@@ -1,0 +1,19 @@
+{{- if .Values.celeryWorker.enabled }}
+{{- if .Values.celeryWorker.service.enabled }}
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "splattop.fullname" . }}-celery-worker
+  labels:
+    {{- include "splattop.componentLabels" (dict "component" "celery-worker" "root" .) | nindent 4 }}
+spec:
+  type: {{ .Values.celeryWorker.service.type }}
+  ports:
+    - port: {{ .Values.celeryWorker.service.port }}
+      targetPort: 8000
+      protocol: TCP
+      name: http
+  selector:
+    {{- include "splattop.componentSelectorLabels" (dict "component" "celery-worker" "root" .) | nindent 4 }}
+{{- end }}
+{{- end }}

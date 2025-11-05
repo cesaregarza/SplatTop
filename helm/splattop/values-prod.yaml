@@ -1,0 +1,72 @@
+# Production values for splattop.
+# This file contains production-specific overrides for the default values.yaml
+# Use with: helm install splattop ./helm/splattop -f ./helm/splattop/values-prod.yaml
+
+# Global configuration
+global:
+  environment: production
+
+# FastAPI backend configuration
+fastapi:
+  replicas: 2
+  env:
+    COMP_LEADERBOARD_ENABLED: "true"
+
+# React frontend configuration
+react:
+  replicas: 2
+
+# Celery worker configuration
+celeryWorker:
+  env:
+    COMP_LEADERBOARD_ENABLED: "true"
+
+# Celery beat configuration
+celeryBeat:
+  env:
+    COMP_LEADERBOARD_ENABLED: "true"
+
+# Ingress configuration
+ingress:
+  enabled: true
+  hosts:
+    - host: splat.top
+      paths:
+        - path: /.well-known/
+          pathType: Prefix
+          serviceName: fastapi
+          servicePort: 8000
+        - path: /api
+          pathType: Prefix
+          serviceName: fastapi
+          servicePort: 8000
+        - path: /ws
+          pathType: Prefix
+          serviceName: fastapi
+          servicePort: 8001
+        - path: /
+          pathType: Prefix
+          serviceName: react
+          servicePort: 80
+    - host: comp.splat.top
+      paths:
+        - path: /.well-known/
+          pathType: Prefix
+          serviceName: fastapi
+          servicePort: 8000
+        - path: /api
+          pathType: Prefix
+          serviceName: fastapi
+          servicePort: 8000
+        - path: /ws
+          pathType: Prefix
+          serviceName: fastapi
+          servicePort: 8001
+        - path: /
+          pathType: Prefix
+          serviceName: react
+          servicePort: 80
+  tls:
+    enabled: true
+    certificate:
+      enabled: true

@@ -1,0 +1,17 @@
+{{- if .Values.redis.enabled }}
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "splattop.fullname" . }}-redis
+  labels:
+    {{- include "splattop.componentLabels" (dict "component" "redis" "root" .) | nindent 4 }}
+spec:
+  type: {{ .Values.redis.service.type }}
+  ports:
+    - port: {{ .Values.redis.service.port }}
+      targetPort: redis
+      protocol: TCP
+      name: redis
+  selector:
+    {{- include "splattop.componentSelectorLabels" (dict "component" "redis" "root" .) | nindent 4 }}
+{{- end }}
