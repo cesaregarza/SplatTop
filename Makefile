@@ -277,3 +277,406 @@ kill-ports:
 			echo "No process found on port $$port"; \
 		fi; \
 	done
+
+# ==============================================================================
+# Helm Commands
+# ==============================================================================
+
+HELM_CHART_PATH = helm/splattop
+HELM_RELEASE_DEV = splattop-dev
+HELM_RELEASE_PROD = splattop-prod
+HELM_NAMESPACE_DEV = splattop-dev
+HELM_NAMESPACE_PROD = splattop-prod
+
+.PHONY: helm-install-dev
+helm-install-dev:
+	@echo "Installing SplatTop Helm chart (development)..."
+	helm install $(HELM_RELEASE_DEV) $(HELM_CHART_PATH) \
+		--create-namespace \
+		--namespace $(HELM_NAMESPACE_DEV)
+
+.PHONY: helm-install-prod
+helm-install-prod:
+	@echo "Installing SplatTop Helm chart (production)..."
+	helm install $(HELM_RELEASE_PROD) $(HELM_CHART_PATH) \
+		--create-namespace \
+		--namespace $(HELM_NAMESPACE_PROD) \
+		--values $(HELM_CHART_PATH)/values-prod.yaml
+
+.PHONY: helm-upgrade-dev
+helm-upgrade-dev:
+	@echo "Upgrading SplatTop Helm release (development)..."
+	helm upgrade $(HELM_RELEASE_DEV) $(HELM_CHART_PATH) \
+		--namespace $(HELM_NAMESPACE_DEV)
+
+.PHONY: helm-upgrade-prod
+helm-upgrade-prod:
+	@echo "Upgrading SplatTop Helm release (production)..."
+	helm upgrade $(HELM_RELEASE_PROD) $(HELM_CHART_PATH) \
+		--namespace $(HELM_NAMESPACE_PROD) \
+		--values $(HELM_CHART_PATH)/values-prod.yaml
+
+.PHONY: helm-uninstall-dev
+helm-uninstall-dev:
+	@echo "Uninstalling SplatTop Helm release (development)..."
+	helm uninstall $(HELM_RELEASE_DEV) --namespace $(HELM_NAMESPACE_DEV)
+
+.PHONY: helm-uninstall-prod
+helm-uninstall-prod:
+	@echo "Uninstalling SplatTop Helm release (production)..."
+	helm uninstall $(HELM_RELEASE_PROD) --namespace $(HELM_NAMESPACE_PROD)
+
+.PHONY: helm-lint
+helm-lint:
+	@echo "Linting Helm chart..."
+	helm lint $(HELM_CHART_PATH)
+
+.PHONY: helm-template-dev
+helm-template-dev:
+	@echo "Rendering Helm templates (development)..."
+	helm template $(HELM_RELEASE_DEV) $(HELM_CHART_PATH)
+
+.PHONY: helm-template-prod
+helm-template-prod:
+	@echo "Rendering Helm templates (production)..."
+	helm template $(HELM_RELEASE_PROD) $(HELM_CHART_PATH) \
+		--values $(HELM_CHART_PATH)/values-prod.yaml
+
+.PHONY: helm-dry-run-dev
+helm-dry-run-dev:
+	@echo "Dry-run Helm install (development)..."
+	helm install $(HELM_RELEASE_DEV) $(HELM_CHART_PATH) \
+		--dry-run --debug \
+		--namespace $(HELM_NAMESPACE_DEV)
+
+.PHONY: helm-dry-run-prod
+helm-dry-run-prod:
+	@echo "Dry-run Helm install (production)..."
+	helm install $(HELM_RELEASE_PROD) $(HELM_CHART_PATH) \
+		--dry-run --debug \
+		--namespace $(HELM_NAMESPACE_PROD) \
+		--values $(HELM_CHART_PATH)/values-prod.yaml
+
+.PHONY: helm-status-dev
+helm-status-dev:
+	@echo "Helm release status (development)..."
+	helm status $(HELM_RELEASE_DEV) --namespace $(HELM_NAMESPACE_DEV)
+
+.PHONY: helm-status-prod
+helm-status-prod:
+	@echo "Helm release status (production)..."
+	helm status $(HELM_RELEASE_PROD) --namespace $(HELM_NAMESPACE_PROD)
+
+.PHONY: helm-list
+helm-list:
+	@echo "Listing all Helm releases..."
+	helm list --all-namespaces
+
+# ==============================================================================
+# ArgoCD Commands
+# ==============================================================================
+
+ARGOCD_NAMESPACE = argocd
+ARGOCD_VERSION = stable
+ARGOCD_APP_DEV = splattop-dev
+ARGOCD_APP_PROD = splattop-prod
+
+.PHONY: argocd-install
+argocd-install:
+	@echo "Installing ArgoCD..."
+	kubectl create namespace $(ARGOCD_NAMESPACE) || true
+	kubectl apply -n $(ARGOCD_NAMESPACE) -f https://raw.githubusercontent.com/argoproj/argo-cd/$(ARGOCD_VERSION)/manifests/install.yaml
+	@echo "Waiting for ArgoCD to be ready..."
+	kubectl wait --for=condition=available --timeout=300s deployment/argocd-server -n $(ARGOCD_NAMESPACE)
+	@echo "ArgoCD installed successfully!"
+	@echo "Get admin password with: kubectl -n argocd get secret argocd-initial-admin-secret -o jsonpath=\"{.data.password}\" | base64 -d"
+
+.PHONY: argocd-uninstall
+argocd-uninstall:
+	@echo "Uninstalling ArgoCD..."
+	kubectl delete -n $(ARGOCD_NAMESPACE) -f https://raw.githubusercontent.com/argoproj/argo-cd/$(ARGOCD_VERSION)/manifests/install.yaml || true
+	kubectl delete namespace $(ARGOCD_NAMESPACE) || true
+
+.PHONY: argocd-password
+argocd-password:
+	@echo "ArgoCD admin password:"
+	@kubectl -n argocd get secret argocd-initial-admin-secret -o jsonpath="{.data.password}" | base64 -d
+	@echo ""
+
+.PHONY: argocd-ui
+argocd-ui:
+	@echo "Port-forwarding ArgoCD UI to http://localhost:8080"
+	@echo "Login with username: admin"
+	@echo "Password: $$(kubectl -n argocd get secret argocd-initial-admin-secret -o jsonpath="{.data.password}" | base64 -d)"
+	kubectl port-forward svc/argocd-server -n $(ARGOCD_NAMESPACE) 8080:443
+
+.PHONY: argocd-login
+argocd-login:
+	@echo "Logging into ArgoCD CLI..."
+	@PASSWORD=$$(kubectl -n argocd get secret argocd-initial-admin-secret -o jsonpath="{.data.password}" | base64 -d); \
+	kubectl port-forward svc/argocd-server -n $(ARGOCD_NAMESPACE) 8080:443 & \
+	sleep 3; \
+	argocd login localhost:8080 --username admin --password $$PASSWORD --insecure
+
+.PHONY: argocd-deploy-project
+argocd-deploy-project:
+	@echo "Deploying ArgoCD project..."
+	kubectl apply -f argocd/projects/splattop-project.yaml
+
+.PHONY: argocd-deploy-dev
+argocd-deploy-dev: argocd-deploy-project
+	@echo "Deploying SplatTop application to ArgoCD (development)..."
+	kubectl apply -f argocd/applications/splattop-dev.yaml
+
+.PHONY: argocd-deploy-prod
+argocd-deploy-prod: argocd-deploy-project
+	@echo "Deploying SplatTop application to ArgoCD (production)..."
+	kubectl apply -f argocd/applications/splattop-prod.yaml
+
+.PHONY: argocd-deploy-all
+argocd-deploy-all: argocd-deploy-project
+	@echo "Deploying all SplatTop applications via ApplicationSet..."
+	kubectl apply -f argocd/applications/splattop-applicationset.yaml
+
+.PHONY: argocd-sync-dev
+argocd-sync-dev:
+	@echo "Syncing ArgoCD application (development)..."
+	argocd app sync $(ARGOCD_APP_DEV)
+
+.PHONY: argocd-sync-prod
+argocd-sync-prod:
+	@echo "Syncing ArgoCD application (production)..."
+	argocd app sync $(ARGOCD_APP_PROD)
+
+.PHONY: argocd-delete-dev
+argocd-delete-dev:
+	@echo "Deleting ArgoCD application (development)..."
+	kubectl delete -f argocd/applications/splattop-dev.yaml || true
+
+.PHONY: argocd-delete-prod
+argocd-delete-prod:
+	@echo "Deleting ArgoCD application (production)..."
+	kubectl delete -f argocd/applications/splattop-prod.yaml || true
+
+.PHONY: argocd-delete-all
+argocd-delete-all:
+	@echo "Deleting all ArgoCD applications..."
+	kubectl delete -f argocd/applications/splattop-applicationset.yaml || true
+	kubectl delete -f argocd/applications/splattop-dev.yaml || true
+	kubectl delete -f argocd/applications/splattop-prod.yaml || true
+
+.PHONY: argocd-status
+argocd-status:
+	@echo "ArgoCD application status:"
+	@echo "==========================="
+	argocd app list || echo "ArgoCD CLI not installed or not logged in"
+
+.PHONY: argocd-status-dev
+argocd-status-dev:
+	@echo "ArgoCD application status (development):"
+	argocd app get $(ARGOCD_APP_DEV)
+
+.PHONY: argocd-status-prod
+argocd-status-prod:
+	@echo "ArgoCD application status (production):"
+	argocd app get $(ARGOCD_APP_PROD)
+
+# ==============================================================================
+# Secrets Management
+# ==============================================================================
+
+.PHONY: create-secrets-dev
+create-secrets-dev:
+	@echo "Creating development secrets..."
+	@if [ ! -f k8s/secrets.yaml ]; then \
+		echo "Error: k8s/secrets.yaml not found. Copy from k8s/secrets.template and configure."; \
+		exit 1; \
+	fi
+	kubectl create namespace $(HELM_NAMESPACE_DEV) || true
+	kubectl apply -f k8s/secrets.yaml -n $(HELM_NAMESPACE_DEV)
+	kubectl apply -f k8s/monitoring/grafana/secret-dev.yaml -n $(HELM_NAMESPACE_DEV) || true
+	kubectl apply -f k8s/monitoring/alertmanager/secret-dev.yaml -n $(HELM_NAMESPACE_DEV) || true
+	@echo "Development secrets created in namespace $(HELM_NAMESPACE_DEV)"
+
+.PHONY: create-secrets-prod
+create-secrets-prod:
+	@echo "Creating production secrets..."
+	@if [ ! -f k8s/secrets.yaml ]; then \
+		echo "Error: k8s/secrets.yaml not found. Copy from k8s/secrets.template and configure."; \
+		exit 1; \
+	fi
+	kubectl create namespace $(HELM_NAMESPACE_PROD) || true
+	kubectl apply -f k8s/secrets.yaml -n $(HELM_NAMESPACE_PROD)
+	@echo "Production secrets created in namespace $(HELM_NAMESPACE_PROD)"
+	@echo "NOTE: Remember to create grafana-admin-credentials and alertmanager-config secrets for monitoring"
+
+.PHONY: create-regcred
+create-regcred:
+	@echo "Creating registry credentials secret..."
+	@read -p "Enter registry server (e.g., registry.digitalocean.com): " REGISTRY_SERVER; \
+	read -p "Enter registry username: " REGISTRY_USER; \
+	read -sp "Enter registry password: " REGISTRY_PASS; echo ""; \
+	read -p "Enter namespace [default]: " NAMESPACE; \
+	NAMESPACE=$${NAMESPACE:-default}; \
+	kubectl create secret docker-registry regcred \
+		--docker-server=$$REGISTRY_SERVER \
+		--docker-username=$$REGISTRY_USER \
+		--docker-password=$$REGISTRY_PASS \
+		--namespace=$$NAMESPACE
+
+# ==============================================================================
+# Validation & Testing
+# ==============================================================================
+
+.PHONY: validate-helm
+validate-helm:
+	@echo "Validating Helm chart..."
+	@helm lint $(HELM_CHART_PATH)
+	@echo "Validating development configuration..."
+	@helm template $(HELM_RELEASE_DEV) $(HELM_CHART_PATH) > /tmp/helm-dev-output.yaml
+	@echo "Validating production configuration..."
+	@helm template $(HELM_RELEASE_PROD) $(HELM_CHART_PATH) --values $(HELM_CHART_PATH)/values-prod.yaml > /tmp/helm-prod-output.yaml
+	@echo "Helm validation complete!"
+
+.PHONY: validate-k8s
+validate-k8s: validate-helm
+	@echo "Validating Kubernetes manifests with kubectl..."
+	@kubectl apply --dry-run=client -f /tmp/helm-dev-output.yaml
+	@kubectl apply --dry-run=client -f /tmp/helm-prod-output.yaml
+	@echo "Kubernetes manifest validation complete!"
+
+.PHONY: validate-argocd
+validate-argocd:
+	@echo "Validating ArgoCD manifests..."
+	@kubectl apply --dry-run=client -f argocd/projects/splattop-project.yaml
+	@kubectl apply --dry-run=client -f argocd/applications/
+	@echo "ArgoCD manifest validation complete!"
+
+.PHONY: validate-all
+validate-all: validate-helm validate-k8s validate-argocd
+	@echo "All validations complete!"
+
+# ==============================================================================
+# Utility Commands
+# ==============================================================================
+
+.PHONY: kubectl-dev
+kubectl-dev:
+	@echo "Setting kubectl context to development namespace..."
+	kubectl config set-context --current --namespace=$(HELM_NAMESPACE_DEV)
+
+.PHONY: kubectl-prod
+kubectl-prod:
+	@echo "Setting kubectl context to production namespace..."
+	kubectl config set-context --current --namespace=$(HELM_NAMESPACE_PROD)
+
+.PHONY: logs-dev
+logs-dev:
+	@echo "Streaming logs from development namespace..."
+	kubectl logs -f -l app.kubernetes.io/instance=$(HELM_RELEASE_DEV) -n $(HELM_NAMESPACE_DEV) --all-containers=true
+
+.PHONY: logs-prod
+logs-prod:
+	@echo "Streaming logs from production namespace..."
+	kubectl logs -f -l app.kubernetes.io/instance=$(HELM_RELEASE_PROD) -n $(HELM_NAMESPACE_PROD) --all-containers=true
+
+.PHONY: pods-dev
+pods-dev:
+	@echo "Listing pods in development namespace..."
+	kubectl get pods -n $(HELM_NAMESPACE_DEV)
+
+.PHONY: pods-prod
+pods-prod:
+	@echo "Listing pods in production namespace..."
+	kubectl get pods -n $(HELM_NAMESPACE_PROD)
+
+.PHONY: describe-pods-dev
+describe-pods-dev:
+	@echo "Describing pods in development namespace..."
+	kubectl describe pods -n $(HELM_NAMESPACE_DEV)
+
+.PHONY: describe-pods-prod
+describe-pods-prod:
+	@echo "Describing pods in production namespace..."
+	kubectl describe pods -n $(HELM_NAMESPACE_PROD)
+
+.PHONY: clean-all
+clean-all:
+	@echo "Cleaning up all deployments..."
+	@$(MAKE) helm-uninstall-dev || true
+	@$(MAKE) helm-uninstall-prod || true
+	@$(MAKE) argocd-delete-all || true
+	@kubectl delete namespace $(HELM_NAMESPACE_DEV) || true
+	@kubectl delete namespace $(HELM_NAMESPACE_PROD) || true
+	@echo "Cleanup complete!"
+
+.PHONY: help-helm
+help-helm:
+	@echo "Helm Commands:"
+	@echo "  make helm-install-dev        - Install Helm chart (development)"
+	@echo "  make helm-install-prod       - Install Helm chart (production)"
+	@echo "  make helm-upgrade-dev        - Upgrade Helm release (development)"
+	@echo "  make helm-upgrade-prod       - Upgrade Helm release (production)"
+	@echo "  make helm-uninstall-dev      - Uninstall Helm release (development)"
+	@echo "  make helm-uninstall-prod     - Uninstall Helm release (production)"
+	@echo "  make helm-lint               - Lint Helm chart"
+	@echo "  make helm-template-dev       - Render Helm templates (development)"
+	@echo "  make helm-template-prod      - Render Helm templates (production)"
+	@echo "  make helm-dry-run-dev        - Dry-run Helm install (development)"
+	@echo "  make helm-dry-run-prod       - Dry-run Helm install (production)"
+	@echo "  make helm-status-dev         - Show Helm release status (development)"
+	@echo "  make helm-status-prod        - Show Helm release status (production)"
+	@echo "  make helm-list               - List all Helm releases"
+
+.PHONY: help-argocd
+help-argocd:
+	@echo "ArgoCD Commands:"
+	@echo "  make argocd-install          - Install ArgoCD"
+	@echo "  make argocd-uninstall        - Uninstall ArgoCD"
+	@echo "  make argocd-password         - Get ArgoCD admin password"
+	@echo "  make argocd-ui               - Port-forward ArgoCD UI"
+	@echo "  make argocd-login            - Login to ArgoCD CLI"
+	@echo "  make argocd-deploy-project   - Deploy ArgoCD project"
+	@echo "  make argocd-deploy-dev       - Deploy application (development)"
+	@echo "  make argocd-deploy-prod      - Deploy application (production)"
+	@echo "  make argocd-deploy-all       - Deploy all applications (ApplicationSet)"
+	@echo "  make argocd-sync-dev         - Sync application (development)"
+	@echo "  make argocd-sync-prod        - Sync application (production)"
+	@echo "  make argocd-delete-dev       - Delete application (development)"
+	@echo "  make argocd-delete-prod      - Delete application (production)"
+	@echo "  make argocd-delete-all       - Delete all applications"
+	@echo "  make argocd-status           - Show all ArgoCD applications"
+	@echo "  make argocd-status-dev       - Show application status (development)"
+	@echo "  make argocd-status-prod      - Show application status (production)"
+
+.PHONY: help-new
+help-new:
+	@echo ""
+	@echo "╔════════════════════════════════════════════════════════════════╗"
+	@echo "║           SplatTop - New Deployment Commands                  ║"
+	@echo "╚════════════════════════════════════════════════════════════════╝"
+	@echo ""
+	@$(MAKE) help-helm
+	@echo ""
+	@$(MAKE) help-argocd
+	@echo ""
+	@echo "Secrets Management:"
+	@echo "  make create-secrets-dev      - Create development secrets"
+	@echo "  make create-secrets-prod     - Create production secrets"
+	@echo "  make create-regcred          - Create registry credentials"
+	@echo ""
+	@echo "Validation:"
+	@echo "  make validate-helm           - Validate Helm chart"
+	@echo "  make validate-k8s            - Validate Kubernetes manifests"
+	@echo "  make validate-argocd         - Validate ArgoCD manifests"
+	@echo "  make validate-all            - Run all validations"
+	@echo ""
+	@echo "Utilities:"
+	@echo "  make kubectl-dev             - Switch kubectl to dev namespace"
+	@echo "  make kubectl-prod            - Switch kubectl to prod namespace"
+	@echo "  make pods-dev                - List pods (development)"
+	@echo "  make pods-prod               - List pods (production)"
+	@echo "  make logs-dev                - Stream logs (development)"
+	@echo "  make logs-prod               - Stream logs (production)"
+	@echo "  make clean-all               - Clean up all deployments"
+	@echo ""
