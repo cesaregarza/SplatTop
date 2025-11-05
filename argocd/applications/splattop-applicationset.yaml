@@ -1,0 +1,64 @@
+apiVersion: argoproj.io/v1alpha1
+kind: ApplicationSet
+metadata:
+  name: splattop
+  namespace: argocd
+spec:
+  generators:
+    - list:
+        elements:
+          - env: dev
+            namespace: splattop-dev
+            targetRevision: main
+            valuesFile: values.yaml
+            autoSync: "true"
+          - env: staging
+            namespace: splattop-staging
+            targetRevision: main
+            valuesFile: values.yaml
+            autoSync: "true"
+          - env: prod
+            namespace: splattop-prod
+            targetRevision: main
+            valuesFile: values-prod.yaml
+            autoSync: "false"  # Manual sync for production
+  template:
+    metadata:
+      name: splattop-{{env}}
+      namespace: argocd
+      finalizers:
+        - resources-finalizer.argocd.argoproj.io
+    spec:
+      project: splattop
+      source:
+        repoURL: https://github.com/cesaregarza/SplatTop
+        targetRevision: '{{targetRevision}}'
+        path: helm/splattop
+        helm:
+          releaseName: splattop-{{env}}
+          valueFiles:
+            - '{{valuesFile}}'
+      destination:
+        server: https://kubernetes.default.svc
+        namespace: '{{namespace}}'
+      syncPolicy:
+        automated:
+          prune: true
+          selfHeal: true
+          allowEmpty: false
+        syncOptions:
+          - CreateNamespace=true
+          - PrunePropagationPolicy=foreground
+          - PruneLast=true
+        retry:
+          limit: 5
+          backoff:
+            duration: 5s
+            factor: 2
+            maxDuration: 3m
+      revisionHistoryLimit: 10
+      ignoreDifferences:
+        - group: apps
+          kind: Deployment
+          jsonPointers:
+            - /spec/replicas

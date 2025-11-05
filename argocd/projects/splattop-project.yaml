@@ -1,0 +1,105 @@
+apiVersion: argoproj.io/v1alpha1
+kind: AppProject
+metadata:
+  name: splattop
+  namespace: argocd
+  finalizers:
+    - resources-finalizer.argocd.argoproj.io
+spec:
+  description: SplatTop - Splatoon 3 competitive tracking platform
+
+  # Source repositories
+  sourceRepos:
+    - https://github.com/cesaregarza/SplatTop
+
+  # Destination clusters and namespaces
+  destinations:
+    - namespace: splattop-dev
+      server: https://kubernetes.default.svc
+    - namespace: splattop-staging
+      server: https://kubernetes.default.svc
+    - namespace: splattop-prod
+      server: https://kubernetes.default.svc
+    - namespace: monitoring
+      server: https://kubernetes.default.svc
+
+  # Cluster resource allow list
+  clusterResourceWhitelist:
+    - group: ''
+      kind: Namespace
+    - group: rbac.authorization.k8s.io
+      kind: ClusterRole
+    - group: rbac.authorization.k8s.io
+      kind: ClusterRoleBinding
+    - group: cert-manager.io
+      kind: Certificate
+    - group: cert-manager.io
+      kind: ClusterIssuer
+
+  # Namespace resource allow list
+  namespaceResourceWhitelist:
+    - group: ''
+      kind: Service
+    - group: ''
+      kind: ServiceAccount
+    - group: ''
+      kind: ConfigMap
+    - group: ''
+      kind: Secret
+    - group: ''
+      kind: PersistentVolumeClaim
+    - group: apps
+      kind: Deployment
+    - group: apps
+      kind: StatefulSet
+    - group: batch
+      kind: Job
+    - group: batch
+      kind: CronJob
+    - group: networking.k8s.io
+      kind: Ingress
+    - group: networking.k8s.io
+      kind: NetworkPolicy
+    - group: policy
+      kind: PodDisruptionBudget
+    - group: cert-manager.io
+      kind: Certificate
+
+  # Orphaned resources monitoring
+  orphanedResources:
+    warn: true
+    ignore:
+      - group: ''
+        kind: Secret
+        name: regcred
+      - group: ''
+        kind: Secret
+        name: db-secrets
+      - group: ''
+        kind: Secret
+        name: grafana-admin-credentials
+      - group: ''
+        kind: Secret
+        name: alertmanager-config
+
+  # Role definitions
+  roles:
+    # Developers can sync dev and staging
+    - name: developer
+      description: Developer role for SplatTop
+      policies:
+        - p, proj:splattop:developer, applications, get, splattop/*, allow
+        - p, proj:splattop:developer, applications, sync, splattop/splattop-dev, allow
+        - p, proj:splattop:developer, applications, sync, splattop/splattop-staging, allow
+        - p, proj:splattop:developer, applications, override, splattop/splattop-dev, allow
+        - p, proj:splattop:developer, applications, override, splattop/splattop-staging, allow
+      groups:
+        - splattop-developers
+
+    # Admins have full control
+    - name: admin
+      description: Admin role for SplatTop
+      policies:
+        - p, proj:splattop:admin, applications, *, splattop/*, allow
+      groups:
+        - splattop-admins

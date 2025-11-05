@@ -20,11 +20,22 @@ This chart deploys the following components:
 ## Prerequisites
 
 - Kubernetes 1.19+
-- Helm 3.0+
+- Helm 3.0+ (or ArgoCD for GitOps deployment)
 - A Kubernetes secret named `db-secrets` containing database credentials (or customize via `global.databaseSecretName`)
 - Image pull secrets configured as `regcred` (or customize via `global.imagePullSecrets`)
 - (Optional) Nginx Ingress Controller for ingress support
 - (Optional) cert-manager for TLS certificate management
+- (Optional) ArgoCD for GitOps continuous delivery (see `/argocd/README.md`)
+
+## Deployment Methods
+
+SplatTop can be deployed using two methods:
+
+1. **Direct Helm Installation** (below) - Manual deployment using Helm CLI
+2. **ArgoCD GitOps** - Automated deployment via ArgoCD (recommended for production)
+   - See [ArgoCD documentation](/argocd/README.md) for GitOps setup
+   - Supports multi-environment deployments
+   - Automated sync with self-healing
 
 ## Installing the Chart
 
@@ -372,6 +383,49 @@ helm/splattop/
 │   └── certificate.yaml
 └── README.md               # This file
 ```
+
+## GitOps Deployment with ArgoCD
+
+For production environments, we recommend using ArgoCD for GitOps-based deployment:
+
+### Why ArgoCD?
+
+- **Declarative GitOps**: Git as the single source of truth
+- **Automated Sync**: Automatic deployment of changes from Git
+- **Self-Healing**: Automatically corrects drift from desired state
+- **Multi-Environment**: Manage dev, staging, and production from one place
+- **Rollback**: Easy rollback to previous versions
+- **RBAC**: Fine-grained access control per environment
+
+### Quick Start
+
+1. **Install ArgoCD** (if not already installed):
+   ```bash
+   kubectl create namespace argocd
+   kubectl apply -n argocd -f https://raw.githubusercontent.com/argoproj/argo-cd/stable/manifests/install.yaml
+   ```
+
+2. **Deploy SplatTop Project**:
+   ```bash
+   kubectl apply -f argocd/projects/splattop-project.yaml
+   ```
+
+3. **Deploy Application** (choose one):
+   ```bash
+   # Single environment
+   kubectl apply -f argocd/applications/splattop-prod.yaml
+
+   # Or use ApplicationSet for all environments
+   kubectl apply -f argocd/applications/splattop-applicationset.yaml
+   ```
+
+4. **Access ArgoCD UI**:
+   ```bash
+   kubectl port-forward svc/argocd-server -n argocd 8080:443
+   # Get password: kubectl -n argocd get secret argocd-initial-admin-secret -o jsonpath="{.data.password}" | base64 -d
+   ```
+
+For complete ArgoCD setup and usage, see [ArgoCD Documentation](/argocd/README.md).
 
 ## Support
 
