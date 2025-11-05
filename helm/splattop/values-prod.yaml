@@ -70,3 +70,22 @@ ingress:
     enabled: true
     certificate:
       enabled: true
+
+# Monitoring stack configuration (enabled in production)
+monitoring:
+  prometheus:
+    enabled: true
+  grafana:
+    enabled: true
+    serverDomain: grafana.splat.top
+    serverRootUrl: https://grafana.splat.top/
+    dashboards:
+      - name: core
+      - name: splatgpt
+      - name: auth-rate
+      - name: realtime
+      - name: ripple
+      - name: api-usage
+      - name: data-pipeline
+  alertmanager:
+    enabled: true

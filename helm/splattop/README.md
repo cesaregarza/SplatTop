@@ -13,6 +13,9 @@ This chart deploys the following components:
 - **Redis**: Cache and message broker
 - **SplatNLP**: ML inference service
 - **Ingress**: (Optional) Route external traffic to services
+- **Prometheus**: (Optional) Metrics collection and monitoring
+- **Grafana**: (Optional) Metrics visualization and dashboards
+- **AlertManager**: (Optional) Alert routing and management
 
 ## Prerequisites
 
@@ -145,6 +148,48 @@ The following table lists the configurable parameters and their default values.
 | `ingress.tls.enabled` | Enable TLS | `false` (dev), `true` (prod) |
 | `ingress.tls.secretName` | TLS secret name | `tls-secret` |
 
+### Monitoring Configuration
+
+#### Prometheus
+
+| Parameter | Description | Default |
+|-----------|-------------|---------|
+| `monitoring.prometheus.enabled` | Enable Prometheus | `false` (dev), `true` (prod) |
+| `monitoring.prometheus.replicas` | Number of replicas | `1` |
+| `monitoring.prometheus.image.tag` | Image tag | `v2.52.0` |
+| `monitoring.prometheus.service.port` | Service port | `9090` |
+| `monitoring.prometheus.retention` | Data retention period | `15d` |
+| `monitoring.prometheus.persistence.enabled` | Enable persistent storage | `true` |
+| `monitoring.prometheus.persistence.size` | Storage size | `20Gi` |
+| `monitoring.prometheus.resources.requests.cpu` | CPU request | `250m` |
+| `monitoring.prometheus.resources.requests.memory` | Memory request | `512Mi` |
+| `monitoring.prometheus.resources.limits.cpu` | CPU limit | `1` |
+| `monitoring.prometheus.resources.limits.memory` | Memory limit | `2Gi` |
+
+#### Grafana
+
+| Parameter | Description | Default |
+|-----------|-------------|---------|
+| `monitoring.grafana.enabled` | Enable Grafana | `false` (dev), `true` (prod) |
+| `monitoring.grafana.replicas` | Number of replicas | `1` |
+| `monitoring.grafana.image.tag` | Image tag | `10.4.3` |
+| `monitoring.grafana.service.port` | Service port | `80` |
+| `monitoring.grafana.serverDomain` | Server domain | `""` (dev), `grafana.splat.top` (prod) |
+| `monitoring.grafana.adminCredentialsSecret` | Admin credentials secret | `grafana-admin-credentials` |
+| `monitoring.grafana.persistence.enabled` | Enable persistent storage | `true` |
+| `monitoring.grafana.persistence.size` | Storage size | `5Gi` |
+| `monitoring.grafana.dashboards` | List of dashboard ConfigMaps to mount | `[]` (dev), see values-prod.yaml |
+
+#### AlertManager
+
+| Parameter | Description | Default |
+|-----------|-------------|---------|
+| `monitoring.alertmanager.enabled` | Enable AlertManager | `false` (dev), `true` (prod) |
+| `monitoring.alertmanager.replicas` | Number of replicas | `1` |
+| `monitoring.alertmanager.image.tag` | Image tag | `v0.27.0` |
+| `monitoring.alertmanager.service.port` | Service port | `9093` |
+| `monitoring.alertmanager.configSecret` | Config secret name | `alertmanager-config` |
+
 ## Required Secrets
 
 Before deploying, create a Kubernetes secret with database credentials:
@@ -166,6 +211,34 @@ kubectl create secret generic db-secrets \
 ```
 
 You can also use the template from `/k8s/secrets.template` as a reference.
+
+### Monitoring Secrets (if monitoring is enabled)
+
+If you enable the monitoring stack, you'll need to create additional secrets:
+
+**Grafana Admin Credentials:**
+```bash
+kubectl create secret generic grafana-admin-credentials \
+  --from-literal=admin-user=admin \
+  --from-literal=admin-password=your-secure-password
+```
+
+**AlertManager Configuration:**
+```bash
+kubectl create secret generic alertmanager-config \
+  --from-file=alertmanager.yaml=/path/to/alertmanager-config.yaml
+```
+
+**Prometheus Configuration (if not using default):**
+
+You'll need to create ConfigMaps for:
+- `prometheus-config` - Main Prometheus configuration
+- `prometheus-rules` - Prometheus alerting rules (optional)
+- `grafana-datasources` - Grafana datasource configuration
+- `grafana-dashboard-providers` - Grafana dashboard provider configuration
+- Dashboard ConfigMaps (e.g., `grafana-dashboard-core`, `grafana-dashboard-splatgpt`, etc.)
+
+See the existing configurations in `/k8s/monitoring/` for reference templates.
 
 ## Examples
 
