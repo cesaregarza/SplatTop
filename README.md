@@ -285,9 +285,9 @@ The backend exposes a rollout webhook for CI/CD jobs that need to restart Discor
 - `X-Timestamp`: Unix seconds when the payload was generated. Requests that drift more than `DEPLOY_WEBHOOK_MAX_SKEW_SECONDS` (default `300`) are rejected.
 - `X-Signature-256`: HMAC signature generated as `sha256=<hex>` where `hex = HMAC_SHA256(secret, f"{timestamp}\n{body}")`. Configure the shared secret via `DEPLOY_WEBHOOK_SECRET`.
 
-**Encrypted payload**
+**Request body**
 
-The JSON body contains a single field: `{"token": "<fernet-token>"}`. The token is produced with the Fernet key stored in `DEPLOY_WEBHOOK_FERNET_KEY`. Decrypted payload fields:
+Send a JSON document with:
 
 - `target` (string, required): lookup key in `DEPLOYMENT_WEBHOOK_TARGETS`.
 - `image` (string, optional): container image to pin on the rollout. If the target defines `image_prefixes`, the value must start with one of them.
@@ -315,39 +315,20 @@ On each accepted request, the API patches the Kubernetes deployment by:
 **Example GitHub Actions snippet**
 
 ```yaml
-      - name: Encrypt rollout payload
-        id: encrypt-payload
-        env:
-          WEBHOOK_FERNET_KEY: ${{ secrets.WEBHOOK_FERNET_KEY }}
-          IMAGE: ${{ format('{0}/agent8s@{1}', secrets.DO_REGISTRY_REPOSITORY, steps.build-image.outputs.digest) }}
-          COMMIT_SHA: ${{ github.sha }}
-        run: |
-          token=$(python - <<'PY'
-import os
-import orjson
-from cryptography.fernet import Fernet
-
-key = os.environ["WEBHOOK_FERNET_KEY"].encode()
-payload = {
-    "target": "agent8s",
-    "image": os.environ["IMAGE"],
-    "sha": os.environ["COMMIT_SHA"],
-}
-print(Fernet(key).encrypt(orjson.dumps(payload)).decode())
-PY
-          )
-          echo "token=$token" >> "$GITHUB_OUTPUT"
-        shell: bash
-
       - name: Notify rollout webhook
         env:
           WEBHOOK_URL: ${{ secrets.K8S_DEPLOY_WEBHOOK_URL }}
           WEBHOOK_SECRET: ${{ secrets.WEBHOOK_SECRET }}
           WEBHOOK_TOKEN: ${{ secrets.WEBHOOK_TOKEN }} # minted API token
-          PAYLOAD_TOKEN: ${{ steps.encrypt-payload.outputs.token }}
+          IMAGE: ${{ format('{0}/agent8s@{1}', secrets.DO_REGISTRY_REPOSITORY, steps.build-image.outputs.digest) }}
+          COMMIT_SHA: ${{ github.sha }}
         run: |
           timestamp=$(date +%s)
-          body=$(jq -n --arg token "$PAYLOAD_TOKEN" '{token:$token}')
+          body=$(jq -n \
+            --arg target "agent8s" \
+            --arg image "$IMAGE" \
+            --arg sha "$COMMIT_SHA" \
+            '{target:$target, image:$image, sha:$sha}')
           signature=$(printf '%s\n%s' "$timestamp" "$body" \
             | openssl dgst -sha256 -hmac "$WEBHOOK_SECRET" -binary | xxd -p -c 256)
 
@@ -360,8 +341,7 @@ PY
             -d "$body"
 ```
 
-> Note: `WEBHOOK_TOKEN` should be a standard API token minted via `/api/admin/tokens`. The `WEBHOOK_SECRET`, `WEBHOOK_FERNET_KEY`, and `DEPLOYMENT_WEBHOOK_TARGETS` values belong in cluster secrets (or sealed secrets) and must match the CI configuration.
+> Note: `WEBHOOK_TOKEN` should be a standard API token minted via `/api/admin/tokens`. The `WEBHOOK_SECRET` and `DEPLOYMENT_WEBHOOK_TARGETS` values belong in cluster secrets (or sealed secrets) and must match the CI configuration.
 
 Optional tuning:
-- `DEPLOY_WEBHOOK_TOKEN_TTL_SECONDS` (default `600`): maximum age of the Fernet token.
 - `DEPLOY_WEBHOOK_ANNOTATION_PREFIX` (default `deploy-webhook.splat-top.dev/`): override for generated annotation keys.

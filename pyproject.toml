@@ -16,7 +16,6 @@ dependencies = [
     "asyncpg>=0.29.0,<0.30",
     "pandas>=2.2.2,<3",
     "orjson>=3.10.1,<4",
-    "cryptography>=42.0.0,<43",
     "slowapi>=0.1.9,<0.2",
     "gunicorn>=22.0.0,<23",
     "scipy>=1.13.1,<2",

@@ -4,12 +4,6 @@ import time
 
 import orjson
 import pytest
-from cryptography.fernet import Fernet
-
-
-def _encrypt_payload(key: bytes, payload: dict) -> str:
-    token = Fernet(key).encrypt(orjson.dumps(payload))
-    return token.decode("utf-8")
 
 
 def _build_headers(secret: str, timestamp: int, body: bytes) -> dict:
@@ -36,7 +30,6 @@ def test_rollout_success(client, deployment_module, monkeypatch):
     module = deployment_module
     client.app.dependency_overrides[module.require_api_token] = lambda: True
 
-    key = Fernet.generate_key()
     secret = "super-secret"
     target_config = {
         "agent8s": {
@@ -47,7 +40,6 @@ def test_rollout_success(client, deployment_module, monkeypatch):
         }
     }
 
-    monkeypatch.setenv("DEPLOY_WEBHOOK_FERNET_KEY", key.decode("utf-8"))
     monkeypatch.setenv("DEPLOY_WEBHOOK_SECRET", secret)
     monkeypatch.setenv(
         "DEPLOYMENT_WEBHOOK_TARGETS", orjson.dumps(target_config).decode()
@@ -60,8 +52,7 @@ def test_rollout_success(client, deployment_module, monkeypatch):
         "sha": "deadbeef",
         "annotations": {"ci": "github"},
     }
-    token = _encrypt_payload(key, payload)
-    body = orjson.dumps({"token": token})
+    body = orjson.dumps(payload)
     timestamp = int(time.time())
     headers = _build_headers(secret, timestamp, body)
 
@@ -104,8 +95,6 @@ def test_invalid_signature(client, deployment_module, monkeypatch):
     module = deployment_module
     client.app.dependency_overrides[module.require_api_token] = lambda: True
 
-    key = Fernet.generate_key()
-    monkeypatch.setenv("DEPLOY_WEBHOOK_FERNET_KEY", key.decode("utf-8"))
     monkeypatch.setenv("DEPLOY_WEBHOOK_SECRET", "secret")
     monkeypatch.setenv(
         "DEPLOYMENT_WEBHOOK_TARGETS",
@@ -120,10 +109,9 @@ def test_invalid_signature(client, deployment_module, monkeypatch):
     )
     module.reset_webhook_state()
 
-    token = _encrypt_payload(
-        key, {"target": "agent8s", "image": "registry/agent8s:latest"}
+    body = orjson.dumps(
+        {"target": "agent8s", "image": "registry/agent8s:latest"}
     )
-    body = orjson.dumps({"token": token})
     timestamp = int(time.time())
     headers = {
         "Content-Type": "application/json",
@@ -143,10 +131,8 @@ def test_disallowed_image_rejected(client, deployment_module, monkeypatch):
     module = deployment_module
     client.app.dependency_overrides[module.require_api_token] = lambda: True
 
-    key = Fernet.generate_key()
     secret = "secret"
 
-    monkeypatch.setenv("DEPLOY_WEBHOOK_FERNET_KEY", key.decode("utf-8"))
     monkeypatch.setenv("DEPLOY_WEBHOOK_SECRET", secret)
     monkeypatch.setenv(
         "DEPLOYMENT_WEBHOOK_TARGETS",
@@ -166,8 +152,7 @@ def test_disallowed_image_rejected(client, deployment_module, monkeypatch):
         "target": "agent8s",
         "image": "registry.example.com/other@sha256:123",
     }
-    token = _encrypt_payload(key, payload)
-    body = orjson.dumps({"token": token})
+    body = orjson.dumps(payload)
     timestamp = int(time.time())
     headers = _build_headers(secret, timestamp, body)
 

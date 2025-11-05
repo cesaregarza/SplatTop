@@ -2,11 +2,9 @@ import hmac
 import logging
 import os
 import time
-from functools import lru_cache
 from typing import Dict, Optional
 
 import orjson
-from cryptography.fernet import Fernet, InvalidToken
 from fastapi import APIRouter, Depends, HTTPException, Request, status
 from pydantic import BaseModel, Field
 
@@ -81,28 +79,8 @@ def _require_secret() -> bytes:
     return secret.encode()
 
 
-@lru_cache(maxsize=1)
-def _fernet() -> Fernet:
-    key = os.getenv("DEPLOY_WEBHOOK_FERNET_KEY")
-    if not key:
-        logger.error("DEPLOY_WEBHOOK_FERNET_KEY is not configured")
-        raise HTTPException(
-            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-            detail="Webhook encryption key is not configured",
-        )
-    try:
-        return Fernet(key.encode())
-    except Exception as exc:  # pragma: no cover - defensive
-        logger.error("Invalid Fernet key configured: %s", exc)
-        raise HTTPException(
-            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-            detail="Invalid webhook encryption key",
-        )
-
-
 def reset_webhook_state() -> None:
     """Utility for tests to reset cached state."""
-    _fernet.cache_clear()
     reload_deployment_targets()
     reset_kubernetes_client()
 
@@ -157,38 +135,11 @@ def _validate_signature(
 
 def _parse_instruction(raw_body: bytes) -> WebhookInstruction:
     try:
-        envelope = orjson.loads(raw_body)
+        payload = orjson.loads(raw_body)
     except orjson.JSONDecodeError:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Request body must be valid JSON",
-        )
-    if not isinstance(envelope, dict) or "token" not in envelope:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Encrypted payload missing 'token'",
-        )
-    token = envelope.get("token")
-    if not isinstance(token, str):
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="'token' must be a string",
-        )
-    f = _fernet()
-    ttl = int(os.getenv("DEPLOY_WEBHOOK_TOKEN_TTL_SECONDS", "600"))
-    try:
-        decrypted = f.decrypt(token.encode(), ttl=ttl)
-    except InvalidToken:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Unable to decrypt payload",
-        )
-    try:
-        payload = orjson.loads(decrypted)
-    except orjson.JSONDecodeError:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Decrypted payload must be valid JSON",
         )
     try:
         return WebhookInstruction.model_validate(payload)
