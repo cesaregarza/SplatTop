@@ -1,0 +1,102 @@
+# Development overrides for running the chart against a local kind cluster.
+# Use with:
+#   make build          # builds images and kind load docker-image ...
+#   KUBECONFIG=.kubeconfig helm upgrade --install splattop-dev ./helm/splattop \
+#     --namespace splattop-dev \
+#     -f helm/splattop/values-local.yaml
+
+global:
+  imagePullSecrets: []
+
+fastapi:
+  image:
+    repository: fast-api-app
+    tag: latest
+    pullPolicy: IfNotPresent
+  service:
+    extraServices:
+      - name: fast-api-app-service
+        ports:
+          - name: http
+            port: 80
+            targetPort: http
+          - name: websocket
+            port: 8001
+            targetPort: websocket
+
+react:
+  image:
+    repository: react-app
+    tag: latest
+    pullPolicy: IfNotPresent
+
+celeryWorker:
+  image:
+    repository: celery-worker
+    tag: latest
+    pullPolicy: IfNotPresent
+
+celeryBeat:
+  image:
+    repository: celery-worker
+    tag: latest
+    pullPolicy: IfNotPresent
+
+redis:
+  service:
+    extraServices:
+      - name: redis
+        ports:
+          - name: redis
+            port: 6379
+            targetPort: redis
+
+ingress:
+  enabled: true
+  className: nginx
+  annotations:
+    nginx.org/websocket-services: '{{ include "splattop.fullname" . }}-fastapi'
+  hosts:
+    - host: localhost
+      paths:
+        - path: /.well-known/
+          pathType: Prefix
+          serviceName: fastapi
+          servicePort: 8000
+        - path: /api
+          pathType: Prefix
+          serviceName: fastapi
+          servicePort: 8000
+        - path: /ws
+          pathType: Prefix
+          serviceName: fastapi
+          servicePort: 8001
+        - path: /
+          pathType: Prefix
+          serviceName: react
+          servicePort: 80
+    - host: comp.localhost
+      paths:
+        - path: /.well-known/
+          pathType: Prefix
+          serviceName: fastapi
+          servicePort: 8000
+        - path: /api
+          pathType: Prefix
+          serviceName: fastapi
+          servicePort: 8000
+        - path: /ws
+          pathType: Prefix
+          serviceName: fastapi
+          servicePort: 8001
+        - path: /
+          pathType: Prefix
+          serviceName: react
+          servicePort: 80
+
+splatnlp:
+  enabled: false
+  image:
+    repository: splatnlp
+    tag: latest
+    pullPolicy: IfNotPresent

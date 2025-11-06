@@ -21,6 +21,7 @@ fastapi:
     type: ClusterIP
     port: 8000
     websocketPort: 8001
+    extraServices: []
   secretKeys:
     - RANKINGS_DB_NAME
     - RANKINGS_DB_SCHEMA
@@ -49,6 +50,7 @@ react:
   service:
     type: ClusterIP
     port: 80
+    extraServices: []
   env:
     REACT_APP_SHOWCASE_STABLE_LEADERBOARD: "false"
   resources: {}
@@ -125,6 +127,7 @@ redis:
   service:
     type: ClusterIP
     port: 6379
+    extraServices: []
   resources: {}
 
 # SplatNLP/SplatGPT configuration
@@ -149,7 +152,7 @@ ingress:
   enabled: false
   className: nginx
   annotations:
-    nginx.org/websocket-services: "{{ .Release.Name }}-splattop-fastapi"
+    nginx.org/websocket-services: '{{ include "splattop.fullname" . }}-fastapi'
     nginx.ingress.kubernetes.io/proxy-body-size: "10m"
     cert-manager.io/cluster-issuer: "letsencrypt-prod"
   hosts: []
@@ -198,6 +201,7 @@ monitoring:
     service:
       type: ClusterIP
       port: 9090
+    configMapName: prometheus-config
     retention: 15d
     persistence:
       enabled: true
@@ -213,6 +217,7 @@ monitoring:
         memory: 2Gi
     rules:
       enabled: false
+      configMapName: prometheus-rules
       # Note: ConfigMaps for prometheus-config and prometheus-rules
       # need to be created separately or mounted from existing k8s/monitoring configs
 
@@ -235,6 +240,8 @@ monitoring:
       anonymous: false
     metrics:
       enabled: true
+    datasourcesConfigMapName: grafana-datasources
+    dashboardProvidersConfigMapName: grafana-dashboard-providers
     persistence:
       enabled: true
       accessMode: ReadWriteOnce
@@ -250,12 +257,9 @@ monitoring:
     dashboards:
       # List of dashboards to mount (ConfigMaps must exist)
       # - name: core
+      #   configMapName: grafana-dashboard-core
       # - name: splatgpt
-      # - name: auth-rate
-      # - name: realtime
-      # - name: ripple
-      # - name: api-usage
-      # - name: data-pipeline
+      #   configMapName: grafana-dashboard-splatgpt
 
   # AlertManager configuration
   alertmanager:

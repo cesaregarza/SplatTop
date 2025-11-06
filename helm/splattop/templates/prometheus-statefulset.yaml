@@ -1,4 +1,7 @@
 {{- if .Values.monitoring.prometheus.enabled }}
+{{- $fullName := include "splattop.fullname" . -}}
+{{- $configMapName := default (printf "%s-prometheus-config" $fullName) .Values.monitoring.prometheus.configMapName -}}
+{{- $rulesConfigMapName := default (printf "%s-prometheus-rules" $fullName) .Values.monitoring.prometheus.rules.configMapName -}}
 apiVersion: apps/v1
 kind: StatefulSet
 metadata:
@@ -73,14 +76,18 @@ spec:
       volumes:
         - name: prometheus-config
           configMap:
-            name: {{ include "splattop.fullname" . }}-prometheus-config
+            name: {{ $configMapName }}
         {{- if .Values.monitoring.prometheus.rules.enabled }}
         - name: prometheus-rules
           configMap:
-            name: {{ include "splattop.fullname" . }}-prometheus-rules
+            name: {{ $rulesConfigMapName }}
         {{- end }}
         - name: prometheus-tmp
           emptyDir: {}
+        {{- if not .Values.monitoring.prometheus.persistence.enabled }}
+        - name: prometheus-data
+          emptyDir: {}
+        {{- end }}
   {{- if .Values.monitoring.prometheus.persistence.enabled }}
   volumeClaimTemplates:
     - metadata:
@@ -94,9 +101,5 @@ spec:
         resources:
           requests:
             storage: {{ .Values.monitoring.prometheus.persistence.size }}
-  {{- else }}
-      volumes:
-        - name: prometheus-data
-          emptyDir: {}
   {{- end }}
 {{- end }}

@@ -120,7 +120,6 @@ deploy-core: ensure-kind
 deploy: ensure-kind
 	make deploy-core
 	sleep 20
-	kubectl apply -f k8s/ingress-dev.yaml
 	kubectl port-forward -n ingress-nginx service/ingress-nginx-controller 8080:80
 
 .PHONY: deploy-dev
@@ -177,11 +176,9 @@ undeploy-core-hard: ensure-kind _undeploy-core-base _undeploy-core-persistent
 
 .PHONY: undeploy
 undeploy: undeploy-core
-	kubectl delete -f k8s/ingress-dev.yaml || true
 
 .PHONY: undeploy-hard
 undeploy-hard: undeploy-core-hard
-	kubectl delete -f k8s/ingress-dev.yaml || true
 
 .PHONY: undeploy-dev
 undeploy-dev: undeploy-core
@@ -293,7 +290,8 @@ helm-install-dev:
 	@echo "Installing SplatTop Helm chart (development)..."
 	helm install $(HELM_RELEASE_DEV) $(HELM_CHART_PATH) \
 		--create-namespace \
-		--namespace $(HELM_NAMESPACE_DEV)
+		--namespace $(HELM_NAMESPACE_DEV) \
+		--values $(HELM_CHART_PATH)/values-local.yaml
 
 .PHONY: helm-install-prod
 helm-install-prod:
@@ -307,7 +305,8 @@ helm-install-prod:
 helm-upgrade-dev:
 	@echo "Upgrading SplatTop Helm release (development)..."
 	helm upgrade $(HELM_RELEASE_DEV) $(HELM_CHART_PATH) \
-		--namespace $(HELM_NAMESPACE_DEV)
+		--namespace $(HELM_NAMESPACE_DEV) \
+		--values $(HELM_CHART_PATH)/values-local.yaml
 
 .PHONY: helm-upgrade-prod
 helm-upgrade-prod:
@@ -334,7 +333,8 @@ helm-lint:
 .PHONY: helm-template-dev
 helm-template-dev:
 	@echo "Rendering Helm templates (development)..."
-	helm template $(HELM_RELEASE_DEV) $(HELM_CHART_PATH)
+	helm template $(HELM_RELEASE_DEV) $(HELM_CHART_PATH) \
+		--values $(HELM_CHART_PATH)/values-local.yaml
 
 .PHONY: helm-template-prod
 helm-template-prod:
@@ -347,7 +347,8 @@ helm-dry-run-dev:
 	@echo "Dry-run Helm install (development)..."
 	helm install $(HELM_RELEASE_DEV) $(HELM_CHART_PATH) \
 		--dry-run --debug \
-		--namespace $(HELM_NAMESPACE_DEV)
+		--namespace $(HELM_NAMESPACE_DEV) \
+		--values $(HELM_CHART_PATH)/values-local.yaml
 
 .PHONY: helm-dry-run-prod
 helm-dry-run-prod:

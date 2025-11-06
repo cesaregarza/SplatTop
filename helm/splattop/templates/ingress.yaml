@@ -5,9 +5,12 @@ metadata:
   name: {{ include "splattop.fullname" . }}
   labels:
     {{- include "splattop.labels" . | nindent 4 }}
+  {{- $root := . }}
   {{- with .Values.ingress.annotations }}
   annotations:
-    {{- toYaml . | nindent 4 }}
+    {{- range $key, $value := . }}
+    {{- printf "%s: %s" $key (tpl $value $root | quote) | nindent 4 }}
+    {{- end }}
   {{- end }}
 spec:
   ingressClassName: {{ .Values.ingress.className }}

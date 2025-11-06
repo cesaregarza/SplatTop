@@ -1,0 +1,32 @@
+{{/*
+Render additional compatibility services for components when requested via
+`service.extraServices`.
+*/}}
+{{- $root := . -}}
+{{- define "splattop.extraService" -}}
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ .service.name }}
+  labels:
+    {{- include "splattop.componentLabels" (dict "component" .component "root" .root) | nindent 4 }}
+spec:
+  type: {{ default (index .root.Values .component "service" "type") .service.type | default "ClusterIP" }}
+  ports:
+    {{- range .service.ports }}
+    - name: {{ .name | default "http" }}
+      port: {{ .port }}
+      targetPort: {{ .targetPort | default "http" }}
+      protocol: {{ .protocol | default "TCP" }}
+    {{- end }}
+  selector:
+    {{- include "splattop.componentSelectorLabels" (dict "component" .component "root" .root) | nindent 4 }}
+{{- end -}}
+
+{{- range $component, $config := dict "fastapi" .Values.fastapi "react" .Values.react "celeryWorker" .Values.celeryWorker "celeryBeat" .Values.celeryBeat "redis" .Values.redis "splatnlp" .Values.splatnlp -}}
+  {{- $extraServices := dig "service" "extraServices" list $config -}}
+  {{- range $service := $extraServices }}
+---
+{{ include "splattop.extraService" (dict "root" $root "component" $component "service" $service) }}
+  {{- end }}
+{{- end }}

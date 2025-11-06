@@ -53,6 +53,20 @@ Or with a custom release name:
 helm install my-splattop ./helm/splattop
 ```
 
+For local kind clusters, use the provided overrides that point the workloads at
+locally built images (after `make build` loads them into kind):
+
+```bash
+helm upgrade --install splattop-dev ./helm/splattop \
+  -n splattop-dev \
+  -f ./helm/splattop/values-local.yaml
+```
+
+The local overrides disable SplatNLP (to avoid large model downloads), switch all
+images to the locally built tags, and recreate the legacy `fast-api-app-service`
+and `redis` service names so the containers can reach each other without changing
+their baked-in configuration.
+
 ### Production Installation
 
 Install with production overrides:
@@ -104,6 +118,7 @@ The following table lists the configurable parameters and their default values.
 | `fastapi.image.tag` | Image tag | `latest` |
 | `fastapi.service.port` | HTTP service port | `8000` |
 | `fastapi.service.websocketPort` | WebSocket service port | `8001` |
+| `fastapi.service.extraServices` | Additional Service objects for compatibility (name/type/ports) | `[]` |
 | `fastapi.env.COMP_LEADERBOARD_ENABLED` | Enable competition leaderboard | `false` (dev), `true` (prod) |
 
 ### React Configuration
@@ -115,6 +130,7 @@ The following table lists the configurable parameters and their default values.
 | `react.image.repository` | Image repository | `registry.digitalocean.com/sendouq/react` |
 | `react.image.tag` | Image tag | `latest` |
 | `react.service.port` | Service port | `80` |
+| `react.service.extraServices` | Additional Service objects for compatibility | `[]` |
 
 ### Celery Worker Configuration
 
@@ -141,6 +157,7 @@ The following table lists the configurable parameters and their default values.
 | `redis.replicas` | Number of replicas | `1` |
 | `redis.image.repository` | Image repository | `redis` |
 | `redis.service.port` | Service port | `6379` |
+| `redis.service.extraServices` | Additional Service objects for compatibility | `[]` |
 
 ### SplatNLP Configuration
 
@@ -169,9 +186,12 @@ The following table lists the configurable parameters and their default values.
 | `monitoring.prometheus.replicas` | Number of replicas | `1` |
 | `monitoring.prometheus.image.tag` | Image tag | `v2.52.0` |
 | `monitoring.prometheus.service.port` | Service port | `9090` |
+| `monitoring.prometheus.configMapName` | ConfigMap containing `prometheus.yml` | `prometheus-config` |
 | `monitoring.prometheus.retention` | Data retention period | `15d` |
 | `monitoring.prometheus.persistence.enabled` | Enable persistent storage | `true` |
 | `monitoring.prometheus.persistence.size` | Storage size | `20Gi` |
+| `monitoring.prometheus.rules.enabled` | Mount alerting rules ConfigMap | `false` |
+| `monitoring.prometheus.rules.configMapName` | ConfigMap containing alerting rules | `prometheus-rules` |
 | `monitoring.prometheus.resources.requests.cpu` | CPU request | `250m` |
 | `monitoring.prometheus.resources.requests.memory` | Memory request | `512Mi` |
 | `monitoring.prometheus.resources.limits.cpu` | CPU limit | `1` |
@@ -187,9 +207,11 @@ The following table lists the configurable parameters and their default values.
 | `monitoring.grafana.service.port` | Service port | `80` |
 | `monitoring.grafana.serverDomain` | Server domain | `""` (dev), `grafana.splat.top` (prod) |
 | `monitoring.grafana.adminCredentialsSecret` | Admin credentials secret | `grafana-admin-credentials` |
+| `monitoring.grafana.datasourcesConfigMapName` | ConfigMap for datasource provisioning | `grafana-datasources` |
+| `monitoring.grafana.dashboardProvidersConfigMapName` | ConfigMap for dashboard providers | `grafana-dashboard-providers` |
 | `monitoring.grafana.persistence.enabled` | Enable persistent storage | `true` |
 | `monitoring.grafana.persistence.size` | Storage size | `5Gi` |
-| `monitoring.grafana.dashboards` | List of dashboard ConfigMaps to mount | `[]` (dev), see values-prod.yaml |
+| `monitoring.grafana.dashboards` | List of dashboards to mount (`name`, optional `configMapName`) | `[]` (dev), see values-prod.yaml |
 
 #### AlertManager
 
@@ -248,6 +270,11 @@ You'll need to create ConfigMaps for:
 - `grafana-datasources` - Grafana datasource configuration
 - `grafana-dashboard-providers` - Grafana dashboard provider configuration
 - Dashboard ConfigMaps (e.g., `grafana-dashboard-core`, `grafana-dashboard-splatgpt`, etc.)
+
+If you already maintain these under different names, point the chart at them via
+`monitoring.prometheus.configMapName`, `monitoring.prometheus.rules.configMapName`,
+`monitoring.grafana.datasourcesConfigMapName`, and `monitoring.grafana.dashboardProvidersConfigMapName`
+(each dashboard entry also accepts an optional `configMapName` override).
 
 See the existing configurations in `/k8s/monitoring/` for reference templates.
 

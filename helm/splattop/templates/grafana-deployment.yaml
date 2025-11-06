@@ -1,4 +1,7 @@
 {{- if .Values.monitoring.grafana.enabled }}
+{{- $fullName := include "splattop.fullname" . -}}
+{{- $datasourcesConfigMap := default (printf "%s-grafana-datasources" $fullName) .Values.monitoring.grafana.datasourcesConfigMapName -}}
+{{- $dashboardProvidersConfigMap := default (printf "%s-grafana-dashboard-providers" $fullName) .Values.monitoring.grafana.dashboardProvidersConfigMapName -}}
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -102,14 +105,14 @@ spec:
           {{- end }}
         - name: grafana-datasources
           configMap:
-            name: {{ include "splattop.fullname" . }}-grafana-datasources
+            name: {{ $datasourcesConfigMap }}
         - name: grafana-dashboard-providers
           configMap:
-            name: {{ include "splattop.fullname" . }}-grafana-dashboard-providers
+            name: {{ $dashboardProvidersConfigMap }}
         {{- range .Values.monitoring.grafana.dashboards }}
         - name: grafana-dashboard-{{ .name }}
           configMap:
-            name: {{ include "splattop.fullname" $ }}-grafana-dashboard-{{ .name }}
+            name: {{ default (printf "%s-grafana-dashboard-%s" $fullName .name) .configMapName }}
         {{- end }}
         - name: grafana-tmp
           emptyDir: {}

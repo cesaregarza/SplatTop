@@ -11,10 +11,14 @@ fastapi:
   replicas: 2
   env:
     COMP_LEADERBOARD_ENABLED: "true"
+  service:
+    extraServices: []
 
 # React frontend configuration
 react:
   replicas: 2
+  service:
+    extraServices: []
 
 # Celery worker configuration
 celeryWorker:
@@ -75,17 +79,28 @@ ingress:
 monitoring:
   prometheus:
     enabled: true
+    rules:
+      enabled: true
   grafana:
     enabled: true
     serverDomain: grafana.splat.top
     serverRootUrl: https://grafana.splat.top/
+    datasourcesConfigMapName: grafana-datasources
+    dashboardProvidersConfigMapName: grafana-dashboard-providers
     dashboards:
       - name: core
+        configMapName: grafana-dashboard-core
       - name: splatgpt
+        configMapName: grafana-dashboard-splatgpt
       - name: auth-rate
+        configMapName: grafana-dashboard-auth-rate
       - name: realtime
+        configMapName: grafana-dashboard-realtime
       - name: ripple
+        configMapName: grafana-dashboard-ripple
       - name: api-usage
+        configMapName: grafana-dashboard-api-usage
       - name: data-pipeline
+        configMapName: grafana-dashboard-data-pipeline
   alertmanager:
     enabled: true
