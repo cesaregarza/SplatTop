@@ -1,5 +1,11 @@
 KIND_CONTEXT ?= kind-kind
 DEV_PORTS ?= 3000 4000 5000 8001 8080 9090
+PORT_FORWARD_NAMESPACE ?= $(HELM_NAMESPACE_DEV)
+FASTAPI_SELECTOR ?= app.kubernetes.io/component=fastapi
+REACT_SELECTOR ?= app.kubernetes.io/component=react
+PROMETHEUS_SELECTOR ?= app.kubernetes.io/component=prometheus
+MONITORING_NAMESPACE ?= monitoring
+INGRESS_NAMESPACE ?= ingress-nginx
 
 .PHONY: ensure-kind
 ensure-kind:
@@ -40,14 +46,30 @@ build-no-cache:
 .PHONY: port-forward
 port-forward: ensure-kind
 	$(MAKE) stop-port-forward || true
-	kubectl wait --for=condition=Ready pod -l app=fast-api-app -n default --timeout=180s
-	kubectl wait --for=condition=Ready pod -l app=react-app -n default --timeout=180s || true
-	kubectl wait --for=condition=Ready pod -l app.kubernetes.io/component=controller -n ingress-nginx --timeout=180s
-	kubectl wait --for=condition=Ready pod -l app=prometheus -n monitoring --timeout=180s
-	kubectl port-forward service/fast-api-app-service 5000:80 8001:8001 & echo $$! > /tmp/fast-apiport-forward.pid
-	kubectl port-forward service/react-app-service 4000:80 & echo $$! > /tmp/react-port-forward.pid
-	kubectl port-forward -n ingress-nginx service/ingress-nginx-controller 8080:80 & echo $$! > /tmp/ingress-port-forward.pid
-	kubectl port-forward -n monitoring service/prometheus 9090:9090 & echo $$! > /tmp/prometheus-port-forward.pid
+	kubectl wait --for=condition=Ready pod -l $(FASTAPI_SELECTOR) -n $(PORT_FORWARD_NAMESPACE) --timeout=180s
+	kubectl wait --for=condition=Ready pod -l $(REACT_SELECTOR) -n $(PORT_FORWARD_NAMESPACE) --timeout=180s || true
+	@if kubectl get ns $(INGRESS_NAMESPACE) >/dev/null 2>&1; then \
+		kubectl wait --for=condition=Ready pod -l app.kubernetes.io/component=controller -n $(INGRESS_NAMESPACE) --timeout=180s; \
+	else \
+		echo "Skipping ingress controller wait (namespace $(INGRESS_NAMESPACE) not found)"; \
+	fi
+	@if [ -n "$$(kubectl get pods -n $(MONITORING_NAMESPACE) -l $(PROMETHEUS_SELECTOR) -o name 2>/dev/null)" ]; then \
+		kubectl wait --for=condition=Ready pod -l $(PROMETHEUS_SELECTOR) -n $(MONITORING_NAMESPACE) --timeout=180s; \
+	else \
+		echo "Skipping Prometheus readiness wait (no pods found in $(MONITORING_NAMESPACE))"; \
+	fi
+	kubectl port-forward -n $(PORT_FORWARD_NAMESPACE) service/fast-api-app-service 5000:80 8001:8001 & echo $$! > /tmp/fast-apiport-forward.pid
+	kubectl port-forward -n $(PORT_FORWARD_NAMESPACE) service/react-app-service 4000:80 & echo $$! > /tmp/react-port-forward.pid
+	@if kubectl get svc -n $(INGRESS_NAMESPACE) ingress-nginx-controller >/dev/null 2>&1; then \
+		kubectl port-forward -n $(INGRESS_NAMESPACE) service/ingress-nginx-controller 8080:80 & echo $$! > /tmp/ingress-port-forward.pid; \
+	else \
+		echo "Skipping ingress port-forward (service ingress-nginx-controller not found in $(INGRESS_NAMESPACE))"; \
+	fi
+	@if kubectl get svc -n $(MONITORING_NAMESPACE) prometheus >/dev/null 2>&1 && [ -n "$$(kubectl get pods -n $(MONITORING_NAMESPACE) -l $(PROMETHEUS_SELECTOR) -o name 2>/dev/null)" ]; then \
+		kubectl port-forward -n $(MONITORING_NAMESPACE) service/prometheus 9090:9090 & echo $$! > /tmp/prometheus-port-forward.pid; \
+	else \
+		echo "Skipping Prometheus port-forward (service or pods not found in $(MONITORING_NAMESPACE))"; \
+	fi
 	echo "fast-api app is running at http://localhost:5000"
 	echo "Websocket is running at http://localhost:8001"
 	echo "React (prod) app is running at http://localhost:4000"
@@ -65,114 +87,42 @@ stop-port-forward:
 	rm -f /tmp/ingress-port-forward.pid
 	rm -f /tmp/prometheus-port-forward.pid
 
+.PHONY: ensure-dev-secrets
+ensure-dev-secrets:
+	@if [ -f k8s/secrets.yaml ]; then \
+		$(MAKE) create-secrets-dev; \
+	else \
+		echo "Skipping create-secrets-dev (k8s/secrets.yaml not found)"; \
+	fi
+
 .PHONY: deploy-core
-deploy-core: ensure-kind
-	kubectl apply -f k8s/monitoring/namespace.yaml
-	kubectl apply -f k8s/monitoring/grafana/secret-dev.yaml
-	kubectl apply -f k8s/monitoring/alertmanager/secret-dev.yaml
-	kubectl apply -f k8s/secrets.yaml
-	kubectl apply -f k8s/monitoring/prometheus/rbac.yaml
-	kubectl apply -f k8s/monitoring/prometheus/configmap.yaml
-	kubectl apply -f k8s/monitoring/prometheus/rules.yaml
-	kubectl apply -f k8s/monitoring/prometheus/statefulset.yaml
-	kubectl apply -f k8s/monitoring/prometheus/service.yaml
-	kubectl apply -f k8s/monitoring/prometheus/pdb.yaml
-	if kubectl get statefulset/prometheus -n monitoring >/dev/null 2>&1; then \
-	  kubectl rollout restart statefulset/prometheus -n monitoring; \
-	fi
-	kubectl rollout status statefulset/prometheus -n monitoring --timeout=300s
-	kubectl apply -f k8s/monitoring/grafana/pvc.yaml
-	kubectl apply -f k8s/monitoring/grafana/configmap-datasources.yaml
-	kubectl apply -f k8s/monitoring/grafana/configmap-dashboard-providers.yaml
-	kubectl apply -f k8s/monitoring/grafana/dashboard-core.yaml
-	kubectl apply -f k8s/monitoring/grafana/deployment.yaml
-	kubectl apply -f k8s/monitoring/grafana/service.yaml
-	kubectl apply -f k8s/monitoring/grafana/pdb.yaml
-	kubectl apply -f k8s/monitoring/grafana/networkpolicy.yaml
-	kubectl apply -f k8s/monitoring/prometheus/networkpolicy.yaml
-	kubectl apply -f k8s/monitoring/alertmanager/deployment.yaml
-	kubectl apply -f k8s/monitoring/alertmanager/service.yaml
-	kubectl apply -f k8s/monitoring/alertmanager/pdb.yaml
-	kubectl apply -f k8s/monitoring/alertmanager/networkpolicy.yaml
-	kubectl apply -f k8s/monitoring/networkpolicy-default-deny.yaml
-	if kubectl get deployment/alertmanager -n monitoring >/dev/null 2>&1; then \
-	  kubectl rollout restart deployment/alertmanager -n monitoring; \
-	fi
-	kubectl rollout status deployment/alertmanager -n monitoring --timeout=300s
-	if kubectl get deployment/grafana -n monitoring >/dev/null 2>&1; then \
-	  kubectl rollout restart deployment/grafana -n monitoring; \
-	fi
-	kubectl rollout status deployment/grafana -n monitoring --timeout=300s
-	kubectl apply -f k8s/monitoring/grafana/ingress-dev.yaml
-	kubectl apply -f k8s/redis/redis-deployment.yaml
-	kubectl apply -f k8s/redis/redis-service.yaml
-	kubectl apply -f k8s/fast-api/fast-api-deployment-dev.yaml
-	kubectl apply -f k8s/fast-api/fast-api-service-dev.yaml
-	kubectl apply -f k8s/celery-worker/celery-worker-deployment-dev.yaml
-	kubectl apply -f k8s/celery-beat/celery-beat-deployment-dev.yaml
-	kubectl apply -f k8s/react/react-deployment-dev.yaml
-	kubectl apply -f k8s/react/react-service-dev.yaml
-	kubectl apply -f k8s/splatgpt/splatgpt-deployment-dev.yaml
-	kubectl apply -f k8s/splatgpt/splatgpt-service.yaml
-	kubectl apply -f https://raw.githubusercontent.com/kubernetes/ingress-nginx/controller-v1.0.0/deploy/static/provider/cloud/deploy.yaml
+deploy-core: ensure-kind ensure-dev-secrets
+	@$(MAKE) helm-upgrade-dev
 
 .PHONY: deploy
 deploy: ensure-kind
 	make deploy-core
 	sleep 20
-	kubectl port-forward -n ingress-nginx service/ingress-nginx-controller 8080:80
+	@if kubectl get svc -n $(INGRESS_NAMESPACE) ingress-nginx-controller >/dev/null 2>&1; then \
+		echo "Port-forwarding ingress controller (http://localhost:8080)"; \
+		kubectl port-forward -n $(INGRESS_NAMESPACE) service/ingress-nginx-controller 8080:80; \
+	else \
+		echo "Ingress controller service not found in namespace $(INGRESS_NAMESPACE); skipping port-forward. Run 'make port-forward' once it comes up."; \
+	fi
 
 .PHONY: deploy-dev
 deploy-dev: ensure-kind
 	make deploy-core
 	make port-forward
 	cd src/react_app && npm start
-
-.PHONY: _undeploy-core-base
-_undeploy-core-base:
-	kubectl delete -f k8s/secrets.yaml || true
-	kubectl delete -f k8s/monitoring/grafana/secret-dev.yaml || true
-	kubectl delete -f k8s/monitoring/grafana/ingress-dev.yaml || true
-	kubectl delete -f k8s/monitoring/grafana/service.yaml || true
-	kubectl delete -f k8s/monitoring/grafana/deployment.yaml || true
-	kubectl delete -f k8s/monitoring/grafana/configmap-dashboard-providers.yaml || true
-	kubectl delete -f k8s/monitoring/grafana/dashboard-core.yaml || true
-	kubectl delete -f k8s/monitoring/grafana/configmap-datasources.yaml || true
-	kubectl delete -f k8s/monitoring/prometheus/service.yaml || true
-	kubectl delete -f k8s/monitoring/prometheus/rules.yaml || true
-	kubectl delete -f k8s/monitoring/prometheus/statefulset.yaml || true
-	kubectl delete -f k8s/monitoring/prometheus/pdb.yaml || true
-	kubectl delete -f k8s/monitoring/prometheus/networkpolicy.yaml || true
-	kubectl delete -f k8s/monitoring/prometheus/configmap.yaml || true
-	kubectl delete -f k8s/monitoring/prometheus/rbac.yaml || true
-	kubectl delete -f k8s/monitoring/alertmanager/networkpolicy.yaml || true
-	kubectl delete -f k8s/monitoring/alertmanager/pdb.yaml || true
-	kubectl delete -f k8s/monitoring/alertmanager/service.yaml || true
-	kubectl delete -f k8s/monitoring/alertmanager/deployment.yaml || true
-	kubectl delete -f k8s/redis/redis-deployment.yaml || true
-	kubectl delete -f k8s/redis/redis-service.yaml || true
-	kubectl delete -f k8s/fast-api/fast-api-deployment-dev.yaml || true
-	kubectl delete -f k8s/fast-api/fast-api-service-dev.yaml || true
-	kubectl delete -f k8s/celery-worker/celery-worker-deployment-dev.yaml || true
-	kubectl delete -f k8s/celery-beat/celery-beat-deployment-dev.yaml || true
-	kubectl delete -f k8s/react/react-deployment-dev.yaml || true
-	kubectl delete -f k8s/react/react-service-dev.yaml || true
-	kubectl delete -f k8s/splatgpt/splatgpt-deployment-dev.yaml || true
-	kubectl delete -f k8s/splatgpt/splatgpt-service.yaml || true
-	kubectl delete -f k8s/monitoring/grafana/networkpolicy.yaml || true
-	kubectl delete -f k8s/monitoring/networkpolicy-default-deny.yaml || true
-	kubectl delete -f k8s/monitoring/alertmanager/secret-dev.yaml || true
-
-.PHONY: _undeploy-core-persistent
-_undeploy-core-persistent:
-	kubectl delete -f k8s/monitoring/grafana/pvc.yaml || true
-	kubectl delete -f k8s/monitoring/namespace.yaml || true
-
 .PHONY: undeploy-core
-undeploy-core: ensure-kind _undeploy-core-base
+undeploy-core: ensure-kind
+	-@$(MAKE) helm-uninstall-dev
 
 .PHONY: undeploy-core-hard
-undeploy-core-hard: ensure-kind _undeploy-core-base _undeploy-core-persistent
+undeploy-core-hard: ensure-kind
+	-@$(MAKE) helm-uninstall-dev
+	kubectl delete namespace $(HELM_NAMESPACE_DEV) || true
 
 .PHONY: undeploy
 undeploy: undeploy-core
@@ -304,15 +254,17 @@ helm-install-prod:
 .PHONY: helm-upgrade-dev
 helm-upgrade-dev:
 	@echo "Upgrading SplatTop Helm release (development)..."
-	helm upgrade $(HELM_RELEASE_DEV) $(HELM_CHART_PATH) \
+	helm upgrade --install $(HELM_RELEASE_DEV) $(HELM_CHART_PATH) \
 		--namespace $(HELM_NAMESPACE_DEV) \
+		--create-namespace \
 		--values $(HELM_CHART_PATH)/values-local.yaml
 
 .PHONY: helm-upgrade-prod
 helm-upgrade-prod:
 	@echo "Upgrading SplatTop Helm release (production)..."
-	helm upgrade $(HELM_RELEASE_PROD) $(HELM_CHART_PATH) \
+	helm upgrade --install $(HELM_RELEASE_PROD) $(HELM_CHART_PATH) \
 		--namespace $(HELM_NAMESPACE_PROD) \
+		--create-namespace \
 		--values $(HELM_CHART_PATH)/values-prod.yaml
 
 .PHONY: helm-uninstall-dev
@@ -494,9 +446,15 @@ create-secrets-dev:
 		exit 1; \
 	fi
 	kubectl create namespace $(HELM_NAMESPACE_DEV) || true
+	kubectl create namespace $(MONITORING_NAMESPACE) || true
+	kubectl create namespace $(INGRESS_NAMESPACE) || true
+	kubectl label namespace $(INGRESS_NAMESPACE) app.kubernetes.io/managed-by=Helm --overwrite
+	kubectl annotate namespace $(INGRESS_NAMESPACE) \
+		meta.helm.sh/release-name=$(HELM_RELEASE_DEV) \
+		meta.helm.sh/release-namespace=$(HELM_NAMESPACE_DEV) --overwrite
 	kubectl apply -f k8s/secrets.yaml -n $(HELM_NAMESPACE_DEV)
-	kubectl apply -f k8s/monitoring/grafana/secret-dev.yaml -n $(HELM_NAMESPACE_DEV) || true
-	kubectl apply -f k8s/monitoring/alertmanager/secret-dev.yaml -n $(HELM_NAMESPACE_DEV) || true
+	kubectl apply -f k8s/monitoring/grafana/secret-dev.yaml -n $(MONITORING_NAMESPACE) || true
+	kubectl apply -f k8s/monitoring/alertmanager/secret-dev.yaml -n $(MONITORING_NAMESPACE) || true
 	@echo "Development secrets created in namespace $(HELM_NAMESPACE_DEV)"
 
 .PHONY: create-secrets-prod
@@ -507,6 +465,11 @@ create-secrets-prod:
 		exit 1; \
 	fi
 	kubectl create namespace $(HELM_NAMESPACE_PROD) || true
+	kubectl create namespace $(INGRESS_NAMESPACE) || true
+	kubectl label namespace $(INGRESS_NAMESPACE) app.kubernetes.io/managed-by=Helm --overwrite
+	kubectl annotate namespace $(INGRESS_NAMESPACE) \
+		meta.helm.sh/release-name=$(HELM_RELEASE_PROD) \
+		meta.helm.sh/release-namespace=$(HELM_NAMESPACE_PROD) --overwrite
 	kubectl apply -f k8s/secrets.yaml -n $(HELM_NAMESPACE_PROD)
 	@echo "Production secrets created in namespace $(HELM_NAMESPACE_PROD)"
 	@echo "NOTE: Remember to create grafana-admin-credentials and alertmanager-config secrets for monitoring"

@@ -234,6 +234,10 @@ ingress:
         - splat.top
         - comp.splat.top
 
+ingressController:
+  enabled: false
+  manifestPath: ingress-nginx/controller-v1.0.0.yaml
+
 # Monitoring stack configuration
 monitoring:
   namespace: monitoring

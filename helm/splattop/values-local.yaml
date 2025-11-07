@@ -106,6 +106,9 @@ ingress:
           serviceNameOverride: react-app-service
           servicePort: 80
 
+ingressController:
+  enabled: true
+
 monitoring:
   grafana:
     adminCredentials:

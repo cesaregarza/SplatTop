@@ -1,0 +1,5 @@
+{{- if .Values.ingressController.enabled }}
+{{- $rawPath := default "ingress-nginx/controller-v1.0.0.yaml" .Values.ingressController.manifestPath -}}
+{{- $manifestPath := ternary $rawPath (printf "files/%s" $rawPath) (hasPrefix $rawPath "files/") -}}
+{{ tpl (.Files.Get $manifestPath) . }}
+{{- end }}

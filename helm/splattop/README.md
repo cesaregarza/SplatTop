@@ -12,6 +12,7 @@ This chart deploys the following components:
 - **Celery Beat**: Scheduled task scheduler
 - **Redis**: Cache and message broker
 - **SplatNLP**: ML inference service
+- **Ingress Controller**: (Optional) Bundled NGINX controller for local/dev clusters
 - **Ingress**: (Optional) Route external traffic to services
 - **Prometheus**: (Optional) Metrics collection and monitoring
 - **Grafana**: (Optional) Metrics visualization and dashboards
@@ -23,7 +24,7 @@ This chart deploys the following components:
 - Helm 3.0+ (or ArgoCD for GitOps deployment)
 - A Kubernetes secret named `db-secrets` containing database credentials (or customize via `global.databaseSecretName`)
 - Image pull secrets configured as `regcred` (or customize via `global.imagePullSecrets`)
-- (Optional) Nginx Ingress Controller for ingress support
+- (Optional) Nginx Ingress Controller for ingress support (now bundled for dev via `ingressController.enabled`)
 - (Optional) cert-manager for TLS certificate management
 - (Optional) ArgoCD for GitOps continuous delivery (see `/argocd/README.md`)
 
@@ -63,9 +64,9 @@ helm upgrade --install splattop-dev ./helm/splattop \
 ```
 
 The local overrides disable SplatNLP (to avoid large model downloads), switch all
-images to the locally built tags, and recreate the legacy `fast-api-app-service`
-and `redis` service names so the containers can reach each other without changing
-their baked-in configuration.
+images to the locally built tags, enable the bundled `ingress-nginx` controller,
+and recreate the legacy `fast-api-app-service` and `redis` service names so the
+containers can reach each other without changing their baked-in configuration.
 
 ### Production Installation
 
@@ -175,6 +176,13 @@ The following table lists the configurable parameters and their default values.
 | `ingress.className` | Ingress class name | `nginx` |
 | `ingress.tls.enabled` | Enable TLS | `false` (dev), `true` (prod) |
 | `ingress.tls.secretName` | TLS secret name | `tls-secret` |
+
+### Ingress Controller Configuration
+
+| Parameter | Description | Default |
+|-----------|-------------|---------|
+| `ingressController.enabled` | Deploy the bundled `ingress-nginx` controller manifest | `false` (dev), `true` in `values-local.yaml` |
+| `ingressController.manifestPath` | Path (under `helm/splattop/files/`) to render for the controller | `ingress-nginx/controller-v1.0.0.yaml` |
 
 ### Monitoring Configuration
 
