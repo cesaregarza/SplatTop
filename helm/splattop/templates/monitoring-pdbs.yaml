@@ -1,0 +1,39 @@
+{{- $ns := include "splattop.monitoringNamespace" . -}}
+{{- if and .Values.monitoring.alertmanager.enabled $ns }}
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: alertmanager
+  namespace: {{ $ns }}
+spec:
+  maxUnavailable: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/component: alertmanager
+---
+{{- end }}
+{{- if and .Values.monitoring.grafana.enabled $ns }}
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: grafana
+  namespace: {{ $ns }}
+spec:
+  maxUnavailable: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/component: grafana
+---
+{{- end }}
+{{- if and .Values.monitoring.prometheus.enabled $ns }}
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: prometheus
+  namespace: {{ $ns }}
+spec:
+  maxUnavailable: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/component: prometheus
+{{- end }}

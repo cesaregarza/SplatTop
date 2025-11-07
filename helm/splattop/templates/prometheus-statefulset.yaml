@@ -2,10 +2,12 @@
 {{- $fullName := include "splattop.fullname" . -}}
 {{- $configMapName := default (printf "%s-prometheus-config" $fullName) .Values.monitoring.prometheus.configMapName -}}
 {{- $rulesConfigMapName := default (printf "%s-prometheus-rules" $fullName) .Values.monitoring.prometheus.rules.configMapName -}}
+{{- $monitoringNamespace := include "splattop.monitoringNamespace" . -}}
 apiVersion: apps/v1
 kind: StatefulSet
 metadata:
   name: {{ include "splattop.fullname" . }}-prometheus
+  namespace: {{ $monitoringNamespace }}
   labels:
     {{- include "splattop.componentLabels" (dict "component" "prometheus" "root" .) | nindent 4 }}
 spec:

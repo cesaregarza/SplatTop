@@ -8,10 +8,17 @@ apiVersion: v1
 kind: Service
 metadata:
   name: {{ .service.name }}
+  namespace: {{ include "splattop.componentNamespace" (dict "component" .component "root" .root) }}
   labels:
     {{- include "splattop.componentLabels" (dict "component" .component "root" .root) | nindent 4 }}
 spec:
-  type: {{ default (index .root.Values .component "service" "type") .service.type | default "ClusterIP" }}
+  {{- $componentService := dict -}}
+  {{- if hasKey .config "service" }}
+    {{- $componentService = index .config "service" }}
+  {{- end }}
+  {{- $componentType := default "ClusterIP" (index $componentService "type") }}
+  {{- $serviceType := default $componentType .service.type }}
+  type: {{ $serviceType | default "ClusterIP" }}
   ports:
     {{- range .service.ports }}
     - name: {{ .name | default "http" }}
@@ -23,10 +30,13 @@ spec:
     {{- include "splattop.componentSelectorLabels" (dict "component" .component "root" .root) | nindent 4 }}
 {{- end -}}
 
-{{- range $component, $config := dict "fastapi" .Values.fastapi "react" .Values.react "celeryWorker" .Values.celeryWorker "celeryBeat" .Values.celeryBeat "redis" .Values.redis "splatnlp" .Values.splatnlp -}}
+{{- range $component, $config := dict "fastapi" .Values.fastapi "react" .Values.react "celeryWorker" .Values.celeryWorker "celeryBeat" .Values.celeryBeat "redis" .Values.redis "splatnlp" .Values.splatnlp "prometheus" .Values.monitoring.prometheus "grafana" .Values.monitoring.grafana "alertmanager" .Values.monitoring.alertmanager -}}
   {{- $extraServices := dig "service" "extraServices" list $config -}}
-  {{- range $service := $extraServices }}
+  {{- $enabled := default true (dig "enabled" nil $config) -}}
+  {{- if and $enabled $extraServices }}
+    {{- range $service := $extraServices }}
 ---
-{{ include "splattop.extraService" (dict "root" $root "component" $component "service" $service) }}
+{{ include "splattop.extraService" (dict "root" $root "component" $component "config" $config "service" $service) }}
+    {{- end }}
   {{- end }}
 {{- end }}

@@ -1,8 +1,10 @@
 {{- if .Values.monitoring.alertmanager.enabled }}
+{{- $monitoringNamespace := include "splattop.monitoringNamespace" . -}}
 apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: {{ include "splattop.fullname" . }}-alertmanager
+  namespace: {{ $monitoringNamespace }}
   labels:
     {{- include "splattop.componentLabels" (dict "component" "alertmanager" "root" .) | nindent 4 }}
 spec:

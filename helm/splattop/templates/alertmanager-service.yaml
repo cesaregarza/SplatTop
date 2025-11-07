@@ -3,6 +3,7 @@ apiVersion: v1
 kind: Service
 metadata:
   name: {{ include "splattop.fullname" . }}-alertmanager
+  namespace: {{ include "splattop.monitoringNamespace" . }}
   labels:
     {{- include "splattop.componentLabels" (dict "component" "alertmanager" "root" .) | nindent 4 }}
 spec:

@@ -1,0 +1,9 @@
+{{- if and .Values.monitoring.createNamespace .Values.monitoring.namespace }}
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: {{ include "splattop.monitoringNamespace" . }}
+  labels:
+    app.kubernetes.io/name: monitoring
+    {{- include "splattop.labels" . | nindent 4 }}
+{{- end }}

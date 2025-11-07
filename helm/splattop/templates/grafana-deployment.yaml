@@ -2,10 +2,12 @@
 {{- $fullName := include "splattop.fullname" . -}}
 {{- $datasourcesConfigMap := default (printf "%s-grafana-datasources" $fullName) .Values.monitoring.grafana.datasourcesConfigMapName -}}
 {{- $dashboardProvidersConfigMap := default (printf "%s-grafana-dashboard-providers" $fullName) .Values.monitoring.grafana.dashboardProvidersConfigMapName -}}
+{{- $monitoringNamespace := include "splattop.monitoringNamespace" . -}}
 apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: {{ include "splattop.fullname" . }}-grafana
+  namespace: {{ $monitoringNamespace }}
   labels:
     {{- include "splattop.componentLabels" (dict "component" "grafana" "root" .) | nindent 4 }}
 spec:

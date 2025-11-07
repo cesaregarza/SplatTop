@@ -95,5 +95,33 @@ imagePullSecrets:
 Database secret name
 */}}
 {{- define "splattop.databaseSecretName" -}}
+{{- if .Values.databaseSecret.name }}
+{{- .Values.databaseSecret.name }}
+{{- else }}
 {{- default "db-secrets" .Values.global.databaseSecretName }}
+{{- end }}
+{{- end }}
+
+{{/*
+Namespace to use for monitoring resources
+*/}}
+{{- define "splattop.monitoringNamespace" -}}
+{{- if .Values.monitoring.namespace }}
+{{- .Values.monitoring.namespace }}
+{{- else }}
+{{- .Release.Namespace }}
+{{- end }}
+{{- end }}
+
+{{/*
+Namespace for a given component (app vs monitoring)
+*/}}
+{{- define "splattop.componentNamespace" -}}
+{{- $component := .component -}}
+{{- $root := .root -}}
+{{- if or (eq $component "prometheus") (eq $component "grafana") (eq $component "alertmanager") }}
+{{- include "splattop.monitoringNamespace" $root }}
+{{- else }}
+{{- $root.Release.Namespace }}
+{{- end }}
 {{- end }}

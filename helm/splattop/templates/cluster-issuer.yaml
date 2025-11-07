@@ -1,0 +1,18 @@
+{{- if .Values.clusterIssuer.enabled }}
+apiVersion: cert-manager.io/v1
+kind: ClusterIssuer
+metadata:
+  name: {{ .Values.clusterIssuer.name }}
+  labels:
+    {{- include "splattop.labels" . | nindent 4 }}
+spec:
+  acme:
+    server: {{ .Values.clusterIssuer.server | quote }}
+    email: {{ .Values.clusterIssuer.email | quote }}
+    privateKeySecretRef:
+      name: {{ .Values.clusterIssuer.privateKeySecretName }}
+    solvers:
+      - http01:
+          ingress:
+            class: {{ .Values.clusterIssuer.ingressClass }}
+{{- end }}

@@ -1,8 +1,10 @@
 {{- if .Values.monitoring.prometheus.enabled }}
+{{- $monitoringNamespace := include "splattop.monitoringNamespace" . -}}
 apiVersion: v1
 kind: ServiceAccount
 metadata:
   name: {{ include "splattop.fullname" . }}-prometheus
+  namespace: {{ $monitoringNamespace }}
   labels:
     {{- include "splattop.componentLabels" (dict "component" "prometheus" "root" .) | nindent 4 }}
 ---
@@ -43,5 +45,5 @@ roleRef:
 subjects:
   - kind: ServiceAccount
     name: {{ include "splattop.fullname" . }}-prometheus
-    namespace: {{ .Release.Namespace }}
+    namespace: {{ $monitoringNamespace }}
 {{- end }}

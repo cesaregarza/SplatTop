@@ -11,14 +11,10 @@ fastapi:
   replicas: 2
   env:
     COMP_LEADERBOARD_ENABLED: "true"
-  service:
-    extraServices: []
 
 # React frontend configuration
 react:
   replicas: 2
-  service:
-    extraServices: []
 
 # Celery worker configuration
 celeryWorker:
@@ -39,44 +35,56 @@ ingress:
         - path: /.well-known/
           pathType: Prefix
           serviceName: fastapi
+          serviceNameOverride: fast-api-app-service
           servicePort: 8000
         - path: /api
           pathType: Prefix
           serviceName: fastapi
+          serviceNameOverride: fast-api-app-service
           servicePort: 8000
         - path: /ws
           pathType: Prefix
           serviceName: fastapi
+          serviceNameOverride: fast-api-app-service
           servicePort: 8001
         - path: /
           pathType: Prefix
           serviceName: react
+          serviceNameOverride: react-app-service
           servicePort: 80
     - host: comp.splat.top
       paths:
         - path: /.well-known/
           pathType: Prefix
           serviceName: fastapi
+          serviceNameOverride: fast-api-app-service
           servicePort: 8000
         - path: /api
           pathType: Prefix
           serviceName: fastapi
+          serviceNameOverride: fast-api-app-service
           servicePort: 8000
         - path: /ws
           pathType: Prefix
           serviceName: fastapi
+          serviceNameOverride: fast-api-app-service
           servicePort: 8001
         - path: /
           pathType: Prefix
           serviceName: react
+          serviceNameOverride: react-app-service
           servicePort: 80
   tls:
     enabled: true
+    secretName: tls-secret
     certificate:
       enabled: true
 
 # Monitoring stack configuration (enabled in production)
 monitoring:
+  cilium:
+    prometheusEgressKubeAPI:
+      enabled: true
   prometheus:
     enabled: true
     rules:
@@ -85,6 +93,22 @@ monitoring:
     enabled: true
     serverDomain: grafana.splat.top
     serverRootUrl: https://grafana.splat.top/
+    ingress:
+      enabled: true
+      annotations:
+        cert-manager.io/cluster-issuer: letsencrypt-prod
+        nginx.ingress.kubernetes.io/ssl-redirect: "false"
+      hosts:
+        - host: grafana.splat.top
+          paths:
+            - path: /
+              pathType: Prefix
+              serviceName: grafana
+              servicePort: 80
+              serviceNameOverride: grafana
+      tls:
+        enabled: true
+        secretName: grafana-tls
     datasourcesConfigMapName: grafana-datasources
     dashboardProvidersConfigMapName: grafana-dashboard-providers
     dashboards:
