@@ -33,7 +33,7 @@ react:
     extraServices:
       - name: react-app-service
         ports:
-          - name: ""
+          - name: http
             port: 80
             targetPort: 80
         selector:
@@ -57,7 +57,7 @@ redis:
     extraServices:
       - name: redis
         ports:
-          - name: ""
+          - name: redis
             port: 6379
             targetPort: 6379
         selector:

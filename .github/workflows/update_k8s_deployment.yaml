@@ -234,6 +234,14 @@ jobs:
       - name: Validate Prometheus config
         run: python3 scripts/validate_prometheus_config.py
 
+      - name: Install Helm
+        uses: azure/setup-helm@v4
+
+      - name: Helm lint
+        run: |
+          helm lint helm/splattop
+          helm lint helm/splattop -f helm/splattop/values-prod.yaml
+
       - name: Install doctl
         uses: digitalocean/action-doctl@v2
         with:
@@ -241,9 +249,6 @@ jobs:
 
       - name: Save DigitalOcean kubeconfig
         run: doctl kubernetes cluster kubeconfig save ${{ secrets.DIGITALOCEAN_CLUSTER_ID }}
-
-      - name: Install Helm
-        uses: azure/setup-helm@v4
 
       - name: Helm dry run
         env:
