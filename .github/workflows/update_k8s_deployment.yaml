@@ -22,6 +22,15 @@ on:
       - "k8s/**"
       - "i18n/**"
       - "helm/**"
+  pull_request:
+    branches:
+      - main
+    paths:
+      - "src/**"
+      - ".version"
+      - "k8s/**"
+      - "i18n/**"
+      - "helm/**"
 
 permissions:
   contents: write
@@ -173,7 +182,7 @@ jobs:
             core.setOutput('version', next);
 
       - name: Build & push FastAPI image
-        if: needs.check.outputs.python_changed == 'true'
+        if: needs.check.outputs.python_changed == 'true' && github.ref == 'refs/heads/main'
         uses: docker/build-push-action@v6
         with:
           context: .
@@ -186,7 +195,7 @@ jobs:
           cache-to: type=gha,mode=max
 
       - name: Build & push Celery image
-        if: needs.check.outputs.python_changed == 'true'
+        if: needs.check.outputs.python_changed == 'true' && github.ref == 'refs/heads/main'
         uses: docker/build-push-action@v6
         with:
           context: .
@@ -199,7 +208,7 @@ jobs:
           cache-to: type=gha,mode=max
 
       - name: Build & push React image
-        if: needs.check.outputs.react_changed == 'true'
+        if: needs.check.outputs.react_changed == 'true' && github.ref == 'refs/heads/main'
         uses: docker/build-push-action@v6
         with:
           context: .
@@ -213,9 +222,62 @@ jobs:
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
-  update-deployment:
+  helm-dry-run:
     needs: [check, build]
-    if: github.ref == 'refs/heads/main' && needs.check.outputs.exit_pipeline == 'false' && needs.build.result == 'success'
+    if: needs.check.outputs.exit_pipeline == 'false' && needs.build.result == 'success'
+    runs-on: ubuntu-latest
+    environment: SplatTop
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Validate Prometheus config
+        run: python3 scripts/validate_prometheus_config.py
+
+      - name: Install doctl
+        uses: digitalocean/action-doctl@v2
+        with:
+          token: ${{ secrets.DIGITALOCEAN_ACCESS_TOKEN }}
+
+      - name: Save DigitalOcean kubeconfig
+        run: doctl kubernetes cluster kubeconfig save ${{ secrets.DIGITALOCEAN_CLUSTER_ID }}
+
+      - name: Install Helm
+        uses: azure/setup-helm@v4
+
+      - name: Helm dry run
+        env:
+          VERSION: ${{ needs.build.outputs.next_version }}
+          PYTHON_CHANGED: ${{ needs.check.outputs.python_changed }}
+          REACT_CHANGED: ${{ needs.check.outputs.react_changed }}
+        run: |
+          TAG="v${VERSION}"
+          if [ -z "${VERSION}" ]; then
+            echo "Missing version output from build job" >&2
+            exit 1
+          fi
+
+          set -euo pipefail
+          HELM_ARGS=(
+            --namespace default
+            --reuse-values
+            --atomic
+            --timeout 15m
+            -f helm/splattop/values-prod.yaml
+          )
+          if [ "${PYTHON_CHANGED}" = "true" ]; then
+            HELM_ARGS+=(--set-string fastapi.image.tag=${TAG})
+            HELM_ARGS+=(--set-string celeryWorker.image.tag=${TAG})
+            HELM_ARGS+=(--set-string celeryBeat.image.tag=${TAG})
+          fi
+          if [ "${REACT_CHANGED}" = "true" ]; then
+            HELM_ARGS+=(--set-string react.image.tag=${TAG})
+          fi
+          helm upgrade --install splattop-prod helm/splattop "${HELM_ARGS[@]}" --dry-run --debug
+
+  update-deployment:
+    needs: [check, build, helm-dry-run]
+    if: github.ref == 'refs/heads/main' && needs.check.outputs.exit_pipeline == 'false' && needs.build.result == 'success' && needs.helm-dry-run.result == 'success'
     runs-on: ubuntu-latest
     environment: SplatTop
     steps:
@@ -238,13 +300,13 @@ jobs:
 
       - name: Ensure registry pull secret
         run: |
-          kubectl delete secret regcred -n splattop-prod --ignore-not-found
+          kubectl delete secret regcred -n default --ignore-not-found
           kubectl create secret docker-registry regcred \
             --docker-server=registry.digitalocean.com \
             --docker-username='${{ secrets.DIGITALOCEAN_ACCESS_TOKEN }}' \
             --docker-password='${{ secrets.DIGITALOCEAN_ACCESS_TOKEN }}' \
             --docker-email='${{ secrets.EMAIL }}' \
-            --namespace splattop-prod
+            --namespace default
 
       - name: Apply application secrets
         env:
@@ -290,7 +352,7 @@ jobs:
             --from-literal=ADMIN_API_TOKENS_HASHED="${HASHED}" \
             --from-literal=RANKINGS_DB_SCHEMA="${SCHEMA}" \
             --from-literal=RANKINGS_DB_NAME="${RANKINGS_DB}" \
-            --namespace splattop-prod \
+            --namespace default \
             --dry-run=client -o yaml | kubectl apply -f -
 
       - name: Ensure monitoring secrets
@@ -393,8 +455,8 @@ jobs:
 
           set -euo pipefail
           HELM_ARGS=(
-            --namespace splattop-prod
-            --create-namespace
+            --namespace default
+            --reuse-values
             --atomic
             --timeout 15m
             -f helm/splattop/values-prod.yaml
@@ -403,7 +465,6 @@ jobs:
             HELM_ARGS+=(--set-string fastapi.image.tag=${TAG})
             HELM_ARGS+=(--set-string celeryWorker.image.tag=${TAG})
             HELM_ARGS+=(--set-string celeryBeat.image.tag=${TAG})
-            HELM_ARGS+=(--set-string splatnlp.image.tag=${TAG})
           fi
           if [ "${REACT_CHANGED}" = "true" ]; then
             HELM_ARGS+=(--set-string react.image.tag=${TAG})
