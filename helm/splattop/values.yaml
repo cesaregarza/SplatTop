@@ -151,6 +151,17 @@ celeryBeat:
       memory: "64Mi"
       cpu: "20m"
 
+warmupJob:
+  enabled: true
+  backoffLimit: 1
+  ttlSecondsAfterFinished: 300
+  commands:
+    - celery -A celery_app.app call tasks.pull_data
+    - celery -A celery_app.app call tasks.pull_aliases
+    - celery -A celery_app.app call tasks.fetch_weapon_leaderboard
+    - celery -A celery_app.app call tasks.fetch_season_results
+  resources: {}
+
 # Redis configuration
 redis:
   enabled: true
@@ -196,6 +207,7 @@ splatnlp:
 # Ingress configuration
 ingress:
   enabled: false
+  nameOverride: ""
   className: nginx
   annotations:
     nginx.org/websocket-services: '{{ include "splattop.fullname" . }}-fastapi'
@@ -338,6 +350,7 @@ monitoring:
       enabled: true
     ingress:
       enabled: false
+      nameOverride: ""
       className: nginx
       annotations: {}
       hosts: []

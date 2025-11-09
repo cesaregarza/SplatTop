@@ -232,14 +232,18 @@ jobs:
       - name: Save DigitalOcean kubeconfig
         run: doctl kubernetes cluster kubeconfig save ${{ secrets.DIGITALOCEAN_CLUSTER_ID }}
 
+      - name: Install Helm
+        uses: azure/setup-helm@v4
+
       - name: Ensure registry pull secret
         run: |
-          kubectl delete secret regcred --ignore-not-found
+          kubectl delete secret regcred -n splattop-prod --ignore-not-found
           kubectl create secret docker-registry regcred \
             --docker-server=registry.digitalocean.com \
             --docker-username='${{ secrets.DIGITALOCEAN_ACCESS_TOKEN }}' \
             --docker-password='${{ secrets.DIGITALOCEAN_ACCESS_TOKEN }}' \
-            --docker-email='${{ secrets.EMAIL }}'
+            --docker-email='${{ secrets.EMAIL }}' \
+            --namespace splattop-prod
 
       - name: Apply application secrets
         env:
@@ -285,6 +289,7 @@ jobs:
             --from-literal=ADMIN_API_TOKENS_HASHED="${HASHED}" \
             --from-literal=RANKINGS_DB_SCHEMA="${SCHEMA}" \
             --from-literal=RANKINGS_DB_NAME="${RANKINGS_DB}" \
+            --namespace splattop-prod \
             --dry-run=client -o yaml | kubectl apply -f -
 
       - name: Apply monitoring stack
@@ -381,54 +386,8 @@ jobs:
             --namespace monitoring \
             --from-file=alertmanager.yaml="${tmpfile}" \
             --dry-run=client -o yaml | kubectl apply -f -
-          kubectl apply -f k8s/monitoring/prometheus/rbac.yaml
-          kubectl apply -f k8s/monitoring/prometheus/configmap.yaml
-          kubectl apply -f k8s/monitoring/prometheus/rules.yaml
-          kubectl apply -f k8s/monitoring/prometheus/service.yaml
-          kubectl apply -f k8s/monitoring/prometheus/statefulset.yaml
-          kubectl apply -f k8s/monitoring/prometheus/pdb.yaml
-          kubectl apply -f k8s/monitoring/prometheus/networkpolicy.yaml
-          kubectl apply -f k8s/monitoring/grafana/pvc.yaml
-          kubectl apply -f k8s/monitoring/grafana/configmap-datasources.yaml
-          kubectl apply -f k8s/monitoring/grafana/configmap-dashboard-providers.yaml
-          kubectl apply -f k8s/monitoring/grafana/dashboard-core.yaml
-          kubectl apply -f k8s/monitoring/grafana/dashboard-splatgpt.yaml
-          kubectl apply -f k8s/monitoring/grafana/dashboard-auth-rate.yaml
-          kubectl apply -f k8s/monitoring/grafana/dashboard-realtime.yaml
-          kubectl apply -f k8s/monitoring/grafana/dashboard-ripple.yaml
-          kubectl apply -f k8s/monitoring/grafana/dashboard-api-usage.yaml
-          kubectl apply -f k8s/monitoring/grafana/dashboard-data-pipeline.yaml
-          kubectl apply -f k8s/monitoring/grafana/deployment.yaml
-          kubectl apply -f k8s/monitoring/grafana/service.yaml
-          kubectl apply -f k8s/monitoring/grafana/pdb.yaml
-          kubectl apply -f k8s/monitoring/grafana/networkpolicy.yaml
-          kubectl apply -f k8s/monitoring/alertmanager/deployment.yaml
-          kubectl apply -f k8s/monitoring/alertmanager/service.yaml
-          kubectl apply -f k8s/monitoring/alertmanager/pdb.yaml
-          kubectl apply -f k8s/monitoring/alertmanager/networkpolicy.yaml
-          kubectl apply -f k8s/monitoring/networkpolicy-acme-solver.yaml
-          kubectl apply -f k8s/monitoring/prometheus-cilium-egress.yaml
-          kubectl apply -f k8s/monitoring/networkpolicy-default-deny.yaml
-          kubectl rollout status statefulset/prometheus -n monitoring --timeout=300s
-          kubectl rollout status deployment/alertmanager -n monitoring --timeout=300s
-          kubectl rollout status deployment/grafana -n monitoring --timeout=300s
-          kubectl apply -f k8s/monitoring/grafana/ingress.yaml
 
-      - name: Apply base Kubernetes manifests
-        run: |
-          kubectl apply -f k8s/redis/redis-deployment.yaml
-          kubectl apply -f k8s/redis/redis-service.yaml
-          kubectl apply -f k8s/celery-worker/celery-worker-deployment.yaml
-          kubectl apply -f k8s/celery-beat/celery-beat-deployment.yaml
-          kubectl apply -f k8s/fast-api/fast-api-deployment.yaml
-          kubectl apply -f k8s/fast-api/fast-api-service.yaml
-          kubectl apply -f k8s/react/react-deployment.yaml
-          kubectl apply -f k8s/react/react-service.yaml
-          kubectl apply -f k8s/splatgpt/splatgpt-deployment.yaml
-          kubectl apply -f k8s/splatgpt/splatgpt-service.yaml
-          kubectl apply -f k8s/ingress.yaml
-
-      - name: Update deployment images
+      - name: Deploy via Helm
         env:
           VERSION: ${{ needs.build.outputs.next_version }}
           PYTHON_CHANGED: ${{ needs.check.outputs.python_changed }}
@@ -440,15 +399,24 @@ jobs:
             exit 1
           fi
 
+          set -euo pipefail
+          HELM_ARGS=(
+            --namespace splattop-prod
+            --create-namespace
+            --atomic
+            --timeout 15m
+            -f helm/splattop/values-prod.yaml
+          )
           if [ "${PYTHON_CHANGED}" = "true" ]; then
-            kubectl set image deployment/celery-worker celery-worker=registry.digitalocean.com/sendouq/celery:${TAG}
-            kubectl set image deployment/celery-beat celery-beat=registry.digitalocean.com/sendouq/celery:${TAG}
-            kubectl set image deployment/fast-api-app fast-api-app=registry.digitalocean.com/sendouq/fast-api:${TAG}
+            HELM_ARGS+=(--set-string fastapi.image.tag=${TAG})
+            HELM_ARGS+=(--set-string celeryWorker.image.tag=${TAG})
+            HELM_ARGS+=(--set-string celeryBeat.image.tag=${TAG})
+            HELM_ARGS+=(--set-string splatnlp.image.tag=${TAG})
           fi
-
           if [ "${REACT_CHANGED}" = "true" ]; then
-            kubectl set image deployment/react-app react-app=registry.digitalocean.com/sendouq/react:${TAG}
+            HELM_ARGS+=(--set-string react.image.tag=${TAG})
           fi
+          helm upgrade --install splattop-prod helm/splattop "${HELM_ARGS[@]}"
 
   release:
     needs: [check, build, update-deployment]

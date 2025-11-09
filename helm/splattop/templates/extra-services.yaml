@@ -21,13 +21,24 @@ spec:
   type: {{ $serviceType | default "ClusterIP" }}
   ports:
     {{- range .service.ports }}
-    - name: {{ .name | default "http" }}
+    - {{- $hasName := hasKey . "name" }}
+      {{- if or (not $hasName) (and $hasName (ne (default "" .name) "")) }}
+      name: {{ .name | default "http" }}
+      {{- end }}
       port: {{ .port }}
-      targetPort: {{ .targetPort | default "http" }}
+      {{- if hasKey . "targetPort" }}
+      targetPort: {{ .targetPort }}
+      {{- else }}
+      targetPort: http
+      {{- end }}
       protocol: {{ .protocol | default "TCP" }}
     {{- end }}
   selector:
+    {{- if .service.selector }}
+    {{- toYaml .service.selector | nindent 4 }}
+    {{- else }}
     {{- include "splattop.componentSelectorLabels" (dict "component" .component "root" .root) | nindent 4 }}
+    {{- end }}
 {{- end -}}
 
 {{- range $component, $config := dict "fastapi" .Values.fastapi "react" .Values.react "celeryWorker" .Values.celeryWorker "celeryBeat" .Values.celeryBeat "redis" .Values.redis "splatnlp" .Values.splatnlp "prometheus" .Values.monitoring.prometheus "grafana" .Values.monitoring.grafana "alertmanager" .Values.monitoring.alertmanager -}}

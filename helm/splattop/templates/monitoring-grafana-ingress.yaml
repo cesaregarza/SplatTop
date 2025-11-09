@@ -1,10 +1,11 @@
 {{- $root := . -}}
 {{- $ingress := .Values.monitoring.grafana.ingress -}}
 {{- if and .Values.monitoring.grafana.enabled $ingress.enabled }}
+{{- $grafanaIngressName := default (printf "%s-grafana" (include "splattop.fullname" .)) $ingress.nameOverride }}
 apiVersion: networking.k8s.io/v1
 kind: Ingress
 metadata:
-  name: {{ include "splattop.fullname" . }}-grafana
+  name: {{ $grafanaIngressName }}
   namespace: {{ include "splattop.monitoringNamespace" . }}
   labels:
     {{- include "splattop.labels" . | nindent 4 }}

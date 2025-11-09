@@ -36,7 +36,7 @@ data:
         relabel_configs:
           - action: keep
             source_labels: [__meta_kubernetes_namespace]
-            regex: default
+            regex: {{ .Release.Namespace | quote }}
           - action: keep
             source_labels:
               - __meta_kubernetes_service_name

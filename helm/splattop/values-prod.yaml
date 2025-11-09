@@ -11,10 +11,35 @@ fastapi:
   replicas: 2
   env:
     COMP_LEADERBOARD_ENABLED: "true"
+  service:
+    extraServices:
+      - name: fast-api-app-service
+        ports:
+          - name: http
+            port: 8000
+            targetPort: 8000
+          - name: websocket
+            port: 8001
+            targetPort: 8001
+        selector:
+          app.kubernetes.io/component: fastapi
+          app.kubernetes.io/instance: splattop-prod
+          app.kubernetes.io/name: splattop
 
 # React frontend configuration
 react:
   replicas: 2
+  service:
+    extraServices:
+      - name: react-app-service
+        ports:
+          - name: ""
+            port: 80
+            targetPort: 80
+        selector:
+          app.kubernetes.io/component: react
+          app.kubernetes.io/instance: splattop-prod
+          app.kubernetes.io/name: splattop
 
 # Celery worker configuration
 celeryWorker:
@@ -26,9 +51,38 @@ celeryBeat:
   env:
     COMP_LEADERBOARD_ENABLED: "true"
 
+# Redis compatibility service overrides
+redis:
+  service:
+    extraServices:
+      - name: redis
+        ports:
+          - name: ""
+            port: 6379
+            targetPort: 6379
+        selector:
+          app.kubernetes.io/component: redis
+          app.kubernetes.io/instance: splattop-prod
+          app.kubernetes.io/name: splattop
+
+# SplatNLP compatibility service overrides
+splatnlp:
+  service:
+    extraServices:
+      - name: splatnlp-service
+        ports:
+          - name: http
+            port: 9000
+            targetPort: 9000
+        selector:
+          app.kubernetes.io/component: splatnlp
+          app.kubernetes.io/instance: splattop-prod
+          app.kubernetes.io/name: splattop
+
 # Ingress configuration
 ingress:
   enabled: true
+  nameOverride: prod-ingress
   hosts:
     - host: splat.top
       paths:
@@ -78,10 +132,11 @@ ingress:
     enabled: true
     secretName: tls-secret
     certificate:
-      enabled: true
+      enabled: false
 
 # Monitoring stack configuration (enabled in production)
 monitoring:
+  createNamespace: false
   cilium:
     prometheusEgressKubeAPI:
       enabled: true
@@ -89,12 +144,24 @@ monitoring:
     enabled: true
     rules:
       enabled: true
+    service:
+      extraServices:
+        - name: prometheus
+          ports:
+            - name: http
+              port: 9090
+              targetPort: 9090
+          selector:
+            app.kubernetes.io/component: prometheus
+            app.kubernetes.io/instance: splattop-prod
+            app.kubernetes.io/name: splattop
   grafana:
     enabled: true
     serverDomain: grafana.splat.top
     serverRootUrl: https://grafana.splat.top/
     ingress:
       enabled: true
+      nameOverride: grafana-ingress
       annotations:
         cert-manager.io/cluster-issuer: letsencrypt-prod
         nginx.ingress.kubernetes.io/ssl-redirect: "false"
@@ -126,5 +193,27 @@ monitoring:
         configMapName: grafana-dashboard-api-usage
       - name: data-pipeline
         configMapName: grafana-dashboard-data-pipeline
+    service:
+      extraServices:
+        - name: grafana
+          ports:
+            - name: http
+              port: 80
+              targetPort: 3000
+          selector:
+            app.kubernetes.io/component: grafana
+            app.kubernetes.io/instance: splattop-prod
+            app.kubernetes.io/name: splattop
   alertmanager:
     enabled: true
+    service:
+      extraServices:
+        - name: alertmanager
+          ports:
+            - name: http
+              port: 9093
+              targetPort: 9093
+          selector:
+            app.kubernetes.io/component: alertmanager
+            app.kubernetes.io/instance: splattop-prod
+            app.kubernetes.io/name: splattop

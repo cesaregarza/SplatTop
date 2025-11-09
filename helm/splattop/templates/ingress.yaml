@@ -1,8 +1,9 @@
 {{- if .Values.ingress.enabled }}
+{{- $ingressName := default (include "splattop.fullname" .) .Values.ingress.nameOverride }}
 apiVersion: networking.k8s.io/v1
 kind: Ingress
 metadata:
-  name: {{ include "splattop.fullname" . }}
+  name: {{ $ingressName }}
   labels:
     {{- include "splattop.labels" . | nindent 4 }}
   {{- $root := . }}
