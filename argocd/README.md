@@ -105,7 +105,7 @@ This will create Applications for:
    - Repository: `https://github.com/cesaregarza/SplatTop`
    - Path: `helm/splattop`
    - Cluster: `in-cluster`
-   - Namespace: `splattop-<env>`
+   - Namespace: `splattop-<env>` (use `default` for production in the current cluster)
    - Helm values: Select `values-prod.yaml` for production
 
 ## Configuration Details
@@ -123,7 +123,7 @@ This will create Applications for:
 - **Auto-sync**: Enabled (consider disabling for stricter control)
 - **Self-heal**: Enabled
 - **Prune**: Enabled
-- **Namespace**: `splattop-prod`
+- **Namespace**: `default` (existing production workloads live in `default`; adjust if/when a dedicated namespace is created)
 - **Values**: `values-prod.yaml` (production overrides)
 
 #### ApplicationSet

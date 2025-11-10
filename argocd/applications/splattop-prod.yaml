@@ -18,7 +18,7 @@ spec:
         - values-prod.yaml
   destination:
     server: https://kubernetes.default.svc
-    namespace: splattop-prod
+    namespace: default
   syncPolicy:
     automated:
       prune: true

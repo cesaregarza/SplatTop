@@ -18,7 +18,7 @@ spec:
       server: https://kubernetes.default.svc
     - namespace: splattop-staging
       server: https://kubernetes.default.svc
-    - namespace: splattop-prod
+    - namespace: default
       server: https://kubernetes.default.svc
     - namespace: monitoring
       server: https://kubernetes.default.svc
@@ -60,6 +60,8 @@ spec:
       kind: Ingress
     - group: networking.k8s.io
       kind: NetworkPolicy
+    - group: cilium.io
+      kind: CiliumNetworkPolicy
     - group: policy
       kind: PodDisruptionBudget
     - group: cert-manager.io

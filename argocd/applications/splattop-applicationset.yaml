@@ -18,7 +18,7 @@ spec:
             valuesFile: values.yaml
             autoSync: "true"
           - env: prod
-            namespace: splattop-prod
+            namespace: default
             targetRevision: main
             valuesFile: values-prod.yaml
             autoSync: "false"  # Manual sync for production
