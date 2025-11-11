@@ -224,7 +224,7 @@ jobs:
 
   helm-dry-run:
     needs: [check, build]
-    if: needs.check.outputs.exit_pipeline == 'false' && needs.build.result == 'success'
+    if: github.event_name == 'pull_request' && needs.check.outputs.exit_pipeline == 'false' && needs.build.result == 'success'
     runs-on: ubuntu-latest
     environment: SplatTop
     steps:
@@ -281,8 +281,8 @@ jobs:
           helm upgrade --install splattop-prod helm/splattop "${HELM_ARGS[@]}" --dry-run --debug
 
   release:
-    needs: [check, build, helm-dry-run]
-    if: github.ref == 'refs/heads/main' && needs.check.outputs.exit_pipeline == 'false' && needs.build.result == 'success' && needs.helm-dry-run.result == 'success'
+    needs: [check, build]
+    if: github.ref == 'refs/heads/main' && needs.check.outputs.exit_pipeline == 'false' && needs.build.result == 'success'
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
