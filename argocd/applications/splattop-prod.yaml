@@ -9,7 +9,7 @@ spec:
   project: splattop
   source:
     repoURL: https://github.com/cesaregarza/SplatTop
-    targetRevision: claude/add-helm-integration-011CUojavg1TwjBoxocR9q21
+    targetRevision: 4f68cf5a176f89778cf896a84cfb8689093321cd
     path: helm/splattop
     helm:
       releaseName: splattop-prod
@@ -19,6 +19,43 @@ spec:
   destination:
     server: https://kubernetes.default.svc
     namespace: default
+  orphanedResources:
+    warn: true
+    ignore:
+      - kind: Secret
+        namespace: default
+        name: sh.helm.release.v1.splattop-prod.v7
+      - kind: Secret
+        namespace: default
+        name: sh.helm.release.v1.splattop-prod.v8
+      - kind: Secret
+        namespace: default
+        name: sh.helm.release.v1.splattop-prod.v9
+      - kind: Secret
+        namespace: default
+        name: sh.helm.release.v1.splattop-prod.v10
+      - kind: Secret
+        namespace: default
+        name: sh.helm.release.v1.splattop-prod.v11
+      - kind: Secret
+        namespace: default
+        name: sh.helm.release.v1.splattop-prod.v12
+      - kind: Secret
+        namespace: default
+        name: sh.helm.release.v1.splattop-prod.v13
+      - kind: Secret
+        namespace: default
+        name: sh.helm.release.v1.splattop-prod.v14
+      - kind: Secret
+        namespace: default
+        name: sh.helm.release.v1.splattop-prod.v15
+      - kind: Secret
+        namespace: default
+        name: sh.helm.release.v1.splattop-prod.v16
+      - group: networking.k8s.io
+        kind: Ingress
+        namespace: default
+        name: dev-ingress
   syncPolicy:
     automated:
       prune: true
@@ -47,3 +84,4 @@ spec:
       kind: Deployment
       jsonPointers:
         - /spec/template/metadata/annotations/kubectl.kubernetes.io~1restartedAt
+        - /metadata/annotations/argocd.argoproj.io~1tracking-id
