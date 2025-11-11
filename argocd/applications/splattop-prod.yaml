@@ -9,7 +9,7 @@ spec:
   project: splattop
   source:
     repoURL: https://github.com/cesaregarza/SplatTop
-    targetRevision: 4f68cf5a176f89778cf896a84cfb8689093321cd
+    targetRevision: b5f95c2a2b5e16d0ee15cf79657e2e7d778c4e96
     path: helm/splattop
     helm:
       releaseName: splattop-prod
@@ -22,40 +22,8 @@ spec:
   orphanedResources:
     warn: true
     ignore:
-      - kind: Secret
-        namespace: default
-        name: sh.helm.release.v1.splattop-prod.v7
-      - kind: Secret
-        namespace: default
-        name: sh.helm.release.v1.splattop-prod.v8
-      - kind: Secret
-        namespace: default
-        name: sh.helm.release.v1.splattop-prod.v9
-      - kind: Secret
-        namespace: default
-        name: sh.helm.release.v1.splattop-prod.v10
-      - kind: Secret
-        namespace: default
-        name: sh.helm.release.v1.splattop-prod.v11
-      - kind: Secret
-        namespace: default
-        name: sh.helm.release.v1.splattop-prod.v12
-      - kind: Secret
-        namespace: default
-        name: sh.helm.release.v1.splattop-prod.v13
-      - kind: Secret
-        namespace: default
-        name: sh.helm.release.v1.splattop-prod.v14
-      - kind: Secret
-        namespace: default
-        name: sh.helm.release.v1.splattop-prod.v15
-      - kind: Secret
-        namespace: default
-        name: sh.helm.release.v1.splattop-prod.v16
-      - group: networking.k8s.io
-        kind: Ingress
-        namespace: default
-        name: dev-ingress
+      - jqPathExpressions:
+          - '.kind == "Secret" and (.metadata.name | startswith("sh.helm.release.v1.splattop-prod."))'
   syncPolicy:
     automated:
       prune: true
