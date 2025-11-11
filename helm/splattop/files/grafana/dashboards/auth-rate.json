@@ -57,7 +57,7 @@
       },
       "targets": [
         {
-          "expr": "100 * sum(rate(fastapi_rate_limit_events_total{outcome=\\"throttled\\"}[5m])) / clamp_min(sum(rate(fastapi_rate_limit_events_total[5m])), 1)",
+          "expr": "100 * sum(rate(fastapi_rate_limit_events_total{outcome=\"throttled\"}[5m])) / clamp_min(sum(rate(fastapi_rate_limit_events_total[5m])), 1)",
           "legendFormat": "Throttled %"
         }
       ]
@@ -121,7 +121,7 @@
       },
       "targets": [
         {
-          "expr": "increase(fastapi_auth_failures_total{reason=\\"pepper_missing\\"}[1h])",
+          "expr": "increase(fastapi_auth_failures_total{reason=\"pepper_missing\"}[1h])",
           "legendFormat": "pepper_missing"
         }
       ]

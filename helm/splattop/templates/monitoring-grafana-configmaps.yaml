@@ -45,13 +45,13 @@ data:
           path: /var/lib/grafana/dashboards/auto
 ---
 {{- $dashboardFiles := dict
-      "core" (dict "file" "grafana/dashboards/core.json" "dataKey" "splattop-overview.json")
-      "splatgpt" (dict "file" "grafana/dashboards/splatgpt.json" "dataKey" "splatgpt-operations.json")
-      "auth-rate" (dict "file" "grafana/dashboards/auth-rate.json" "dataKey" "auth-and-rate.json")
-      "realtime" (dict "file" "grafana/dashboards/realtime.json" "dataKey" "realtime-channels.json")
-      "ripple" (dict "file" "grafana/dashboards/ripple.json" "dataKey" "ripple-performance.json")
-      "api-usage" (dict "file" "grafana/dashboards/api-usage.json" "dataKey" "api-usage-pipeline.json")
-      "data-pipeline" (dict "file" "grafana/dashboards/data-pipeline.json" "dataKey" "data-pipelines.json")
+      "core" (dict "file" "files/grafana/dashboards/core.json" "dataKey" "splattop-overview.json")
+      "splatgpt" (dict "file" "files/grafana/dashboards/splatgpt.json" "dataKey" "splatgpt-operations.json")
+      "auth-rate" (dict "file" "files/grafana/dashboards/auth-rate.json" "dataKey" "auth-and-rate.json")
+      "realtime" (dict "file" "files/grafana/dashboards/realtime.json" "dataKey" "realtime-channels.json")
+      "ripple" (dict "file" "files/grafana/dashboards/ripple.json" "dataKey" "ripple-performance.json")
+      "api-usage" (dict "file" "files/grafana/dashboards/api-usage.json" "dataKey" "api-usage-pipeline.json")
+      "data-pipeline" (dict "file" "files/grafana/dashboards/data-pipeline.json" "dataKey" "data-pipelines.json")
     -}}
 {{- range $dashboard := .Values.monitoring.grafana.dashboards }}
   {{- $info := index $dashboardFiles $dashboard.name }}

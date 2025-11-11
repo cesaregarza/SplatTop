@@ -181,18 +181,25 @@ monitoring:
     dashboards:
       - name: core
         configMapName: grafana-dashboard-core
+        dataKey: splattop-overview.json
       - name: splatgpt
         configMapName: grafana-dashboard-splatgpt
+        dataKey: splatgpt-operations.json
       - name: auth-rate
         configMapName: grafana-dashboard-auth-rate
+        dataKey: auth-and-rate.json
       - name: realtime
         configMapName: grafana-dashboard-realtime
+        dataKey: realtime-channels.json
       - name: ripple
         configMapName: grafana-dashboard-ripple
+        dataKey: ripple-performance.json
       - name: api-usage
         configMapName: grafana-dashboard-api-usage
+        dataKey: api-usage-pipeline.json
       - name: data-pipeline
         configMapName: grafana-dashboard-data-pipeline
+        dataKey: data-pipelines.json
     service:
       extraServices:
         - name: grafana

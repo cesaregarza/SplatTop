@@ -33,7 +33,7 @@
       },
       "targets": [
         {
-          "expr": "sum(rate(ripple_cache_requests_total{status=\\"hit\\"}[5m])) / clamp_min(sum(rate(ripple_cache_requests_total[5m])), 1)",
+          "expr": "sum(rate(ripple_cache_requests_total{status=\"hit\"}[5m])) / clamp_min(sum(rate(ripple_cache_requests_total[5m])), 1)",
           "legendFormat": "Hit ratio"
         }
       ]

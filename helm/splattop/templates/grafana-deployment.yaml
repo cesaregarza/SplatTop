@@ -68,8 +68,10 @@ spec:
               mountPath: /etc/grafana/provisioning/dashboards
               readOnly: true
             {{- range .Values.monitoring.grafana.dashboards }}
+            {{- $dataKey := default (printf "%s.json" .name) .dataKey }}
             - name: grafana-dashboard-{{ .name }}
-              mountPath: /var/lib/grafana/dashboards/auto/{{ .name }}
+              mountPath: /var/lib/grafana/dashboards/auto/{{ $dataKey }}
+              subPath: {{ $dataKey }}
               readOnly: true
             {{- end }}
             - name: grafana-tmp
@@ -112,9 +114,13 @@ spec:
           configMap:
             name: {{ $dashboardProvidersConfigMap }}
         {{- range .Values.monitoring.grafana.dashboards }}
+        {{- $dataKey := default (printf "%s.json" .name) .dataKey }}
         - name: grafana-dashboard-{{ .name }}
           configMap:
             name: {{ default (printf "%s-grafana-dashboard-%s" $fullName .name) .configMapName }}
+            items:
+              - key: {{ $dataKey }}
+                path: {{ $dataKey }}
         {{- end }}
         - name: grafana-tmp
           emptyDir: {}

@@ -9,7 +9,7 @@ spec:
   project: splattop
   source:
     repoURL: https://github.com/cesaregarza/SplatTop
-    targetRevision: main
+    targetRevision: claude/add-helm-integration-011CUojavg1TwjBoxocR9q21
     path: helm/splattop
     helm:
       releaseName: splattop-prod

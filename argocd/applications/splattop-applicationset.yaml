@@ -11,17 +11,10 @@ spec:
             namespace: splattop-dev
             targetRevision: main
             valuesFile: values.yaml
-            autoSync: "true"
           - env: staging
             namespace: splattop-staging
             targetRevision: main
             valuesFile: values.yaml
-            autoSync: "true"
-          - env: prod
-            namespace: default
-            targetRevision: main
-            valuesFile: values-prod.yaml
-            autoSync: "false"  # Manual sync for production
   template:
     metadata:
       name: splattop-{{env}}

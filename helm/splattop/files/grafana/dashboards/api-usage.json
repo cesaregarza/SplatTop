@@ -155,11 +155,11 @@
       },
       "targets": [
         {
-          "expr": "sum(rate(api_usage_events_total{result=\\"processed\\"}[5m]))",
+          "expr": "sum(rate(api_usage_events_total{result=\"processed\"}[5m]))",
           "legendFormat": "processed"
         },
         {
-          "expr": "sum(rate(api_usage_events_total{result=\\"dlq\\"}[5m]))",
+          "expr": "sum(rate(api_usage_events_total{result=\"dlq\"}[5m]))",
           "legendFormat": "dlq"
         }
       ]

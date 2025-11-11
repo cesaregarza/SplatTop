@@ -48,6 +48,7 @@ argocd/
    - `regcred` - Container registry credentials
    - `grafana-admin-credentials` - Grafana admin credentials (if monitoring enabled)
    - `alertmanager-config` - AlertManager configuration (if monitoring enabled)
+   - Ensure these exist in **every** namespace the application targets (`default`, `splattop-dev`, `splattop-staging`, `monitoring`). Helm expects them to be present already, so ArgoCD will fail to sync until they are created (use the `make create-secrets-*` helpers or manual `kubectl apply`).
 
 ## Deployment Options
 
@@ -69,19 +70,20 @@ kubectl apply -f argocd/projects/splattop-project.yaml
 kubectl apply -f argocd/applications/splattop-prod.yaml
 ```
 
-### Option 2: ApplicationSet (Recommended for Multi-Environment)
+### Option 2: ApplicationSet (Dev/Staging)
 
-Deploy all environments at once using ApplicationSet:
+Deploy the non-production environments together:
 
 ```bash
 kubectl apply -f argocd/projects/splattop-project.yaml
 kubectl apply -f argocd/applications/splattop-applicationset.yaml
 ```
 
-This will create Applications for:
+This creates Applications for:
 - `splattop-dev` (auto-sync enabled)
 - `splattop-staging` (auto-sync enabled)
-- `splattop-prod` (manual sync required)
+
+> **Production is managed separately** through `argocd/applications/splattop-prod.yaml` (auto-sync enabled) so you can roll prod independently of the dev/staging ApplicationSet.
 
 ### Option 3: ArgoCD UI
 
@@ -120,16 +122,15 @@ This will create Applications for:
 - **Values**: `values.yaml` (default development config)
 
 #### Production (`splattop-prod.yaml`)
-- **Auto-sync**: Enabled (consider disabling for stricter control)
+- **Auto-sync**: Enabled (prune + self-heal)
 - **Self-heal**: Enabled
 - **Prune**: Enabled
 - **Namespace**: `default` (existing production workloads live in `default`; adjust if/when a dedicated namespace is created)
 - **Values**: `values-prod.yaml` (production overrides)
 
 #### ApplicationSet
-- Manages dev, staging, and prod environments
-- Production requires manual sync approval
-- All environments use automatic pruning and self-healing
+- Manages the dev and staging environments only (both auto-sync with prune + self-heal)
+- Apply `argocd/applications/splattop-prod.yaml` separately for production control (also auto-sync)
 
 ### Project RBAC
 
@@ -309,7 +310,7 @@ argocd app sync splattop-prod --replace
 
 3. **Test in staging** before promoting to production
 
-4. **Enable manual sync** for production to prevent accidental deployments
+4. **Monitor prod auto-syncs** via the Argo UI and pause automation only if you need a temporary freeze
 
 5. **Monitor ArgoCD notifications** (configure Slack/email)
 
@@ -324,35 +325,24 @@ argocd app sync splattop-prod --replace
 
 ## Integration with CI/CD
 
-### GitHub Actions Example
+The repository already contains two GitHub workflows that pair with ArgoCD:
 
-```yaml
-name: Update Helm Values
+1. **Build and Update Kubernetes Deployment** (`.github/workflows/update_k8s_deployment.yaml`)
+   - Runs on every `main` push.
+   - Builds and publishes the FastAPI, Celery, and React images as needed.
+   - Runs `helm lint` and a full `helm upgrade --dry-run` against the prod cluster to catch template errors early.
+   - Stops before applying live changes; ArgoCD remains the source of truth for production.
 
-on:
-  push:
-    branches: [main]
+2. **Manual Helm Deployment** (`.github/workflows/manual_helm_deploy.yaml`)
+   - `workflow_dispatch` trigger only.
+   - Rebuilds images (optional) and performs the secret bootstrapping + real `helm upgrade`.
+   - Use this strictly as a break-glass option if ArgoCD cannot sync.
 
-jobs:
-  update-image:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v3
-
-      - name: Update image tag
-        run: |
-          sed -i 's/tag: .*/tag: ${{ github.sha }}/' helm/splattop/values-prod.yaml
-
-      - name: Commit changes
-        run: |
-          git config user.name "GitHub Actions"
-          git config user.email "actions@github.com"
-          git add helm/splattop/values-prod.yaml
-          git commit -m "Update production image to ${{ github.sha }}"
-          git push
-```
-
-ArgoCD will automatically detect the change and sync (if auto-sync is enabled).
+The day-to-day flow is therefore:
+1. Merge to `main` → CI publishes images and validates the chart (no live apply).
+2. ArgoCD notices the Git change and auto-syncs dev/staging plus prod (prune + self-heal).
+3. Keep an eye on the Argo UI to confirm the sync succeeded; if it fails, address the diff or re-run the sync.
+4. If ArgoCD is unavailable, run the manual workflow to perform a one-off Helm deployment.
 
 ## Additional Resources
 
