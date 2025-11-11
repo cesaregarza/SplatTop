@@ -28,6 +28,8 @@ spec:
       - CreateNamespace=true
       - PrunePropagationPolicy=foreground
       - PruneLast=true
+      - RespectIgnoreDifferences=true
+      - SkipDryRunOnMissingResource=true
     retry:
       limit: 5
       backoff:
@@ -41,3 +43,7 @@ spec:
       kind: Deployment
       jsonPointers:
         - /spec/replicas
+    - group: apps
+      kind: Deployment
+      jsonPointers:
+        - /spec/template/metadata/annotations/kubectl.kubernetes.io~1restartedAt

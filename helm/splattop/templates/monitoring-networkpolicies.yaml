@@ -1,3 +1,4 @@
+{{- $root := . -}}
 {{- $ns := include "splattop.monitoringNamespace" . -}}
 {{- with .Values.monitoring.networkPolicies }}
   {{- if and .defaultDeny.enabled $ns }}
@@ -6,6 +7,8 @@ kind: NetworkPolicy
 metadata:
   name: monitoring-deny-all-ingress
   namespace: {{ $ns }}
+  labels:
+    {{- include "splattop.componentLabels" (dict "component" "monitoring-netpol-default-deny" "root" $root) | nindent 4 }}
 spec:
   podSelector: {}
   policyTypes:
@@ -18,6 +21,8 @@ kind: NetworkPolicy
 metadata:
   name: allow-acme-solver
   namespace: {{ $ns }}
+  labels:
+    {{- include "splattop.componentLabels" (dict "component" "monitoring-netpol-allow-acme" "root" $root) | nindent 4 }}
 spec:
   podSelector:
     matchLabels:
@@ -37,6 +42,8 @@ kind: NetworkPolicy
 metadata:
   name: grafana-allow-ingress
   namespace: {{ $ns }}
+  labels:
+    {{- include "splattop.componentLabels" (dict "component" "monitoring-netpol-grafana" "root" $root) | nindent 4 }}
 spec:
   podSelector:
     matchLabels:
@@ -81,6 +88,8 @@ kind: NetworkPolicy
 metadata:
   name: prometheus-ingress-egress
   namespace: {{ $ns }}
+  labels:
+    {{- include "splattop.componentLabels" (dict "component" "monitoring-netpol-prometheus" "root" $root) | nindent 4 }}
 spec:
   podSelector:
     matchLabels:
@@ -119,6 +128,8 @@ kind: NetworkPolicy
 metadata:
   name: alertmanager-ingress-egress
   namespace: {{ $ns }}
+  labels:
+    {{- include "splattop.componentLabels" (dict "component" "monitoring-netpol-alertmanager" "root" $root) | nindent 4 }}
 spec:
   podSelector:
     matchLabels:
