@@ -253,7 +253,7 @@ jobs:
 
   helm-dry-run:
     needs: [check, build]
-    if: github.event_name == 'pull_request' && needs.check.outputs.exit_pipeline == 'false' && needs.build.result == 'success'
+    if: needs.check.outputs.exit_pipeline == 'false' && needs.build.result == 'success'
     runs-on: ubuntu-latest
     environment: SplatTop
     steps:
@@ -272,14 +272,17 @@ jobs:
           helm lint helm/splattop -f helm/splattop/values-prod.yaml
 
       - name: Install doctl
+        if: github.event_name != 'pull_request'
         uses: digitalocean/action-doctl@v2
         with:
           token: ${{ secrets.DIGITALOCEAN_ACCESS_TOKEN }}
 
       - name: Save DigitalOcean kubeconfig
+        if: github.event_name != 'pull_request'
         run: doctl kubernetes cluster kubeconfig save ${{ secrets.DIGITALOCEAN_CLUSTER_ID }}
 
-      - name: Helm dry run
+      - name: Helm dry run (cluster)
+        if: github.event_name != 'pull_request'
         env:
           VERSION: ${{ needs.build.outputs.next_version }}
           FASTAPI_CHANGED: ${{ needs.check.outputs.fastapi_changed }}
@@ -311,6 +314,37 @@ jobs:
             HELM_ARGS+=(--set-string react.image.tag=${TAG})
           fi
           helm upgrade --install splattop-prod helm/splattop "${HELM_ARGS[@]}" --dry-run --debug
+
+      - name: Helm template (pull request)
+        if: github.event_name == 'pull_request'
+        env:
+          VERSION: ${{ needs.build.outputs.next_version }}
+          FASTAPI_CHANGED: ${{ needs.check.outputs.fastapi_changed }}
+          CELERY_CHANGED: ${{ needs.check.outputs.celery_changed }}
+          REACT_CHANGED: ${{ needs.check.outputs.react_changed }}
+        run: |
+          TAG="v${VERSION}"
+          if [ -z "${VERSION}" ]; then
+            echo "Missing version output from build job" >&2
+            exit 1
+          fi
+
+          set -euo pipefail
+          HELM_ARGS=(
+            --namespace default
+            -f helm/splattop/values-prod.yaml
+          )
+          if [ "${FASTAPI_CHANGED}" = "true" ]; then
+            HELM_ARGS+=(--set-string fastapi.image.tag=${TAG})
+          fi
+          if [ "${CELERY_CHANGED}" = "true" ]; then
+            HELM_ARGS+=(--set-string celeryWorker.image.tag=${TAG})
+            HELM_ARGS+=(--set-string celeryBeat.image.tag=${TAG})
+          fi
+          if [ "${REACT_CHANGED}" = "true" ]; then
+            HELM_ARGS+=(--set-string react.image.tag=${TAG})
+          fi
+          helm template splattop-prod helm/splattop "${HELM_ARGS[@]}"
 
   release:
     needs: [check, build]
