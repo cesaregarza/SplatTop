@@ -12,6 +12,9 @@ PROMETHEUS_SELECTOR ?= app.kubernetes.io/component=prometheus
 INGRESS_CONTROLLER_SELECTOR ?= app.kubernetes.io/component=controller
 MONITORING_NAMESPACE ?= monitoring
 INGRESS_NAMESPACE ?= ingress-nginx
+CONFIG_REPO_DIR ?= ../SplatTopConfig
+HELM_CHART_PATH ?= $(CONFIG_REPO_DIR)/helm/splattop
+ARGOCD_MANIFEST_DIR ?= $(CONFIG_REPO_DIR)/argocd
 
 .PHONY: ensure-kind
 ensure-kind:
@@ -235,7 +238,6 @@ kill-ports:
 # Helm Commands
 # ==============================================================================
 
-HELM_CHART_PATH = helm/splattop
 HELM_RELEASE_DEV = splattop-dev
 HELM_RELEASE_PROD = splattop-prod
 HELM_NAMESPACE_DEV = splattop-dev
@@ -380,22 +382,22 @@ argocd-login:
 .PHONY: argocd-deploy-project
 argocd-deploy-project:
 	@echo "Deploying ArgoCD project..."
-	kubectl apply -f argocd/projects/splattop-project.yaml
+	kubectl apply -f $(ARGOCD_MANIFEST_DIR)/projects/splattop-project.yaml
 
 .PHONY: argocd-deploy-dev
 argocd-deploy-dev: argocd-deploy-project
 	@echo "Deploying SplatTop application to ArgoCD (development)..."
-	kubectl apply -f argocd/applications/splattop-dev.yaml
+	kubectl apply -f $(ARGOCD_MANIFEST_DIR)/applications/splattop-dev.yaml
 
 .PHONY: argocd-deploy-prod
 argocd-deploy-prod: argocd-deploy-project
 	@echo "Deploying SplatTop application to ArgoCD (production)..."
-	kubectl apply -f argocd/applications/splattop-prod.yaml
+	kubectl apply -f $(ARGOCD_MANIFEST_DIR)/applications/splattop-prod.yaml
 
 .PHONY: argocd-deploy-all
 argocd-deploy-all: argocd-deploy-project
 	@echo "Deploying all SplatTop applications via ApplicationSet..."
-	kubectl apply -f argocd/applications/splattop-applicationset.yaml
+	kubectl apply -f $(ARGOCD_MANIFEST_DIR)/applications/splattop-applicationset.yaml
 
 .PHONY: argocd-sync-dev
 argocd-sync-dev:
@@ -410,19 +412,19 @@ argocd-sync-prod:
 .PHONY: argocd-delete-dev
 argocd-delete-dev:
 	@echo "Deleting ArgoCD application (development)..."
-	kubectl delete -f argocd/applications/splattop-dev.yaml || true
+	kubectl delete -f $(ARGOCD_MANIFEST_DIR)/applications/splattop-dev.yaml || true
 
 .PHONY: argocd-delete-prod
 argocd-delete-prod:
 	@echo "Deleting ArgoCD application (production)..."
-	kubectl delete -f argocd/applications/splattop-prod.yaml || true
+	kubectl delete -f $(ARGOCD_MANIFEST_DIR)/applications/splattop-prod.yaml || true
 
 .PHONY: argocd-delete-all
 argocd-delete-all:
 	@echo "Deleting all ArgoCD applications..."
-	kubectl delete -f argocd/applications/splattop-applicationset.yaml || true
-	kubectl delete -f argocd/applications/splattop-dev.yaml || true
-	kubectl delete -f argocd/applications/splattop-prod.yaml || true
+	kubectl delete -f $(ARGOCD_MANIFEST_DIR)/applications/splattop-applicationset.yaml || true
+	kubectl delete -f $(ARGOCD_MANIFEST_DIR)/applications/splattop-dev.yaml || true
+	kubectl delete -f $(ARGOCD_MANIFEST_DIR)/applications/splattop-prod.yaml || true
 
 .PHONY: argocd-status
 argocd-status:
@@ -518,8 +520,8 @@ validate-k8s: validate-helm
 .PHONY: validate-argocd
 validate-argocd:
 	@echo "Validating ArgoCD manifests..."
-	@kubectl apply --dry-run=client -f argocd/projects/splattop-project.yaml
-	@kubectl apply --dry-run=client -f argocd/applications/
+	@kubectl apply --dry-run=client -f $(ARGOCD_MANIFEST_DIR)/projects/splattop-project.yaml
+	@kubectl apply --dry-run=client -f $(ARGOCD_MANIFEST_DIR)/applications/
 	@echo "ArgoCD manifest validation complete!"
 
 .PHONY: validate-all

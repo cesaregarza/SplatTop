@@ -21,7 +21,6 @@ on:
       - ".version"
       - "k8s/**"
       - "i18n/**"
-      - "helm/**"
   pull_request:
     branches:
       - main
@@ -30,7 +29,6 @@ on:
       - ".version"
       - "k8s/**"
       - "i18n/**"
-      - "helm/**"
 
 permissions:
   contents: write
@@ -260,13 +258,22 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Validate Prometheus config
-        run: python3 scripts/validate_prometheus_config.py
+      - name: Checkout config repository
+        uses: actions/checkout@v4
+        with:
+          repository: cesaregarza/SplatTopConfig
+          path: config-repo
+          token: ${{ secrets.CONFIG_REPO_TOKEN }}
 
       - name: Install Helm
         uses: azure/setup-helm@v4
 
+      - name: Validate Prometheus config
+        working-directory: config-repo
+        run: python3 scripts/validate_prometheus_config.py
+
       - name: Helm lint
+        working-directory: config-repo
         run: |
           helm lint helm/splattop
           helm lint helm/splattop -f helm/splattop/values-prod.yaml
@@ -288,6 +295,8 @@ jobs:
           FASTAPI_CHANGED: ${{ needs.check.outputs.fastapi_changed }}
           CELERY_CHANGED: ${{ needs.check.outputs.celery_changed }}
           REACT_CHANGED: ${{ needs.check.outputs.react_changed }}
+          CHART_DIR: config-repo/helm/splattop
+          VALUES_FILE: config-repo/helm/splattop/values-prod.yaml
         run: |
           TAG="v${VERSION}"
           if [ -z "${VERSION}" ]; then
@@ -301,7 +310,7 @@ jobs:
             --reuse-values
             --atomic
             --timeout 15m
-            -f helm/splattop/values-prod.yaml
+            -f "${VALUES_FILE}"
           )
           if [ "${FASTAPI_CHANGED}" = "true" ]; then
             HELM_ARGS+=(--set-string fastapi.image.tag=${TAG})
@@ -313,7 +322,7 @@ jobs:
           if [ "${REACT_CHANGED}" = "true" ]; then
             HELM_ARGS+=(--set-string react.image.tag=${TAG})
           fi
-          helm upgrade --install splattop-prod helm/splattop "${HELM_ARGS[@]}" --dry-run --debug
+          helm upgrade --install splattop-prod "${CHART_DIR}" "${HELM_ARGS[@]}" --dry-run --debug
 
       - name: Helm template (pull request)
         if: github.event_name == 'pull_request'
@@ -322,6 +331,8 @@ jobs:
           FASTAPI_CHANGED: ${{ needs.check.outputs.fastapi_changed }}
           CELERY_CHANGED: ${{ needs.check.outputs.celery_changed }}
           REACT_CHANGED: ${{ needs.check.outputs.react_changed }}
+          CHART_DIR: config-repo/helm/splattop
+          VALUES_FILE: config-repo/helm/splattop/values-prod.yaml
         run: |
           TAG="v${VERSION}"
           if [ -z "${VERSION}" ]; then
@@ -332,7 +343,7 @@ jobs:
           set -euo pipefail
           HELM_ARGS=(
             --namespace default
-            -f helm/splattop/values-prod.yaml
+            -f "${VALUES_FILE}"
           )
           if [ "${FASTAPI_CHANGED}" = "true" ]; then
             HELM_ARGS+=(--set-string fastapi.image.tag=${TAG})
@@ -344,7 +355,7 @@ jobs:
           if [ "${REACT_CHANGED}" = "true" ]; then
             HELM_ARGS+=(--set-string react.image.tag=${TAG})
           fi
-          helm template splattop-prod helm/splattop "${HELM_ARGS[@]}"
+          helm template splattop-prod "${CHART_DIR}" "${HELM_ARGS[@]}"
 
   release:
     needs: [check, build]
@@ -531,7 +542,7 @@ jobs:
           fi
 
           TAG="v${VERSION}"
-          CMD=(python3 ../app-repo/scripts/update_config_image_tags.py
+          CMD=(python3 scripts/update_config_image_tags.py
                --values-file helm/splattop/values-prod.yaml
                --tag "${TAG}"
                --set-global)
