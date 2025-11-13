@@ -452,8 +452,9 @@ jobs:
   update_config_repo:
     name: Update config repository
     needs: [component_metadata, build]
-    if: github.ref == 'refs/heads/main' && needs.component_metadata.outputs.has_updates == 'true'
+    if: github.ref == 'refs/heads/main' && needs.component_metadata.outputs.has_updates == 'true' && secrets.CONFIG_REPO_TOKEN != ''
     runs-on: ubuntu-latest
+    environment: SplatTop
     steps:
       - name: Download component metadata
         uses: actions/download-artifact@v4
