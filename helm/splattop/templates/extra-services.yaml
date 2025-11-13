@@ -1,0 +1,53 @@
+{{/*
+Render additional compatibility services for components when requested via
+`service.extraServices`.
+*/}}
+{{- $root := . -}}
+{{- define "splattop.extraService" -}}
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ .service.name }}
+  namespace: {{ include "splattop.componentNamespace" (dict "component" .component "root" .root) }}
+  labels:
+    {{- include "splattop.componentLabels" (dict "component" .component "root" .root) | nindent 4 }}
+spec:
+  {{- $componentService := dict -}}
+  {{- if hasKey .config "service" }}
+    {{- $componentService = index .config "service" }}
+  {{- end }}
+  {{- $componentType := default "ClusterIP" (index $componentService "type") }}
+  {{- $serviceType := default $componentType .service.type }}
+  type: {{ $serviceType | default "ClusterIP" }}
+  ports:
+    {{- range .service.ports }}
+    - {{- $hasName := hasKey . "name" }}
+      {{- if or (not $hasName) (and $hasName (ne (default "" .name) "")) }}
+      name: {{ .name | default "http" }}
+      {{- end }}
+      port: {{ .port }}
+      {{- if hasKey . "targetPort" }}
+      targetPort: {{ .targetPort }}
+      {{- else }}
+      targetPort: http
+      {{- end }}
+      protocol: {{ .protocol | default "TCP" }}
+    {{- end }}
+  selector:
+    {{- if .service.selector }}
+    {{- toYaml .service.selector | nindent 4 }}
+    {{- else }}
+    {{- include "splattop.componentSelectorLabels" (dict "component" .component "root" .root) | nindent 4 }}
+    {{- end }}
+{{- end -}}
+
+{{- range $component, $config := dict "fastapi" .Values.fastapi "react" .Values.react "celeryWorker" .Values.celeryWorker "celeryBeat" .Values.celeryBeat "redis" .Values.redis "splatnlp" .Values.splatnlp "prometheus" .Values.monitoring.prometheus "grafana" .Values.monitoring.grafana "alertmanager" .Values.monitoring.alertmanager -}}
+  {{- $extraServices := dig "service" "extraServices" list $config -}}
+  {{- $enabled := default true (dig "enabled" nil $config) -}}
+  {{- if and $enabled $extraServices }}
+    {{- range $service := $extraServices }}
+---
+{{ include "splattop.extraService" (dict "root" $root "component" $component "config" $config "service" $service) }}
+    {{- end }}
+  {{- end }}
+{{- end }}

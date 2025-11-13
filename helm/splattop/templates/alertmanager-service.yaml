@@ -1,0 +1,18 @@
+{{- if .Values.monitoring.alertmanager.enabled }}
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "splattop.fullname" . }}-alertmanager
+  namespace: {{ include "splattop.monitoringNamespace" . }}
+  labels:
+    {{- include "splattop.componentLabels" (dict "component" "alertmanager" "root" .) | nindent 4 }}
+spec:
+  type: {{ .Values.monitoring.alertmanager.service.type }}
+  ports:
+    - name: http
+      port: {{ .Values.monitoring.alertmanager.service.port }}
+      targetPort: http
+      protocol: TCP
+  selector:
+    {{- include "splattop.componentSelectorLabels" (dict "component" "alertmanager" "root" .) | nindent 4 }}
+{{- end }}

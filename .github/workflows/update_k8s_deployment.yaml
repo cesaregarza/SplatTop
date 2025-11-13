@@ -21,6 +21,16 @@ on:
       - ".version"
       - "k8s/**"
       - "i18n/**"
+      - "helm/**"
+  pull_request:
+    branches:
+      - main
+    paths:
+      - "src/**"
+      - ".version"
+      - "k8s/**"
+      - "i18n/**"
+      - "helm/**"
 
 permissions:
   contents: write
@@ -38,9 +48,11 @@ jobs:
     runs-on: ubuntu-latest
     environment: SplatTop
     outputs:
-      python_changed: ${{ steps.finalize.outputs.python_changed }}
+      fastapi_changed: ${{ steps.finalize.outputs.fastapi_changed }}
+      celery_changed: ${{ steps.finalize.outputs.celery_changed }}
       react_changed: ${{ steps.finalize.outputs.react_changed }}
       i18n_changed: ${{ steps.finalize.outputs.i18n_changed }}
+      components_changed: ${{ steps.finalize.outputs.components_changed }}
       exit_pipeline: ${{ steps.finalize.outputs.exit_pipeline }}
     steps:
       - name: Checkout
@@ -53,36 +65,50 @@ jobs:
         uses: dorny/paths-filter@v3
         with:
           filters: |
-            python:
-              - 'src/celery_app/**'
+            fastapi:
               - 'src/fast_api_app/**'
               - 'src/shared_lib/**'
+              - 'dockerfiles/dockerfile.fast-api'
+              - 'pyproject.toml'
+              - 'poetry.lock'
+            celery:
+              - 'src/celery_app/**'
+              - 'src/shared_lib/**'
+              - 'dockerfiles/dockerfile.celery'
+              - 'pyproject.toml'
+              - 'poetry.lock'
             react:
               - 'src/react_app/**'
+              - 'src/react_app/package.json'
+              - 'src/react_app/package-lock.json'
+              - 'dockerfiles/dockerfile.react'
             i18n:
               - 'i18n/**'
 
       - name: Finalize change detection
         id: finalize
         env:
-          PYTHON_CHANGED: ${{ steps.changes.outputs.python }}
+          FASTAPI_CHANGED: ${{ steps.changes.outputs.fastapi }}
+          CELERY_CHANGED: ${{ steps.changes.outputs.celery }}
           REACT_CHANGED: ${{ steps.changes.outputs.react }}
           I18N_CHANGED: ${{ steps.changes.outputs.i18n }}
           ACTOR: ${{ github.actor }}
         run: |
-          python="${PYTHON_CHANGED:-false}"
+          fastapi="${FASTAPI_CHANGED:-false}"
+          celery="${CELERY_CHANGED:-false}"
           react="${REACT_CHANGED:-false}"
           i18n="${I18N_CHANGED:-false}"
-          override_python="false"
+          override_backend="false"
           override_react="false"
 
           if [ "$GITHUB_EVENT_NAME" = "workflow_dispatch" ]; then
-            override_python=$(jq -r '.inputs["override-python"] // "false"' "$GITHUB_EVENT_PATH" 2>/dev/null || echo "false")
+            override_backend=$(jq -r '.inputs["override-python"] // "false"' "$GITHUB_EVENT_PATH" 2>/dev/null || echo "false")
             override_react=$(jq -r '.inputs["override-react"] // "false"' "$GITHUB_EVENT_PATH" 2>/dev/null || echo "false")
 
-            if [ "$override_python" = "true" ]; then
-              echo "Override requested; forcing backend build."
-              python=true
+            if [ "$override_backend" = "true" ]; then
+              echo "Override requested; forcing backend builds."
+              fastapi=true
+              celery=true
             fi
 
             if [ "$override_react" = "true" ]; then
@@ -91,16 +117,23 @@ jobs:
             fi
           fi
 
-          if [ "$i18n" = "true" ] && [ "$ACTOR" != "github-actions[bot]" ] && [ "$override_python" != "true" ] && [ "$override_react" != "true" ]; then
+          components_changed=false
+          if [ "$fastapi" = "true" ] || [ "$celery" = "true" ] || [ "$react" = "true" ]; then
+            components_changed=true
+          fi
+
+          if [ "$i18n" = "true" ] && [ "$ACTOR" != "github-actions[bot]" ] && [ "$override_backend" != "true" ] && [ "$override_react" != "true" ]; then
             exit_pipeline=true
           else
             exit_pipeline=false
           fi
 
           {
-            echo "python_changed=${python}"
+            echo "fastapi_changed=${fastapi}"
+            echo "celery_changed=${celery}"
             echo "react_changed=${react}"
             echo "i18n_changed=${i18n}"
+            echo "components_changed=${components_changed}"
             echo "exit_pipeline=${exit_pipeline}"
           } >> "$GITHUB_OUTPUT"
 
@@ -112,6 +145,9 @@ jobs:
     outputs:
       next_version: ${{ steps.nextver.outputs.version }}
       latest_release: ${{ steps.latest.outputs.tag }}
+      fastapi_digest: ${{ steps.build_fastapi.outputs.digest }}
+      celery_digest: ${{ steps.build_celery.outputs.digest }}
+      react_digest: ${{ steps.build_react.outputs.digest }}
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -172,7 +208,8 @@ jobs:
             core.setOutput('version', next);
 
       - name: Build & push FastAPI image
-        if: needs.check.outputs.python_changed == 'true'
+        id: build_fastapi
+        if: needs.check.outputs.fastapi_changed == 'true' && github.ref == 'refs/heads/main'
         uses: docker/build-push-action@v6
         with:
           context: .
@@ -185,7 +222,8 @@ jobs:
           cache-to: type=gha,mode=max
 
       - name: Build & push Celery image
-        if: needs.check.outputs.python_changed == 'true'
+        id: build_celery
+        if: needs.check.outputs.celery_changed == 'true' && github.ref == 'refs/heads/main'
         uses: docker/build-push-action@v6
         with:
           context: .
@@ -198,7 +236,8 @@ jobs:
           cache-to: type=gha,mode=max
 
       - name: Build & push React image
-        if: needs.check.outputs.react_changed == 'true'
+        id: build_react
+        if: needs.check.outputs.react_changed == 'true' && github.ref == 'refs/heads/main'
         uses: docker/build-push-action@v6
         with:
           context: .
@@ -212,9 +251,9 @@ jobs:
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
-  update-deployment:
+  helm-dry-run:
     needs: [check, build]
-    if: github.ref == 'refs/heads/main' && needs.check.outputs.exit_pipeline == 'false' && needs.build.result == 'success'
+    if: needs.check.outputs.exit_pipeline == 'false' && needs.build.result == 'success'
     runs-on: ubuntu-latest
     environment: SplatTop
     steps:
@@ -224,214 +263,30 @@ jobs:
       - name: Validate Prometheus config
         run: python3 scripts/validate_prometheus_config.py
 
+      - name: Install Helm
+        uses: azure/setup-helm@v4
+
+      - name: Helm lint
+        run: |
+          helm lint helm/splattop
+          helm lint helm/splattop -f helm/splattop/values-prod.yaml
+
       - name: Install doctl
+        if: github.event_name != 'pull_request'
         uses: digitalocean/action-doctl@v2
         with:
           token: ${{ secrets.DIGITALOCEAN_ACCESS_TOKEN }}
 
       - name: Save DigitalOcean kubeconfig
+        if: github.event_name != 'pull_request'
         run: doctl kubernetes cluster kubeconfig save ${{ secrets.DIGITALOCEAN_CLUSTER_ID }}
 
-      - name: Ensure registry pull secret
-        run: |
-          kubectl delete secret regcred --ignore-not-found
-          kubectl create secret docker-registry regcred \
-            --docker-server=registry.digitalocean.com \
-            --docker-username='${{ secrets.DIGITALOCEAN_ACCESS_TOKEN }}' \
-            --docker-password='${{ secrets.DIGITALOCEAN_ACCESS_TOKEN }}' \
-            --docker-email='${{ secrets.EMAIL }}'
-
-      - name: Apply application secrets
-        env:
-          DB_HOST: ${{ secrets.DB_HOST }}
-          DB_USER: ${{ secrets.DB_USER }}
-          DB_PASSWORD: ${{ secrets.DB_PASSWORD }}
-          DB_NAME: ${{ secrets.DB_NAME }}
-          DB_PORT: ${{ secrets.DB_PORT }}
-          DO_SPACES_KEY: ${{ secrets.DO_SPACES_KEY }}
-          DO_SPACES_SECRET: ${{ secrets.DO_SPACES_SECRET }}
-          DO_SPACES_REGION: ${{ secrets.DO_SPACES_REGION }}
-          DO_SPACES_ENDPOINT: ${{ secrets.DO_SPACES_ENDPOINT }}
-          DO_SPACES_ML_ENDPOINT: ${{ secrets.DO_SPACES_ML_ENDPOINT }}
-          DO_SPACES_ML_DIR: ${{ vars.DO_SPACES_ML_DIR }}
-          API_TOKEN_PEPPER: ${{ secrets.API_TOKEN_PEPPER }}
-          ADMIN_API_TOKENS_HASHED: ${{ secrets.ADMIN_API_TOKENS_HASHED }}
-          RANKINGS_DB_SCHEMA: ${{ secrets.RANKINGS_DB_SCHEMA }}
-          RANKINGS_DB_NAME: ${{ secrets.RANKINGS_DB_NAME }}
-        run: |
-          HASHED="${ADMIN_API_TOKENS_HASHED}"
-          if [ -z "$HASHED" ]; then
-            HASHED=$(python scripts/generate_api_admin_secrets.py \
-              --tokens "${{ secrets.ADMIN_API_TOKENS }}" \
-              --pepper "${API_TOKEN_PEPPER}" \
-              --format json | jq -r '.ADMIN_API_TOKENS_HASHED')
-          fi
-          SCHEMA="${RANKINGS_DB_SCHEMA:-comp_rankings}"
-          RANKINGS_DB="${RANKINGS_DB_NAME:-rankings_db}"
-          kubectl create secret generic db-secrets \
-            --from-literal=DB_HOST="${DB_HOST}" \
-            --from-literal=DB_USER="${DB_USER}" \
-            --from-literal=DB_PASSWORD="${DB_PASSWORD}" \
-            --from-literal=DB_NAME="${DB_NAME}" \
-            --from-literal=DB_PORT="${DB_PORT}" \
-            --from-literal=DO_SPACES_KEY="${DO_SPACES_KEY}" \
-            --from-literal=DO_SPACES_SECRET="${DO_SPACES_SECRET}" \
-            --from-literal=DO_SPACES_REGION="${DO_SPACES_REGION}" \
-            --from-literal=DO_SPACES_ENDPOINT="${DO_SPACES_ENDPOINT}" \
-            --from-literal=DO_SPACES_ML_ENDPOINT="${DO_SPACES_ML_ENDPOINT}" \
-            --from-literal=DO_SPACES_ML_DIR="${DO_SPACES_ML_DIR}" \
-            --from-literal=API_TOKEN_PEPPER="${API_TOKEN_PEPPER}" \
-            --from-literal=ADMIN_TOKEN_PEPPER="${API_TOKEN_PEPPER}" \
-            --from-literal=ADMIN_API_TOKENS_HASHED="${HASHED}" \
-            --from-literal=RANKINGS_DB_SCHEMA="${SCHEMA}" \
-            --from-literal=RANKINGS_DB_NAME="${RANKINGS_DB}" \
-            --dry-run=client -o yaml | kubectl apply -f -
-
-      - name: Apply monitoring stack
-        env:
-          GRAFANA_ADMIN_USER: ${{ secrets.GRAFANA_ADMIN_USER }}
-          GRAFANA_ADMIN_PASSWORD: ${{ secrets.GRAFANA_ADMIN_PASSWORD }}
-          GRAFANA_BASIC_AUTH_HTPASSWD: ${{ secrets.GRAFANA_BASIC_AUTH_HTPASSWD }}
-          ALERTMANAGER_SLACK_WEBHOOK_URL: ${{ secrets.ALERTMANAGER_SLACK_WEBHOOK_URL }}
-          ALERTMANAGER_SLACK_CHANNEL: ${{ secrets.ALERTMANAGER_SLACK_CHANNEL }}
-          ALERTMANAGER_DISCORD_WEBHOOK_URL: ${{ secrets.ALERTMANAGER_DISCORD_WEBHOOK_URL }}
-        run: |
-          set -euo pipefail
-          if [ -z "${GRAFANA_ADMIN_USER}" ] || [ -z "${GRAFANA_ADMIN_PASSWORD}" ]; then
-            echo "Grafana admin credentials not provided" >&2
-            exit 1
-          fi
-          if [ -z "${GRAFANA_BASIC_AUTH_HTPASSWD}" ]; then
-            echo "Grafana basic auth secret not provided" >&2
-            exit 1
-          fi
-          discord_url="${ALERTMANAGER_DISCORD_WEBHOOK_URL:-}"
-          slack_url="${ALERTMANAGER_SLACK_WEBHOOK_URL:-}"
-          if [ -n "${discord_url}" ] && [ -n "${slack_url}" ]; then
-            echo "Both Alertmanager webhooks provided; defaulting to Discord" >&2
-            slack_url=""
-          fi
-          channel="${ALERTMANAGER_SLACK_CHANNEL:-#alerts}"
-          if [ -z "${discord_url}" ] && [ -z "${slack_url}" ]; then
-            echo "Alertmanager webhook not provided" >&2
-            exit 1
-          fi
-          kubectl apply -f k8s/monitoring/namespace.yaml
-          kubectl create secret generic grafana-admin-credentials \
-            --namespace monitoring \
-            --from-literal=admin-user="${GRAFANA_ADMIN_USER}" \
-            --from-literal=admin-password="${GRAFANA_ADMIN_PASSWORD}" \
-            --dry-run=client -o yaml | kubectl apply -f -
-          kubectl create secret generic grafana-basic-auth \
-            --namespace monitoring \
-            --from-literal=auth="${GRAFANA_BASIC_AUTH_HTPASSWD}" \
-            --dry-run=client -o yaml | kubectl apply -f -
-          umask 077
-          tmpfile=$(mktemp)
-          trap 'rm -f "$tmpfile"' EXIT
-          if [ -n "${discord_url}" ]; then
-            {
-              printf '%s\n' \
-                "global:" \
-                "  resolve_timeout: 5m" \
-                "" \
-                "route:" \
-                "  receiver: discord-critical" \
-                "  group_by: ['alertname']" \
-                "  group_wait: 30s" \
-                "  group_interval: 5m" \
-                "  repeat_interval: 4h" \
-                "" \
-                "receivers:" \
-                "  - name: discord-critical" \
-                "    discord_configs:" \
-                "      - webhook_url: '${discord_url}'" \
-                "        send_resolved: true"
-            } >"${tmpfile}"
-          else
-            {
-              printf '%s\n' \
-                "global:" \
-                "  resolve_timeout: 5m" \
-                "" \
-                "route:" \
-                "  receiver: slack-critical" \
-                "  group_by: ['alertname']" \
-                "  group_wait: 30s" \
-                "  group_interval: 5m" \
-                "  repeat_interval: 4h" \
-                "" \
-                "receivers:" \
-                "  - name: slack-critical" \
-                "    slack_configs:" \
-                "      - api_url: '${slack_url}'"
-              if [ -n "${channel}" ]; then
-                printf "        channel: '%s'\n" "${channel}"
-              fi
-              printf '%s\n' \
-                "        send_resolved: true" \
-                "        icon_emoji: ':rotating_light:'" \
-                "        title: '[${GITHUB_REPOSITORY}] {{ .CommonLabels.alertname }}'" \
-                "        text: |-" \
-                "          {{ range .Alerts }}*{{ .Labels.alertname }}*: {{ .Annotations.description }}" \
-                "          {{ end }}"
-            } >"${tmpfile}"
-          fi
-          kubectl create secret generic alertmanager-config \
-            --namespace monitoring \
-            --from-file=alertmanager.yaml="${tmpfile}" \
-            --dry-run=client -o yaml | kubectl apply -f -
-          kubectl apply -f k8s/monitoring/prometheus/rbac.yaml
-          kubectl apply -f k8s/monitoring/prometheus/configmap.yaml
-          kubectl apply -f k8s/monitoring/prometheus/rules.yaml
-          kubectl apply -f k8s/monitoring/prometheus/service.yaml
-          kubectl apply -f k8s/monitoring/prometheus/statefulset.yaml
-          kubectl apply -f k8s/monitoring/prometheus/pdb.yaml
-          kubectl apply -f k8s/monitoring/prometheus/networkpolicy.yaml
-          kubectl apply -f k8s/monitoring/grafana/pvc.yaml
-          kubectl apply -f k8s/monitoring/grafana/configmap-datasources.yaml
-          kubectl apply -f k8s/monitoring/grafana/configmap-dashboard-providers.yaml
-          kubectl apply -f k8s/monitoring/grafana/dashboard-core.yaml
-          kubectl apply -f k8s/monitoring/grafana/dashboard-splatgpt.yaml
-          kubectl apply -f k8s/monitoring/grafana/dashboard-auth-rate.yaml
-          kubectl apply -f k8s/monitoring/grafana/dashboard-realtime.yaml
-          kubectl apply -f k8s/monitoring/grafana/dashboard-ripple.yaml
-          kubectl apply -f k8s/monitoring/grafana/dashboard-api-usage.yaml
-          kubectl apply -f k8s/monitoring/grafana/dashboard-data-pipeline.yaml
-          kubectl apply -f k8s/monitoring/grafana/deployment.yaml
-          kubectl apply -f k8s/monitoring/grafana/service.yaml
-          kubectl apply -f k8s/monitoring/grafana/pdb.yaml
-          kubectl apply -f k8s/monitoring/grafana/networkpolicy.yaml
-          kubectl apply -f k8s/monitoring/alertmanager/deployment.yaml
-          kubectl apply -f k8s/monitoring/alertmanager/service.yaml
-          kubectl apply -f k8s/monitoring/alertmanager/pdb.yaml
-          kubectl apply -f k8s/monitoring/alertmanager/networkpolicy.yaml
-          kubectl apply -f k8s/monitoring/networkpolicy-acme-solver.yaml
-          kubectl apply -f k8s/monitoring/prometheus-cilium-egress.yaml
-          kubectl apply -f k8s/monitoring/networkpolicy-default-deny.yaml
-          kubectl rollout status statefulset/prometheus -n monitoring --timeout=300s
-          kubectl rollout status deployment/alertmanager -n monitoring --timeout=300s
-          kubectl rollout status deployment/grafana -n monitoring --timeout=300s
-          kubectl apply -f k8s/monitoring/grafana/ingress.yaml
-
-      - name: Apply base Kubernetes manifests
-        run: |
-          kubectl apply -f k8s/redis/redis-deployment.yaml
-          kubectl apply -f k8s/redis/redis-service.yaml
-          kubectl apply -f k8s/celery-worker/celery-worker-deployment.yaml
-          kubectl apply -f k8s/celery-beat/celery-beat-deployment.yaml
-          kubectl apply -f k8s/fast-api/fast-api-deployment.yaml
-          kubectl apply -f k8s/fast-api/fast-api-service.yaml
-          kubectl apply -f k8s/react/react-deployment.yaml
-          kubectl apply -f k8s/react/react-service.yaml
-          kubectl apply -f k8s/splatgpt/splatgpt-deployment.yaml
-          kubectl apply -f k8s/splatgpt/splatgpt-service.yaml
-          kubectl apply -f k8s/ingress.yaml
-
-      - name: Update deployment images
+      - name: Helm dry run (cluster)
+        if: github.event_name != 'pull_request'
         env:
           VERSION: ${{ needs.build.outputs.next_version }}
-          PYTHON_CHANGED: ${{ needs.check.outputs.python_changed }}
+          FASTAPI_CHANGED: ${{ needs.check.outputs.fastapi_changed }}
+          CELERY_CHANGED: ${{ needs.check.outputs.celery_changed }}
           REACT_CHANGED: ${{ needs.check.outputs.react_changed }}
         run: |
           TAG="v${VERSION}"
@@ -440,19 +295,60 @@ jobs:
             exit 1
           fi
 
-          if [ "${PYTHON_CHANGED}" = "true" ]; then
-            kubectl set image deployment/celery-worker celery-worker=registry.digitalocean.com/sendouq/celery:${TAG}
-            kubectl set image deployment/celery-beat celery-beat=registry.digitalocean.com/sendouq/celery:${TAG}
-            kubectl set image deployment/fast-api-app fast-api-app=registry.digitalocean.com/sendouq/fast-api:${TAG}
+          set -euo pipefail
+          HELM_ARGS=(
+            --namespace default
+            --reuse-values
+            --atomic
+            --timeout 15m
+            -f helm/splattop/values-prod.yaml
+          )
+          if [ "${FASTAPI_CHANGED}" = "true" ]; then
+            HELM_ARGS+=(--set-string fastapi.image.tag=${TAG})
+          fi
+          if [ "${CELERY_CHANGED}" = "true" ]; then
+            HELM_ARGS+=(--set-string celeryWorker.image.tag=${TAG})
+            HELM_ARGS+=(--set-string celeryBeat.image.tag=${TAG})
+          fi
+          if [ "${REACT_CHANGED}" = "true" ]; then
+            HELM_ARGS+=(--set-string react.image.tag=${TAG})
+          fi
+          helm upgrade --install splattop-prod helm/splattop "${HELM_ARGS[@]}" --dry-run --debug
+
+      - name: Helm template (pull request)
+        if: github.event_name == 'pull_request'
+        env:
+          VERSION: ${{ needs.build.outputs.next_version }}
+          FASTAPI_CHANGED: ${{ needs.check.outputs.fastapi_changed }}
+          CELERY_CHANGED: ${{ needs.check.outputs.celery_changed }}
+          REACT_CHANGED: ${{ needs.check.outputs.react_changed }}
+        run: |
+          TAG="v${VERSION}"
+          if [ -z "${VERSION}" ]; then
+            echo "Missing version output from build job" >&2
+            exit 1
           fi
 
-          if [ "${REACT_CHANGED}" = "true" ]; then
-            kubectl set image deployment/react-app react-app=registry.digitalocean.com/sendouq/react:${TAG}
+          set -euo pipefail
+          HELM_ARGS=(
+            --namespace default
+            -f helm/splattop/values-prod.yaml
+          )
+          if [ "${FASTAPI_CHANGED}" = "true" ]; then
+            HELM_ARGS+=(--set-string fastapi.image.tag=${TAG})
           fi
+          if [ "${CELERY_CHANGED}" = "true" ]; then
+            HELM_ARGS+=(--set-string celeryWorker.image.tag=${TAG})
+            HELM_ARGS+=(--set-string celeryBeat.image.tag=${TAG})
+          fi
+          if [ "${REACT_CHANGED}" = "true" ]; then
+            HELM_ARGS+=(--set-string react.image.tag=${TAG})
+          fi
+          helm template splattop-prod helm/splattop "${HELM_ARGS[@]}"
 
   release:
-    needs: [check, build, update-deployment]
-    if: github.ref == 'refs/heads/main' && needs.check.outputs.exit_pipeline == 'false' && needs.build.result == 'success' && needs.update-deployment.result == 'success'
+    needs: [check, build]
+    if: github.ref == 'refs/heads/main' && needs.check.outputs.exit_pipeline == 'false' && needs.build.result == 'success'
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
@@ -476,3 +372,135 @@ jobs:
           else
             echo "Release ${TAG} already exists; skipping."
           fi
+
+  component_metadata:
+    name: Publish component metadata
+    needs: build
+    if: needs.build.result == 'success'
+    runs-on: ubuntu-latest
+    outputs:
+      has_updates: ${{ steps.generate.outputs.has_updates }}
+      component_list: ${{ steps.generate.outputs.component_list }}
+    steps:
+      - name: Generate component tags manifest
+        id: generate
+        env:
+          FASTAPI_DIGEST: ${{ needs.build.outputs.fastapi_digest }}
+          CELERY_DIGEST: ${{ needs.build.outputs.celery_digest }}
+          REACT_DIGEST: ${{ needs.build.outputs.react_digest }}
+          VERSION: ${{ needs.build.outputs.next_version }}
+          GIT_SHA: ${{ github.sha }}
+        run: |
+          set -euo pipefail
+          tag="v${VERSION}"
+          components="{}"
+          component_names=()
+
+          add_component() {
+            local name="$1"
+            local repo="$2"
+            local digest="$3"
+            components="$(jq --arg name "$name" \
+                              --arg repo "$repo" \
+                              --arg tag "$tag" \
+                              --arg digest "$digest" \
+                              '. + {($name): {image: $repo, tag: $tag, digest: $digest}}' \
+                              <<<"$components")"
+            component_names+=("$name")
+          }
+
+          if [ -n "${FASTAPI_DIGEST}" ]; then
+            add_component "fastapi" "registry.digitalocean.com/sendouq/fast-api" "${FASTAPI_DIGEST}"
+          fi
+          if [ -n "${CELERY_DIGEST}" ]; then
+            add_component "celeryWorker" "registry.digitalocean.com/sendouq/celery" "${CELERY_DIGEST}"
+            add_component "celeryBeat" "registry.digitalocean.com/sendouq/celery" "${CELERY_DIGEST}"
+          fi
+          if [ -n "${REACT_DIGEST}" ]; then
+            add_component "react" "registry.digitalocean.com/sendouq/react" "${REACT_DIGEST}"
+          fi
+
+          if [ "${#component_names[@]}" -eq 0 ]; then
+            {
+              echo "has_updates=false"
+              echo "component_list="
+            } >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          payload="$(jq -n \
+            --arg generatedAt "$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
+            --arg sha "${GIT_SHA}" \
+            --arg version "${VERSION}" \
+            --argjson components "${components}" \
+            '{generatedAt:$generatedAt, gitSha:$sha, releaseVersion:$version, components:$components}')"
+
+          printf '%s\n' "${payload}" > component-tags.json
+          component_csv="$(IFS=,; echo "${component_names[*]}")"
+          {
+            echo "has_updates=true"
+            echo "component_list=${component_csv}"
+          } >> "$GITHUB_OUTPUT"
+
+      - name: Upload component metadata
+        if: steps.generate.outputs.has_updates == 'true'
+        uses: actions/upload-artifact@v4
+        with:
+          name: component-tags
+          path: component-tags.json
+
+  update_config_repo:
+    name: Update config repository
+    needs: [component_metadata, build]
+    if: github.ref == 'refs/heads/main' && needs.component_metadata.outputs.has_updates == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Download component metadata
+        uses: actions/download-artifact@v4
+        with:
+          name: component-tags
+          path: metadata
+
+      - name: Checkout config repository
+        uses: actions/checkout@v4
+        with:
+          repository: cesaregarza/SplatTopConfig
+          token: ${{ secrets.CONFIG_REPO_TOKEN }}
+          path: config-repo
+          ref: main
+
+      - name: Prepare config repo update
+        id: prepare_config_update
+        env:
+          COMPONENTS: ${{ needs.component_metadata.outputs.component_list }}
+          VERSION: ${{ needs.build.outputs.next_version }}
+          GITHUB_SHA: ${{ github.sha }}
+        run: |
+          set -euo pipefail
+          BRANCH="bot/component-tags-${GITHUB_RUN_ID}"
+          echo "branch=${BRANCH}" >> "$GITHUB_OUTPUT"
+          cd config-repo
+          git config user.name "splattop-bot"
+          git config user.email "sre+bot@splattop.dev"
+          git checkout -b "$BRANCH"
+          mkdir -p automation
+          cp ../metadata/component-tags.json automation/component-tags.json
+          git add automation/component-tags.json
+          git commit -m "chore: update component tags (${COMPONENTS})"
+          git push --set-upstream origin "$BRANCH"
+
+      - name: Open config repo PR
+        env:
+          GH_TOKEN: ${{ secrets.CONFIG_REPO_TOKEN }}
+          BRANCH: ${{ steps.prepare_config_update.outputs.branch }}
+          COMPONENTS: ${{ needs.component_metadata.outputs.component_list }}
+          VERSION: ${{ needs.build.outputs.next_version }}
+        run: |
+          set -euo pipefail
+          cd config-repo
+          gh pr create \
+            --base main \
+            --head "$BRANCH" \
+            --title "[bot] Update component tags v${VERSION}" \
+            --body "Components: ${COMPONENTS}\nSource: ${GITHUB_REPOSITORY}@${GITHUB_SHA}" \
+            || echo "Pull request already exists; continuing."

@@ -1,0 +1,50 @@
+{{- $root := . -}}
+{{- if .Values.warmupJob.enabled }}
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: {{ include "splattop.fullname" . }}-warmup
+  labels:
+    {{- include "splattop.componentLabels" (dict "component" "celery-warmup" "root" .) | nindent 4 }}
+  annotations:
+    "helm.sh/hook": post-install,post-upgrade
+    "helm.sh/hook-delete-policy": before-hook-creation,hook-succeeded
+spec:
+  backoffLimit: {{ .Values.warmupJob.backoffLimit }}
+  {{- if .Values.warmupJob.ttlSecondsAfterFinished }}
+  ttlSecondsAfterFinished: {{ .Values.warmupJob.ttlSecondsAfterFinished }}
+  {{- end }}
+  template:
+    metadata:
+      labels:
+        {{- include "splattop.componentSelectorLabels" (dict "component" "celery-warmup" "root" .) | nindent 8 }}
+    spec:
+      {{- include "splattop.imagePullSecrets" . | nindent 6 }}
+      restartPolicy: Never
+      containers:
+        - name: warmup
+          image: "{{ .Values.celeryWorker.image.repository }}:{{ include "splattop.imageTag" (dict "component" "celeryWorker" "root" .) }}"
+          imagePullPolicy: {{ .Values.celeryWorker.image.pullPolicy }}
+          command:
+            - /bin/sh
+            - -c
+            - {{ join " && " .Values.warmupJob.commands | quote }}
+          env:
+            - name: ENV
+              value: {{ .Values.global.environment | quote }}
+            {{- range $key := .Values.celeryWorker.secretKeys }}
+            - name: {{ $key }}
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "splattop.databaseSecretName" $root }}
+                  key: {{ $key }}
+            {{- end }}
+            {{- range $key, $value := .Values.celeryWorker.env }}
+            - name: {{ $key }}
+              value: {{ $value | quote }}
+            {{- end }}
+          {{- if .Values.warmupJob.resources }}
+          resources:
+            {{- toYaml .Values.warmupJob.resources | nindent 12 }}
+          {{- end }}
+{{- end }}

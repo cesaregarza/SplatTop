@@ -1,0 +1,46 @@
+{{- if .Values.react.enabled }}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "splattop.fullname" . }}-react
+  labels:
+    {{- include "splattop.componentLabels" (dict "component" "react" "root" .) | nindent 4 }}
+spec:
+  replicas: {{ .Values.react.replicas }}
+  selector:
+    matchLabels:
+      {{- include "splattop.componentSelectorLabels" (dict "component" "react" "root" .) | nindent 6 }}
+  template:
+    metadata:
+      labels:
+        {{- include "splattop.componentSelectorLabels" (dict "component" "react" "root" .) | nindent 8 }}
+    spec:
+      {{- include "splattop.imagePullSecrets" . | nindent 6 }}
+      containers:
+        - name: react
+          image: "{{ .Values.react.image.repository }}:{{ include "splattop.imageTag" (dict "component" "react" "root" .) }}"
+          imagePullPolicy: {{ .Values.react.image.pullPolicy }}
+          ports:
+            - name: http
+              containerPort: 80
+              protocol: TCP
+          env:
+            - name: ENV
+              value: {{ .Values.global.environment | quote }}
+            {{- range $key, $value := .Values.react.env }}
+            - name: {{ $key }}
+              value: {{ $value | quote }}
+            {{- end }}
+          {{- if .Values.react.resources }}
+          resources:
+            {{- toYaml .Values.react.resources | nindent 12 }}
+          {{- end }}
+          {{- if .Values.react.livenessProbe }}
+          livenessProbe:
+            {{- toYaml .Values.react.livenessProbe | nindent 12 }}
+          {{- end }}
+          {{- if .Values.react.readinessProbe }}
+          readinessProbe:
+            {{- toYaml .Values.react.readinessProbe | nindent 12 }}
+          {{- end }}
+{{- end }}

@@ -1,0 +1,154 @@
+{{- $root := . -}}
+{{- $ns := include "splattop.monitoringNamespace" . -}}
+{{- with .Values.monitoring.networkPolicies }}
+  {{- if and .defaultDeny.enabled $ns }}
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: monitoring-deny-all-ingress
+  namespace: {{ $ns }}
+  labels:
+    {{- include "splattop.componentLabels" (dict "component" "monitoring-netpol-default-deny" "root" $root) | nindent 4 }}
+spec:
+  podSelector: {}
+  policyTypes:
+    - Ingress
+---
+  {{- end }}
+  {{- if and .acmeSolver.enabled .acmeSolver.ingressNamespace }}
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-acme-solver
+  namespace: {{ $ns }}
+  labels:
+    {{- include "splattop.componentLabels" (dict "component" "monitoring-netpol-allow-acme" "root" $root) | nindent 4 }}
+spec:
+  podSelector:
+    matchLabels:
+      acme.cert-manager.io/http01-solver: "true"
+  policyTypes:
+    - Ingress
+  ingress:
+    - from:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: {{ .acmeSolver.ingressNamespace }}
+---
+  {{- end }}
+  {{- if and .grafana.enabled $.Values.monitoring.grafana.enabled }}
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: grafana-allow-ingress
+  namespace: {{ $ns }}
+  labels:
+    {{- include "splattop.componentLabels" (dict "component" "monitoring-netpol-grafana" "root" $root) | nindent 4 }}
+spec:
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/component: grafana
+  policyTypes:
+    - Ingress
+    - Egress
+  ingress:
+    - from:
+        {{- range $nsName := .grafana.allowedIngressNamespaces }}
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: {{ $nsName }}
+        {{- end }}
+  egress:
+    - to:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: {{ $ns }}
+    {{- if .grafana.databaseCIDR }}
+    - to:
+        - ipBlock:
+            cidr: {{ .grafana.databaseCIDR }}
+      ports:
+        - protocol: TCP
+          port: {{ .grafana.databasePort }}
+    {{- end }}
+    - to:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: kube-system
+      ports:
+        - protocol: UDP
+          port: 53
+        - protocol: TCP
+          port: 53
+---
+  {{- end }}
+  {{- if and .prometheus.enabled $.Values.monitoring.prometheus.enabled }}
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: prometheus-ingress-egress
+  namespace: {{ $ns }}
+  labels:
+    {{- include "splattop.componentLabels" (dict "component" "monitoring-netpol-prometheus" "root" $root) | nindent 4 }}
+spec:
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/component: prometheus
+  policyTypes:
+    - Ingress
+    - Egress
+  ingress:
+    - from:
+        {{- range $nsName := .prometheus.allowedIngressNamespaces }}
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: {{ $nsName }}
+        {{- end }}
+  egress:
+    - to:
+        {{- range $nsName := .prometheus.allowedEgressNamespaces }}
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: {{ $nsName }}
+        {{- end }}
+    - to:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: kube-system
+      ports:
+        - protocol: UDP
+          port: 53
+        - protocol: TCP
+          port: 53
+---
+  {{- end }}
+  {{- if and .alertmanager.enabled $.Values.monitoring.alertmanager.enabled }}
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: alertmanager-ingress-egress
+  namespace: {{ $ns }}
+  labels:
+    {{- include "splattop.componentLabels" (dict "component" "monitoring-netpol-alertmanager" "root" $root) | nindent 4 }}
+spec:
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/component: alertmanager
+  policyTypes:
+    - Ingress
+    - Egress
+  ingress:
+    - from:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: {{ $ns }}
+  egress:
+    - to:
+        - ipBlock:
+            cidr: {{ .alertmanager.outboundCIDR }}
+      ports:
+        - protocol: TCP
+          port: {{ .alertmanager.outboundPort }}
+---
+  {{- end }}
+{{- end }}

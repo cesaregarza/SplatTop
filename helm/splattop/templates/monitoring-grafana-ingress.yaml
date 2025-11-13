@@ -1,0 +1,61 @@
+{{- $root := . -}}
+{{- $ingress := .Values.monitoring.grafana.ingress -}}
+{{- if and .Values.monitoring.grafana.enabled $ingress.enabled }}
+{{- $grafanaIngressName := default (printf "%s-grafana" (include "splattop.fullname" .)) $ingress.nameOverride }}
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: {{ $grafanaIngressName }}
+  namespace: {{ include "splattop.monitoringNamespace" . }}
+  labels:
+    {{- include "splattop.labels" . | nindent 4 }}
+  {{- if $ingress.annotations }}
+  annotations:
+    {{- range $key, $value := $ingress.annotations }}
+    {{- printf "%s: %s" $key (tpl $value $root | quote) | nindent 4 }}
+    {{- end }}
+  {{- end }}
+spec:
+  ingressClassName: {{ $ingress.className }}
+  {{- if and $ingress.tls.enabled $ingress.tls.secretName }}
+  tls:
+    - hosts:
+        {{- range $host := $ingress.hosts }}
+        {{- if $host.host }}
+        - {{ $host.host }}
+        {{- end }}
+        {{- end }}
+      secretName: {{ $ingress.tls.secretName }}
+  {{- end }}
+  rules:
+    {{- range $host := $ingress.hosts }}
+      {{- if $host.host }}
+    - host: {{ $host.host }}
+      http:
+        paths:
+          {{- range $path := $host.paths }}
+          - path: {{ $path.path }}
+            pathType: {{ $path.pathType }}
+            backend:
+              service:
+                {{- $svcName := default (printf "%s-%s" (include "splattop.fullname" $root) $path.serviceName) $path.serviceNameOverride }}
+                name: {{ $svcName }}
+                port:
+                  number: {{ $path.servicePort }}
+          {{- end }}
+      {{- else }}
+    - http:
+        paths:
+          {{- range $path := $host.paths }}
+          - path: {{ $path.path }}
+            pathType: {{ $path.pathType }}
+            backend:
+              service:
+                {{- $svcName := default (printf "%s-%s" (include "splattop.fullname" $root) $path.serviceName) $path.serviceNameOverride }}
+                name: {{ $svcName }}
+                port:
+                  number: {{ $path.servicePort }}
+          {{- end }}
+      {{- end }}
+    {{- end }}
+{{- end }}

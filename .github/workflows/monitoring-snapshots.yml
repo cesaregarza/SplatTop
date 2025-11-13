@@ -1,0 +1,64 @@
+name: Monitoring Snapshots
+
+on:
+  workflow_dispatch:
+    inputs:
+      namespace:
+        description: Kubernetes namespace that owns the monitoring PVCs
+        default: monitoring
+        required: true
+      snapshot_class:
+        description: VolumeSnapshotClass to use
+        default: do-block-storage
+        required: true
+      pvc_list:
+        description: Comma-separated list of PVCs to snapshot
+        default: splattop-prod-grafana-storage,prometheus-data-splattop-prod-prometheus-0
+        required: true
+
+jobs:
+  create-snapshots:
+    runs-on: ubuntu-latest
+    environment: SplatTop
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install doctl
+        uses: digitalocean/action-doctl@v2
+        with:
+          token: ${{ secrets.DIGITALOCEAN_ACCESS_TOKEN }}
+
+      - name: Save prod kubeconfig
+        shell: bash
+        run: |
+          set -euo pipefail
+          doctl kubernetes cluster kubeconfig save ${{ secrets.DIGITALOCEAN_CLUSTER_ID }} --expiry-seconds 600
+
+      - name: Set up kubectl
+        uses: azure/setup-kubectl@v4
+        with:
+          version: "v1.30.2"
+
+      - name: Create monitoring snapshots
+        env:
+          SNAPSHOT_NAMESPACE: ${{ github.event.inputs.namespace }}
+          SNAPSHOT_CLASS: ${{ github.event.inputs.snapshot_class }}
+          PVC_LIST: ${{ github.event.inputs.pvc_list }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          ARGS=(--namespace "${SNAPSHOT_NAMESPACE}" --snapshot-class "${SNAPSHOT_CLASS}")
+          IFS=',' read -ra PVC_ARRAY <<< "${PVC_LIST}"
+          for pvc in "${PVC_ARRAY[@]}"; do
+            trimmed="$(echo "${pvc}" | xargs)"
+            if [ -n "${trimmed}" ]; then
+              ARGS+=(--pvc "${trimmed}")
+            fi
+          done
+          python3 scripts/create_monitoring_snapshots.py "${ARGS[@]}"

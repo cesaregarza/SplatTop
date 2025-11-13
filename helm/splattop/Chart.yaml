@@ -1,0 +1,17 @@
+apiVersion: v2
+name: splattop
+description: A Helm chart for SplatTop - Splatoon 3 competitive tracking 
+  platform
+type: application
+version: 2.0.0
+appVersion: "2.0.0"
+keywords:
+- splattop
+- splatoon
+- gaming
+- competitive
+maintainers:
+- name: SplatTop Team
+home: https://splat.top
+sources:
+- https://github.com/cesaregarza/SplatTop

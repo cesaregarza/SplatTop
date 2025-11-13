@@ -1,0 +1,18 @@
+{{- if and .Values.monitoring.grafana.enabled .Values.monitoring.grafana.persistence.enabled }}
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: {{ include "splattop.fullname" . }}-grafana-storage
+  namespace: {{ include "splattop.monitoringNamespace" . }}
+  labels:
+    {{- include "splattop.componentLabels" (dict "component" "grafana" "root" .) | nindent 4 }}
+spec:
+  accessModes:
+    - {{ .Values.monitoring.grafana.persistence.accessMode }}
+  {{- if .Values.monitoring.grafana.persistence.storageClass }}
+  storageClassName: {{ .Values.monitoring.grafana.persistence.storageClass }}
+  {{- end }}
+  resources:
+    requests:
+      storage: {{ .Values.monitoring.grafana.persistence.size }}
+{{- end }}

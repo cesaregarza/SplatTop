@@ -1,0 +1,111 @@
+{{- if and .Values.monitoring.prometheus.enabled .Values.monitoring.prometheus.rules.enabled }}
+{{- $fullName := include "splattop.fullname" . -}}
+{{- $rulesConfigMapName := default (printf "%s-prometheus-rules" $fullName) .Values.monitoring.prometheus.rules.configMapName -}}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ $rulesConfigMapName }}
+  namespace: {{ include "splattop.monitoringNamespace" . }}
+  labels:
+    {{- include "splattop.componentLabels" (dict "component" "prometheus-rules" "root" .) | nindent 4 }}
+data:
+  critical-alerts.yaml: |
+    groups:
+      - name: splattop-critical
+        rules:
+          - alert: FastAPIDown
+            expr: sum(up{job="fastapi"}) == 0
+            for: 5m
+            labels:
+              severity: critical
+            annotations:
+              summary: FastAPI service is unreachable
+              description: Prometheus cannot scrape the FastAPI endpoints for 5 minutes.
+
+          - alert: FastAPIFiveHundreds
+            expr: |
+              sum(rate(fastapi_requests_total{status=~"5.."}[5m]))
+                /
+              sum(rate(fastapi_requests_total[5m])) > 0.05
+                and sum(rate(fastapi_requests_total[5m])) >= 1
+            for: 10m
+            labels:
+              severity: critical
+            annotations:
+              summary: Elevated 5xx error rate detected on FastAPI
+              description: More than 5% of requests have failed with 5xx responses over the last 10 minutes.
+
+          - alert: FastAPIHighLatencyP95
+            expr: |
+              histogram_quantile(0.95, sum by (le) (rate(fastapi_request_duration_seconds_bucket[5m]))) > 1
+                and sum(rate(fastapi_requests_total[5m])) > 0.1
+            for: 10m
+            labels:
+              severity: warning
+            annotations:
+              summary: FastAPI P95 latency above 1s
+              description: 95th percentile request latency is above 1 second for 10 minutes.
+
+          - alert: CeleryTaskFailures
+            expr: |
+              sum(rate(celery_task_failures_total[5m]))
+                /
+              clamp_min(sum(rate(celery_task_executions_total[5m])), 1) > 0.05
+                and sum(rate(celery_task_executions_total[5m])) >= 0.5
+            for: 10m
+            labels:
+              severity: critical
+            annotations:
+              summary: Celery task failures detected
+              description: Failure rate exceeded 5% with at least 0.5 tasks/sec over the last 10 minutes.
+
+          - alert: CeleryWorkersStuck
+            expr: max(celery_tasks_in_progress) > 25
+            for: 15m
+            labels:
+              severity: warning
+            annotations:
+              summary: Celery workers stuck processing tasks
+              description: Over 25 Celery tasks remained in-flight for more than 15 minutes.
+
+          - alert: APIUsageQueueBacklog
+            expr: max(api_usage_queue_length) > 100
+            for: 15m
+            labels:
+              severity: warning
+            annotations:
+              summary: API usage queue backlog
+              description: api_usage_queue_length exceeded 100 items for 15 minutes; batch flusher may be stalled.
+
+          - alert: PrometheusTSDBCapacityHigh
+            expr: |
+              max by (persistentvolumeclaim) (
+                kubelet_volume_stats_used_bytes{namespace="monitoring", persistentvolumeclaim=~"prometheus-data.*"}
+                  /
+                kubelet_volume_stats_capacity_bytes{namespace="monitoring", persistentvolumeclaim=~"prometheus-data.*"}
+              ) > 0.85
+            for: 15m
+            labels:
+              severity: warning
+            annotations:
+              summary: Prometheus TSDB nearing capacity
+              description: PVC usage for Prometheus exceeded 85% for 15 minutes; consider scaling storage or reducing retention.
+
+          - alert: AlertmanagerDown
+            expr: sum(up{job="alertmanager"}) == 0
+            for: 5m
+            labels:
+              severity: critical
+            annotations:
+              summary: Alertmanager is unreachable
+              description: Prometheus could not scrape the Alertmanager endpoints for 5 minutes.
+
+          - alert: GrafanaDown
+            expr: sum(up{job="grafana"}) == 0
+            for: 5m
+            labels:
+              severity: warning
+            annotations:
+              summary: Grafana is unreachable
+              description: Grafana metrics endpoint has been unreachable for 5 minutes.
+{{- end }}

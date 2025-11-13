@@ -1,0 +1,137 @@
+# Development overrides for running the chart against a local kind cluster.
+# Use with:
+#   make build          # builds images and kind load docker-image ...
+#   KUBECONFIG=.kubeconfig helm upgrade --install splattop-dev ./helm/splattop \
+#     --namespace splattop-dev \
+#     -f helm/splattop/values-local.yaml
+
+global:
+  imagePullSecrets: []
+
+fastapi:
+  image:
+    repository: fast-api-app
+    tag: latest
+    pullPolicy: Never
+  service:
+    type: NodePort
+    extraServices:
+      - name: fast-api-app-service
+        type: NodePort
+        ports:
+          - name: http
+            port: 80
+            targetPort: http
+          - name: websocket
+            port: 8001
+            targetPort: websocket
+
+react:
+  image:
+    repository: react-app
+    tag: latest
+    pullPolicy: Never
+  env:
+    REACT_APP_SHOWCASE_STABLE_LEADERBOARD: "true"
+  service:
+    type: NodePort
+    extraServices:
+      - name: react-app-service
+        type: NodePort
+        ports:
+          - name: http
+            port: 80
+            targetPort: http
+
+celeryWorker:
+  image:
+    repository: celery-worker
+    tag: latest
+    pullPolicy: Never
+
+celeryBeat:
+  image:
+    repository: celery-worker
+    tag: latest
+    pullPolicy: Never
+
+ingress:
+  enabled: true
+  className: nginx
+  annotations:
+    nginx.org/websocket-services: '{{ include "splattop.fullname" . }}-fastapi'
+  hosts:
+    - host: localhost
+      paths:
+        - path: /.well-known/
+          pathType: Prefix
+          serviceName: fastapi
+          serviceNameOverride: fast-api-app-service
+          servicePort: 80
+        - path: /api
+          pathType: Prefix
+          serviceName: fastapi
+          serviceNameOverride: fast-api-app-service
+          servicePort: 80
+        - path: /ws
+          pathType: Prefix
+          serviceName: fastapi
+          serviceNameOverride: fast-api-app-service
+          servicePort: 8001
+        - path: /
+          pathType: Prefix
+          serviceName: react
+          serviceNameOverride: react-app-service
+          servicePort: 80
+    - host: comp.localhost
+      paths:
+        - path: /.well-known/
+          pathType: Prefix
+          serviceName: fastapi
+          serviceNameOverride: fast-api-app-service
+          servicePort: 80
+        - path: /api
+          pathType: Prefix
+          serviceName: fastapi
+          serviceNameOverride: fast-api-app-service
+          servicePort: 80
+        - path: /ws
+          pathType: Prefix
+          serviceName: fastapi
+          serviceNameOverride: fast-api-app-service
+          servicePort: 8001
+        - path: /
+          pathType: Prefix
+          serviceName: react
+          serviceNameOverride: react-app-service
+          servicePort: 80
+
+ingressController:
+  enabled: true
+
+monitoring:
+  grafana:
+    adminCredentials:
+      create: true
+    ingress:
+      enabled: true
+      hosts:
+        - host: grafana.localhost
+          paths:
+            - path: /
+              pathType: Prefix
+              serviceName: grafana
+              serviceNameOverride: grafana
+              servicePort: 80
+      tls:
+        enabled: false
+  alertmanager:
+    config:
+      create: true
+
+splatnlp:
+  enabled: true
+  image:
+    repository: splatnlp
+    tag: latest
+    pullPolicy: Never

@@ -1,0 +1,59 @@
+{{- if .Values.fastapi.enabled }}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "splattop.fullname" . }}-fastapi
+  labels:
+    {{- include "splattop.componentLabels" (dict "component" "fastapi" "root" .) | nindent 4 }}
+spec:
+  replicas: {{ .Values.fastapi.replicas }}
+  selector:
+    matchLabels:
+      {{- include "splattop.componentSelectorLabels" (dict "component" "fastapi" "root" .) | nindent 6 }}
+  template:
+    metadata:
+      labels:
+        {{- include "splattop.componentSelectorLabels" (dict "component" "fastapi" "root" .) | nindent 8 }}
+    spec:
+      {{- include "splattop.imagePullSecrets" . | nindent 6 }}
+      containers:
+        - name: fastapi
+          image: "{{ .Values.fastapi.image.repository }}:{{ include "splattop.imageTag" (dict "component" "fastapi" "root" .) }}"
+          imagePullPolicy: {{ .Values.fastapi.image.pullPolicy }}
+          ports:
+            - name: http
+              containerPort: 8000
+              protocol: TCP
+            - name: websocket
+              containerPort: 8001
+              protocol: TCP
+            - name: metrics
+              containerPort: 5000
+              protocol: TCP
+          env:
+            - name: ENV
+              value: {{ .Values.global.environment | quote }}
+            {{- range $key := .Values.fastapi.secretKeys }}
+            - name: {{ $key }}
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "splattop.databaseSecretName" $ }}
+                  key: {{ $key }}
+            {{- end }}
+            {{- range $key, $value := .Values.fastapi.env }}
+            - name: {{ $key }}
+              value: {{ $value | quote }}
+            {{- end }}
+          {{- if .Values.fastapi.resources }}
+          resources:
+            {{- toYaml .Values.fastapi.resources | nindent 12 }}
+          {{- end }}
+          {{- if .Values.fastapi.livenessProbe }}
+          livenessProbe:
+            {{- toYaml .Values.fastapi.livenessProbe | nindent 12 }}
+          {{- end }}
+          {{- if .Values.fastapi.readinessProbe }}
+          readinessProbe:
+            {{- toYaml .Values.fastapi.readinessProbe | nindent 12 }}
+          {{- end }}
+{{- end }}

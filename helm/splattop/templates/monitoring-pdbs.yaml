@@ -1,0 +1,46 @@
+{{- $root := . -}}
+{{- $ns := include "splattop.monitoringNamespace" . -}}
+{{- if and .Values.monitoring.alertmanager.enabled $ns }}
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: alertmanager
+  namespace: {{ $ns }}
+  labels:
+    {{- include "splattop.componentLabels" (dict "component" "monitoring-pdb-alertmanager" "root" $root) | nindent 4 }}
+spec:
+  maxUnavailable: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/component: alertmanager
+---
+{{- end }}
+{{- if and .Values.monitoring.grafana.enabled $ns }}
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: grafana
+  namespace: {{ $ns }}
+  labels:
+    {{- include "splattop.componentLabels" (dict "component" "monitoring-pdb-grafana" "root" $root) | nindent 4 }}
+spec:
+  maxUnavailable: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/component: grafana
+---
+{{- end }}
+{{- if and .Values.monitoring.prometheus.enabled $ns }}
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: prometheus
+  namespace: {{ $ns }}
+  labels:
+    {{- include "splattop.componentLabels" (dict "component" "monitoring-pdb-prometheus" "root" $root) | nindent 4 }}
+spec:
+  maxUnavailable: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/component: prometheus
+{{- end }}

@@ -1,0 +1,45 @@
+{{- if .Values.splatnlp.enabled }}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "splattop.fullname" . }}-splatnlp
+  labels:
+    {{- include "splattop.componentLabels" (dict "component" "splatnlp" "root" .) | nindent 4 }}
+spec:
+  replicas: {{ .Values.splatnlp.replicas }}
+  selector:
+    matchLabels:
+      {{- include "splattop.componentSelectorLabels" (dict "component" "splatnlp" "root" .) | nindent 6 }}
+  template:
+    metadata:
+      labels:
+        {{- include "splattop.componentSelectorLabels" (dict "component" "splatnlp" "root" .) | nindent 8 }}
+    spec:
+      {{- include "splattop.imagePullSecrets" . | nindent 6 }}
+      containers:
+        - name: splatnlp
+          image: "{{ .Values.splatnlp.image.repository }}:{{ include "splattop.imageTag" (dict "component" "splatnlp" "root" .) }}"
+          imagePullPolicy: {{ .Values.splatnlp.image.pullPolicy }}
+          ports:
+            - name: http
+              containerPort: 9000
+              protocol: TCP
+          env:
+            - name: ENV
+              value: {{ .Values.global.environment | quote }}
+            {{- range $key := .Values.splatnlp.secretKeys }}
+            - name: {{ $key }}
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "splattop.databaseSecretName" $ }}
+                  key: {{ $key }}
+            {{- end }}
+            {{- range $key, $value := .Values.splatnlp.env }}
+            - name: {{ $key }}
+              value: {{ $value | quote }}
+            {{- end }}
+          {{- if .Values.splatnlp.resources }}
+          resources:
+            {{- toYaml .Values.splatnlp.resources | nindent 12 }}
+          {{- end }}
+{{- end }}

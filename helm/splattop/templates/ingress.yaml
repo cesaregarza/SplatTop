@@ -1,0 +1,58 @@
+{{- if .Values.ingress.enabled }}
+{{- $ingressName := default (include "splattop.fullname" .) .Values.ingress.nameOverride }}
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: {{ $ingressName }}
+  labels:
+    {{- include "splattop.labels" . | nindent 4 }}
+  {{- $root := . }}
+  {{- with .Values.ingress.annotations }}
+  annotations:
+    {{- range $key, $value := . }}
+    {{- printf "%s: %s" $key (tpl $value $root | quote) | nindent 4 }}
+    {{- end }}
+  {{- end }}
+spec:
+  ingressClassName: {{ .Values.ingress.className }}
+  {{- if .Values.ingress.tls.enabled }}
+  tls:
+    - hosts:
+        {{- range .Values.ingress.hosts }}
+        - {{ .host }}
+        {{- end }}
+      secretName: {{ .Values.ingress.tls.secretName }}
+  {{- end }}
+  rules:
+    {{- $root := . }}
+    {{- range .Values.ingress.hosts }}
+      {{- if .host }}
+    - host: {{ .host }}
+      http:
+        paths:
+          {{- range .paths }}
+          - path: {{ .path }}
+            pathType: {{ .pathType }}
+            backend:
+              service:
+                {{- $svcName := default (printf "%s-%s" (include "splattop.fullname" $root) .serviceName) .serviceNameOverride }}
+                name: {{ $svcName }}
+                port:
+                  number: {{ .servicePort }}
+          {{- end }}
+      {{- else }}
+    - http:
+        paths:
+          {{- range .paths }}
+          - path: {{ .path }}
+            pathType: {{ .pathType }}
+            backend:
+              service:
+                {{- $svcName := default (printf "%s-%s" (include "splattop.fullname" $root) .serviceName) .serviceNameOverride }}
+                name: {{ $svcName }}
+                port:
+                  number: {{ .servicePort }}
+          {{- end }}
+      {{- end }}
+    {{- end }}
+{{- end }}

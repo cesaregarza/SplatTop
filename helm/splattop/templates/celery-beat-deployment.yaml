@@ -1,0 +1,43 @@
+{{- if .Values.celeryBeat.enabled }}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "splattop.fullname" . }}-celery-beat
+  labels:
+    {{- include "splattop.componentLabels" (dict "component" "celery-beat" "root" .) | nindent 4 }}
+spec:
+  replicas: {{ .Values.celeryBeat.replicas }}
+  selector:
+    matchLabels:
+      {{- include "splattop.componentSelectorLabels" (dict "component" "celery-beat" "root" .) | nindent 6 }}
+  template:
+    metadata:
+      labels:
+        {{- include "splattop.componentSelectorLabels" (dict "component" "celery-beat" "root" .) | nindent 8 }}
+    spec:
+      {{- include "splattop.imagePullSecrets" . | nindent 6 }}
+      containers:
+        - name: celery-beat
+          image: "{{ .Values.celeryBeat.image.repository }}:{{ include "splattop.imageTag" (dict "component" "celeryBeat" "root" .) }}"
+          imagePullPolicy: {{ .Values.celeryBeat.image.pullPolicy }}
+          command: {{ .Values.celeryBeat.command | toJson }}
+          {{- if .Values.celeryBeat.args }}
+          args: {{ .Values.celeryBeat.args | toJson }}
+          {{- end }}
+          env:
+            {{- range $key := .Values.celeryBeat.secretKeys }}
+            - name: {{ $key }}
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "splattop.databaseSecretName" $ }}
+                  key: {{ $key }}
+            {{- end }}
+            {{- range $key, $value := .Values.celeryBeat.env }}
+            - name: {{ $key }}
+              value: {{ $value | quote }}
+            {{- end }}
+          {{- if .Values.celeryBeat.resources }}
+          resources:
+            {{- toYaml .Values.celeryBeat.resources | nindent 12 }}
+          {{- end }}
+{{- end }}

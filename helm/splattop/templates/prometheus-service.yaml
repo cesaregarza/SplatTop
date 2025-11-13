@@ -1,0 +1,18 @@
+{{- if .Values.monitoring.prometheus.enabled }}
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "splattop.fullname" . }}-prometheus
+  namespace: {{ include "splattop.monitoringNamespace" . }}
+  labels:
+    {{- include "splattop.componentLabels" (dict "component" "prometheus" "root" .) | nindent 4 }}
+spec:
+  type: {{ .Values.monitoring.prometheus.service.type }}
+  ports:
+    - name: http
+      port: {{ .Values.monitoring.prometheus.service.port }}
+      targetPort: http
+      protocol: TCP
+  selector:
+    {{- include "splattop.componentSelectorLabels" (dict "component" "prometheus" "root" .) | nindent 4 }}
+{{- end }}

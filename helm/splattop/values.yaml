@@ -1,0 +1,442 @@
+# Default values for splattop.
+# This is a YAML-formatted file.
+# Declare variables to be passed into your templates.
+
+# Global configuration
+global:
+  environment: development
+  imagePullSecrets:
+    - regcred
+  databaseSecretName: db-secrets
+  appImageTag: latest
+
+# Cluster issuer (cert-manager) configuration
+clusterIssuer:
+  enabled: false
+  name: letsencrypt-prod
+  email: ""
+  server: https://acme-v02.api.letsencrypt.org/directory
+  privateKeySecretName: letsencrypt-prod
+  ingressClass: nginx
+
+# Database/application secret management
+databaseSecret:
+  create: false
+  name: db-secrets
+  type: Opaque
+  stringData: {}
+
+# FastAPI backend configuration
+fastapi:
+  enabled: true
+  replicas: 1
+  image:
+    repository: registry.digitalocean.com/sendouq/fast-api
+    tag: latest
+    pullPolicy: Always
+  service:
+    type: ClusterIP
+    port: 8000
+    websocketPort: 8001
+    extraServices:
+      - name: fast-api-app-service
+        ports:
+          - name: http
+            port: 8000
+            targetPort: http
+          - name: websocket
+            port: 8001
+            targetPort: websocket
+  secretKeys:
+    - RANKINGS_DB_NAME
+    - RANKINGS_DB_SCHEMA
+    - API_TOKEN_PEPPER
+    - ADMIN_TOKEN_PEPPER
+    - ADMIN_API_TOKENS_HASHED
+    - DB_HOST
+    - DB_USER
+    - DB_PASSWORD
+    - DB_NAME
+    - DB_PORT
+  env:
+    COMP_LEADERBOARD_ENABLED: "true"
+  resources: {}
+  livenessProbe: {}
+  readinessProbe: {}
+
+# React frontend configuration
+react:
+  enabled: true
+  replicas: 1
+  image:
+    repository: registry.digitalocean.com/sendouq/react
+    tag: latest
+    pullPolicy: Always
+  service:
+    type: ClusterIP
+    port: 80
+    extraServices:
+      - name: react-app-service
+        ports:
+          - name: http
+            port: 80
+            targetPort: http
+  env:
+    REACT_APP_SHOWCASE_STABLE_LEADERBOARD: "false"
+  resources: {}
+  livenessProbe: {}
+  readinessProbe: {}
+
+# Celery worker configuration
+celeryWorker:
+  enabled: true
+  replicas: 1
+  image:
+    repository: registry.digitalocean.com/sendouq/celery
+    tag: latest
+    pullPolicy: Always
+  command:
+    - celery
+    - -A
+    - celery_app.app
+    - worker
+    - --loglevel=info
+  secretKeys:
+    - DB_HOST
+    - DB_USER
+    - DB_PASSWORD
+    - DB_NAME
+    - DB_PORT
+  env:
+    COMP_LEADERBOARD_ENABLED: "true"
+  service:
+    enabled: true
+    type: ClusterIP
+    port: 80
+    extraServices:
+      - name: celery-worker-service
+        ports:
+          - name: http
+            port: 80
+            targetPort: 8000
+  resources: {}
+
+# Celery beat configuration
+celeryBeat:
+  enabled: true
+  replicas: 1
+  image:
+    repository: registry.digitalocean.com/sendouq/celery
+    tag: latest
+    pullPolicy: Always
+  command:
+    - celery
+  args:
+    - -A
+    - celery_app.beat
+    - beat
+    - --loglevel=info
+  secretKeys:
+    - DB_HOST
+    - DB_USER
+    - DB_PASSWORD
+    - DB_NAME
+    - DB_PORT
+  env:
+    COMP_LEADERBOARD_ENABLED: "true"
+  resources:
+    requests:
+      memory: "32Mi"
+      cpu: "10m"
+    limits:
+      memory: "64Mi"
+      cpu: "20m"
+
+warmupJob:
+  enabled: true
+  backoffLimit: 1
+  ttlSecondsAfterFinished: 300
+  commands:
+    - celery -A celery_app.app call tasks.pull_data
+    - celery -A celery_app.app call tasks.pull_aliases
+    - celery -A celery_app.app call tasks.fetch_weapon_leaderboard
+    - celery -A celery_app.app call tasks.fetch_season_results
+  resources: {}
+
+# Redis configuration
+redis:
+  enabled: true
+  replicas: 1
+  image:
+    repository: redis
+    tag: latest
+    pullPolicy: IfNotPresent
+  service:
+    type: ClusterIP
+    port: 6379
+    extraServices:
+      - name: redis
+        ports:
+          - name: redis
+            port: 6379
+            targetPort: redis
+  resources: {}
+
+# SplatNLP/SplatGPT configuration
+splatnlp:
+  enabled: true
+  replicas: 1
+  image:
+    repository: registry.digitalocean.com/sendouq/splatnlp
+    tag: latest
+    pullPolicy: Always
+  service:
+    type: ClusterIP
+    port: 9000
+    extraServices:
+      - name: splatnlp-service
+        ports:
+          - name: http
+            port: 9000
+            targetPort: http
+  secretKeys:
+    - DO_SPACES_ML_ENDPOINT
+    - DO_SPACES_ML_DIR
+  env: {}
+  resources: {}
+
+# Ingress configuration
+ingress:
+  enabled: false
+  nameOverride: ""
+  className: nginx
+  annotations:
+    nginx.org/websocket-services: '{{ include "splattop.fullname" . }}-fastapi'
+    nginx.ingress.kubernetes.io/proxy-body-size: "10m"
+    cert-manager.io/cluster-issuer: "letsencrypt-prod"
+  hosts: []
+  # Example configuration (uncomment and modify for your needs):
+  # hosts:
+  #   - host: dev.splat.top
+  #     paths:
+  #       - path: /.well-known/
+  #         pathType: Prefix
+  #         serviceName: fastapi
+  #         servicePort: 8000
+  #       - path: /api
+  #         pathType: Prefix
+  #         serviceName: fastapi
+  #         servicePort: 8000
+  #       - path: /ws
+  #         pathType: Prefix
+  #         serviceName: fastapi
+  #         servicePort: 8001
+  #       - path: /
+  #         pathType: Prefix
+  #         serviceName: react
+  #         servicePort: 80
+  tls:
+    enabled: false
+    secretName: tls-secret
+    certificate:
+      enabled: false
+      issuerName: letsencrypt-prod
+      issuerKind: ClusterIssuer
+      commonName: splat.top
+      dnsNames:
+        - splat.top
+        - comp.splat.top
+
+ingressController:
+  enabled: false
+  manifestPath: ingress-nginx/controller-v1.0.0.yaml
+
+# Monitoring stack configuration
+monitoring:
+  namespace: monitoring
+  createNamespace: true
+  networkPolicies:
+    defaultDeny:
+      enabled: true
+    acmeSolver:
+      enabled: true
+      ingressNamespace: ingress-nginx
+    grafana:
+      enabled: true
+      allowedIngressNamespaces:
+        - ingress-nginx
+        - monitoring
+      databaseCIDR: 10.108.0.0/20
+      databasePort: 25060
+    prometheus:
+      enabled: true
+      allowedIngressNamespaces:
+        - monitoring
+        - ingress-nginx
+      allowedEgressNamespaces:
+        - monitoring
+        - default
+        - ingress-nginx
+    alertmanager:
+      enabled: true
+      outboundCIDR: 0.0.0.0/0
+      outboundPort: 443
+  cilium:
+    prometheusEgressKubeAPI:
+      enabled: false
+
+  # Prometheus configuration
+  prometheus:
+    enabled: false
+    replicas: 1
+    image:
+      repository: prom/prometheus
+      tag: v2.52.0
+      pullPolicy: IfNotPresent
+    service:
+      type: ClusterIP
+      port: 9090
+      extraServices:
+        - name: prometheus
+          ports:
+            - name: http
+              port: 9090
+              targetPort: http
+    configMapName: prometheus-config
+    retention: 15d
+    persistence:
+      enabled: true
+      accessMode: ReadWriteOnce
+      size: 20Gi
+      storageClass: ""
+    resources:
+      requests:
+        cpu: 250m
+        memory: 512Mi
+      limits:
+        cpu: 1
+        memory: 2Gi
+    rules:
+      enabled: false
+      configMapName: prometheus-rules
+
+  # Grafana configuration
+  grafana:
+    enabled: false
+    replicas: 1
+    image:
+      repository: grafana/grafana
+      tag: 10.4.3
+      pullPolicy: IfNotPresent
+    service:
+      type: ClusterIP
+      port: 80
+      extraServices:
+        - name: grafana
+          ports:
+            - name: http
+              port: 80
+              targetPort: http
+    adminUser: admin
+    adminCredentialsSecret: grafana-admin-credentials
+    adminCredentials:
+      create: false
+      username: admin
+      password: admin
+    serverDomain: ""
+    serverRootUrl: ""
+    auth:
+      anonymous: false
+    metrics:
+      enabled: true
+    ingress:
+      enabled: false
+      nameOverride: ""
+      className: nginx
+      annotations: {}
+      hosts: []
+      tls:
+        enabled: false
+        secretName: grafana-tls
+    datasourcesConfigMapName: grafana-datasources
+    dashboardProvidersConfigMapName: grafana-dashboard-providers
+    dashboards:
+      - name: core
+        configMapName: grafana-dashboard-core
+        dataKey: splattop-overview.json
+      - name: splatgpt
+        configMapName: grafana-dashboard-splatgpt
+        dataKey: splatgpt-operations.json
+      - name: auth-rate
+        configMapName: grafana-dashboard-auth-rate
+        dataKey: auth-and-rate.json
+      - name: realtime
+        configMapName: grafana-dashboard-realtime
+        dataKey: realtime-channels.json
+      - name: ripple
+        configMapName: grafana-dashboard-ripple
+        dataKey: ripple-performance.json
+      - name: api-usage
+        configMapName: grafana-dashboard-api-usage
+        dataKey: api-usage-pipeline.json
+      - name: data-pipeline
+        configMapName: grafana-dashboard-data-pipeline
+        dataKey: data-pipelines.json
+    persistence:
+      enabled: true
+      accessMode: ReadWriteOnce
+      size: 5Gi
+      storageClass: ""
+    resources:
+      requests:
+        cpu: 100m
+        memory: 256Mi
+      limits:
+        cpu: 500m
+        memory: 512Mi
+
+  # AlertManager configuration
+  alertmanager:
+    enabled: false
+    replicas: 1
+    image:
+      repository: prom/alertmanager
+      tag: v0.27.0
+      pullPolicy: IfNotPresent
+    service:
+      type: ClusterIP
+      port: 9093
+      extraServices:
+        - name: alertmanager
+          ports:
+            - name: http
+              port: 9093
+              targetPort: http
+    configSecret: alertmanager-config
+    config:
+      create: false
+      content: |
+        global:
+          resolve_timeout: 5m
+
+        route:
+          receiver: dev-log
+
+        receivers:
+          - name: dev-log
+    resources:
+      requests:
+        cpu: 50m
+        memory: 128Mi
+      limits:
+        cpu: 200m
+        memory: 256Mi
+
+# Service account configuration
+serviceAccount:
+  create: false
+  name: ""
+
+# Override chart name
+nameOverride: ""
+fullnameOverride: ""

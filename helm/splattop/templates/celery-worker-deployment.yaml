@@ -1,0 +1,40 @@
+{{- if .Values.celeryWorker.enabled }}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "splattop.fullname" . }}-celery-worker
+  labels:
+    {{- include "splattop.componentLabels" (dict "component" "celery-worker" "root" .) | nindent 4 }}
+spec:
+  replicas: {{ .Values.celeryWorker.replicas }}
+  selector:
+    matchLabels:
+      {{- include "splattop.componentSelectorLabels" (dict "component" "celery-worker" "root" .) | nindent 6 }}
+  template:
+    metadata:
+      labels:
+        {{- include "splattop.componentSelectorLabels" (dict "component" "celery-worker" "root" .) | nindent 8 }}
+    spec:
+      {{- include "splattop.imagePullSecrets" . | nindent 6 }}
+      containers:
+        - name: celery-worker
+          image: "{{ .Values.celeryWorker.image.repository }}:{{ include "splattop.imageTag" (dict "component" "celeryWorker" "root" .) }}"
+          imagePullPolicy: {{ .Values.celeryWorker.image.pullPolicy }}
+          command: {{ .Values.celeryWorker.command | toJson }}
+          env:
+            {{- range $key := .Values.celeryWorker.secretKeys }}
+            - name: {{ $key }}
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "splattop.databaseSecretName" $ }}
+                  key: {{ $key }}
+            {{- end }}
+            {{- range $key, $value := .Values.celeryWorker.env }}
+            - name: {{ $key }}
+              value: {{ $value | quote }}
+            {{- end }}
+          {{- if .Values.celeryWorker.resources }}
+          resources:
+            {{- toYaml .Values.celeryWorker.resources | nindent 12 }}
+          {{- end }}
+{{- end }}

@@ -1,0 +1,72 @@
+{{- if .Values.monitoring.grafana.enabled }}
+{{- $root := . -}}
+{{- $fullName := include "splattop.fullname" . -}}
+{{- $ns := include "splattop.monitoringNamespace" . -}}
+{{- $datasourcesConfigMap := default (printf "%s-grafana-datasources" $fullName) .Values.monitoring.grafana.datasourcesConfigMapName -}}
+{{- $dashboardProvidersConfigMap := default (printf "%s-grafana-dashboard-providers" $fullName) .Values.monitoring.grafana.dashboardProvidersConfigMapName -}}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ $datasourcesConfigMap }}
+  namespace: {{ $ns }}
+  labels:
+    {{- include "splattop.componentLabels" (dict "component" "grafana-datasources" "root" .) | nindent 4 }}
+data:
+  datasources.yaml: |
+    apiVersion: 1
+    datasources:
+      - name: Prometheus
+        uid: prometheus
+        type: prometheus
+        access: proxy
+        url: http://prometheus.monitoring.svc.cluster.local:9090
+        isDefault: true
+        editable: true
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ $dashboardProvidersConfigMap }}
+  namespace: {{ $ns }}
+  labels:
+    {{- include "splattop.componentLabels" (dict "component" "grafana-dashboard-providers" "root" .) | nindent 4 }}
+data:
+  providers.yaml: |
+    apiVersion: 1
+    providers:
+      - name: default
+        orgId: 1
+        folder: "SplatTop"
+        type: file
+        disableDeletion: false
+        allowUiUpdates: true
+        updateIntervalSeconds: 30
+        options:
+          path: /var/lib/grafana/dashboards/auto
+---
+{{- $dashboardFiles := dict
+      "core" (dict "file" "files/grafana/dashboards/core.json" "dataKey" "splattop-overview.json")
+      "splatgpt" (dict "file" "files/grafana/dashboards/splatgpt.json" "dataKey" "splatgpt-operations.json")
+      "auth-rate" (dict "file" "files/grafana/dashboards/auth-rate.json" "dataKey" "auth-and-rate.json")
+      "realtime" (dict "file" "files/grafana/dashboards/realtime.json" "dataKey" "realtime-channels.json")
+      "ripple" (dict "file" "files/grafana/dashboards/ripple.json" "dataKey" "ripple-performance.json")
+      "api-usage" (dict "file" "files/grafana/dashboards/api-usage.json" "dataKey" "api-usage-pipeline.json")
+      "data-pipeline" (dict "file" "files/grafana/dashboards/data-pipeline.json" "dataKey" "data-pipelines.json")
+    -}}
+{{- range $dashboard := .Values.monitoring.grafana.dashboards }}
+  {{- $info := index $dashboardFiles $dashboard.name }}
+  {{- if $info }}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ default (printf "grafana-dashboard-%s" $dashboard.name) $dashboard.configMapName }}
+  namespace: {{ $ns }}
+  labels:
+    {{- include "splattop.componentLabels" (dict "component" (printf "grafana-dashboard-%s" $dashboard.name) "root" $root) | nindent 4 }}
+data:
+  {{ default (index $info "dataKey") $dashboard.dataKey }}: |
+{{ ($root.Files.Get (index $info "file")) | indent 4 }}
+---
+  {{- end }}
+{{- end }}
+{{- end }}
