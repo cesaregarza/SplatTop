@@ -102,7 +102,7 @@ def parse_args() -> argparse.Namespace:
 def main() -> None:
     args = parse_args()
     pvcs = args.pvcs or DEFAULT_PVCS
-    timestamp = args.timestamp or dt.datetime.utcnow().strftime("%Y%m%d-%H%M%S")
+    timestamp = args.timestamp or dt.datetime.now(dt.timezone.utc).strftime("%Y%m%d-%H%M%S")
     manifest = build_manifest(
         pvcs=pvcs,
         namespace=args.namespace,
