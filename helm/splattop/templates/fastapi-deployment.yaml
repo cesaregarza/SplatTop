@@ -18,7 +18,7 @@ spec:
       {{- include "splattop.imagePullSecrets" . | nindent 6 }}
       containers:
         - name: fastapi
-          image: "{{ .Values.fastapi.image.repository }}:{{ .Values.fastapi.image.tag | default .Chart.AppVersion }}"
+          image: "{{ .Values.fastapi.image.repository }}:{{ include "splattop.imageTag" (dict "component" "fastapi" "root" .) }}"
           imagePullPolicy: {{ .Values.fastapi.image.pullPolicy }}
           ports:
             - name: http

@@ -125,3 +125,25 @@ Namespace for a given component (app vs monitoring)
 {{- $root.Release.Namespace }}
 {{- end }}
 {{- end }}
+
+{{/*
+Resolve the image tag for an application component. Falls back to the
+global.appImageTag value and finally the chart appVersion if the component
+does not declare its own tag override.
+*/}}
+{{- define "splattop.imageTag" -}}
+{{- $component := .component -}}
+{{- $root := .root -}}
+{{- $componentValues := (index $root.Values $component) -}}
+{{- $tag := "" -}}
+{{- if and $componentValues $componentValues.image $componentValues.image.tag }}
+{{- $tag = $componentValues.image.tag }}
+{{- end }}
+{{- if not $tag }}
+{{- $tag = default "" $root.Values.global.appImageTag }}
+{{- end }}
+{{- if not $tag }}
+{{- $tag = default "" $root.Chart.AppVersion }}
+{{- end }}
+{{- $tag -}}
+{{- end }}

@@ -18,7 +18,7 @@ spec:
       {{- include "splattop.imagePullSecrets" . | nindent 6 }}
       containers:
         - name: react
-          image: "{{ .Values.react.image.repository }}:{{ .Values.react.image.tag | default .Chart.AppVersion }}"
+          image: "{{ .Values.react.image.repository }}:{{ include "splattop.imageTag" (dict "component" "react" "root" .) }}"
           imagePullPolicy: {{ .Values.react.image.pullPolicy }}
           ports:
             - name: http

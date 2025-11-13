@@ -18,7 +18,7 @@ spec:
       {{- include "splattop.imagePullSecrets" . | nindent 6 }}
       containers:
         - name: splatnlp
-          image: "{{ .Values.splatnlp.image.repository }}:{{ .Values.splatnlp.image.tag | default .Chart.AppVersion }}"
+          image: "{{ .Values.splatnlp.image.repository }}:{{ include "splattop.imageTag" (dict "component" "splatnlp" "root" .) }}"
           imagePullPolicy: {{ .Values.splatnlp.image.pullPolicy }}
           ports:
             - name: http

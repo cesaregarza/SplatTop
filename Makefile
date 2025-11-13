@@ -3,7 +3,13 @@ DEV_PORTS ?= 3000 4000 5000 8001 8080 9090
 PORT_FORWARD_NAMESPACE ?= $(HELM_NAMESPACE_DEV)
 FASTAPI_SELECTOR ?= app.kubernetes.io/component=fastapi
 REACT_SELECTOR ?= app.kubernetes.io/component=react
+CELERY_WORKER_SELECTOR ?= app.kubernetes.io/component=celery-worker
+CELERY_BEAT_SELECTOR ?= app.kubernetes.io/component=celery-beat
+REDIS_SELECTOR ?= app.kubernetes.io/component=redis
+SPLATNLP_SELECTOR ?= app.kubernetes.io/component=splatnlp
+GRAFANA_SELECTOR ?= app.kubernetes.io/component=grafana
 PROMETHEUS_SELECTOR ?= app.kubernetes.io/component=prometheus
+INGRESS_CONTROLLER_SELECTOR ?= app.kubernetes.io/component=controller
 MONITORING_NAMESPACE ?= monitoring
 INGRESS_NAMESPACE ?= ingress-nginx
 
@@ -49,7 +55,7 @@ port-forward: ensure-kind
 	kubectl wait --for=condition=Ready pod -l $(FASTAPI_SELECTOR) -n $(PORT_FORWARD_NAMESPACE) --timeout=180s
 	kubectl wait --for=condition=Ready pod -l $(REACT_SELECTOR) -n $(PORT_FORWARD_NAMESPACE) --timeout=180s || true
 	@if kubectl get ns $(INGRESS_NAMESPACE) >/dev/null 2>&1; then \
-		kubectl wait --for=condition=Ready pod -l app.kubernetes.io/component=controller -n $(INGRESS_NAMESPACE) --timeout=180s; \
+		kubectl wait --for=condition=Ready pod -l $(INGRESS_CONTROLLER_SELECTOR) -n $(INGRESS_NAMESPACE) --timeout=180s; \
 	else \
 		echo "Skipping ingress controller wait (namespace $(INGRESS_NAMESPACE) not found)"; \
 	fi
@@ -155,39 +161,39 @@ update-dev-hard: ensure-kind undeploy-dev-hard build deploy-dev
 
 .PHONY: fast-api-logs
 fast-api-logs: ensure-kind
-	kubectl logs -f `kubectl get pods -l app=fast-api-app -o jsonpath='{.items[0].metadata.name}'`
+	kubectl logs -f $$(kubectl get pods -n $(HELM_NAMESPACE_DEV) -l $(FASTAPI_SELECTOR) -o jsonpath='{.items[0].metadata.name}') -n $(HELM_NAMESPACE_DEV)
 
 .PHONY: celery-logs
 celery-logs: ensure-kind
-	kubectl logs -f `kubectl get pods -l app=celery-worker -o jsonpath='{.items[0].metadata.name}'`
+	kubectl logs -f $$(kubectl get pods -n $(HELM_NAMESPACE_DEV) -l $(CELERY_WORKER_SELECTOR) -o jsonpath='{.items[0].metadata.name}') -n $(HELM_NAMESPACE_DEV)
 
 .PHONY : celery-beat-logs
 celery-beat-logs: ensure-kind
-	kubectl logs -f `kubectl get pods -l app=celery-beat -o jsonpath='{.items[0].metadata.name}'`
+	kubectl logs -f $$(kubectl get pods -n $(HELM_NAMESPACE_DEV) -l $(CELERY_BEAT_SELECTOR) -o jsonpath='{.items[0].metadata.name}') -n $(HELM_NAMESPACE_DEV)
 
 .PHONY: react-logs
 react-logs: ensure-kind
-	kubectl logs -f `kubectl get pods -l app=react-app -o jsonpath='{.items[0].metadata.name}'`
+	kubectl logs -f $$(kubectl get pods -n $(HELM_NAMESPACE_DEV) -l $(REACT_SELECTOR) -o jsonpath='{.items[0].metadata.name}') -n $(HELM_NAMESPACE_DEV)
 
 .PHONY: redis-logs
 redis-logs: ensure-kind
-	kubectl logs -f `kubectl get pods -l app=redis -o jsonpath='{.items[0].metadata.name}'`
+	kubectl logs -f $$(kubectl get pods -n $(HELM_NAMESPACE_DEV) -l $(REDIS_SELECTOR) -o jsonpath='{.items[0].metadata.name}') -n $(HELM_NAMESPACE_DEV)
 
 .PHONY: grafana-logs
 grafana-logs: ensure-kind
-	kubectl logs -f `kubectl get pods -n monitoring -l app=grafana -o jsonpath='{.items[0].metadata.name}'` -n monitoring
+	kubectl logs -f $$(kubectl get pods -n $(MONITORING_NAMESPACE) -l $(GRAFANA_SELECTOR) -o jsonpath='{.items[0].metadata.name}') -n $(MONITORING_NAMESPACE)
 
 .PHONY: prometheus-logs
 prometheus-logs: ensure-kind
-	kubectl logs -f `kubectl get pods -n monitoring -l app=prometheus -o jsonpath='{.items[0].metadata.name}'` -n monitoring
+	kubectl logs -f $$(kubectl get pods -n $(MONITORING_NAMESPACE) -l $(PROMETHEUS_SELECTOR) -o jsonpath='{.items[0].metadata.name}') -n $(MONITORING_NAMESPACE)
 
 .PHONY: splatgpt-logs
 splatgpt-logs: ensure-kind
-	kubectl logs -f `kubectl get pods -l app=splatnlp -o jsonpath='{.items[0].metadata.name}'`
+	kubectl logs -f $$(kubectl get pods -n $(HELM_NAMESPACE_DEV) -l $(SPLATNLP_SELECTOR) -o jsonpath='{.items[0].metadata.name}') -n $(HELM_NAMESPACE_DEV)
 
 .PHONY: ingress-logs
 ingress-logs: ensure-kind
-	kubectl logs -f `kubectl get pods -n ingress-nginx -l app.kubernetes.io/component=controller -o jsonpath='{.items[0].metadata.name}'` -n ingress-nginx
+	kubectl logs -f $$(kubectl get pods -n $(INGRESS_NAMESPACE) -l $(INGRESS_CONTROLLER_SELECTOR) -o jsonpath='{.items[0].metadata.name}') -n $(INGRESS_NAMESPACE)
 
 .PHONY: start-react-app-dev
 start-react-app-dev:

@@ -18,7 +18,7 @@ spec:
       {{- include "splattop.imagePullSecrets" . | nindent 6 }}
       containers:
         - name: celery-beat
-          image: "{{ .Values.celeryBeat.image.repository }}:{{ .Values.celeryBeat.image.tag | default .Chart.AppVersion }}"
+          image: "{{ .Values.celeryBeat.image.repository }}:{{ include "splattop.imageTag" (dict "component" "celeryBeat" "root" .) }}"
           imagePullPolicy: {{ .Values.celeryBeat.image.pullPolicy }}
           command: {{ .Values.celeryBeat.command | toJson }}
           {{- if .Values.celeryBeat.args }}

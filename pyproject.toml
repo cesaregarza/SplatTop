@@ -40,6 +40,7 @@ scripts = [
     "boto3>=1.34.74,<2",
     "tqdm>=4.66.2,<5",
     "locust>=2.27.0,<3",
+    "ruamel.yaml>=0.18.6,<0.19",
 ]
 
 [tool.uv]

@@ -8,6 +8,7 @@ global:
   imagePullSecrets:
     - regcred
   databaseSecretName: db-secrets
+  appImageTag: latest
 
 # Cluster issuer (cert-manager) configuration
 clusterIssuer:

@@ -48,9 +48,11 @@ jobs:
     runs-on: ubuntu-latest
     environment: SplatTop
     outputs:
-      python_changed: ${{ steps.finalize.outputs.python_changed }}
+      fastapi_changed: ${{ steps.finalize.outputs.fastapi_changed }}
+      celery_changed: ${{ steps.finalize.outputs.celery_changed }}
       react_changed: ${{ steps.finalize.outputs.react_changed }}
       i18n_changed: ${{ steps.finalize.outputs.i18n_changed }}
+      components_changed: ${{ steps.finalize.outputs.components_changed }}
       exit_pipeline: ${{ steps.finalize.outputs.exit_pipeline }}
     steps:
       - name: Checkout
@@ -63,36 +65,50 @@ jobs:
         uses: dorny/paths-filter@v3
         with:
           filters: |
-            python:
-              - 'src/celery_app/**'
+            fastapi:
               - 'src/fast_api_app/**'
               - 'src/shared_lib/**'
+              - 'dockerfiles/dockerfile.fast-api'
+              - 'pyproject.toml'
+              - 'poetry.lock'
+            celery:
+              - 'src/celery_app/**'
+              - 'src/shared_lib/**'
+              - 'dockerfiles/dockerfile.celery'
+              - 'pyproject.toml'
+              - 'poetry.lock'
             react:
               - 'src/react_app/**'
+              - 'src/react_app/package.json'
+              - 'src/react_app/package-lock.json'
+              - 'dockerfiles/dockerfile.react'
             i18n:
               - 'i18n/**'
 
       - name: Finalize change detection
         id: finalize
         env:
-          PYTHON_CHANGED: ${{ steps.changes.outputs.python }}
+          FASTAPI_CHANGED: ${{ steps.changes.outputs.fastapi }}
+          CELERY_CHANGED: ${{ steps.changes.outputs.celery }}
           REACT_CHANGED: ${{ steps.changes.outputs.react }}
           I18N_CHANGED: ${{ steps.changes.outputs.i18n }}
           ACTOR: ${{ github.actor }}
         run: |
-          python="${PYTHON_CHANGED:-false}"
+          fastapi="${FASTAPI_CHANGED:-false}"
+          celery="${CELERY_CHANGED:-false}"
           react="${REACT_CHANGED:-false}"
           i18n="${I18N_CHANGED:-false}"
-          override_python="false"
+          override_backend="false"
           override_react="false"
 
           if [ "$GITHUB_EVENT_NAME" = "workflow_dispatch" ]; then
-            override_python=$(jq -r '.inputs["override-python"] // "false"' "$GITHUB_EVENT_PATH" 2>/dev/null || echo "false")
+            override_backend=$(jq -r '.inputs["override-python"] // "false"' "$GITHUB_EVENT_PATH" 2>/dev/null || echo "false")
             override_react=$(jq -r '.inputs["override-react"] // "false"' "$GITHUB_EVENT_PATH" 2>/dev/null || echo "false")
 
-            if [ "$override_python" = "true" ]; then
-              echo "Override requested; forcing backend build."
-              python=true
+            if [ "$override_backend" = "true" ]; then
+              echo "Override requested; forcing backend builds."
+              fastapi=true
+              celery=true
             fi
 
             if [ "$override_react" = "true" ]; then
@@ -101,16 +117,23 @@ jobs:
             fi
           fi
 
-          if [ "$i18n" = "true" ] && [ "$ACTOR" != "github-actions[bot]" ] && [ "$override_python" != "true" ] && [ "$override_react" != "true" ]; then
+          components_changed=false
+          if [ "$fastapi" = "true" ] || [ "$celery" = "true" ] || [ "$react" = "true" ]; then
+            components_changed=true
+          fi
+
+          if [ "$i18n" = "true" ] && [ "$ACTOR" != "github-actions[bot]" ] && [ "$override_backend" != "true" ] && [ "$override_react" != "true" ]; then
             exit_pipeline=true
           else
             exit_pipeline=false
           fi
 
           {
-            echo "python_changed=${python}"
+            echo "fastapi_changed=${fastapi}"
+            echo "celery_changed=${celery}"
             echo "react_changed=${react}"
             echo "i18n_changed=${i18n}"
+            echo "components_changed=${components_changed}"
             echo "exit_pipeline=${exit_pipeline}"
           } >> "$GITHUB_OUTPUT"
 
@@ -122,6 +145,9 @@ jobs:
     outputs:
       next_version: ${{ steps.nextver.outputs.version }}
       latest_release: ${{ steps.latest.outputs.tag }}
+      fastapi_digest: ${{ steps.build_fastapi.outputs.digest }}
+      celery_digest: ${{ steps.build_celery.outputs.digest }}
+      react_digest: ${{ steps.build_react.outputs.digest }}
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -182,7 +208,8 @@ jobs:
             core.setOutput('version', next);
 
       - name: Build & push FastAPI image
-        if: needs.check.outputs.python_changed == 'true' && github.ref == 'refs/heads/main'
+        id: build_fastapi
+        if: needs.check.outputs.fastapi_changed == 'true' && github.ref == 'refs/heads/main'
         uses: docker/build-push-action@v6
         with:
           context: .
@@ -195,7 +222,8 @@ jobs:
           cache-to: type=gha,mode=max
 
       - name: Build & push Celery image
-        if: needs.check.outputs.python_changed == 'true' && github.ref == 'refs/heads/main'
+        id: build_celery
+        if: needs.check.outputs.celery_changed == 'true' && github.ref == 'refs/heads/main'
         uses: docker/build-push-action@v6
         with:
           context: .
@@ -208,6 +236,7 @@ jobs:
           cache-to: type=gha,mode=max
 
       - name: Build & push React image
+        id: build_react
         if: needs.check.outputs.react_changed == 'true' && github.ref == 'refs/heads/main'
         uses: docker/build-push-action@v6
         with:
@@ -253,7 +282,8 @@ jobs:
       - name: Helm dry run
         env:
           VERSION: ${{ needs.build.outputs.next_version }}
-          PYTHON_CHANGED: ${{ needs.check.outputs.python_changed }}
+          FASTAPI_CHANGED: ${{ needs.check.outputs.fastapi_changed }}
+          CELERY_CHANGED: ${{ needs.check.outputs.celery_changed }}
           REACT_CHANGED: ${{ needs.check.outputs.react_changed }}
         run: |
           TAG="v${VERSION}"
@@ -270,8 +300,10 @@ jobs:
             --timeout 15m
             -f helm/splattop/values-prod.yaml
           )
-          if [ "${PYTHON_CHANGED}" = "true" ]; then
+          if [ "${FASTAPI_CHANGED}" = "true" ]; then
             HELM_ARGS+=(--set-string fastapi.image.tag=${TAG})
+          fi
+          if [ "${CELERY_CHANGED}" = "true" ]; then
             HELM_ARGS+=(--set-string celeryWorker.image.tag=${TAG})
             HELM_ARGS+=(--set-string celeryBeat.image.tag=${TAG})
           fi
@@ -306,3 +338,132 @@ jobs:
           else
             echo "Release ${TAG} already exists; skipping."
           fi
+
+  component_metadata:
+    name: Publish component metadata
+    needs: build
+    if: needs.build.result == 'success'
+    runs-on: ubuntu-latest
+    outputs:
+      has_updates: ${{ steps.generate.outputs.has_updates }}
+      component_list: ${{ steps.generate.outputs.component_list }}
+    steps:
+      - name: Generate component tags manifest
+        id: generate
+        env:
+          FASTAPI_DIGEST: ${{ needs.build.outputs.fastapi_digest }}
+          CELERY_DIGEST: ${{ needs.build.outputs.celery_digest }}
+          REACT_DIGEST: ${{ needs.build.outputs.react_digest }}
+          VERSION: ${{ needs.build.outputs.next_version }}
+          GIT_SHA: ${{ github.sha }}
+        run: |
+          python <<'PY'
+import json
+import os
+import time
+from pathlib import Path
+
+version = os.environ.get("VERSION")
+fastapi_digest = os.environ.get("FASTAPI_DIGEST", "")
+celery_digest = os.environ.get("CELERY_DIGEST", "")
+react_digest = os.environ.get("REACT_DIGEST", "")
+tag = f"v{version}" if version else ""
+
+components = {}
+component_order = []
+
+def add_component(name: str, repo: str, digest: str) -> None:
+    components[name] = {
+        "image": repo,
+        "tag": tag,
+        "digest": digest,
+    }
+    component_order.append(name)
+
+if fastapi_digest:
+    add_component("fastapi", "registry.digitalocean.com/sendouq/fast-api", fastapi_digest)
+if celery_digest:
+    add_component("celeryWorker", "registry.digitalocean.com/sendouq/celery", celery_digest)
+    add_component("celeryBeat", "registry.digitalocean.com/sendouq/celery", celery_digest)
+if react_digest:
+    add_component("react", "registry.digitalocean.com/sendouq/react", react_digest)
+
+has_updates = bool(components)
+output_path = Path("component-tags.json")
+
+if has_updates:
+    payload = {
+        "generatedAt": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
+        "gitSha": os.environ.get("GIT_SHA"),
+        "releaseVersion": version,
+        "components": components,
+    }
+    output_path.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
+
+with open(os.environ["GITHUB_OUTPUT"], "a", encoding="utf-8") as fh:
+    fh.write(f"has_updates={'true' if has_updates else 'false'}\n")
+    fh.write(f"component_list={','.join(component_order)}\n")
+PY
+
+      - name: Upload component metadata
+        if: steps.generate.outputs.has_updates == 'true'
+        uses: actions/upload-artifact@v4
+        with:
+          name: component-tags
+          path: component-tags.json
+
+  update_config_repo:
+    name: Update config repository
+    needs: [component_metadata, build]
+    if: github.ref == 'refs/heads/main' && needs.component_metadata.outputs.has_updates == 'true' && secrets.CONFIG_REPO_TOKEN != ''
+    runs-on: ubuntu-latest
+    steps:
+      - name: Download component metadata
+        uses: actions/download-artifact@v4
+        with:
+          name: component-tags
+          path: metadata
+
+      - name: Checkout config repository
+        uses: actions/checkout@v4
+        with:
+          repository: cesaregarza/SplatTopConfig
+          token: ${{ secrets.CONFIG_REPO_TOKEN }}
+          path: config-repo
+          ref: main
+
+      - name: Prepare config repo update
+        id: prepare_config_update
+        env:
+          COMPONENTS: ${{ needs.component_metadata.outputs.component_list }}
+          VERSION: ${{ needs.build.outputs.next_version }}
+          GITHUB_SHA: ${{ github.sha }}
+        run: |
+          set -euo pipefail
+          BRANCH="bot/component-tags-${GITHUB_RUN_ID}"
+          echo "branch=${BRANCH}" >> "$GITHUB_OUTPUT"
+          cd config-repo
+          git config user.name "splattop-bot"
+          git config user.email "sre+bot@splattop.dev"
+          git checkout -b "$BRANCH"
+          mkdir -p automation
+          cp ../metadata/component-tags.json automation/component-tags.json
+          git add automation/component-tags.json
+          git commit -m "chore: update component tags (${COMPONENTS})"
+          git push --set-upstream origin "$BRANCH"
+
+      - name: Open config repo PR
+        env:
+          GH_TOKEN: ${{ secrets.CONFIG_REPO_TOKEN }}
+          BRANCH: ${{ steps.prepare_config_update.outputs.branch }}
+          COMPONENTS: ${{ needs.component_metadata.outputs.component_list }}
+          VERSION: ${{ needs.build.outputs.next_version }}
+        run: |
+          set -euo pipefail
+          cd config-repo
+          gh pr create \
+            --base main \
+            --head "$BRANCH" \
+            --title "[bot] Update component tags v${VERSION}" \
+            --body "Components: ${COMPONENTS}\nSource: ${GITHUB_REPOSITORY}@${GITHUB_SHA}" \
+            || echo "Pull request already exists; continuing."

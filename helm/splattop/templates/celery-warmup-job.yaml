@@ -23,7 +23,7 @@ spec:
       restartPolicy: Never
       containers:
         - name: warmup
-          image: "{{ .Values.celeryWorker.image.repository }}:{{ .Values.celeryWorker.image.tag | default .Chart.AppVersion }}"
+          image: "{{ .Values.celeryWorker.image.repository }}:{{ include "splattop.imageTag" (dict "component" "celeryWorker" "root" .) }}"
           imagePullPolicy: {{ .Values.celeryWorker.image.pullPolicy }}
           command:
             - /bin/sh

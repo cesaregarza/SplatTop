@@ -8,8 +8,8 @@ metadata:
 spec:
   project: splattop
   source:
-    repoURL: https://github.com/cesaregarza/SplatTop
-    targetRevision: b5f95c2a2b5e16d0ee15cf79657e2e7d778c4e96
+    repoURL: https://github.com/cesaregarza/SplatTopConfig
+    targetRevision: main
     path: helm/splattop
     helm:
       releaseName: splattop-prod

@@ -10,7 +10,7 @@ spec:
 
   # Source repositories
   sourceRepos:
-    - https://github.com/cesaregarza/SplatTop
+    - https://github.com/cesaregarza/SplatTopConfig
 
   # Destination clusters and namespaces
   destinations:
