@@ -325,7 +325,7 @@ argocd app sync splattop-prod --replace
 
 ## Integration with CI/CD
 
-The repository already contains two GitHub workflows that pair with ArgoCD:
+The repository contains a single GitHub workflow that pairs with ArgoCD:
 
 1. **Build and Update Kubernetes Deployment** (`.github/workflows/update_k8s_deployment.yaml`)
    - Runs on every `main` push.
@@ -333,16 +333,11 @@ The repository already contains two GitHub workflows that pair with ArgoCD:
    - Runs `helm lint` and a full `helm upgrade --dry-run` against the prod cluster to catch template errors early.
    - Stops before applying live changes; ArgoCD remains the source of truth for production.
 
-2. **Manual Helm Deployment** (`.github/workflows/manual_helm_deploy.yaml`)
-   - `workflow_dispatch` trigger only.
-   - Rebuilds images (optional) and performs the secret bootstrapping + real `helm upgrade`.
-   - Use this strictly as a break-glass option if ArgoCD cannot sync.
-
 The day-to-day flow is therefore:
 1. Merge to `main` → CI publishes images and validates the chart (no live apply).
 2. ArgoCD notices the Git change and auto-syncs dev/staging plus prod (prune + self-heal).
 3. Keep an eye on the Argo UI to confirm the sync succeeded; if it fails, address the diff or re-run the sync.
-4. If ArgoCD is unavailable, run the manual workflow to perform a one-off Helm deployment.
+4. If ArgoCD is unavailable, pause auto-sync and coordinate a fix inside the config repo instead of deploying directly from here.
 
 ## Additional Resources
 
