@@ -357,53 +357,56 @@ jobs:
           VERSION: ${{ needs.build.outputs.next_version }}
           GIT_SHA: ${{ github.sha }}
         run: |
-          python <<'PY'
-import json
-import os
-import time
-from pathlib import Path
+          set -euo pipefail
+          tag="v${VERSION}"
+          components="{}"
+          component_names=()
 
-version = os.environ.get("VERSION")
-fastapi_digest = os.environ.get("FASTAPI_DIGEST", "")
-celery_digest = os.environ.get("CELERY_DIGEST", "")
-react_digest = os.environ.get("REACT_DIGEST", "")
-tag = f"v{version}" if version else ""
+          add_component() {
+            local name="$1"
+            local repo="$2"
+            local digest="$3"
+            components="$(jq --arg name "$name" \
+                              --arg repo "$repo" \
+                              --arg tag "$tag" \
+                              --arg digest "$digest" \
+                              '. + {($name): {image: $repo, tag: $tag, digest: $digest}}' \
+                              <<<"$components")"
+            component_names+=("$name")
+          }
 
-components = {}
-component_order = []
+          if [ -n "${FASTAPI_DIGEST}" ]; then
+            add_component "fastapi" "registry.digitalocean.com/sendouq/fast-api" "${FASTAPI_DIGEST}"
+          fi
+          if [ -n "${CELERY_DIGEST}" ]; then
+            add_component "celeryWorker" "registry.digitalocean.com/sendouq/celery" "${CELERY_DIGEST}"
+            add_component "celeryBeat" "registry.digitalocean.com/sendouq/celery" "${CELERY_DIGEST}"
+          fi
+          if [ -n "${REACT_DIGEST}" ]; then
+            add_component "react" "registry.digitalocean.com/sendouq/react" "${REACT_DIGEST}"
+          fi
 
-def add_component(name: str, repo: str, digest: str) -> None:
-    components[name] = {
-        "image": repo,
-        "tag": tag,
-        "digest": digest,
-    }
-    component_order.append(name)
+          if [ "${#component_names[@]}" -eq 0 ]; then
+            {
+              echo "has_updates=false"
+              echo "component_list="
+            } >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
 
-if fastapi_digest:
-    add_component("fastapi", "registry.digitalocean.com/sendouq/fast-api", fastapi_digest)
-if celery_digest:
-    add_component("celeryWorker", "registry.digitalocean.com/sendouq/celery", celery_digest)
-    add_component("celeryBeat", "registry.digitalocean.com/sendouq/celery", celery_digest)
-if react_digest:
-    add_component("react", "registry.digitalocean.com/sendouq/react", react_digest)
+          payload="$(jq -n \
+            --arg generatedAt "$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
+            --arg sha "${GIT_SHA}" \
+            --arg version "${VERSION}" \
+            --argjson components "${components}" \
+            '{generatedAt:$generatedAt, gitSha:$sha, releaseVersion:$version, components:$components}')"
 
-has_updates = bool(components)
-output_path = Path("component-tags.json")
-
-if has_updates:
-    payload = {
-        "generatedAt": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
-        "gitSha": os.environ.get("GIT_SHA"),
-        "releaseVersion": version,
-        "components": components,
-    }
-    output_path.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
-
-with open(os.environ["GITHUB_OUTPUT"], "a", encoding="utf-8") as fh:
-    fh.write(f"has_updates={'true' if has_updates else 'false'}\n")
-    fh.write(f"component_list={','.join(component_order)}\n")
-PY
+          printf '%s\n' "${payload}" > component-tags.json
+          component_csv="$(IFS=,; echo "${component_names[*]}")"
+          {
+            echo "has_updates=true"
+            echo "component_list=${component_csv}"
+          } >> "$GITHUB_OUTPUT"
 
       - name: Upload component metadata
         if: steps.generate.outputs.has_updates == 'true'
@@ -415,7 +418,7 @@ PY
   update_config_repo:
     name: Update config repository
     needs: [component_metadata, build]
-    if: github.ref == 'refs/heads/main' && needs.component_metadata.outputs.has_updates == 'true' && secrets.CONFIG_REPO_TOKEN != ''
+    if: github.ref == 'refs/heads/main' && needs.component_metadata.outputs.has_updates == 'true'
     runs-on: ubuntu-latest
     steps:
       - name: Download component metadata
