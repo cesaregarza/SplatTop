@@ -462,6 +462,14 @@ jobs:
           name: component-tags
           path: metadata
 
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          path: app-repo
+
+      - name: Install Helm values tooling
+        run: python3 -m pip install --user "ruamel.yaml>=0.18.6,<0.19"
+
       - name: Checkout config repository
         uses: actions/checkout@v4
         with:
@@ -484,9 +492,57 @@ jobs:
           git config user.name "splattop-bot"
           git config user.email "sre+bot@splattop.dev"
           git checkout -b "$BRANCH"
+          if [ -z "${VERSION:-}" ]; then
+            echo "VERSION output is required to update Helm values." >&2
+            exit 1
+          fi
+          if [ -z "${COMPONENTS:-}" ]; then
+            echo "COMPONENTS output is required to update Helm values." >&2
+            exit 1
+          fi
+
+          IFS=',' read -ra RAW_COMPONENTS <<< "${COMPONENTS}"
+          declare -a SELECTED=()
+          for comp in "${RAW_COMPONENTS[@]}"; do
+            comp="${comp//[[:space:]]/}"
+            [ -z "${comp}" ] && continue
+            case "${comp}" in
+              fastapi|react|celeryWorker|celeryBeat)
+                duplicate=false
+                for existing in "${SELECTED[@]}"; do
+                  if [ "${existing}" = "${comp}" ]; then
+                    duplicate=true
+                    break
+                  fi
+                done
+                if [ "${duplicate}" = false ]; then
+                  SELECTED+=("${comp}")
+                fi
+                ;;
+              *)
+                echo "Skipping unsupported component '${comp}'" >&2
+                ;;
+            esac
+          done
+
+          if [ "${#SELECTED[@]}" -eq 0 ]; then
+            echo "No supported components detected; cannot update Helm values." >&2
+            exit 1
+          fi
+
+          TAG="v${VERSION}"
+          CMD=(python3 ../app-repo/scripts/update_config_image_tags.py
+               --values-file helm/splattop/values-prod.yaml
+               --tag "${TAG}"
+               --set-global)
+          for comp in "${SELECTED[@]}"; do
+            CMD+=(--component "${comp}")
+          done
+          "${CMD[@]}"
+
           mkdir -p automation
           cp ../metadata/component-tags.json automation/component-tags.json
-          git add automation/component-tags.json
+          git add automation/component-tags.json helm/splattop/values-prod.yaml
           git commit -m "chore: update component tags (${COMPONENTS})"
           git push --set-upstream origin "$BRANCH"
 
