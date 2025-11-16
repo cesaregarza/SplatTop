@@ -542,18 +542,29 @@ jobs:
           fi
 
           TAG="v${VERSION}"
-          CMD=(python3 scripts/update_config_image_tags.py
-               --values-file helm/splattop/values-prod.yaml
-               --tag "${TAG}"
-               --set-global)
-          for comp in "${SELECTED[@]}"; do
-            CMD+=(--component "${comp}")
-          done
-          "${CMD[@]}"
+          update_values_file() {
+            local values_file="$1"
+            local set_global="${2:-false}"
+            local cmd=(python3 scripts/update_config_image_tags.py
+                       --values-file "${values_file}"
+                       --tag "${TAG}")
+            if [ "${set_global}" = "true" ]; then
+              cmd+=(--set-global)
+            fi
+            for comp in "${SELECTED[@]}"; do
+              cmd+=(--component "${comp}")
+            done
+            "${cmd[@]}"
+          }
+
+          update_values_file "helm/splattop/values-prod.yaml" "true"
+          update_values_file "helm/splattop/values.yaml" "false"
 
           mkdir -p automation
           cp ../metadata/component-tags.json automation/component-tags.json
-          git add automation/component-tags.json helm/splattop/values-prod.yaml
+          git add automation/component-tags.json \
+            helm/splattop/values-prod.yaml \
+            helm/splattop/values.yaml
           git commit -m "chore: update component tags (${COMPONENTS})"
           git push --set-upstream origin "$BRANCH"
 
