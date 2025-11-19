@@ -1,0 +1,12 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: ghost-blog-service
+spec:
+  selector:
+    app: ghost-blog
+  ports:
+    - port: 80
+      targetPort: 2368
+      name: http
+  type: NodePort

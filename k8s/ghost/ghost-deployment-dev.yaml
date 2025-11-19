@@ -1,0 +1,45 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: ghost-blog
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: ghost-blog
+  template:
+    metadata:
+      labels:
+        app: ghost-blog
+    spec:
+      containers:
+        - name: ghost
+          image: ghost:5-alpine
+          imagePullPolicy: IfNotPresent
+          ports:
+            - containerPort: 2368
+          env:
+            - name: NODE_ENV
+              value: "development"
+            - name: url
+              value: "http://localhost/blog"
+            # Database configuration - Ghost supports SQLite (default) or MySQL
+            # For production, consider using MySQL with a separate service
+            - name: database__client
+              value: "sqlite3"
+            - name: database__connection__filename
+              value: "/var/lib/ghost/content/data/ghost.db"
+          volumeMounts:
+            - name: ghost-content
+              mountPath: /var/lib/ghost/content
+          resources:
+            requests:
+              memory: "256Mi"
+              cpu: "100m"
+            limits:
+              memory: "512Mi"
+              cpu: "500m"
+      volumes:
+        - name: ghost-content
+          persistentVolumeClaim:
+            claimName: ghost-pvc

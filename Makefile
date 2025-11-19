@@ -162,6 +162,28 @@ update-dev: ensure-kind undeploy-dev build deploy-dev
 .PHONY: update-dev-hard
 update-dev-hard: ensure-kind undeploy-dev-hard build deploy-dev
 
+.PHONY: deploy-ghost
+deploy-ghost: ensure-kind
+	kubectl apply -f k8s/ghost/ghost-pvc-dev.yaml -n $(HELM_NAMESPACE_DEV)
+	kubectl apply -f k8s/ghost/ghost-deployment-dev.yaml -n $(HELM_NAMESPACE_DEV)
+	kubectl apply -f k8s/ghost/ghost-service-dev.yaml -n $(HELM_NAMESPACE_DEV)
+	kubectl apply -f k8s/ingress-dev.yaml
+	@echo "Ghost blog deployed! Waiting for pod to be ready..."
+	kubectl wait --for=condition=ready pod -l app=ghost-blog -n $(HELM_NAMESPACE_DEV) --timeout=300s || true
+	@echo "Ghost admin: http://localhost:8080/ghost"
+	@echo "Ghost blog: http://localhost:8080/blog"
+
+.PHONY: undeploy-ghost
+undeploy-ghost: ensure-kind
+	-kubectl delete -f k8s/ghost/ghost-service-dev.yaml -n $(HELM_NAMESPACE_DEV)
+	-kubectl delete -f k8s/ghost/ghost-deployment-dev.yaml -n $(HELM_NAMESPACE_DEV)
+	-kubectl delete -f k8s/ghost/ghost-pvc-dev.yaml -n $(HELM_NAMESPACE_DEV)
+	@echo "Ghost blog undeployed"
+
+.PHONY: ghost-logs
+ghost-logs: ensure-kind
+	kubectl logs -f -l app=ghost-blog -n $(HELM_NAMESPACE_DEV)
+
 .PHONY: fast-api-logs
 fast-api-logs: ensure-kind
 	kubectl logs -f $$(kubectl get pods -n $(HELM_NAMESPACE_DEV) -l $(FASTAPI_SELECTOR) -o jsonpath='{.items[0].metadata.name}') -n $(HELM_NAMESPACE_DEV)
@@ -642,6 +664,11 @@ help-new:
 	@echo "  make validate-k8s            - Validate Kubernetes manifests"
 	@echo "  make validate-argocd         - Validate ArgoCD manifests"
 	@echo "  make validate-all            - Run all validations"
+	@echo ""
+	@echo "Ghost Blog:"
+	@echo "  make deploy-ghost            - Deploy Ghost CMS blog"
+	@echo "  make undeploy-ghost          - Remove Ghost CMS blog"
+	@echo "  make ghost-logs              - View Ghost logs"
 	@echo ""
 	@echo "Utilities:"
 	@echo "  make kubectl-dev             - Switch kubectl to dev namespace"

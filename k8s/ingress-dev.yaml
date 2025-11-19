@@ -16,11 +16,18 @@ spec:
                 name: fast-api-app-service
                 port:
                   number: 80
-          - path: /
+          - path: /blog
             pathType: Prefix
             backend:
               service:
-                name: react-app-service
+                name: ghost-blog-service
+                port:
+                  number: 80
+          - path: /ghost
+            pathType: Prefix
+            backend:
+              service:
+                name: ghost-blog-service
                 port:
                   number: 80
           - path: /api
@@ -37,6 +44,13 @@ spec:
                 name: fast-api-app-service
                 port:
                   number: 8001
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: react-app-service
+                port:
+                  number: 80
     - host: comp.localhost
       http:
         paths:
@@ -47,11 +61,18 @@ spec:
                 name: fast-api-app-service
                 port:
                   number: 80
-          - path: /
+          - path: /blog
             pathType: Prefix
             backend:
               service:
-                name: react-app-service
+                name: ghost-blog-service
+                port:
+                  number: 80
+          - path: /ghost
+            pathType: Prefix
+            backend:
+              service:
+                name: ghost-blog-service
                 port:
                   number: 80
           - path: /api
@@ -68,3 +89,10 @@ spec:
                 name: fast-api-app-service
                 port:
                   number: 8001
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: react-app-service
+                port:
+                  number: 80
