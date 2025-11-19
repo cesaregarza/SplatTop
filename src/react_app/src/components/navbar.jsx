@@ -74,6 +74,14 @@ const Navbar = () => {
               </Link>
             </li>
             <li>
+              <Link
+                to="/blog"
+                className="block py-2 px-4 text-white hover:bg-purple rounded-md transition duration-300"
+              >
+                {t("navbar.blog", "Blog")}
+              </Link>
+            </li>
+            <li>
               <SearchBar />
             </li>
             <li>

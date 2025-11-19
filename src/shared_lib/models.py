@@ -286,3 +286,31 @@ class FeedbackLog(Base):
     request_id = Column(UUID(as_uuid=True), nullable=False)
     user_agent = Column(Text)
     feedback = Column(Boolean)
+
+
+class BlogPost(Base):
+    __tablename__ = "blog_posts"
+    __table_args__ = (
+        Index("idx_blog_posts_slug", "slug"),
+        Index("idx_blog_posts_published_at", "published_at"),
+        Index("idx_blog_posts_is_published", "is_published"),
+        {"schema": "splatgpt"},
+    )
+
+    id = Column(BigInteger, primary_key=True)
+    slug = Column(String(255), unique=True, nullable=False)
+    title = Column(String(500), nullable=False)
+    excerpt = Column(Text)
+    content = Column(Text, nullable=False)
+    author = Column(String(255))
+    featured_image_url = Column(String(1000))
+    is_published = Column(Boolean, default=False, nullable=False)
+    published_at = Column(DateTime(timezone=True))
+    created_at = Column(
+        DateTime(timezone=True), server_default=text("CURRENT_TIMESTAMP")
+    )
+    updated_at = Column(
+        DateTime(timezone=True),
+        server_default=text("CURRENT_TIMESTAMP"),
+        onupdate=text("CURRENT_TIMESTAMP"),
+    )

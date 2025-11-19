@@ -13,6 +13,8 @@ const Analytics = React.lazy(() => import("./components/analytics"));
 const TopWeapons = React.lazy(() =>
   import("./components/weapon_leaderboard")
 );
+const BlogList = React.lazy(() => import("./components/blog/blog_list"));
+const BlogPost = React.lazy(() => import("./components/blog/blog_post"));
 
 const COMPETITION_OVERRIDE_KEY = "splat.top.competitionOverride";
 
@@ -64,6 +66,8 @@ const MainSiteApp = () => (
           <Route path="/player/:player_id" element={<PlayerDetail />} />
           <Route path="/analytics" element={<Analytics />} />
           <Route path="/top_weapons" element={<TopWeapons />} />
+          <Route exact path="/blog" element={<BlogList />} />
+          <Route path="/blog/:slug" element={<BlogPost />} />
         </Routes>
       </Suspense>
       <Footer />

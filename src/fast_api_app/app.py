@@ -20,6 +20,7 @@ from fast_api_app.middleware import (
 from fast_api_app.pubsub import start_pubsub_listener
 from fast_api_app.routes import (
     admin_tokens_router,
+    blog_router,
     front_page_router,
     infer_router,
     jwks_router,
@@ -86,6 +87,7 @@ app.include_router(ripple_docs_router)
 app.include_router(ripple_router)
 app.include_router(ripple_public_router)
 app.include_router(admin_tokens_router)
+app.include_router(blog_router)
 
 setup_metrics(app)
 
