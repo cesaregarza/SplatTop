@@ -162,27 +162,26 @@ update-dev: ensure-kind undeploy-dev build deploy-dev
 .PHONY: update-dev-hard
 update-dev-hard: ensure-kind undeploy-dev-hard build deploy-dev
 
-.PHONY: deploy-ghost
-deploy-ghost: ensure-kind
-	kubectl apply -f k8s/ghost/ghost-pvc-dev.yaml -n $(HELM_NAMESPACE_DEV)
-	kubectl apply -f k8s/ghost/ghost-deployment-dev.yaml -n $(HELM_NAMESPACE_DEV)
-	kubectl apply -f k8s/ghost/ghost-service-dev.yaml -n $(HELM_NAMESPACE_DEV)
+.PHONY: deploy-strapi
+deploy-strapi: ensure-kind
+	kubectl apply -f k8s/strapi/strapi-deployment-dev.yaml -n $(HELM_NAMESPACE_DEV)
+	kubectl apply -f k8s/strapi/strapi-service-dev.yaml -n $(HELM_NAMESPACE_DEV)
 	kubectl apply -f k8s/ingress-dev.yaml
-	@echo "Ghost blog deployed! Waiting for pod to be ready..."
-	kubectl wait --for=condition=ready pod -l app=ghost-blog -n $(HELM_NAMESPACE_DEV) --timeout=300s || true
-	@echo "Ghost admin: http://localhost:8080/ghost"
-	@echo "Ghost blog: http://localhost:8080/blog"
+	@echo "Strapi CMS deployed! Waiting for pod to be ready..."
+	kubectl wait --for=condition=ready pod -l app=strapi-cms -n $(HELM_NAMESPACE_DEV) --timeout=300s || true
+	@echo "Strapi admin: http://localhost:8080/strapi/admin"
+	@echo "Strapi API: http://localhost:8080/strapi/api"
+	@echo "Blog frontend: http://localhost:8080/blog"
 
-.PHONY: undeploy-ghost
-undeploy-ghost: ensure-kind
-	-kubectl delete -f k8s/ghost/ghost-service-dev.yaml -n $(HELM_NAMESPACE_DEV)
-	-kubectl delete -f k8s/ghost/ghost-deployment-dev.yaml -n $(HELM_NAMESPACE_DEV)
-	-kubectl delete -f k8s/ghost/ghost-pvc-dev.yaml -n $(HELM_NAMESPACE_DEV)
-	@echo "Ghost blog undeployed"
+.PHONY: undeploy-strapi
+undeploy-strapi: ensure-kind
+	-kubectl delete -f k8s/strapi/strapi-service-dev.yaml -n $(HELM_NAMESPACE_DEV)
+	-kubectl delete -f k8s/strapi/strapi-deployment-dev.yaml -n $(HELM_NAMESPACE_DEV)
+	@echo "Strapi CMS undeployed"
 
-.PHONY: ghost-logs
-ghost-logs: ensure-kind
-	kubectl logs -f -l app=ghost-blog -n $(HELM_NAMESPACE_DEV)
+.PHONY: strapi-logs
+strapi-logs: ensure-kind
+	kubectl logs -f -l app=strapi-cms -n $(HELM_NAMESPACE_DEV)
 
 .PHONY: fast-api-logs
 fast-api-logs: ensure-kind
@@ -665,10 +664,10 @@ help-new:
 	@echo "  make validate-argocd         - Validate ArgoCD manifests"
 	@echo "  make validate-all            - Run all validations"
 	@echo ""
-	@echo "Ghost Blog:"
-	@echo "  make deploy-ghost            - Deploy Ghost CMS blog"
-	@echo "  make undeploy-ghost          - Remove Ghost CMS blog"
-	@echo "  make ghost-logs              - View Ghost logs"
+	@echo "Strapi CMS:"
+	@echo "  make deploy-strapi           - Deploy Strapi CMS"
+	@echo "  make undeploy-strapi         - Remove Strapi CMS"
+	@echo "  make strapi-logs             - View Strapi logs"
 	@echo ""
 	@echo "Utilities:"
 	@echo "  make kubectl-dev             - Switch kubectl to dev namespace"

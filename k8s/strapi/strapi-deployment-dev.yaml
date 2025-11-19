@@ -1,0 +1,85 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: strapi-cms
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: strapi-cms
+  template:
+    metadata:
+      labels:
+        app: strapi-cms
+    spec:
+      containers:
+        - name: strapi
+          image: strapi/strapi:4.25.11
+          imagePullPolicy: IfNotPresent
+          ports:
+            - containerPort: 1337
+          env:
+            - name: NODE_ENV
+              value: "development"
+            - name: DATABASE_CLIENT
+              value: "postgres"
+            - name: DATABASE_HOST
+              valueFrom:
+                secretKeyRef:
+                  name: db-secrets
+                  key: DB_HOST
+            - name: DATABASE_PORT
+              valueFrom:
+                secretKeyRef:
+                  name: db-secrets
+                  key: DB_PORT
+            - name: DATABASE_NAME
+              valueFrom:
+                secretKeyRef:
+                  name: db-secrets
+                  key: DB_NAME
+            - name: DATABASE_USERNAME
+              valueFrom:
+                secretKeyRef:
+                  name: db-secrets
+                  key: DB_USER
+            - name: DATABASE_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: db-secrets
+                  key: DB_PASSWORD
+            - name: DATABASE_SCHEMA
+              value: "public"
+            - name: APP_KEYS
+              value: "toBeModified1,toBeModified2"
+            - name: API_TOKEN_SALT
+              value: "tobemodified"
+            - name: ADMIN_JWT_SECRET
+              value: "tobemodified"
+            - name: TRANSFER_TOKEN_SALT
+              value: "tobemodified"
+            - name: JWT_SECRET
+              value: "tobemodified"
+            - name: STRAPI_ADMIN_PATH
+              value: "/strapi/admin"
+          resources:
+            requests:
+              memory: "512Mi"
+              cpu: "250m"
+            limits:
+              memory: "1Gi"
+              cpu: "1000m"
+          livenessProbe:
+            httpGet:
+              path: /_health
+              port: 1337
+            initialDelaySeconds: 60
+            periodSeconds: 10
+            timeoutSeconds: 5
+          readinessProbe:
+            httpGet:
+              path: /_health
+              port: 1337
+            initialDelaySeconds: 30
+            periodSeconds: 5
+            timeoutSeconds: 3

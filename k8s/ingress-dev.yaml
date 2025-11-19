@@ -16,18 +16,11 @@ spec:
                 name: fast-api-app-service
                 port:
                   number: 80
-          - path: /blog
+          - path: /strapi
             pathType: Prefix
             backend:
               service:
-                name: ghost-blog-service
-                port:
-                  number: 80
-          - path: /ghost
-            pathType: Prefix
-            backend:
-              service:
-                name: ghost-blog-service
+                name: strapi-cms-service
                 port:
                   number: 80
           - path: /api
@@ -61,18 +54,11 @@ spec:
                 name: fast-api-app-service
                 port:
                   number: 80
-          - path: /blog
+          - path: /strapi
             pathType: Prefix
             backend:
               service:
-                name: ghost-blog-service
-                port:
-                  number: 80
-          - path: /ghost
-            pathType: Prefix
-            backend:
-              service:
-                name: ghost-blog-service
+                name: strapi-cms-service
                 port:
                   number: 80
           - path: /api
