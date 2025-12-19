@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo } from "react";
-import { BrowserRouter as Router, Navigate, Route, Routes } from "react-router-dom";
+import { BrowserRouter as Router, Route, Routes } from "react-router-dom";
 import CompetitionLayout from "./CompetitionLayout";
 import StableLeaderboardView from "./StableLeaderboardView";
 import CompetitionFaq from "./CompetitionFaq";
@@ -192,7 +192,7 @@ const CompetitionRoutes = () => {
   return (
     <Routes>
       <Route path="/learn" element={<CompetitionViz />} />
-      <Route path="/viz" element={<Navigate to="/learn" replace />} />
+      <Route path="/viz" element={<CompetitionViz />} />
       <Route path="/faq" element={<CompetitionFaqPage snapshot={snapshot} />} />
       <Route path="*" element={<CompetitionLeaderboardPage snapshot={snapshot} />} />
     </Routes>

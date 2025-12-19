@@ -168,42 +168,82 @@ const CompetitionViz = () => {
   const convergenceCanvasRef = useRef(null);
 
   useEffect(() => {
+    let animationFrameId = null;
+    let autoRunTimeout = null;
+    let resizeTimeout = null;
+    let resizeObserver = null;
+    let disposed = false;
+    let stepInProgress = false;
+
     const root = rootRef.current;
     const canvas = canvasRef.current;
     const canvasContainer = canvasContainerRef.current;
     const scatterCanvas = scatterCanvasRef.current;
     const barCanvas = barCanvasRef.current;
     const convergenceCanvas = convergenceCanvasRef.current;
+    let btnStep = null;
+    let btnAuto = null;
+    let btnReset = null;
+    let btnExport = null;
+    let speedSlider = null;
+    let speedValue = null;
+    let iterCount = null;
+    let statusText = null;
+    let deltaValue = null;
+    let deltaBar = null;
+    let insightText = null;
+    let correlationValue = null;
+    let nodeCount = null;
+    let edgeCount = null;
+    let dampingValue = null;
+    let thresholdValue = null;
+    let leaderName = null;
+    let leaderScore = null;
+    let leaderSkill = null;
+    let leaderWins = null;
+    let leaderOpp = null;
+
+    const doc = (root?.ownerDocument || document);
+    const previousTitle = doc.title;
+    doc.title = "Ranking Simulator - splat.top";
+
+    const baseCleanup = () => {
+      disposed = true;
+      doc.title = previousTitle;
+      if (animationFrameId) cancelAnimationFrame(animationFrameId);
+      if (autoRunTimeout) clearTimeout(autoRunTimeout);
+      if (resizeTimeout) clearTimeout(resizeTimeout);
+      if (resizeObserver) resizeObserver.disconnect();
+    };
+
     if (!root || !canvas || !canvasContainer || !scatterCanvas || !barCanvas || !convergenceCanvas) {
-      return undefined;
+      return baseCleanup;
     }
 
     const ctx = canvas.getContext("2d");
-    if (!ctx) return undefined;
+    if (!ctx) return baseCleanup;
 
-    const doc = root.ownerDocument || document;
-
-    const btnStep = root.querySelector("#btnStep");
-    const btnAuto = root.querySelector("#btnAuto");
-    const btnReset = root.querySelector("#btnReset");
-    const btnExport = root.querySelector("#btnExport");
-    const speedSlider = root.querySelector("#speedSlider");
-    const speedValue = root.querySelector("#speedValue");
-    const iterCount = root.querySelector("#iterCount");
-    const statusText = root.querySelector("#statusText");
-    const deltaValue = root.querySelector("#deltaValue");
-    const deltaBar = root.querySelector("#deltaBar");
-    const insightText = root.querySelector("#insightText");
-    const correlationValue = root.querySelector("#correlationValue");
-    const nodeCount = root.querySelector("#nodeCount");
-    const edgeCount = root.querySelector("#edgeCount");
-    const dampingValue = root.querySelector("#dampingValue");
-    const thresholdValue = root.querySelector("#thresholdValue");
-    const leaderName = root.querySelector("#leaderName");
-    const leaderScore = root.querySelector("#leaderScore");
-    const leaderSkill = root.querySelector("#leaderSkill");
-    const leaderWins = root.querySelector("#leaderWins");
-    const leaderOpp = root.querySelector("#leaderOpp");
+    btnStep = root.querySelector("#btnStep");
+    btnAuto = root.querySelector("#btnAuto");
+    btnReset = root.querySelector("#btnReset");
+    btnExport = root.querySelector("#btnExport");
+    speedSlider = root.querySelector("#speedSlider");
+    speedValue = root.querySelector("#speedValue");
+    iterCount = root.querySelector("#iterCount");
+    statusText = root.querySelector("#statusText");
+    deltaValue = root.querySelector("#deltaValue");
+    deltaBar = root.querySelector("#deltaBar");
+    insightText = root.querySelector("#insightText");
+    correlationValue = root.querySelector("#correlationValue");
+    nodeCount = root.querySelector("#nodeCount");
+    edgeCount = root.querySelector("#edgeCount");
+    dampingValue = root.querySelector("#dampingValue");
+    thresholdValue = root.querySelector("#thresholdValue");
+    leaderName = root.querySelector("#leaderName");
+    leaderScore = root.querySelector("#leaderScore");
+    leaderSkill = root.querySelector("#leaderSkill");
+    leaderWins = root.querySelector("#leaderWins");
+    leaderOpp = root.querySelector("#leaderOpp");
 
     if (
       !btnStep ||
@@ -228,11 +268,8 @@ const CompetitionViz = () => {
       !leaderWins ||
       !leaderOpp
     ) {
-      return undefined;
+      return baseCleanup;
     }
-
-    const previousTitle = doc.title;
-    doc.title = "Ranking Simulator - splat.top";
 
     const CONFIG = {
       dampingFactor: 0.85,
@@ -268,16 +305,12 @@ const CompetitionViz = () => {
     let iteration = 0;
     let isAnimating = false;
     let autoRun = false;
-    let animationFrameId = null;
-    let autoRunTimeout = null;
     let lastDelta = 0;
     let hoveredNode = null;
     let draggedNode = null;
     let mouseX = 0;
     let mouseY = 0;
     let chartsDirty = true;
-    let resizeTimeout = null;
-    let disposed = false;
 
     const convergenceHistory = [];
     const MAX_CONVERGENCE_HISTORY = 60;
@@ -593,6 +626,7 @@ const CompetitionViz = () => {
       iteration = 0;
       lastDelta = 0;
       isAnimating = false;
+      stepInProgress = false;
       convergenceHistory.length = 0;
       stopAutoRun();
 
@@ -709,6 +743,7 @@ const CompetitionViz = () => {
 
       chartsDirty = true;
       isAnimating = false;
+      stepInProgress = false;
       btnStep.disabled = false;
 
       if (totalDelta < CONFIG.physics.convergenceThreshold) {
@@ -734,7 +769,8 @@ const CompetitionViz = () => {
     };
 
     const performStep = () => {
-      if (isAnimating) return;
+      if (stepInProgress || isAnimating) return;
+      stepInProgress = true;
       calculateNextStep();
       isAnimating = true;
 
@@ -1318,7 +1354,7 @@ const CompetitionViz = () => {
     btnAuto.addEventListener("click", handleAuto);
     btnExport.addEventListener("click", exportRankings);
     speedSlider.addEventListener("input", handleSpeed);
-    const resizeObserver = typeof ResizeObserver !== "undefined"
+    resizeObserver = typeof ResizeObserver !== "undefined"
       ? new ResizeObserver(() => handleResize())
       : null;
     if (resizeObserver) {
@@ -1327,25 +1363,24 @@ const CompetitionViz = () => {
     window.addEventListener("resize", handleResize);
     doc.addEventListener("keydown", handleKeyDown);
 
-    return () => {
-      disposed = true;
-      doc.title = previousTitle;
-      if (animationFrameId) cancelAnimationFrame(animationFrameId);
-      if (autoRunTimeout) clearTimeout(autoRunTimeout);
-      if (resizeTimeout) clearTimeout(resizeTimeout);
-      if (resizeObserver) resizeObserver.disconnect();
-      canvas.removeEventListener("mousemove", handleMouseMove);
-      canvas.removeEventListener("mousedown", handleMouseDown);
-      canvas.removeEventListener("mouseup", handleMouseUp);
-      canvas.removeEventListener("mouseleave", handleMouseLeave);
-      btnStep.removeEventListener("click", handleStep);
-      btnReset.removeEventListener("click", handleReset);
-      btnAuto.removeEventListener("click", handleAuto);
-      btnExport.removeEventListener("click", exportRankings);
-      speedSlider.removeEventListener("input", handleSpeed);
+    const cleanup = () => {
+      baseCleanup();
+      if (canvas) {
+        canvas.removeEventListener("mousemove", handleMouseMove);
+        canvas.removeEventListener("mousedown", handleMouseDown);
+        canvas.removeEventListener("mouseup", handleMouseUp);
+        canvas.removeEventListener("mouseleave", handleMouseLeave);
+      }
+      if (btnStep) btnStep.removeEventListener("click", handleStep);
+      if (btnReset) btnReset.removeEventListener("click", handleReset);
+      if (btnAuto) btnAuto.removeEventListener("click", handleAuto);
+      if (btnExport) btnExport.removeEventListener("click", exportRankings);
+      if (speedSlider) speedSlider.removeEventListener("input", handleSpeed);
       window.removeEventListener("resize", handleResize);
       doc.removeEventListener("keydown", handleKeyDown);
     };
+
+    return cleanup;
   }, []);
 
   return (
@@ -1378,14 +1413,6 @@ const CompetitionViz = () => {
                 </Link>
                 <span className="text-xs text-slate-400">Ranking Simulator</span>
               </div>
-              <div className="hidden sm:flex items-center gap-2 text-xs text-slate-400">
-                <span className="rounded-full bg-slate-900/70 px-2.5 py-1 ring-1 ring-white/10">
-                  PageRank Core
-                </span>
-                <span className="rounded-full bg-slate-900/70 px-2.5 py-1 ring-1 ring-white/10">
-                  Live Simulation
-                </span>
-              </div>
             </div>
 
             <div className="mt-6">
@@ -1396,17 +1423,6 @@ const CompetitionViz = () => {
                 An explorable view of the competitive ranking engine. Scores flow from losers to
                 winners, amplifying victories over strong opponents while dampening farmed wins.
               </p>
-              <div className="mt-4 flex flex-wrap gap-2 text-[11px] uppercase tracking-widest text-slate-400">
-                <span className="rounded-full border border-fuchsia-400/30 bg-fuchsia-500/10 px-3 py-1 text-fuchsia-200">
-                  Influence Graph
-                </span>
-                <span className="rounded-full border border-cyan-400/30 bg-cyan-500/10 px-3 py-1 text-cyan-200">
-                  Weighted Wins
-                </span>
-                <span className="rounded-full border border-slate-600/40 bg-slate-900/70 px-3 py-1">
-                  Drag Nodes
-                </span>
-              </div>
             </div>
           </div>
         </header>
