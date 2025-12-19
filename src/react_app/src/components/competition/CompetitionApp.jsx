@@ -1,8 +1,9 @@
 import React, { useEffect, useMemo } from "react";
-import { BrowserRouter as Router, Route, Routes } from "react-router-dom";
+import { BrowserRouter as Router, Navigate, Route, Routes } from "react-router-dom";
 import CompetitionLayout from "./CompetitionLayout";
 import StableLeaderboardView from "./StableLeaderboardView";
 import CompetitionFaq from "./CompetitionFaq";
+import CompetitionViz from "./CompetitionViz";
 import useCompetitionSnapshot from "../../hooks/useCompetitionSnapshot";
 
 const resolveMainSiteUrl = () => {
@@ -126,6 +127,8 @@ const CompetitionLeaderboardPage = ({ snapshot }) => {
       onRefresh={refresh}
       faqLinkHref="/faq"
       faqLinkLabel="How rankings work"
+      vizLinkHref="/learn"
+      vizLinkLabel="Interactive explainer"
       top500Href={MAIN_SITE_URL}
     >
       {error && (
@@ -168,6 +171,8 @@ const CompetitionFaqPage = ({ snapshot }) => {
       loading={loading}
       faqLinkHref="/"
       faqLinkLabel="View leaderboard"
+      vizLinkHref="/learn"
+      vizLinkLabel="Interactive explainer"
       top500Href={MAIN_SITE_URL}
     >
       {disabled && (
@@ -186,6 +191,8 @@ const CompetitionRoutes = () => {
 
   return (
     <Routes>
+      <Route path="/learn" element={<CompetitionViz />} />
+      <Route path="/viz" element={<Navigate to="/learn" replace />} />
       <Route path="/faq" element={<CompetitionFaqPage snapshot={snapshot} />} />
       <Route path="*" element={<CompetitionLeaderboardPage snapshot={snapshot} />} />
     </Routes>

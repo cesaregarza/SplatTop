@@ -64,6 +64,8 @@ const CompetitionLayout = ({
   onRefresh,
   faqLinkHref,
   faqLinkLabel = "FAQ",
+  vizLinkHref,
+  vizLinkLabel = "Interactive explainer",
   top500Href = "/top500",
 }) => {
   const timestampParts = formatTimestampParts(generatedAtMs);
@@ -139,6 +141,14 @@ const CompetitionLayout = ({
                 className="rounded-md bg-white/10 px-4 py-2 text-sm font-medium text-white ring-1 ring-white/10 hover:bg-white/15 transition"
               >
                 {faqLinkLabel}
+              </Link>
+            )}
+            {vizLinkHref && (
+              <Link
+                to={vizLinkHref}
+                className="rounded-md bg-fuchsia-500/15 px-4 py-2 text-sm font-medium text-fuchsia-100 ring-1 ring-fuchsia-300/25 hover:bg-fuchsia-500/25 transition"
+              >
+                {vizLinkLabel}
               </Link>
             )}
             {onRefresh && (
