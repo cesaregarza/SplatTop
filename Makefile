@@ -1,18 +1,23 @@
 KIND_CONTEXT ?= kind-kind
 DEV_PORTS ?= 3000 4000 5000 8001 8080 9090
-PORT_FORWARD_NAMESPACE ?= $(HELM_NAMESPACE_DEV)
-FASTAPI_SELECTOR ?= app.kubernetes.io/component=fastapi
-REACT_SELECTOR ?= app.kubernetes.io/component=react
-CELERY_WORKER_SELECTOR ?= app.kubernetes.io/component=celery-worker
-CELERY_BEAT_SELECTOR ?= app.kubernetes.io/component=celery-beat
-REDIS_SELECTOR ?= app.kubernetes.io/component=redis
-SPLATNLP_SELECTOR ?= app.kubernetes.io/component=splatnlp
+LOCAL_NAMESPACE ?= splattop-local
+PORT_FORWARD_NAMESPACE ?= $(LOCAL_NAMESPACE)
+FASTAPI_SELECTOR ?= app=fast-api-app
+REACT_SELECTOR ?= app=react-app
+CELERY_WORKER_SELECTOR ?= app=celery-worker
+CELERY_BEAT_SELECTOR ?= app=celery-beat
+REDIS_SELECTOR ?= app=redis
+SPLATNLP_SELECTOR ?= app=splatnlp
 GRAFANA_SELECTOR ?= app.kubernetes.io/component=grafana
 PROMETHEUS_SELECTOR ?= app.kubernetes.io/component=prometheus
 INGRESS_CONTROLLER_SELECTOR ?= app.kubernetes.io/component=controller
 MONITORING_NAMESPACE ?= monitoring
 INGRESS_NAMESPACE ?= ingress-nginx
-CONFIG_REPO_DIR ?= ../SplatTopConfig
+INGRESS_CLASS ?= nginx
+INGRESS_MANIFEST ?= https://raw.githubusercontent.com/kubernetes/ingress-nginx/controller-v1.9.1/deploy/static/provider/kind/deploy.yaml
+SPLATTOP_CONFIG_DIR ?= ../SplatTopConfig
+CONFIG_REPO_DIR ?= $(SPLATTOP_CONFIG_DIR)
+HELM_VALUES_DEV ?= $(if $(wildcard $(HELM_CHART_PATH)/values-local.yaml),$(HELM_CHART_PATH)/values-local.yaml,$(HELM_CHART_PATH)/values.yaml)
 HELM_CHART_PATH ?= $(CONFIG_REPO_DIR)/helm/splattop
 ARGOCD_MANIFEST_DIR ?= $(CONFIG_REPO_DIR)/argocd
 
@@ -57,33 +62,14 @@ port-forward: ensure-kind
 	$(MAKE) stop-port-forward || true
 	kubectl wait --for=condition=Ready pod -l $(FASTAPI_SELECTOR) -n $(PORT_FORWARD_NAMESPACE) --timeout=180s
 	kubectl wait --for=condition=Ready pod -l $(REACT_SELECTOR) -n $(PORT_FORWARD_NAMESPACE) --timeout=180s || true
-	@if kubectl get ns $(INGRESS_NAMESPACE) >/dev/null 2>&1; then \
-		kubectl wait --for=condition=Ready pod -l $(INGRESS_CONTROLLER_SELECTOR) -n $(INGRESS_NAMESPACE) --timeout=180s; \
-	else \
-		echo "Skipping ingress controller wait (namespace $(INGRESS_NAMESPACE) not found)"; \
-	fi
-	@if [ -n "$$(kubectl get pods -n $(MONITORING_NAMESPACE) -l $(PROMETHEUS_SELECTOR) -o name 2>/dev/null)" ]; then \
-		kubectl wait --for=condition=Ready pod -l $(PROMETHEUS_SELECTOR) -n $(MONITORING_NAMESPACE) --timeout=180s; \
-	else \
-		echo "Skipping Prometheus readiness wait (no pods found in $(MONITORING_NAMESPACE))"; \
-	fi
+	kubectl wait --for=condition=Ready pod -l $(INGRESS_CONTROLLER_SELECTOR) -n $(INGRESS_NAMESPACE) --timeout=240s || true
 	kubectl port-forward -n $(PORT_FORWARD_NAMESPACE) service/fast-api-app-service 5000:80 8001:8001 & echo $$! > /tmp/fast-apiport-forward.pid
 	kubectl port-forward -n $(PORT_FORWARD_NAMESPACE) service/react-app-service 4000:80 & echo $$! > /tmp/react-port-forward.pid
-	@if kubectl get svc -n $(INGRESS_NAMESPACE) ingress-nginx-controller >/dev/null 2>&1; then \
-		kubectl port-forward -n $(INGRESS_NAMESPACE) service/ingress-nginx-controller 8080:80 & echo $$! > /tmp/ingress-port-forward.pid; \
-	else \
-		echo "Skipping ingress port-forward (service ingress-nginx-controller not found in $(INGRESS_NAMESPACE))"; \
-	fi
-	@if kubectl get svc -n $(MONITORING_NAMESPACE) prometheus >/dev/null 2>&1 && [ -n "$$(kubectl get pods -n $(MONITORING_NAMESPACE) -l $(PROMETHEUS_SELECTOR) -o name 2>/dev/null)" ]; then \
-		kubectl port-forward -n $(MONITORING_NAMESPACE) service/prometheus 9090:9090 & echo $$! > /tmp/prometheus-port-forward.pid; \
-	else \
-		echo "Skipping Prometheus port-forward (service or pods not found in $(MONITORING_NAMESPACE))"; \
-	fi
+	kubectl port-forward -n $(INGRESS_NAMESPACE) service/ingress-nginx-controller 8080:80 & echo $$! > /tmp/ingress-port-forward.pid
 	echo "fast-api app is running at http://localhost:5000"
 	echo "Websocket is running at http://localhost:8001"
 	echo "React (prod) app is running at http://localhost:4000"
 	echo "Ingress is running at http://localhost:8080"
-	echo "Prometheus UI is running at http://localhost:9090"
 
 .PHONY: stop-port-forward
 stop-port-forward:
@@ -104,20 +90,40 @@ ensure-dev-secrets:
 		echo "Skipping create-secrets-dev (k8s/secrets.yaml not found)"; \
 	fi
 
+.PHONY: ensure-dev-secrets-helm
+ensure-dev-secrets-helm:
+	@if [ -f k8s/secrets.yaml ]; then \
+		$(MAKE) create-secrets-dev-helm; \
+	else \
+		echo "Skipping create-secrets-dev-helm (k8s/secrets.yaml not found)"; \
+	fi
+
 .PHONY: deploy-core
 deploy-core: ensure-kind ensure-dev-secrets
+	@$(MAKE) deploy-manifests
+
+.PHONY: deploy-core-helm
+deploy-core-helm: ensure-kind ensure-dev-secrets-helm
 	@$(MAKE) helm-upgrade-dev
+
+.PHONY: deploy-manifests
+deploy-manifests:
+	@echo "Applying local dev manifests to namespace $(LOCAL_NAMESPACE)..."
+	kubectl create namespace $(LOCAL_NAMESPACE) || true
+	kubectl apply -n $(LOCAL_NAMESPACE) -f k8s/redis
+	kubectl apply -n $(LOCAL_NAMESPACE) -f k8s/fast-api
+	kubectl apply -n $(LOCAL_NAMESPACE) -f k8s/react
+	kubectl apply -n $(LOCAL_NAMESPACE) -f k8s/celery-worker
+	kubectl apply -n $(LOCAL_NAMESPACE) -f k8s/celery-beat
+	kubectl apply -n $(LOCAL_NAMESPACE) -f k8s/splatgpt
+	kubectl apply -n $(LOCAL_NAMESPACE) -f k8s/ingress-dev.yaml
+	@echo "Ensuring ingress controller is installed..."
+	kubectl apply -f $(INGRESS_MANIFEST)
 
 .PHONY: deploy
 deploy: ensure-kind
 	make deploy-core
-	sleep 20
-	@if kubectl get svc -n $(INGRESS_NAMESPACE) ingress-nginx-controller >/dev/null 2>&1; then \
-		echo "Port-forwarding ingress controller (http://localhost:8080)"; \
-		kubectl port-forward -n $(INGRESS_NAMESPACE) service/ingress-nginx-controller 8080:80; \
-	else \
-		echo "Ingress controller service not found in namespace $(INGRESS_NAMESPACE); skipping port-forward. Run 'make port-forward' once it comes up."; \
-	fi
+	make port-forward
 
 .PHONY: deploy-dev
 deploy-dev: ensure-kind
@@ -126,12 +132,27 @@ deploy-dev: ensure-kind
 	cd src/react_app && npm start
 .PHONY: undeploy-core
 undeploy-core: ensure-kind
+	-@$(MAKE) undeploy-manifests
+
+.PHONY: undeploy-core-helm
+undeploy-core-helm: ensure-kind
 	-@$(MAKE) helm-uninstall-dev
+
+.PHONY: undeploy-manifests
+undeploy-manifests:
+	@echo "Removing local dev manifests from namespace $(LOCAL_NAMESPACE)..."
+	kubectl delete -n $(LOCAL_NAMESPACE) -f k8s/ingress-dev.yaml --ignore-not-found
+	kubectl delete -n $(LOCAL_NAMESPACE) -f k8s/splatgpt --ignore-not-found
+	kubectl delete -n $(LOCAL_NAMESPACE) -f k8s/celery-beat --ignore-not-found
+	kubectl delete -n $(LOCAL_NAMESPACE) -f k8s/celery-worker --ignore-not-found
+	kubectl delete -n $(LOCAL_NAMESPACE) -f k8s/react --ignore-not-found
+	kubectl delete -n $(LOCAL_NAMESPACE) -f k8s/fast-api --ignore-not-found
+	kubectl delete -n $(LOCAL_NAMESPACE) -f k8s/redis --ignore-not-found
 
 .PHONY: undeploy-core-hard
 undeploy-core-hard: ensure-kind
-	-@$(MAKE) helm-uninstall-dev
-	kubectl delete namespace $(HELM_NAMESPACE_DEV) || true
+	-@$(MAKE) undeploy-manifests
+	kubectl delete namespace $(LOCAL_NAMESPACE) || true
 
 .PHONY: undeploy
 undeploy: undeploy-core
@@ -249,7 +270,7 @@ helm-install-dev:
 	helm install $(HELM_RELEASE_DEV) $(HELM_CHART_PATH) \
 		--create-namespace \
 		--namespace $(HELM_NAMESPACE_DEV) \
-		--values $(HELM_CHART_PATH)/values-local.yaml
+		--values $(HELM_VALUES_DEV)
 
 .PHONY: helm-install-prod
 helm-install-prod:
@@ -265,7 +286,7 @@ helm-upgrade-dev:
 	helm upgrade --install $(HELM_RELEASE_DEV) $(HELM_CHART_PATH) \
 		--namespace $(HELM_NAMESPACE_DEV) \
 		--create-namespace \
-		--values $(HELM_CHART_PATH)/values-local.yaml
+		--values $(HELM_VALUES_DEV)
 
 .PHONY: helm-upgrade-prod
 helm-upgrade-prod:
@@ -294,7 +315,7 @@ helm-lint:
 helm-template-dev:
 	@echo "Rendering Helm templates (development)..."
 	helm template $(HELM_RELEASE_DEV) $(HELM_CHART_PATH) \
-		--values $(HELM_CHART_PATH)/values-local.yaml
+		--values $(HELM_VALUES_DEV)
 
 .PHONY: helm-template-prod
 helm-template-prod:
@@ -308,7 +329,7 @@ helm-dry-run-dev:
 	helm install $(HELM_RELEASE_DEV) $(HELM_CHART_PATH) \
 		--dry-run --debug \
 		--namespace $(HELM_NAMESPACE_DEV) \
-		--values $(HELM_CHART_PATH)/values-local.yaml
+		--values $(HELM_VALUES_DEV)
 
 .PHONY: helm-dry-run-prod
 helm-dry-run-prod:
@@ -448,7 +469,18 @@ argocd-status-prod:
 
 .PHONY: create-secrets-dev
 create-secrets-dev:
-	@echo "Creating development secrets..."
+	@echo "Creating local development secrets..."
+	@if [ ! -f k8s/secrets.yaml ]; then \
+		echo "Error: k8s/secrets.yaml not found. Copy from k8s/secrets.template and configure."; \
+		exit 1; \
+	fi
+	kubectl create namespace $(LOCAL_NAMESPACE) || true
+	kubectl apply -f k8s/secrets.yaml -n $(LOCAL_NAMESPACE)
+	@echo "Development secrets created in namespace $(LOCAL_NAMESPACE)"
+
+.PHONY: create-secrets-dev-helm
+create-secrets-dev-helm:
+	@echo "Creating development secrets (Helm)..."
 	@if [ ! -f k8s/secrets.yaml ]; then \
 		echo "Error: k8s/secrets.yaml not found. Copy from k8s/secrets.template and configure."; \
 		exit 1; \
@@ -535,7 +567,7 @@ validate-all: validate-helm validate-k8s validate-argocd
 .PHONY: kubectl-dev
 kubectl-dev:
 	@echo "Setting kubectl context to development namespace..."
-	kubectl config set-context --current --namespace=$(HELM_NAMESPACE_DEV)
+	kubectl config set-context --current --namespace=$(LOCAL_NAMESPACE)
 
 .PHONY: kubectl-prod
 kubectl-prod:
@@ -545,7 +577,7 @@ kubectl-prod:
 .PHONY: logs-dev
 logs-dev:
 	@echo "Streaming logs from development namespace..."
-	kubectl logs -f -l app.kubernetes.io/instance=$(HELM_RELEASE_DEV) -n $(HELM_NAMESPACE_DEV) --all-containers=true
+	kubectl logs -f -l app -n $(LOCAL_NAMESPACE) --all-containers=true
 
 .PHONY: logs-prod
 logs-prod:
@@ -555,7 +587,7 @@ logs-prod:
 .PHONY: pods-dev
 pods-dev:
 	@echo "Listing pods in development namespace..."
-	kubectl get pods -n $(HELM_NAMESPACE_DEV)
+	kubectl get pods -n $(LOCAL_NAMESPACE)
 
 .PHONY: pods-prod
 pods-prod:
@@ -565,7 +597,7 @@ pods-prod:
 .PHONY: describe-pods-dev
 describe-pods-dev:
 	@echo "Describing pods in development namespace..."
-	kubectl describe pods -n $(HELM_NAMESPACE_DEV)
+	kubectl describe pods -n $(LOCAL_NAMESPACE)
 
 .PHONY: describe-pods-prod
 describe-pods-prod:
@@ -580,6 +612,7 @@ clean-all:
 	@$(MAKE) argocd-delete-all || true
 	@kubectl delete namespace $(HELM_NAMESPACE_DEV) || true
 	@kubectl delete namespace $(HELM_NAMESPACE_PROD) || true
+	@kubectl delete namespace $(LOCAL_NAMESPACE) || true
 	@echo "Cleanup complete!"
 
 .PHONY: help-helm
@@ -633,7 +666,8 @@ help-new:
 	@$(MAKE) help-argocd
 	@echo ""
 	@echo "Secrets Management:"
-	@echo "  make create-secrets-dev      - Create development secrets"
+	@echo "  make create-secrets-dev      - Create local development secrets"
+	@echo "  make create-secrets-dev-helm - Create Helm development secrets"
 	@echo "  make create-secrets-prod     - Create production secrets"
 	@echo "  make create-regcred          - Create registry credentials"
 	@echo ""

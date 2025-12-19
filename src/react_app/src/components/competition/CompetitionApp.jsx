@@ -3,6 +3,8 @@ import { BrowserRouter as Router, Route, Routes } from "react-router-dom";
 import CompetitionLayout from "./CompetitionLayout";
 import StableLeaderboardView from "./StableLeaderboardView";
 import CompetitionFaq from "./CompetitionFaq";
+import CompetitionViz from "./CompetitionViz";
+import CompetitionErrorBoundary from "./CompetitionErrorBoundary";
 import useCompetitionSnapshot from "../../hooks/useCompetitionSnapshot";
 
 const resolveMainSiteUrl = () => {
@@ -126,6 +128,8 @@ const CompetitionLeaderboardPage = ({ snapshot }) => {
       onRefresh={refresh}
       faqLinkHref="/faq"
       faqLinkLabel="How rankings work"
+      vizLinkHref="/learn"
+      vizLinkLabel="Interactive explainer"
       top500Href={MAIN_SITE_URL}
     >
       {error && (
@@ -168,6 +172,8 @@ const CompetitionFaqPage = ({ snapshot }) => {
       loading={loading}
       faqLinkHref="/"
       faqLinkLabel="View leaderboard"
+      vizLinkHref="/learn"
+      vizLinkLabel="Interactive explainer"
       top500Href={MAIN_SITE_URL}
     >
       {disabled && (
@@ -186,6 +192,22 @@ const CompetitionRoutes = () => {
 
   return (
     <Routes>
+      <Route
+        path="/learn"
+        element={(
+          <CompetitionErrorBoundary>
+            <CompetitionViz />
+          </CompetitionErrorBoundary>
+        )}
+      />
+      <Route
+        path="/viz"
+        element={(
+          <CompetitionErrorBoundary>
+            <CompetitionViz />
+          </CompetitionErrorBoundary>
+        )}
+      />
       <Route path="/faq" element={<CompetitionFaqPage snapshot={snapshot} />} />
       <Route path="*" element={<CompetitionLeaderboardPage snapshot={snapshot} />} />
     </Routes>
