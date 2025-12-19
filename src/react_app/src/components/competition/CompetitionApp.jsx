@@ -4,6 +4,7 @@ import CompetitionLayout from "./CompetitionLayout";
 import StableLeaderboardView from "./StableLeaderboardView";
 import CompetitionFaq from "./CompetitionFaq";
 import CompetitionViz from "./CompetitionViz";
+import CompetitionErrorBoundary from "./CompetitionErrorBoundary";
 import useCompetitionSnapshot from "../../hooks/useCompetitionSnapshot";
 
 const resolveMainSiteUrl = () => {
@@ -191,8 +192,22 @@ const CompetitionRoutes = () => {
 
   return (
     <Routes>
-      <Route path="/learn" element={<CompetitionViz />} />
-      <Route path="/viz" element={<CompetitionViz />} />
+      <Route
+        path="/learn"
+        element={(
+          <CompetitionErrorBoundary>
+            <CompetitionViz />
+          </CompetitionErrorBoundary>
+        )}
+      />
+      <Route
+        path="/viz"
+        element={(
+          <CompetitionErrorBoundary>
+            <CompetitionViz />
+          </CompetitionErrorBoundary>
+        )}
+      />
       <Route path="/faq" element={<CompetitionFaqPage snapshot={snapshot} />} />
       <Route path="*" element={<CompetitionLeaderboardPage snapshot={snapshot} />} />
     </Routes>

@@ -1,4 +1,4 @@
-import React, { useEffect, useRef } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import { Link } from "react-router-dom";
 import "./CompetitionViz.css";
 
@@ -160,6 +160,7 @@ const SCENE_DATA = {
 };
 
 const CompetitionViz = () => {
+  const [unsupported, setUnsupported] = useState(null);
   const rootRef = useRef(null);
   const canvasRef = useRef(null);
   const canvasContainerRef = useRef(null);
@@ -168,6 +169,17 @@ const CompetitionViz = () => {
   const convergenceCanvasRef = useRef(null);
 
   useEffect(() => {
+    const resizeSupported = typeof ResizeObserver !== "undefined";
+    const contextSupported = Boolean(canvasRef.current?.getContext?.("2d"));
+    if (!resizeSupported) {
+      setUnsupported("This interactive explainer needs a modern browser that supports ResizeObserver.");
+      return undefined;
+    }
+    if (!contextSupported) {
+      setUnsupported("Canvas rendering is not available in this browser.");
+      return undefined;
+    }
+
     let animationFrameId = null;
     let autoRunTimeout = null;
     let resizeTimeout = null;
@@ -1384,303 +1396,328 @@ const CompetitionViz = () => {
   }, []);
 
   return (
-    <div
-      ref={rootRef}
-      className="comp-viz relative min-h-screen bg-slate-950 text-slate-100 overflow-x-hidden"
-      style={{ colorScheme: "dark" }}
-    >
-      <div className="comp-viz__ambient fixed inset-0 z-0 pointer-events-none" aria-hidden="true">
-        <div className="comp-viz__grid" />
+    unsupported ? (
+      <div className="min-h-screen bg-slate-950 text-slate-100 flex items-center justify-center px-6">
+        <div className="max-w-lg text-center space-y-3">
+          <h1 className="text-2xl font-semibold">Interactive explainer unavailable</h1>
+          <p className="text-slate-400">
+            {unsupported} Please try a recent version of Chrome, Edge, or Firefox, or view the leaderboard instead.
+          </p>
+          <Link
+            to="/"
+            className="inline-flex items-center justify-center rounded-md bg-white/10 px-4 py-2 text-sm font-medium text-white ring-1 ring-white/10 hover:bg-white/15 transition"
+          >
+            Back to leaderboard
+          </Link>
+        </div>
       </div>
-
-      <a
-        href="#controls"
-        className="comp-viz__skip sr-only focus:not-sr-only focus:fixed focus:top-4 focus:left-4 focus:z-50"
+    ) : (
+      <div
+        ref={rootRef}
+        className="comp-viz relative min-h-screen bg-slate-950 text-slate-100 overflow-x-hidden"
+        style={{ colorScheme: "dark" }}
       >
-        Skip to controls
-      </a>
+        <div className="comp-viz__ambient fixed inset-0 z-0 pointer-events-none" aria-hidden="true">
+          <div className="comp-viz__grid" />
+        </div>
 
-      <div className="relative z-10">
-        <header className="px-4 sm:px-6 pt-6">
-          <div className="max-w-6xl mx-auto">
-            <div className="flex flex-wrap items-center justify-between gap-3">
-              <div className="flex items-center gap-3">
-                <Link
-                  to="/"
-                  className="rounded-md bg-white/10 px-2.5 py-1 text-xs font-semibold tracking-wide text-white ring-1 ring-white/15 hover:bg-white/15"
-                >
-                  Back to leaderboard
-                </Link>
-                <span className="text-xs text-slate-400">Ranking Simulator</span>
-              </div>
-            </div>
+        <a
+          href="#controls"
+          className="comp-viz__skip sr-only focus:not-sr-only focus:fixed focus:top-4 focus:left-4 focus:z-50"
+        >
+          Skip to controls
+        </a>
 
-            <div className="mt-6">
-              <h1 className="text-3xl sm:text-4xl font-semibold tracking-tight">
-                Ranking Simulator
-              </h1>
-              <p className="mt-3 max-w-2xl text-slate-300">
-                An explorable view of the competitive ranking engine. Scores flow from losers to
-                winners, amplifying victories over strong opponents while dampening farmed wins.
-              </p>
-            </div>
-          </div>
-        </header>
-
-        <main className="max-w-6xl mx-auto px-4 sm:px-6 pt-6 pb-16 space-y-6">
-          <div className="grid gap-6 lg:grid-cols-[minmax(0,1.6fr)_minmax(320px,1fr)] items-start">
-            <section className="space-y-4">
-              <div className="comp-viz__panel comp-viz__panel--accent pointer-events-auto p-4">
-                <div className="flex flex-wrap items-start justify-between gap-4">
-                  <div>
-                    <h2 className="text-lg font-semibold text-white">Influence Graph</h2>
-                    <p className="text-sm text-slate-300">
-                      Watch score flow across recent matchups as PageRank iterates.
-                    </p>
-                  </div>
-                  <div className="grid grid-cols-2 gap-3 text-xs text-slate-400 min-w-[240px]">
-                    <div className="flex items-center justify-between">
-                      <span>Players</span>
-                      <span id="nodeCount" className="font-data text-sm text-white">-</span>
-                    </div>
-                    <div className="flex items-center justify-between">
-                      <span>Matchups</span>
-                      <span id="edgeCount" className="font-data text-sm text-white">-</span>
-                    </div>
-                    <div className="flex items-center justify-between">
-                      <span>Damping</span>
-                      <span id="dampingValue" className="font-data text-sm text-white">-</span>
-                    </div>
-                    <div className="flex items-center justify-between">
-                      <span>Threshold</span>
-                      <span id="thresholdValue" className="font-data text-sm text-white">-</span>
-                    </div>
-                  </div>
-                </div>
-
-                <div
-                  ref={canvasContainerRef}
-                  className="comp-viz__canvas-shell mt-4"
-                  role="img"
-                  aria-label="Ranking graph simulation"
-                >
-                  <canvas ref={canvasRef} id="simCanvas" className="comp-viz__canvas" />
-                  <div className="comp-viz__canvas-hint">
-                    Drag nodes and hover edges
-                    <span>Step / Auto to iterate</span>
-                  </div>
-                </div>
-              </div>
-            </section>
-
-            <aside className="space-y-4" id="controls">
-              <div className="comp-viz__panel comp-viz__panel--accent pointer-events-auto p-4">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <h2 className="text-lg font-semibold text-white">
-                      Controls <span className="text-fuchsia-300 font-light">/</span>
-                    </h2>
-                    <p className="text-[11px] text-slate-400">
-                      Step through the ranking loop or auto-run to convergence.
-                    </p>
-                  </div>
-                  <div className="flex items-center gap-1 text-[11px] text-slate-500">
-                    <span className="rounded bg-slate-800/80 px-2 py-1">S</span>
-                    <span className="rounded bg-slate-800/80 px-2 py-1">A</span>
-                    <span className="rounded bg-slate-800/80 px-2 py-1">R</span>
-                    <span className="rounded bg-slate-800/80 px-2 py-1">E</span>
-                  </div>
-                </div>
-
-                <div className="mt-4 grid grid-cols-2 gap-2">
-                  <button
-                    id="btnStep"
-                    className="comp-viz__button comp-viz__button--primary"
-                    aria-label="Step forward one iteration (S or Space)"
+        <div className="relative z-10">
+          <header className="px-4 sm:px-6 pt-6">
+            <div className="max-w-6xl mx-auto">
+              <div className="flex flex-wrap items-center justify-between gap-3">
+                <div className="flex items-center gap-3">
+                  <Link
+                    to="/"
+                    className="rounded-md bg-white/10 px-2.5 py-1 text-xs font-semibold tracking-wide text-white ring-1 ring-white/15 hover:bg-white/15"
                   >
-                    Step
-                  </button>
-                  <button
-                    id="btnAuto"
-                    className="comp-viz__button comp-viz__button--secondary comp-viz__button--auto"
-                    aria-label="Toggle auto run (A)"
-                  >
-                    Auto
-                  </button>
-                </div>
-
-                <div className="mt-4">
-                  <div className="flex items-center justify-between text-[10px] text-slate-400 uppercase tracking-widest">
-                    <label htmlFor="speedSlider">Speed</label>
-                    <span id="speedValue" className="font-data text-slate-200">2x</span>
-                  </div>
-                  <input
-                    type="range"
-                    id="speedSlider"
-                    min="0.5"
-                    max="4"
-                    step="0.5"
-                    defaultValue="2"
-                    className="comp-viz__slider mt-3"
-                    aria-label="Animation speed"
-                  />
-                </div>
-
-                <div className="mt-4 grid grid-cols-2 gap-2">
-                  <button
-                    id="btnReset"
-                    className="comp-viz__button comp-viz__button--ghost"
-                    aria-label="Reset simulation (R)"
-                  >
-                    Reset
-                  </button>
-                  <button
-                    id="btnExport"
-                    className="comp-viz__button comp-viz__button--ghost"
-                    aria-label="Export rankings as CSV (E)"
-                  >
-                    Export
-                  </button>
-                </div>
-
-                <div className="mt-4 border-t border-white/10 pt-4 text-[11px] text-slate-400">
-                  Wins against strong opponents send more score. The loop repeats until the graph
-                  stabilizes.
+                    Back to leaderboard
+                  </Link>
+                  <span className="text-xs text-slate-400">Ranking Simulator</span>
                 </div>
               </div>
 
-              <div className="comp-viz__panel pointer-events-auto p-4">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <h3 className="text-xs font-semibold uppercase tracking-widest text-slate-400">
-                      Simulation State
-                    </h3>
-                    <div className="mt-1 text-2xl font-semibold text-white font-data" id="iterCount">
-                      0
-                    </div>
-                  </div>
-                  <div>
-                    <span
-                      id="statusText"
-                      className="text-[11px] font-semibold text-emerald-300 bg-emerald-500/15 px-2.5 py-1 rounded-full border border-emerald-500/25"
-                    >
-                      Ready
-                    </span>
-                  </div>
-                </div>
-
-                <div className="mt-4">
-                  <div className="flex items-center justify-between text-[10px] uppercase tracking-widest text-slate-400">
-                    <span>Convergence</span>
-                    <span id="deltaValue" className="font-data text-slate-200">-</span>
-                  </div>
-                  <div className="mt-2 h-2 rounded-full bg-slate-900/80 overflow-hidden">
-                    <div
-                      id="deltaBar"
-                      className="h-full w-full bg-gradient-to-r from-fuchsia-500/80 to-purple-400/80 transition-all duration-300"
-                    />
-                  </div>
-                </div>
-              </div>
-
-              <div className="comp-viz__panel pointer-events-auto p-4">
-                <h3 className="text-xs font-semibold uppercase tracking-widest text-slate-400">
-                  Convergence History
-                </h3>
-                <canvas ref={convergenceCanvasRef} id="convergenceCanvas" className="mt-3 h-16 w-full" />
-              </div>
-
-              <div className="comp-viz__panel pointer-events-auto p-4">
-                <div className="flex items-center justify-between">
-                  <h3 className="text-xs font-semibold uppercase tracking-widest text-slate-400">
-                    Insight
-                  </h3>
-                  <span className="text-[10px] text-slate-500">Realtime</span>
-                </div>
-                <p id="insightText" className="mt-3 text-sm text-slate-200 leading-relaxed">
-                  Tap Step or Auto Run to begin. Watch how scores flow from losers to winners.
+              <div className="mt-6">
+                <h1 className="text-3xl sm:text-4xl font-semibold tracking-tight">
+                  Ranking Simulator
+                </h1>
+                <p className="mt-3 max-w-2xl text-slate-300">
+                  An explorable view of the competitive ranking engine. Scores flow from losers to
+                  winners, amplifying victories over strong opponents while dampening farmed wins.
                 </p>
               </div>
+            </div>
+          </header>
 
-              <div className="comp-viz__panel pointer-events-auto p-4">
-                <div className="flex items-center justify-between">
-                  <h3 className="text-xs font-semibold uppercase tracking-widest text-slate-400">
-                    Current Leader
-                  </h3>
-                  <span className="text-[10px] text-fuchsia-200/70">Top Rank</span>
-                </div>
-                <div className="mt-2">
-                  <div id="leaderName" className="text-xl font-semibold text-white">
-                    -
+          <main className="max-w-6xl mx-auto px-4 sm:px-6 pt-6 pb-16 space-y-6">
+            <div className="grid gap-6 lg:grid-cols-[minmax(0,1.6fr)_minmax(320px,1fr)] items-start">
+              <section className="space-y-4">
+                <div className="comp-viz__panel comp-viz__panel--accent pointer-events-auto p-4">
+                  <div className="flex flex-wrap items-start justify-between gap-4">
+                    <div>
+                      <h2 className="text-lg font-semibold text-white">Influence Graph</h2>
+                      <p className="text-sm text-slate-300">
+                        Watch score flow across recent matchups as PageRank iterates.
+                      </p>
+                    </div>
+                    <div className="grid grid-cols-2 gap-3 text-xs text-slate-400 min-w-[240px]">
+                      <div className="flex items-center justify-between">
+                        <span>Players</span>
+                        <span id="nodeCount" className="font-data text-sm text-white">-</span>
+                      </div>
+                      <div className="flex items-center justify-between">
+                        <span>Matchups</span>
+                        <span id="edgeCount" className="font-data text-sm text-white">-</span>
+                      </div>
+                      <div className="flex items-center justify-between">
+                        <span>Damping</span>
+                        <span id="dampingValue" className="font-data text-sm text-white">-</span>
+                      </div>
+                      <div className="flex items-center justify-between">
+                        <span>Threshold</span>
+                        <span id="thresholdValue" className="font-data text-sm text-white">-</span>
+                      </div>
+                    </div>
                   </div>
-                  <div className="mt-2 grid grid-cols-2 gap-3 text-[11px] text-slate-400">
-                    <div>
-                      Score <span id="leaderScore" className="font-data text-slate-100">-</span>
-                    </div>
-                    <div>
-                      Skill <span id="leaderSkill" className="font-data text-slate-100">-</span>
-                    </div>
-                    <div>
-                      Wins <span id="leaderWins" className="font-data text-slate-100">-</span>
-                    </div>
-                    <div>
-                      Avg Opp <span id="leaderOpp" className="font-data">-</span>
-                    </div>
-                  </div>
-                </div>
-              </div>
 
-              <div className="comp-viz__panel pointer-events-auto p-4">
-                <div className="flex items-center justify-between">
-                  <h3 className="text-xs font-semibold uppercase tracking-widest text-slate-400">
-                    Interaction Guide
-                  </h3>
+                  <div
+                    ref={canvasContainerRef}
+                    className="comp-viz__canvas-shell mt-4"
+                    role="img"
+                    aria-label="Ranking graph simulation"
+                  >
+                    <canvas ref={canvasRef} id="simCanvas" className="comp-viz__canvas" />
+                    <p className="sr-only">
+                      Interactive graph showing players as nodes with edges representing wins. Use S to step,
+                      A to auto-run, R to reset, and E to export. Drag nodes to reposition them.
+                    </p>
+                    <div className="comp-viz__canvas-hint">
+                      Drag nodes and hover edges
+                      <span>Step / Auto to iterate</span>
+                    </div>
+                  </div>
                 </div>
-                <div className="mt-2 grid gap-2 text-[11px] text-slate-400">
+              </section>
+
+              <aside className="space-y-4" id="controls">
+                <div className="comp-viz__panel comp-viz__panel--accent pointer-events-auto p-4">
                   <div className="flex items-center justify-between">
-                    <span>Drag nodes to reposition the graph</span>
-                    <span className="text-slate-500">Mouse</span>
+                    <div>
+                      <h2 className="text-lg font-semibold text-white">
+                        Controls <span className="text-fuchsia-300 font-light">/</span>
+                      </h2>
+                      <p className="text-[11px] text-slate-400">
+                        Step through the ranking loop or auto-run to convergence.
+                      </p>
+                    </div>
+                    <div className="flex items-center gap-1 text-[11px] text-slate-500">
+                      <span className="rounded bg-slate-800/80 px-2 py-1">S</span>
+                      <span className="rounded bg-slate-800/80 px-2 py-1">A</span>
+                      <span className="rounded bg-slate-800/80 px-2 py-1">R</span>
+                      <span className="rounded bg-slate-800/80 px-2 py-1">E</span>
+                    </div>
                   </div>
-                  <div className="flex items-center justify-between">
-                    <span>Highlight wins (green) and losses (red)</span>
-                    <span className="text-slate-500">Hover</span>
+
+                  <div className="mt-4 grid grid-cols-2 gap-2">
+                    <button
+                      id="btnStep"
+                      className="comp-viz__button comp-viz__button--primary"
+                      aria-keyshortcuts="S Space"
+                      aria-label="Step forward one iteration (S or Space)"
+                    >
+                      Step
+                    </button>
+                    <button
+                      id="btnAuto"
+                      className="comp-viz__button comp-viz__button--secondary comp-viz__button--auto"
+                      aria-keyshortcuts="A"
+                      aria-label="Toggle auto run (A)"
+                    >
+                      Auto
+                    </button>
                   </div>
-                  <div className="flex items-center justify-between">
-                    <span>Export the current ranking snapshot</span>
-                    <span className="text-slate-500">E key</span>
+
+                  <div className="mt-4">
+                    <div className="flex items-center justify-between text-[10px] text-slate-400 uppercase tracking-widest">
+                      <label htmlFor="speedSlider">Speed</label>
+                      <span id="speedValue" className="font-data text-slate-200">2x</span>
+                    </div>
+                    <input
+                      type="range"
+                      id="speedSlider"
+                      min="0.5"
+                      max="4"
+                      step="0.5"
+                      defaultValue="2"
+                      className="comp-viz__slider mt-3"
+                      aria-label="Animation speed"
+                    />
+                  </div>
+
+                  <div className="mt-4 grid grid-cols-2 gap-2">
+                    <button
+                      id="btnReset"
+                      className="comp-viz__button comp-viz__button--ghost"
+                      aria-keyshortcuts="R"
+                      aria-label="Reset simulation (R)"
+                    >
+                      Reset
+                    </button>
+                    <button
+                      id="btnExport"
+                      className="comp-viz__button comp-viz__button--ghost"
+                      aria-keyshortcuts="E"
+                      aria-label="Export rankings as CSV (E)"
+                    >
+                      Export
+                    </button>
+                  </div>
+
+                  <div className="mt-4 border-t border-white/10 pt-4 text-[11px] text-slate-400">
+                    Wins against strong opponents send more score. The loop repeats until the graph
+                    stabilizes.
                   </div>
                 </div>
-              </div>
-            </aside>
-          </div>
 
-          <div>
-            <div className="comp-viz__panel pointer-events-auto grid gap-6 lg:grid-cols-2 p-4">
-              <div>
-                <div className="flex items-center justify-between mb-3">
+                <div className="comp-viz__panel pointer-events-auto p-4">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <h3 className="text-xs font-semibold uppercase tracking-widest text-slate-400">
+                        Simulation State
+                      </h3>
+                      <div className="mt-1 text-2xl font-semibold text-white font-data" id="iterCount">
+                        0
+                      </div>
+                    </div>
+                    <div>
+                      <span
+                        id="statusText"
+                        className="text-[11px] font-semibold text-emerald-300 bg-emerald-500/15 px-2.5 py-1 rounded-full border border-emerald-500/25"
+                      >
+                        Ready
+                      </span>
+                    </div>
+                  </div>
+
+                  <div className="mt-4">
+                    <div className="flex items-center justify-between text-[10px] uppercase tracking-widest text-slate-400">
+                      <span>Convergence</span>
+                      <span id="deltaValue" className="font-data text-slate-200">-</span>
+                    </div>
+                    <div className="mt-2 h-2 rounded-full bg-slate-900/80 overflow-hidden">
+                      <div
+                        id="deltaBar"
+                        className="h-full w-full bg-gradient-to-r from-fuchsia-500/80 to-purple-400/80 transition-all duration-300"
+                      />
+                    </div>
+                  </div>
+                </div>
+
+                <div className="comp-viz__panel pointer-events-auto p-4">
                   <h3 className="text-xs font-semibold uppercase tracking-widest text-slate-400">
-                    Skill vs Score
+                    Convergence History
                   </h3>
-                  <span id="correlationValue" className="font-data text-fuchsia-200 text-xs">
-                    r = -
-                  </span>
+                  <canvas ref={convergenceCanvasRef} id="convergenceCanvas" className="mt-3 h-16 w-full" />
                 </div>
-                <canvas ref={scatterCanvasRef} id="scatterCanvas" className="h-36 w-full" />
-                <div className="mt-2 text-[10px] text-slate-500">True Skill -&gt;</div>
-              </div>
 
-              <div>
-                <h3 className="text-xs font-semibold uppercase tracking-widest text-slate-400 mb-3">
-                  Score Ranking
-                </h3>
-                <canvas ref={barCanvasRef} id="barCanvas" className="h-36 w-full" />
-                <div className="mt-2 text-[10px] text-slate-500">Top 12 by score</div>
+                <div className="comp-viz__panel pointer-events-auto p-4">
+                  <div className="flex items-center justify-between">
+                    <h3 className="text-xs font-semibold uppercase tracking-widest text-slate-400">
+                      Insight
+                    </h3>
+                    <span className="text-[10px] text-slate-500">Realtime</span>
+                  </div>
+                  <p id="insightText" className="mt-3 text-sm text-slate-200 leading-relaxed">
+                    Tap Step or Auto Run to begin. Watch how scores flow from losers to winners.
+                  </p>
+                </div>
+
+                <div className="comp-viz__panel pointer-events-auto p-4">
+                  <div className="flex items-center justify-between">
+                    <h3 className="text-xs font-semibold uppercase tracking-widest text-slate-400">
+                      Current Leader
+                    </h3>
+                    <span className="text-[10px] text-fuchsia-200/70">Top Rank</span>
+                  </div>
+                  <div className="mt-2">
+                    <div id="leaderName" className="text-xl font-semibold text-white">
+                      -
+                    </div>
+                    <div className="mt-2 grid grid-cols-2 gap-3 text-[11px] text-slate-400">
+                      <div>
+                        Score <span id="leaderScore" className="font-data text-slate-100">-</span>
+                      </div>
+                      <div>
+                        Skill <span id="leaderSkill" className="font-data text-slate-100">-</span>
+                      </div>
+                      <div>
+                        Wins <span id="leaderWins" className="font-data text-slate-100">-</span>
+                      </div>
+                      <div>
+                        Avg Opp <span id="leaderOpp" className="font-data">-</span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="comp-viz__panel pointer-events-auto p-4">
+                  <div className="flex items-center justify-between">
+                    <h3 className="text-xs font-semibold uppercase tracking-widest text-slate-400">
+                      Interaction Guide
+                    </h3>
+                  </div>
+                  <div className="mt-2 grid gap-2 text-[11px] text-slate-400">
+                    <div className="flex items-center justify-between">
+                      <span>Drag nodes to reposition the graph</span>
+                      <span className="text-slate-500">Mouse</span>
+                    </div>
+                    <div className="flex items-center justify-between">
+                      <span>Highlight wins (green) and losses (red)</span>
+                      <span className="text-slate-500">Hover</span>
+                    </div>
+                    <div className="flex items-center justify-between">
+                      <span>Export the current ranking snapshot</span>
+                      <span className="text-slate-500">E key</span>
+                    </div>
+                  </div>
+                </div>
+              </aside>
+            </div>
+
+            <div>
+              <div className="comp-viz__panel pointer-events-auto grid gap-6 lg:grid-cols-2 p-4">
+                <div>
+                  <div className="flex items-center justify-between mb-3">
+                    <h3 className="text-xs font-semibold uppercase tracking-widest text-slate-400">
+                      Skill vs Score
+                    </h3>
+                    <span id="correlationValue" className="font-data text-fuchsia-200 text-xs">
+                      r = -
+                    </span>
+                  </div>
+                  <canvas ref={scatterCanvasRef} id="scatterCanvas" className="h-36 w-full" />
+                  <div className="mt-2 text-[10px] text-slate-500">True Skill -&gt;</div>
+                </div>
+
+                <div>
+                  <h3 className="text-xs font-semibold uppercase tracking-widest text-slate-400 mb-3">
+                    Score Ranking
+                  </h3>
+                  <canvas ref={barCanvasRef} id="barCanvas" className="h-36 w-full" />
+                  <div className="mt-2 text-[10px] text-slate-500">Top 12 by score</div>
+                </div>
               </div>
             </div>
-          </div>
-        </main>
+          </main>
+        </div>
       </div>
-    </div>
+    )
   );
 };
 
