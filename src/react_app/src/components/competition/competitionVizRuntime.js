@@ -53,9 +53,9 @@ export const createCompetitionVizRuntime = ({
   };
 
   const STATUS_CLASS_TEAL =
-    "text-[11px] font-semibold text-[#22d3d3] bg-[#22d3d3]/15 px-2.5 py-1 rounded-full border border-[#22d3d3]/25";
+    "inline-flex items-center leading-none text-[11px] font-semibold text-[#22d3d3] bg-[#22d3d3]/15 px-3 py-1.5 rounded-full border border-[#22d3d3]/25";
   const STATUS_CLASS_PURPLE =
-    "text-[11px] font-semibold text-[#a855f7] bg-[#a855f7]/15 px-2.5 py-1 rounded-full border border-[#a855f7]/25";
+    "inline-flex items-center leading-none text-[11px] font-semibold text-[#a855f7] bg-[#a855f7]/15 px-3 py-1.5 rounded-full border border-[#a855f7]/25";
 
   let width = 0;
   let height = 0;

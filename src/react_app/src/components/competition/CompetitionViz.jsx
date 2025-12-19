@@ -458,7 +458,7 @@ const CompetitionViz = () => {
                       <span
                         ref={statusTextRef}
                         id="statusText"
-                        className="text-[11px] font-semibold text-[#22d3d3] bg-[#22d3d3]/15 px-2.5 py-1 rounded-full border border-[#22d3d3]/25"
+                        className="inline-flex items-center leading-none text-[11px] font-semibold text-[#22d3d3] bg-[#22d3d3]/15 px-3 py-1.5 rounded-full border border-[#22d3d3]/25"
                       >
                         Ready
                       </span>
