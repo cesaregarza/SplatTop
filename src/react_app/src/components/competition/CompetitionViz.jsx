@@ -222,16 +222,16 @@ const CompetitionViz = () => {
 
   return (
     unsupported ? (
-      <div className="min-h-screen bg-slate-950 text-slate-100 flex items-center justify-center px-6">
+      <div className="min-h-screen bg-[#0d1117] text-[#c9d1d9] flex items-center justify-center px-6">
         <div className="max-w-lg text-center space-y-3">
           <h1 className="text-2xl font-semibold">Interactive explainer unavailable</h1>
-          <p className="text-slate-400">
+          <p className="text-[#8b949e]">
             {unsupported} Please try a recent version of Chrome, Edge, or Firefox, or view the leaderboard
             instead.
           </p>
           <Link
             to="/"
-            className="inline-flex items-center justify-center rounded-md bg-white/10 px-4 py-2 text-sm font-medium text-white ring-1 ring-white/10 hover:bg-white/15 transition"
+            className="inline-flex items-center justify-center rounded-full bg-white/[0.03] px-4 py-2 text-sm font-semibold text-[#c9d1d9] border border-white/10 hover:bg-white/[0.06] transition"
           >
             Back to leaderboard
           </Link>
@@ -240,7 +240,7 @@ const CompetitionViz = () => {
     ) : (
       <div
         ref={rootRef}
-        className="comp-viz relative min-h-screen bg-slate-950 text-slate-100 overflow-x-hidden"
+        className="comp-viz relative min-h-screen bg-[#0d1117] text-[#c9d1d9] overflow-x-hidden"
         style={{ colorScheme: "dark" }}
       >
         <div className="comp-viz__ambient fixed inset-0 z-0 pointer-events-none" aria-hidden="true">
@@ -261,17 +261,17 @@ const CompetitionViz = () => {
                 <div className="flex items-center gap-3">
                   <Link
                     to="/"
-                    className="rounded-md bg-white/10 px-2.5 py-1 text-xs font-semibold tracking-wide text-white ring-1 ring-white/15 hover:bg-white/15"
+                    className="rounded-full bg-white/[0.03] px-3 py-1.5 text-xs font-semibold tracking-wide text-[#c9d1d9] border border-white/10 hover:bg-white/[0.06]"
                   >
                     Back to leaderboard
                   </Link>
-                  <span className="text-xs text-slate-400">Ranking Simulator</span>
+                  <span className="text-xs text-[#8b949e]">Ranking Simulator</span>
                 </div>
               </div>
 
               <div className="mt-6">
                 <h1 className="text-3xl sm:text-4xl font-semibold tracking-tight">Ranking Simulator</h1>
-                <p className="mt-3 max-w-2xl text-slate-300">
+                <p className="mt-3 max-w-2xl text-[#8b949e]">
                   An explorable view of the competitive ranking engine. Scores flow from losers to winners,
                   amplifying victories over strong opponents while dampening farmed wins.
                 </p>
@@ -282,15 +282,15 @@ const CompetitionViz = () => {
           <main className="max-w-6xl mx-auto px-4 sm:px-6 pt-6 pb-16 space-y-6">
             <div className="grid gap-6 lg:grid-cols-[minmax(0,1.6fr)_minmax(320px,1fr)] items-start">
               <section className="space-y-4">
-                <div className="comp-viz__panel comp-viz__panel--accent pointer-events-auto p-4">
+                <div className="comp-viz__panel comp-viz__panel--accent pointer-events-auto p-6">
                   <div className="flex flex-wrap items-start justify-between gap-4">
                     <div>
                       <h2 className="text-lg font-semibold text-white">Influence Graph</h2>
-                      <p className="text-sm text-slate-300">
+                      <p className="text-sm text-[#8b949e]">
                         Watch score flow across recent matchups as PageRank iterates.
                       </p>
                     </div>
-                    <div className="grid grid-cols-2 gap-3 text-xs text-slate-400 min-w-[240px]">
+                    <div className="grid grid-cols-2 gap-3 text-xs text-[#8b949e] min-w-[240px]">
                       <div className="flex items-center justify-between">
                         <span>Players</span>
                         <span ref={nodeCountRef} id="nodeCount" className="font-data text-sm text-white">
@@ -350,17 +350,17 @@ const CompetitionViz = () => {
               </section>
 
               <aside className="space-y-4" id="controls">
-                <div className="comp-viz__panel comp-viz__panel--accent pointer-events-auto p-4">
+                <div className="comp-viz__panel comp-viz__panel--accent pointer-events-auto p-6">
                   <div className="flex items-center justify-between">
                     <div>
                       <h2 className="text-lg font-semibold text-white">
-                        Controls <span className="text-fuchsia-300 font-light">/</span>
+                        Controls <span className="text-[#a855f7] font-light">/</span>
                       </h2>
-                      <p className="text-[11px] text-slate-400">
+                      <p className="text-[11px] text-[#8b949e]">
                         Step through the ranking loop or auto-run to convergence.
                       </p>
                     </div>
-                    <div className="flex items-center gap-1 text-[11px] text-slate-500">
+                    <div className="flex items-center gap-1 text-[11px] text-[#8b949e]">
                       <span className="rounded bg-slate-800/80 px-2 py-1">S</span>
                       <span className="rounded bg-slate-800/80 px-2 py-1">A</span>
                       <span className="rounded bg-slate-800/80 px-2 py-1">R</span>
@@ -392,7 +392,7 @@ const CompetitionViz = () => {
                   </div>
 
                   <div className="mt-4">
-                    <div className="flex items-center justify-between text-[10px] text-slate-400 uppercase tracking-widest">
+                    <div className="flex items-center justify-between text-[10px] text-[#8b949e] uppercase tracking-widest">
                       <label htmlFor="speedSlider">Speed</label>
                       <span ref={speedValueRef} id="speedValue" className="font-data text-slate-200">
                         2x
@@ -435,15 +435,15 @@ const CompetitionViz = () => {
                     </button>
                   </div>
 
-                  <div className="mt-4 border-t border-white/10 pt-4 text-[11px] text-slate-400">
+                  <div className="mt-4 border-t border-white/10 pt-4 text-[11px] text-[#8b949e]">
                     Wins against strong opponents send more score. The loop repeats until the graph stabilizes.
                   </div>
                 </div>
 
-                <div className="comp-viz__panel pointer-events-auto p-4">
+                <div className="comp-viz__panel pointer-events-auto p-6">
                   <div className="flex items-center justify-between">
                     <div>
-                      <h3 className="text-xs font-semibold uppercase tracking-widest text-slate-400">
+                      <h3 className="text-xs font-semibold uppercase tracking-widest text-[#8b949e]">
                         Simulation State
                       </h3>
                       <div
@@ -458,7 +458,7 @@ const CompetitionViz = () => {
                       <span
                         ref={statusTextRef}
                         id="statusText"
-                        className="text-[11px] font-semibold text-emerald-300 bg-emerald-500/15 px-2.5 py-1 rounded-full border border-emerald-500/25"
+                        className="text-[11px] font-semibold text-[#22d3d3] bg-[#22d3d3]/15 px-2.5 py-1 rounded-full border border-[#22d3d3]/25"
                       >
                         Ready
                       </span>
@@ -466,53 +466,53 @@ const CompetitionViz = () => {
                   </div>
 
                   <div className="mt-4">
-                    <div className="flex items-center justify-between text-[10px] uppercase tracking-widest text-slate-400">
+                    <div className="flex items-center justify-between text-[10px] uppercase tracking-widest text-[#8b949e]">
                       <span>Convergence</span>
                       <span ref={deltaValueRef} id="deltaValue" className="font-data text-slate-200">
                         -
                       </span>
                     </div>
-                    <div className="mt-2 h-2 rounded-full bg-slate-900/80 overflow-hidden">
+                    <div className="mt-2 h-2 rounded-full bg-white/5 overflow-hidden">
                       <div
                         ref={deltaBarRef}
                         id="deltaBar"
-                        className="h-full w-full bg-gradient-to-r from-fuchsia-500/80 to-purple-400/80 transition-all duration-300"
+                        className="h-full w-full bg-gradient-to-r from-[#a855f7]/80 to-[#7c3aed]/80 transition-all duration-300"
                       />
                     </div>
                   </div>
                 </div>
 
-                <div className="comp-viz__panel pointer-events-auto p-4">
-                  <h3 className="text-xs font-semibold uppercase tracking-widest text-slate-400">
+                <div className="comp-viz__panel pointer-events-auto p-6">
+                  <h3 className="text-xs font-semibold uppercase tracking-widest text-[#8b949e]">
                     Convergence History
                   </h3>
                   <canvas ref={convergenceCanvasRef} id="convergenceCanvas" className="mt-3 h-16 w-full" />
                 </div>
 
-                <div className="comp-viz__panel pointer-events-auto p-4">
+                <div className="comp-viz__panel pointer-events-auto p-6">
                   <div className="flex items-center justify-between">
-                    <h3 className="text-xs font-semibold uppercase tracking-widest text-slate-400">
+                    <h3 className="text-xs font-semibold uppercase tracking-widest text-[#8b949e]">
                       Insight
                     </h3>
-                    <span className="text-[10px] text-slate-500">Realtime</span>
+                    <span className="text-[10px] text-[#8b949e]">Realtime</span>
                   </div>
-                  <p ref={insightTextRef} id="insightText" className="mt-3 text-sm text-slate-200 leading-relaxed">
+                  <p ref={insightTextRef} id="insightText" className="mt-3 text-sm text-[#c9d1d9] leading-relaxed">
                     Tap Step or Auto Run to begin. Watch how scores flow from losers to winners.
                   </p>
                 </div>
 
-                <div className="comp-viz__panel pointer-events-auto p-4">
+                <div className="comp-viz__panel pointer-events-auto p-6">
                   <div className="flex items-center justify-between">
-                    <h3 className="text-xs font-semibold uppercase tracking-widest text-slate-400">
+                    <h3 className="text-xs font-semibold uppercase tracking-widest text-[#8b949e]">
                       Current Leader
                     </h3>
-                    <span className="text-[10px] text-fuchsia-200/70">Top Rank</span>
+                    <span className="text-[10px] text-[#a855f7]/70">Top Rank</span>
                   </div>
                   <div className="mt-2">
                     <div ref={leaderNameRef} id="leaderName" className="text-xl font-semibold text-white">
                       -
                     </div>
-                    <div className="mt-2 grid grid-cols-2 gap-3 text-[11px] text-slate-400">
+                    <div className="mt-2 grid grid-cols-2 gap-3 text-[11px] text-[#8b949e]">
                       <div>
                         Score{" "}
                         <span ref={leaderScoreRef} id="leaderScore" className="font-data text-slate-100">
@@ -533,7 +533,7 @@ const CompetitionViz = () => {
                       </div>
                       <div>
                         Avg Opp{" "}
-                        <span ref={leaderOppRef} id="leaderOpp" className="font-data">
+                        <span ref={leaderOppRef} id="leaderOpp" className="font-data text-slate-100">
                           -
                         </span>
                       </div>
@@ -541,24 +541,24 @@ const CompetitionViz = () => {
                   </div>
                 </div>
 
-                <div className="comp-viz__panel pointer-events-auto p-4">
+                <div className="comp-viz__panel pointer-events-auto p-6">
                   <div className="flex items-center justify-between">
-                    <h3 className="text-xs font-semibold uppercase tracking-widest text-slate-400">
+                    <h3 className="text-xs font-semibold uppercase tracking-widest text-[#8b949e]">
                       Interaction Guide
                     </h3>
                   </div>
-                  <div className="mt-2 grid gap-2 text-[11px] text-slate-400">
+                  <div className="mt-2 grid gap-2 text-[11px] text-[#8b949e]">
                     <div className="flex items-center justify-between">
                       <span>Drag nodes to reposition the graph</span>
-                      <span className="text-slate-500">Mouse</span>
+                      <span className="text-slate-200">Mouse</span>
                     </div>
                     <div className="flex items-center justify-between">
-                      <span>Highlight wins (green) and losses (red)</span>
-                      <span className="text-slate-500">Hover</span>
+                      <span>Hover nodes to highlight influence</span>
+                      <span className="text-slate-200">Hover</span>
                     </div>
                     <div className="flex items-center justify-between">
                       <span>Export the current ranking snapshot</span>
-                      <span className="text-slate-500">E key</span>
+                      <span className="text-slate-200">E key</span>
                     </div>
                   </div>
                 </div>
@@ -566,30 +566,30 @@ const CompetitionViz = () => {
             </div>
 
             <div>
-              <div className="comp-viz__panel pointer-events-auto grid gap-6 lg:grid-cols-2 p-4">
+              <div className="comp-viz__panel pointer-events-auto grid gap-6 lg:grid-cols-2 p-6">
                 <div>
                   <div className="flex items-center justify-between mb-3">
-                    <h3 className="text-xs font-semibold uppercase tracking-widest text-slate-400">
+                    <h3 className="text-xs font-semibold uppercase tracking-widest text-[#8b949e]">
                       Skill vs Score
                     </h3>
                     <span
                       ref={correlationValueRef}
                       id="correlationValue"
-                      className="font-data text-fuchsia-200 text-xs"
+                      className="font-data text-[#a855f7] text-xs"
                     >
                       r = -
                     </span>
                   </div>
                   <canvas ref={scatterCanvasRef} id="scatterCanvas" className="h-36 w-full" />
-                  <div className="mt-2 text-[10px] text-slate-500">True Skill -&gt;</div>
+                  <div className="mt-2 text-[10px] text-[#8b949e]">True Skill -&gt;</div>
                 </div>
 
                 <div>
-                  <h3 className="text-xs font-semibold uppercase tracking-widest text-slate-400 mb-3">
+                  <h3 className="text-xs font-semibold uppercase tracking-widest text-[#8b949e] mb-3">
                     Score Ranking
                   </h3>
                   <canvas ref={barCanvasRef} id="barCanvas" className="h-36 w-full" />
-                  <div className="mt-2 text-[10px] text-slate-500">Top 12 by score</div>
+                  <div className="mt-2 text-[10px] text-[#8b949e]">Top 12 by score</div>
                 </div>
               </div>
             </div>
@@ -601,4 +601,3 @@ const CompetitionViz = () => {
 };
 
 export default CompetitionViz;
-

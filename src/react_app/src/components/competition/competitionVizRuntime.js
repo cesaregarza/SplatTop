@@ -44,13 +44,18 @@ export const createCompetitionVizRuntime = ({
       convergenceThreshold: 0.005,
     },
     colors: {
-      edgeBase: "100, 116, 139",
-      particle: "#38bdf8",
+      edgeBase: "168, 85, 247",
+      particle: "#a855f7",
       text: "#f8fafc",
-      highlightIn: "#34d399",
-      highlightOut: "#fb7185",
+      highlightIn: "#c084fc",
+      highlightOut: "#7c3aed",
     },
   };
+
+  const STATUS_CLASS_TEAL =
+    "text-[11px] font-semibold text-[#22d3d3] bg-[#22d3d3]/15 px-2.5 py-1 rounded-full border border-[#22d3d3]/25";
+  const STATUS_CLASS_PURPLE =
+    "text-[11px] font-semibold text-[#a855f7] bg-[#a855f7]/15 px-2.5 py-1 rounded-full border border-[#a855f7]/25";
 
   let width = 0;
   let height = 0;
@@ -236,7 +241,7 @@ export const createCompetitionVizRuntime = ({
       context.textBaseline = "middle";
       context.fillText(this.rank.toFixed(2), this.x, this.y);
 
-      context.fillStyle = "#cbd5f5";
+      context.fillStyle = "#c9d1d9";
       context.font = "10px ui-sans-serif, system-ui, sans-serif";
       const shortName = this.label.split(" ")[0];
       context.fillText(shortName, this.x, this.y + this.displayRadius + 18);
@@ -246,9 +251,9 @@ export const createCompetitionVizRuntime = ({
       const r1 = 124;
       const g1 = 58;
       const b1 = 237;
-      const r2 = 217;
-      const g2 = 70;
-      const b2 = 239;
+      const r2 = 168;
+      const g2 = 85;
+      const b2 = 247;
 
       const r = Math.round(r1 + (r2 - r1) * t);
       const g = Math.round(g1 + (g2 - g1) * t);
@@ -288,12 +293,12 @@ export const createCompetitionVizRuntime = ({
         strokeStyle = CONFIG.colors.highlightOut;
         lineWidth = Math.min(3.5, 1.4 + this.weight * 0.3);
       } else if (highlightMode === "dimmed") {
-        strokeStyle = `rgba(${CONFIG.colors.edgeBase}, 0.05)`;
+        strokeStyle = `rgba(${CONFIG.colors.edgeBase}, 0.03)`;
         lineWidth = 1;
       } else {
-        const alpha = Math.min(0.8, 0.12 + this.weight / 16);
+        const alpha = Math.min(0.26, 0.08 + this.weight / 80);
         strokeStyle = `rgba(${CONFIG.colors.edgeBase}, ${alpha})`;
-        lineWidth = Math.min(5.5, 1 + this.weight * 0.35);
+        lineWidth = Math.min(3.5, 0.9 + this.weight * 0.2);
       }
 
       context.beginPath();
@@ -569,15 +574,13 @@ export const createCompetitionVizRuntime = ({
     if (totalDelta < CONFIG.physics.convergenceThreshold) {
       stopAutoRun();
       ui.statusText.textContent = "Stable";
-      ui.statusText.className =
-        "text-[11px] font-semibold text-amber-300 bg-amber-500/15 px-2.5 py-1 rounded-full border border-amber-500/25";
+      ui.statusText.className = STATUS_CLASS_TEAL;
       updateUI();
       return;
     }
 
     ui.statusText.textContent = "Ready";
-    ui.statusText.className =
-      "text-[11px] font-semibold text-emerald-300 bg-emerald-500/15 px-2.5 py-1 rounded-full border border-emerald-500/25";
+    ui.statusText.className = STATUS_CLASS_TEAL;
 
     updateUI();
 
@@ -596,8 +599,7 @@ export const createCompetitionVizRuntime = ({
     isAnimating = true;
 
     ui.statusText.textContent = "Computing";
-    ui.statusText.className =
-      "text-[11px] font-semibold text-cyan-200 bg-cyan-500/15 px-2.5 py-1 rounded-full border border-cyan-500/25";
+    ui.statusText.className = STATUS_CLASS_PURPLE;
 
     ui.btnStep.disabled = true;
   };
@@ -621,8 +623,8 @@ export const createCompetitionVizRuntime = ({
       boxY = height - boxHeight - 20;
     }
 
-    context.fillStyle = "rgba(15, 23, 42, 0.96)";
-    context.strokeStyle = "rgba(217, 70, 239, 0.65)";
+    context.fillStyle = "rgba(13, 17, 23, 0.92)";
+    context.strokeStyle = "rgba(168, 85, 247, 0.55)";
     context.lineWidth = 1;
     context.beginPath();
 
@@ -642,19 +644,14 @@ export const createCompetitionVizRuntime = ({
     context.fillText(node.label.split(" ")[0], boxX + padding, boxY + padding);
 
     context.font = "11px ui-sans-serif, system-ui, sans-serif";
-    context.fillStyle = "#94a3b8";
+    context.fillStyle = "#8b949e";
 
     context.fillText(`Score: ${node.rank.toFixed(3)}`, boxX + padding, boxY + padding + 20);
     context.fillText(`True Skill: ${node.trueSkill}`, boxX + padding, boxY + padding + 36);
     context.fillText(`Total Wins: ${node.totalWins}`, boxX + padding, boxY + padding + 52);
 
     context.fillText("Avg Opp Skill:", boxX + padding, boxY + padding + 68);
-    context.fillStyle =
-      node.avgOpponentSkill > 1.2
-        ? "#34d399"
-        : node.avgOpponentSkill < 0.8
-        ? "#fb7185"
-        : "#fbbf24";
+    context.fillStyle = "#c9d1d9";
     context.fillText(node.avgOpponentSkill.toFixed(2), boxX + padding + 86, boxY + padding + 68);
 
     context.fillStyle = CONFIG.colors.highlightIn;
@@ -683,7 +680,7 @@ export const createCompetitionVizRuntime = ({
       chartCtx.fillStyle = node.getHeatColor(heat);
       chartCtx.fillRect(x, y, barWidth, barHeight);
 
-      chartCtx.fillStyle = "#94a3b8";
+      chartCtx.fillStyle = "#8b949e";
       chartCtx.font = "9px ui-sans-serif, system-ui, sans-serif";
       chartCtx.textAlign = "center";
       const shortLabel = node.label.split(" ")[0];
@@ -711,7 +708,7 @@ export const createCompetitionVizRuntime = ({
 
     chartCtx.clearRect(0, 0, chartW, chartH);
 
-    chartCtx.strokeStyle = "#334155";
+    chartCtx.strokeStyle = "rgba(255, 255, 255, 0.12)";
     chartCtx.lineWidth = 1;
     chartCtx.beginPath();
     chartCtx.moveTo(marginLeft, marginTop);
@@ -719,7 +716,7 @@ export const createCompetitionVizRuntime = ({
     chartCtx.lineTo(chartW - marginRight, chartH - marginBottom);
     chartCtx.stroke();
 
-    chartCtx.fillStyle = "#94a3b8";
+    chartCtx.fillStyle = "#8b949e";
     chartCtx.font = "9px ui-sans-serif, system-ui, sans-serif";
     chartCtx.textAlign = "center";
     chartCtx.textBaseline = "top";
@@ -754,7 +751,7 @@ export const createCompetitionVizRuntime = ({
         const slope = (count * sumXY - sumX * sumY) / denom;
         const intercept = (sumY - slope * sumX) / count;
 
-        chartCtx.strokeStyle = "rgba(217, 70, 239, 0.35)";
+        chartCtx.strokeStyle = "rgba(168, 85, 247, 0.35)";
         chartCtx.lineWidth = 1;
         chartCtx.setLineDash([4, 4]);
         chartCtx.beginPath();
@@ -781,7 +778,7 @@ export const createCompetitionVizRuntime = ({
       chartCtx.arc(x, y, 5, 0, Math.PI * 2);
       chartCtx.fill();
 
-      chartCtx.strokeStyle = "rgba(255, 255, 255, 0.35)";
+      chartCtx.strokeStyle = "rgba(255, 255, 255, 0.28)";
       chartCtx.lineWidth = 1;
       chartCtx.stroke();
     });
@@ -809,16 +806,16 @@ export const createCompetitionVizRuntime = ({
 
     if (lastDelta < CONFIG.physics.convergenceThreshold) {
       if (top === topSkill) {
-        ui.insightText.innerHTML = `<strong class="text-amber-300">Converged.</strong> <strong class="text-emerald-300">${top.label.split(" ")[0]}</strong> matches the highest skill player.`;
+        ui.insightText.innerHTML = `<strong class="text-[#22d3d3]">Converged.</strong> <strong class="text-[#a855f7]">${top.label.split(" ")[0]}</strong> matches the highest skill player.`;
       } else {
         const topSkillScorePos = scorePosition.get(topSkill.id);
-        ui.insightText.innerHTML = `<strong class="text-amber-300">Converged.</strong> <strong class="text-white">${top.label.split(" ")[0]}</strong> leads. The highest-skill player (${topSkill.label.split(" ")[0]}) is #${topSkillScorePos}.`;
+        ui.insightText.innerHTML = `<strong class="text-[#22d3d3]">Converged.</strong> <strong class="text-[#a855f7]">${top.label.split(" ")[0]}</strong> leads. The highest-skill player (${topSkill.label.split(" ")[0]}) is #${topSkillScorePos}.`;
       }
       return;
     }
 
     if (iteration <= 3) {
-      ui.insightText.innerHTML = `<strong class="text-cyan-300">Iteration ${iteration}:</strong> scores are redistributing. Beating strong opponents carries more weight.`;
+      ui.insightText.innerHTML = `<strong class="text-[#a855f7]">Iteration ${iteration}:</strong> scores are redistributing. Beating strong opponents carries more weight.`;
       return;
     }
 
@@ -845,14 +842,14 @@ export const createCompetitionVizRuntime = ({
     if (maxRise >= 2 && biggestRiser) {
       const winsPos = winsPosition.get(biggestRiser.id);
       const scorePos = scorePosition.get(biggestRiser.id);
-      ui.insightText.innerHTML = `<strong class="text-cyan-300">${biggestRiser.label.split(" ")[0]}</strong> jumped from #${winsPos} (wins) to <strong class="text-emerald-300">#${scorePos}</strong> (score) on quality opponents.`;
+      ui.insightText.innerHTML = `<strong class="text-[#a855f7]">${biggestRiser.label.split(" ")[0]}</strong> jumped from #${winsPos} (wins) to <strong class="text-[#a855f7]">#${scorePos}</strong> (score) on quality opponents.`;
       return;
     }
 
     if (maxFall <= -2 && biggestFaller) {
       const winsPos = winsPosition.get(biggestFaller.id);
       const scorePos = scorePosition.get(biggestFaller.id);
-      ui.insightText.innerHTML = `<strong class="text-rose-300">${biggestFaller.label.split(" ")[0]}</strong> slid from #${winsPos} (wins) to <strong class="text-rose-300">#${scorePos}</strong> (score) with weaker matchups.`;
+      ui.insightText.innerHTML = `<strong class="text-[#8b949e]">${biggestFaller.label.split(" ")[0]}</strong> slid from #${winsPos} (wins) to <strong class="text-[#8b949e]">#${scorePos}</strong> (score) with weaker matchups.`;
       return;
     }
 
@@ -868,7 +865,7 @@ export const createCompetitionVizRuntime = ({
     chartCtx.clearRect(0, 0, chartW, chartH);
 
     if (convergenceHistory.length < 2) {
-      chartCtx.fillStyle = "#64748b";
+      chartCtx.fillStyle = "#8b949e";
       chartCtx.font = "10px ui-sans-serif, system-ui, sans-serif";
       chartCtx.textAlign = "center";
       chartCtx.fillText("Run the model to see convergence", chartW / 2, chartH / 2);
@@ -883,7 +880,7 @@ export const createCompetitionVizRuntime = ({
       padding -
       (CONFIG.physics.convergenceThreshold / maxDelta) * (chartH - padding * 2);
 
-    chartCtx.strokeStyle = "rgba(251, 191, 36, 0.3)";
+    chartCtx.strokeStyle = "rgba(255, 255, 255, 0.14)";
     chartCtx.lineWidth = 1;
     chartCtx.setLineDash([3, 3]);
     chartCtx.beginPath();
@@ -892,7 +889,7 @@ export const createCompetitionVizRuntime = ({
     chartCtx.stroke();
     chartCtx.setLineDash([]);
 
-    chartCtx.strokeStyle = "#d946ef";
+    chartCtx.strokeStyle = "#a855f7";
     chartCtx.lineWidth = 2;
     chartCtx.beginPath();
 
@@ -912,8 +909,8 @@ export const createCompetitionVizRuntime = ({
     chartCtx.stroke();
 
     const gradient = chartCtx.createLinearGradient(0, 0, 0, chartH);
-    gradient.addColorStop(0, "rgba(217, 70, 239, 0.35)");
-    gradient.addColorStop(1, "rgba(217, 70, 239, 0)");
+    gradient.addColorStop(0, "rgba(168, 85, 247, 0.3)");
+    gradient.addColorStop(1, "rgba(168, 85, 247, 0)");
 
     chartCtx.fillStyle = gradient;
     chartCtx.lineTo(chartW - padding, chartH - padding);
@@ -932,13 +929,7 @@ export const createCompetitionVizRuntime = ({
     ui.leaderWins.textContent = leader.totalWins;
     ui.leaderOpp.textContent = leader.avgOpponentSkill.toFixed(2);
 
-    const oppClass =
-      leader.avgOpponentSkill > 1.2
-        ? "text-emerald-300"
-        : leader.avgOpponentSkill < 0.8
-        ? "text-rose-300"
-        : "text-amber-300";
-    ui.leaderOpp.className = `font-data ${oppClass}`;
+    ui.leaderOpp.className = "font-data text-white";
   };
 
   const tick = () => {
@@ -1113,8 +1104,7 @@ export const createCompetitionVizRuntime = ({
     stopAutoRun();
 
     ui.statusText.textContent = "Ready";
-    ui.statusText.className =
-      "text-[11px] font-semibold text-emerald-300 bg-emerald-500/15 px-2.5 py-1 rounded-full border border-emerald-500/25";
+    ui.statusText.className = STATUS_CLASS_TEAL;
 
     chartsDirty = true;
     updateUI();
