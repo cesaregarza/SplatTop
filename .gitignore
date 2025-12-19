@@ -180,6 +180,18 @@ k8s/secrets.yaml
 !scripts/*.sh
 !scripts/*/*.json
 
+#Admin Scripts
+scripts/admin-curl
+scripts/rotate_admin_token.sh
+scripts/update_admin_secrets_yaml.py
+scripts/generate_api_admin_secrets.py
+check_api_token_usage.py
+check_player_snapshot.py
+create_grafana_basic_auth.py
+e2e_api_token_test.py
+e2e_token_rl.py
+
+
 # Unignore
 !src/react_app/public/*
 !src/react_app/public/locales/*/*.json
