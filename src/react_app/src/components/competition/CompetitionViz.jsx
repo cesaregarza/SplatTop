@@ -222,7 +222,7 @@ const CompetitionViz = () => {
 
   return (
     unsupported ? (
-      <div className="min-h-screen bg-[#0d1117] text-[#c9d1d9] flex items-center justify-center px-6">
+      <div className="min-h-screen bg-slate-950 text-slate-100 flex items-center justify-center px-6">
         <div className="max-w-lg text-center space-y-3">
           <h1 className="text-2xl font-semibold">Interactive explainer unavailable</h1>
           <p className="text-[#8b949e]">
@@ -240,13 +240,9 @@ const CompetitionViz = () => {
     ) : (
       <div
         ref={rootRef}
-        className="comp-viz relative min-h-screen bg-[#0d1117] text-[#c9d1d9] overflow-x-hidden"
+        className="comp-viz relative min-h-screen bg-slate-950 text-slate-100 overflow-x-hidden"
         style={{ colorScheme: "dark" }}
       >
-        <div className="comp-viz__ambient fixed inset-0 z-0 pointer-events-none" aria-hidden="true">
-          <div className="comp-viz__grid" />
-        </div>
-
         <a
           href="#controls"
           className="comp-viz__skip sr-only focus:not-sr-only focus:fixed focus:top-4 focus:left-4 focus:z-50"
@@ -354,7 +350,7 @@ const CompetitionViz = () => {
                   <div className="flex items-center justify-between">
                     <div>
                       <h2 className="text-lg font-semibold text-white">
-                        Controls <span className="text-[#a855f7] font-light">/</span>
+                        Controls <span className="text-fuchsia-300 font-light">/</span>
                       </h2>
                       <p className="text-[11px] text-[#8b949e]">
                         Step through the ranking loop or auto-run to convergence.
@@ -476,7 +472,7 @@ const CompetitionViz = () => {
                       <div
                         ref={deltaBarRef}
                         id="deltaBar"
-                        className="h-full w-full bg-gradient-to-r from-[#a855f7]/80 to-[#7c3aed]/80 transition-all duration-300"
+                        className="h-full w-full bg-gradient-to-r from-fuchsia-500/80 to-fuchsia-600/80 transition-all duration-300"
                       />
                     </div>
                   </div>
@@ -506,7 +502,7 @@ const CompetitionViz = () => {
                     <h3 className="text-xs font-semibold uppercase tracking-widest text-[#8b949e]">
                       Current Leader
                     </h3>
-                    <span className="text-[10px] text-[#a855f7]/70">Top Rank</span>
+                    <span className="text-[10px] text-fuchsia-200/70">Top Rank</span>
                   </div>
                   <div className="mt-2">
                     <div ref={leaderNameRef} id="leaderName" className="text-xl font-semibold text-white">
@@ -575,7 +571,7 @@ const CompetitionViz = () => {
                     <span
                       ref={correlationValueRef}
                       id="correlationValue"
-                      className="font-data text-[#a855f7] text-xs"
+                      className="font-data text-fuchsia-300 text-xs"
                     >
                       r = -
                     </span>
