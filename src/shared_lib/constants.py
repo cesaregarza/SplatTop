@@ -1,4 +1,4 @@
-BASE_CDN_URL = "https://splat-top.nyc3.cdn.digitaloceanspaces.com/"
+BASE_CDN_URL = "https://splat-top.nyc3.cdn.digitaloceanspaces.com/splat-top/"
 MODES = [
     "Splat Zones",
     "Tower Control",
@@ -22,11 +22,11 @@ PLAYER_PUBSUB_CHANNEL = "player_data_channel"
 PLAYER_LATEST_REDIS_KEY = "player_latest_data"
 PLAYER_DATA_REDIS_KEY = "player_data"
 WEAPON_INFO_URL = (
-    "https://splat-top.nyc3.cdn.digitaloceanspaces.com/data/weapon_info.json"
+    "https://splat-top.nyc3.cdn.digitaloceanspaces.com/splat-top/data/weapon_info.json"
 )
 WEAPON_INFO_REDIS_KEY = "weapon_info"
 GAME_TRANSLATION_BASE_URL = (
-    "https://splat-top.nyc3.digitaloceanspaces.com/data/language/%s.json"
+    "https://splat-top.nyc3.cdn.digitaloceanspaces.com/splat-top/data/language/%s.json"
 )
 LANGUAGES = [
     "USen",

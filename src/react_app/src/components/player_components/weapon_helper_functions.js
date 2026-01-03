@@ -59,7 +59,7 @@ function adjustBrightnessByRank(labColor, rank, delta, maxRank, invert) {
 }
 
 function getImageFromId(weaponId, weaponReferenceData) {
-  const baseCDNUrl = "https://splat-top.nyc3.cdn.digitaloceanspaces.com/";
+  const baseCDNUrl = "https://splat-top.nyc3.cdn.digitaloceanspaces.com/splat-top/";
   const weaponData = weaponReferenceData[weaponId];
   const name = `${weaponData.class}_${weaponData.kit}`;
   if (weaponData) {
