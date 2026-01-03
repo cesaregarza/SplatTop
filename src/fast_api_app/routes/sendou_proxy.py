@@ -26,6 +26,7 @@ REQUEST_TIMEOUT = 10.0
 ROUTE_KEY_TOURNAMENT_MATCH = (
     "features/tournament-bracket/routes/to.$id.matches.$mid"
 )
+ROUTE_KEY_TOURNAMENT_TEAM = "features/tournament/routes/to.$id.teams.$tid"
 
 
 async def _fetch_turbo_stream(url: str) -> bytes:
@@ -97,6 +98,54 @@ async def get_tournament_match(
 
     try:
         data = _decode_and_extract(raw_data, ROUTE_KEY_TOURNAMENT_MATCH)
+    except ValueError as e:
+        logger.error("Failed to decode turbo-stream data: %s", e)
+        raise HTTPException(
+            status_code=502,
+            detail="Failed to decode sendou.ink response",
+        )
+
+    return data
+
+
+@router.get(
+    "/to/{tournament_id}/teams/{team_id}",
+    name="sendou-tournament-team",
+    summary="Get tournament team data from sendou.ink",
+    description=(
+        "Proxies the sendou.ink turbo-stream endpoint and returns plain JSON. "
+        "Equivalent to the legacy ?_data format."
+    ),
+)
+async def get_tournament_team(
+    tournament_id: int = Path(..., description="Tournament ID on sendou.ink"),
+    team_id: int = Path(..., description="Team ID within the tournament"),
+) -> Dict[str, Any]:
+    """Fetch and decode tournament team data from sendou.ink."""
+    url = f"{SENDOU_BASE_URL}/to/{tournament_id}/teams/{team_id}.data"
+
+    try:
+        raw_data = await _fetch_turbo_stream(url)
+    except httpx.HTTPStatusError as e:
+        logger.warning(
+            "sendou.ink returned %s for tournament=%s team=%s",
+            e.response.status_code,
+            tournament_id,
+            team_id,
+        )
+        raise HTTPException(
+            status_code=e.response.status_code,
+            detail=f"sendou.ink returned {e.response.status_code}",
+        )
+    except httpx.RequestError as e:
+        logger.error("Failed to fetch from sendou.ink: %s", e)
+        raise HTTPException(
+            status_code=502,
+            detail="Failed to fetch from sendou.ink",
+        )
+
+    try:
+        data = _decode_and_extract(raw_data, ROUTE_KEY_TOURNAMENT_TEAM)
     except ValueError as e:
         logger.error("Failed to decode turbo-stream data: %s", e)
         raise HTTPException(
