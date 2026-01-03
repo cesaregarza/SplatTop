@@ -7,7 +7,7 @@ and returns plain JSON compatible with the legacy ?_data format.
 from __future__ import annotations
 
 import logging
-from typing import Any, Dict
+from typing import Any, Dict, List
 
 import httpx
 import orjson
@@ -27,6 +27,7 @@ ROUTE_KEY_TOURNAMENT_MATCH = (
     "features/tournament-bracket/routes/to.$id.matches.$mid"
 )
 ROUTE_KEY_TOURNAMENT_TEAM = "features/tournament/routes/to.$id.teams.$tid"
+ROUTE_KEY_TOURNAMENT = "features/tournament/routes/to.$id"
 
 
 async def _fetch_turbo_stream(url: str) -> bytes:
@@ -154,3 +155,58 @@ async def get_tournament_team(
         )
 
     return data
+
+
+@router.get(
+    "/to/{tournament_id}/teams",
+    name="sendou-tournament-teams",
+    summary="Get all teams in a tournament from sendou.ink",
+    description=(
+        "Proxies the sendou.ink turbo-stream endpoint and returns the list of teams. "
+        "Each team includes id, name, seed, and members."
+    ),
+)
+async def get_tournament_teams(
+    tournament_id: int = Path(..., description="Tournament ID on sendou.ink"),
+) -> List[Dict[str, Any]]:
+    """Fetch and decode tournament teams list from sendou.ink."""
+    url = f"{SENDOU_BASE_URL}/to/{tournament_id}/teams.data"
+
+    try:
+        raw_data = await _fetch_turbo_stream(url)
+    except httpx.HTTPStatusError as e:
+        logger.warning(
+            "sendou.ink returned %s for tournament=%s teams",
+            e.response.status_code,
+            tournament_id,
+        )
+        raise HTTPException(
+            status_code=e.response.status_code,
+            detail=f"sendou.ink returned {e.response.status_code}",
+        )
+    except httpx.RequestError as e:
+        logger.error("Failed to fetch from sendou.ink: %s", e)
+        raise HTTPException(
+            status_code=502,
+            detail="Failed to fetch from sendou.ink",
+        )
+
+    try:
+        data = _decode_and_extract(raw_data, ROUTE_KEY_TOURNAMENT)
+    except ValueError as e:
+        logger.error("Failed to decode turbo-stream data: %s", e)
+        raise HTTPException(
+            status_code=502,
+            detail="Failed to decode sendou.ink response",
+        )
+
+    # Extract teams from tournament.ctx.teams
+    try:
+        teams = data["data"]["tournament"]["ctx"]["teams"]
+    except (KeyError, TypeError):
+        raise HTTPException(
+            status_code=502,
+            detail="Unexpected response structure from sendou.ink",
+        )
+
+    return teams
