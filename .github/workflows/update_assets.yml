@@ -1,0 +1,38 @@
+name: Update Assets
+
+on:
+  workflow_dispatch: {}
+
+concurrency:
+  group: update-assets
+  cancel-in-progress: false
+
+jobs:
+  update-assets:
+    runs-on: ubuntu-latest
+    environment: SplatTop
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Set up uv
+        uses: astral-sh/setup-uv@v4
+        with:
+          enable-cache: true
+
+      - name: Install script dependencies
+        run: uv sync --frozen --no-default-groups --group scripts --no-install-project
+
+      - name: Run update_assets.py
+        env:
+          DO_SPACES_KEY: ${{ secrets.DO_SPACES_KEY }}
+          DO_SPACES_SECRET: ${{ secrets.DO_SPACES_SECRET }}
+          DO_SPACES_REGION: ${{ secrets.DO_SPACES_REGION }}
+          DO_SPACES_ENDPOINT: ${{ secrets.DO_SPACES_ENDPOINT }}
+          PYTHONPATH: ${{ github.workspace }}/scripts
+        run: uv run --frozen --no-default-groups --group scripts python scripts/update_assets.py
