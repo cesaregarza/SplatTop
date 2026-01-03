@@ -29,6 +29,7 @@ from fast_api_app.routes import (
     ripple_public_router,
     ripple_router,
     search_router,
+    sendou_proxy_router,
     weapon_info_router,
     weapon_leaderboard_router,
 )
@@ -85,6 +86,7 @@ app.include_router(ping_router)
 app.include_router(ripple_docs_router)
 app.include_router(ripple_router)
 app.include_router(ripple_public_router)
+app.include_router(sendou_proxy_router)
 app.include_router(admin_tokens_router)
 
 setup_metrics(app)
