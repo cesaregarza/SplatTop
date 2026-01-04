@@ -1,4 +1,5 @@
 import datetime as dt
+import logging
 
 import orjson
 import requests
@@ -15,6 +16,8 @@ weapon_cache = TTLCache(maxsize=100, ttl=3600)
 badge_cache = TTLCache(maxsize=100, ttl=3600)
 banner_cache = TTLCache(maxsize=100, ttl=3600)
 alt_weapon_cache = TTLCache(maxsize=100, ttl=3600)
+
+logger = logging.getLogger(__name__)
 
 
 def get_seasons(now_date: dt.datetime) -> list[tuple[dt.datetime, str]]:
@@ -125,10 +128,37 @@ def get_banner_image(banner_id: int) -> str:
 
 @cached(alt_weapon_cache)
 def get_all_alt_kits() -> dict[str, str]:
-    response = requests.get(WEAPON_PROCESSED_PATH)
-    weapon_xref: dict[str, dict] = orjson.loads(response.content)
-    return {
-        key: str(value["reference_id"])
-        for key, value in weapon_xref.items()
-        if str(value["reference_id"]) != str(key)
-    }
+    try:
+        response = requests.get(WEAPON_PROCESSED_PATH, timeout=10)
+        response.raise_for_status()
+    except requests.RequestException as exc:
+        logger.warning(
+            "Failed to fetch weapon info (%s): %s",
+            WEAPON_PROCESSED_PATH,
+            exc,
+        )
+        return {}
+
+    try:
+        payload = orjson.loads(response.content)
+    except orjson.JSONDecodeError as exc:
+        logger.warning("Failed to parse weapon info JSON: %s", exc)
+        return {}
+
+    if not isinstance(payload, dict):
+        logger.warning(
+            "Weapon info payload is not a dict (got %s)", type(payload).__name__
+        )
+        return {}
+
+    alt_kits: dict[str, str] = {}
+    for key, value in payload.items():
+        if not isinstance(value, dict):
+            continue
+        reference_id = value.get("reference_id")
+        if reference_id is None:
+            continue
+        if str(reference_id) != str(key):
+            alt_kits[str(key)] = str(reference_id)
+
+    return alt_kits
