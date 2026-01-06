@@ -28,6 +28,7 @@ ROUTE_KEY_TOURNAMENT_MATCH = (
 )
 ROUTE_KEY_TOURNAMENT_TEAM = "features/tournament/routes/to.$id.teams.$tid"
 ROUTE_KEY_TOURNAMENT = "features/tournament/routes/to.$id"
+ROUTE_KEY_Q_MATCH = "features/sendouq-match/routes/q.match.$id"
 
 
 async def _fetch_turbo_stream(url: str) -> bytes:
@@ -210,3 +211,49 @@ async def get_tournament_teams(
         )
 
     return teams
+
+
+@router.get(
+    "/q/match/{match_id}",
+    name="sendou-q-match",
+    summary="Get SendouQ match data from sendou.ink",
+    description=(
+        "Proxies the sendou.ink turbo-stream endpoint and returns plain JSON. "
+        "Equivalent to the legacy ?_data format."
+    ),
+)
+async def get_q_match(
+    match_id: int = Path(..., description="SendouQ match ID"),
+) -> Dict[str, Any]:
+    """Fetch and decode SendouQ match data from sendou.ink."""
+    url = f"{SENDOU_BASE_URL}/q/match/{match_id}.data"
+
+    try:
+        raw_data = await _fetch_turbo_stream(url)
+    except httpx.HTTPStatusError as e:
+        logger.warning(
+            "sendou.ink returned %s for q/match=%s",
+            e.response.status_code,
+            match_id,
+        )
+        raise HTTPException(
+            status_code=e.response.status_code,
+            detail=f"sendou.ink returned {e.response.status_code}",
+        )
+    except httpx.RequestError as e:
+        logger.error("Failed to fetch from sendou.ink: %s", e)
+        raise HTTPException(
+            status_code=502,
+            detail="Failed to fetch from sendou.ink",
+        )
+
+    try:
+        data = _decode_and_extract(raw_data, ROUTE_KEY_Q_MATCH)
+    except ValueError as e:
+        logger.error("Failed to decode turbo-stream data: %s", e)
+        raise HTTPException(
+            status_code=502,
+            detail="Failed to decode sendou.ink response",
+        )
+
+    return data
