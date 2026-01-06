@@ -6,6 +6,7 @@ import uuid
 from contextlib import asynccontextmanager
 
 import httpx
+import orjson
 from fastapi import APIRouter, HTTPException, Request
 from fastapi.responses import HTMLResponse
 from pydantic import BaseModel
@@ -422,7 +423,7 @@ async def infer(inference_request: InferenceRequest, request: Request):
         logger.info(f"Cache hit, hash: {abilities_hash}")
         cache_status = "hit"
         try:
-            predictions = eval(cached_result)
+            predictions = orjson.loads(cached_result)
         except Exception:
             if metrics_enabled():
                 SPLATGPT_ERRORS.labels(stage="cache_deserialize").inc()
@@ -456,7 +457,7 @@ async def infer(inference_request: InferenceRequest, request: Request):
 
             try:
                 pipe = redis_conn.pipeline(transaction=True)
-                pipe.hset(redis_key, abilities_hash, str(predictions))
+                pipe.hset(redis_key, abilities_hash, orjson.dumps(predictions))
                 pipe.expire(redis_key, model_queue.cache_expiration)
                 pipe.execute()
             except RedisError:

@@ -847,26 +847,23 @@ async def _refresh_snapshots_async_once() -> Dict[str, Any]:
 
 async def _refresh_snapshots_async() -> Dict[str, Any]:
     attempts = 0
-    try:
-        while True:
-            try:
-                return await _refresh_snapshots_async_once()
-            except InterfaceError as exc:
-                attempts += 1
-                if attempts >= MAX_REFRESH_RETRIES:
-                    logger.exception(
-                        "Failed to refresh ripple snapshots after %s attempts",
-                        attempts,
-                    )
-                    raise
-                logger.warning(
-                    "Retrying ripple snapshot refresh after InterfaceError: %s",
-                    exc,
+    while True:
+        try:
+            return await _refresh_snapshots_async_once()
+        except InterfaceError as exc:
+            attempts += 1
+            if attempts >= MAX_REFRESH_RETRIES:
+                logger.exception(
+                    "Failed to refresh ripple snapshots after %s attempts",
+                    attempts,
                 )
-                await rankings_async_engine.dispose()
-                await asyncio.sleep(0.5)
-    finally:
-        await rankings_async_engine.dispose()
+                raise
+            logger.warning(
+                "Retrying ripple snapshot refresh after InterfaceError: %s",
+                exc,
+            )
+            await rankings_async_engine.dispose()
+            await asyncio.sleep(0.5)
 
 
 def refresh_ripple_snapshots() -> Dict[str, Any]:

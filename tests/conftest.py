@@ -272,7 +272,7 @@ class FakeRedis:
         return self._counters[key]
 
     # Pipeline for rate limiter and admin ops
-    def pipeline(self):
+    def pipeline(self, transaction: bool = True):
         return _FakePipeline(self)
 
 

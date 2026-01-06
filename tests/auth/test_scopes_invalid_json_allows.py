@@ -1,3 +1,7 @@
+from typing import Any
+
+import pytest
+
 from shared_lib.constants import (
     API_TOKEN_HASH_MAP_PREFIX,
     API_TOKEN_META_PREFIX,
@@ -5,8 +9,12 @@ from shared_lib.constants import (
 )
 
 
-def test_require_scopes_invalid_json_allows(client, fake_redis, monkeypatch):
-    # Build a token with invalid JSON in scopes; should allow access
+def test_require_scopes_invalid_json_denies(
+    client: Any,
+    fake_redis: Any,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    # Build a token with invalid JSON in scopes; should deny access
     from fast_api_app.auth import hash_secret
     from shared_lib.constants import API_TOKEN_PREFIX
 
@@ -34,4 +42,4 @@ def test_require_scopes_invalid_json_allows(client, fake_redis, monkeypatch):
     )
 
     r = client.get("/api/ripple", headers={"authorization": f"Bearer {token}"})
-    assert r.status_code == 200
+    assert r.status_code in (401, 503)

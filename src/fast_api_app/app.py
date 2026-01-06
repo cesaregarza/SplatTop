@@ -16,6 +16,7 @@ from fast_api_app.metrics import setup_metrics
 from fast_api_app.middleware import (
     APITokenRateLimitMiddleware,
     APITokenUsageMiddleware,
+    SecurityHeadersMiddleware,
 )
 from fast_api_app.pubsub import start_pubsub_listener
 from fast_api_app.routes import (
@@ -62,8 +63,10 @@ async def lifespan(app: FastAPI):
 app = FastAPI(lifespan=lifespan)
 app.state.limiter = limiter
 app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
+
+# Middleware execution order is LIFO (last added = first executed)
+# Order: SecurityHeaders -> RateLimit -> CORS -> Usage logging
 app.add_middleware(APITokenUsageMiddleware)
-app.add_middleware(APITokenRateLimitMiddleware)
 
 # Setup CORS - public API, so allow any origin.
 app.add_middleware(
@@ -73,6 +76,12 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+# Rate limiting after CORS so it executes before CORS handles preflight
+app.add_middleware(APITokenRateLimitMiddleware)
+
+# Add security headers to all responses (added last = executed first)
+app.add_middleware(SecurityHeadersMiddleware)
 
 # Register routers
 app.include_router(front_page_router)

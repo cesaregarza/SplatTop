@@ -1,4 +1,5 @@
 import logging
+import threading
 from time import perf_counter
 
 import orjson
@@ -24,6 +25,11 @@ from shared_lib.queries.player_queries import (
 
 logger = logging.getLogger(__name__)
 
+# Thread-safe tracking of in-progress tasks to prevent stale execution
+# when Redis lock TTL expires before task completes
+_in_progress: set[str] = set()
+_in_progress_lock = threading.Lock()
+
 
 def fetch_player_data(player_id: str) -> None:
     """Fetches player data and stores it in Redis.
@@ -33,41 +39,50 @@ def fetch_player_data(player_id: str) -> None:
     """
     logger.info("Running task: fetch_player_data for player_id: %s", player_id)
     task_signature = f"fetch_player_data:{player_id}"
-    already_running = redis_conn.get(task_signature)
 
-    if already_running:
-        logger.info("Task already running. Skipping.")
-        return
-    else:
-        redis_conn.set(task_signature, "true", ex=60)
+    # Check local in-progress tracking first (handles stale Redis locks)
+    with _in_progress_lock:
+        if task_signature in _in_progress:
+            logger.info("Task already running locally. Skipping.")
+            return
+        # Atomic lock acquisition with SETNX
+        if not redis_conn.set(task_signature, "true", nx=True, ex=60):
+            logger.info("Task already running. Skipping.")
+            return
+        _in_progress.add(task_signature)
 
-    cache_key = f"{PLAYER_LATEST_REDIS_KEY}:{player_id}"
-
-    if redis_conn.exists(cache_key):
-        logger.info("Data already exists in cache. Skipping fetch.")
-    else:
-        player_result = _fetch_player_data(player_id)
-        season_result = _fetch_season_data(player_id)
-        result = {
-            "player_data": player_result,
-            "aggregated_data": aggregate_player_data(
-                player_result, season_result, player_id
-            ),
-        }
-        redis_conn.set(cache_key, orjson.dumps(result), ex=60)
-
-    # Publish the data to the player_data_channel
-    redis_conn.publish(
-        PLAYER_PUBSUB_CHANNEL,
-        orjson.dumps(
-            {"player_id": player_id, "key": cache_key, "type": "data"}
-        ),
-    )
     try:
-        redis_conn.delete(task_signature)
-    except Exception as e:
-        logging.error(f"Error deleting task signature: {e}")
-        logging.error("Probably expired before deletion. Proceeding.")
+        cache_key = f"{PLAYER_LATEST_REDIS_KEY}:{player_id}"
+
+        if redis_conn.exists(cache_key):
+            logger.info("Data already exists in cache. Skipping fetch.")
+        else:
+            player_result = _fetch_player_data(player_id)
+            season_result = _fetch_season_data(player_id)
+            result = {
+                "player_data": player_result,
+                "aggregated_data": aggregate_player_data(
+                    player_result, season_result, player_id
+                ),
+            }
+            redis_conn.set(cache_key, orjson.dumps(result), ex=60)
+
+        # Publish the data to the player_data_channel
+        redis_conn.publish(
+            PLAYER_PUBSUB_CHANNEL,
+            orjson.dumps(
+                {"player_id": player_id, "key": cache_key, "type": "data"}
+            ),
+        )
+    finally:
+        # Always release locks, even on exception
+        with _in_progress_lock:
+            _in_progress.discard(task_signature)
+        try:
+            redis_conn.delete(task_signature)
+        except Exception as e:
+            logger.error(f"Error deleting task signature: {e}")
+            logger.error("Probably expired before deletion. Proceeding.")
 
 
 def _fetch_player_data(player_id: str) -> list[dict]:

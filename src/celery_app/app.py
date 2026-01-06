@@ -32,15 +32,39 @@ logging.basicConfig(
 
 celery = Celery("tasks", broker=REDIS_URI, backend=REDIS_URI)
 
-celery.task(name="tasks.pull_data")(pull_data)
-celery.task(name="tasks.fetch_player_data")(fetch_player_data)
-celery.task(name="tasks.update_weapon_info")(update_weapon_info)
-celery.task(name="tasks.pull_aliases")(pull_aliases)
-celery.task(name="tasks.update_skill_offset")(compute_skill_offset)
-celery.task(name="tasks.update_lorenz_and_gini")(compute_lorenz_and_gini)
-celery.task(name="tasks.fetch_weapon_leaderboard")(fetch_weapon_leaderboard)
-celery.task(name="tasks.fetch_season_results")(fetch_season_results)
-celery.task(name="tasks.persist_api_token")(persist_api_token)
-celery.task(name="tasks.revoke_api_token")(revoke_api_token)
-celery.task(name="tasks.flush_api_usage")(flush_api_usage)
-celery.task(name="tasks.refresh_ripple_snapshots")(refresh_ripple_snapshots)
+# Register tasks with time limits to prevent runaway executions
+# soft_time_limit allows graceful cleanup before hard time_limit kills the task
+celery.task(name="tasks.pull_data", time_limit=600, soft_time_limit=540)(pull_data)
+celery.task(name="tasks.fetch_player_data", time_limit=120, soft_time_limit=100)(
+    fetch_player_data
+)
+celery.task(name="tasks.update_weapon_info", time_limit=300, soft_time_limit=270)(
+    update_weapon_info
+)
+celery.task(name="tasks.pull_aliases", time_limit=300, soft_time_limit=270)(
+    pull_aliases
+)
+celery.task(name="tasks.update_skill_offset", time_limit=300, soft_time_limit=270)(
+    compute_skill_offset
+)
+celery.task(name="tasks.update_lorenz_and_gini", time_limit=300, soft_time_limit=270)(
+    compute_lorenz_and_gini
+)
+celery.task(name="tasks.fetch_weapon_leaderboard", time_limit=300, soft_time_limit=270)(
+    fetch_weapon_leaderboard
+)
+celery.task(name="tasks.fetch_season_results", time_limit=300, soft_time_limit=270)(
+    fetch_season_results
+)
+celery.task(name="tasks.persist_api_token", time_limit=60, soft_time_limit=50)(
+    persist_api_token
+)
+celery.task(name="tasks.revoke_api_token", time_limit=60, soft_time_limit=50)(
+    revoke_api_token
+)
+celery.task(name="tasks.flush_api_usage", time_limit=120, soft_time_limit=100)(
+    flush_api_usage
+)
+celery.task(name="tasks.refresh_ripple_snapshots", time_limit=900, soft_time_limit=840)(
+    refresh_ripple_snapshots
+)

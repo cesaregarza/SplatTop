@@ -73,17 +73,17 @@ def calculate_cache_refresh(
 
 @cached(weapon_cache)
 def get_weapon_xref() -> list[dict]:
-    return requests.get(f"{BASE_CDN_URL}{WEAPON_XREF_PATH}").json()
+    return requests.get(f"{BASE_CDN_URL}{WEAPON_XREF_PATH}", timeout=10).json()
 
 
 @cached(badge_cache)
 def get_badge_xref() -> dict:
-    return requests.get(f"{BASE_CDN_URL}{BADGE_XREF_PATH}").json()
+    return requests.get(f"{BASE_CDN_URL}{BADGE_XREF_PATH}", timeout=10).json()
 
 
 @cached(banner_cache)
 def get_banner_xref() -> dict:
-    return requests.get(f"{BASE_CDN_URL}{BANNER_XREF_PATH}").json()
+    return requests.get(f"{BASE_CDN_URL}{BANNER_XREF_PATH}", timeout=10).json()
 
 
 def get_weapon_name(weapon_id: int) -> str:

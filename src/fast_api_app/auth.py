@@ -262,7 +262,17 @@ def require_scopes(required: Set[str]) -> Callable:
                 try:
                     scopes = orjson.loads(meta.get("scopes", "[]"))
                 except Exception:
-                    scopes = []
+                    # Fail closed: corrupted scope data should deny access
+                    logger.warning(
+                        "Failed to parse token scopes; denying access",
+                        extra={"token_id": token_id},
+                    )
+                    _record_auth_failure("corrupted_scopes")
+                    raise HTTPException(
+                        status_code=status.HTTP_401_UNAUTHORIZED,
+                        detail="Invalid token configuration",
+                        headers={"WWW-Authenticate": "Bearer"},
+                    )
             # Backward compatibility: empty scopes imply full access.
             # Define scopes on tokens to restrict access explicitly.
             if scopes and not required.issubset(set(scopes)):
