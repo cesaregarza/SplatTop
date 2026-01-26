@@ -202,9 +202,14 @@ async def get_tournament_teams(
         )
 
     # Extract teams from tournament.ctx.teams
+    # Note: data["data"] is a JSON string that needs to be parsed
     try:
-        teams = data["data"]["tournament"]["ctx"]["teams"]
-    except (KeyError, TypeError):
+        inner_data = data["data"]
+        if isinstance(inner_data, str):
+            inner_data = orjson.loads(inner_data)
+        teams = inner_data["tournament"]["ctx"]["teams"]
+    except (KeyError, TypeError, orjson.JSONDecodeError) as e:
+        logger.error("Failed to extract teams from response: %s", e)
         raise HTTPException(
             status_code=502,
             detail="Unexpected response structure from sendou.ink",
