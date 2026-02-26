@@ -10,10 +10,10 @@ from shared_lib.constants import (
     WEAPON_INFO_REDIS_KEY,
 )
 
-router = APIRouter()
+router = APIRouter(prefix="/api", tags=["weapon-info"])
 
 
-@router.get("/api/weapon_info")
+@router.get("/weapon-info", summary="Get weapon reference data")
 async def weapon_info():
     weapon_info = redis_conn.get(WEAPON_INFO_REDIS_KEY)
     if weapon_info is None:
@@ -26,7 +26,7 @@ async def weapon_info():
         return weapon_info
 
 
-@router.get("/api/game_translation")
+@router.get("/game-translation", summary="Get game translation data")
 async def game_translation():
     game_translation = redis_conn.get(GAME_TRANSLATION_REDIS_KEY)
     if game_translation is None:
@@ -39,7 +39,7 @@ async def game_translation():
         return game_translation
 
 
-@router.get("/api/skill_offset")
+@router.get("/skill-offset", summary="Get skill offset data")
 async def skill_offset():
     skill_offset = redis_conn.get(SKILL_OFFSET_REDIS_KEY)
     if skill_offset is None:
@@ -52,7 +52,7 @@ async def skill_offset():
         return skill_offset
 
 
-@router.get("/api/lorenz")
+@router.get("/lorenz", summary="Get Lorenz curve and Gini coefficient")
 async def lorenz():
     lorenz = redis_conn.get(LORENZ_CURVE_REDIS_KEY)
     gini = redis_conn.get(GINI_COEFF_REDIS_KEY)

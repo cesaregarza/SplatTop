@@ -33,5 +33,7 @@ def test_require_scopes_invalid_json_allows(client, fake_redis, monkeypatch):
         ripple_mod, "fetch_ripple_page", fake_fetch, raising=False
     )
 
-    r = client.get("/api/ripple", headers={"authorization": f"Bearer {token}"})
+    r = client.get(
+        "/api/ripple/leaderboard", headers={"authorization": f"Bearer {token}"}
+    )
     assert r.status_code == 200

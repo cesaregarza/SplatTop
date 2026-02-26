@@ -21,7 +21,8 @@ def test_display_score_params_affect_output(client, monkeypatch, test_token):
     headers = {"Authorization": f"Bearer {test_token}"}
     # offset=1.5, multiplier=10 -> (2.0 + 1.5) * 10 = 35
     res = client.get(
-        "/api/ripple?score_offset=1.5&score_multiplier=10", headers=headers
+        "/api/ripple/leaderboard?score_offset=1.5&score_multiplier=10",
+        headers=headers,
     )
     assert res.status_code == 200
     item = res.json()["data"][0]
@@ -54,7 +55,7 @@ def test_win_loss_ratio_fallback_to_exp_when_missing_prs(
     )
 
     headers = {"Authorization": f"Bearer {test_token}"}
-    res = client.get("/api/ripple", headers=headers)
+    res = client.get("/api/ripple/leaderboard", headers=headers)
     assert res.status_code == 200
     item = res.json()["data"][0]
     assert abs(item["win_loss_ratio"] - math.exp(0.5)) < 1e-9

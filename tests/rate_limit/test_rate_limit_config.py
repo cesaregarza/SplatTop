@@ -33,5 +33,5 @@ def test_rate_limit_outage_behavior(client_factory, monkeypatch, env, expected):
         # Make pipeline blow up to simulate outage
         monkeypatch.setattr(mw_mod.redis_conn, "pipeline", _boom, raising=False)
 
-        r = c.get("/api/ripple/docs")
+        r = c.get("/api/ripple/leaderboard/docs")
         assert r.status_code == expected

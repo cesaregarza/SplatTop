@@ -27,7 +27,7 @@ def test_rate_limit_per_ip_without_token(client_factory):
         last_429 = None
         codes = []
         for _ in range(12):
-            r = c.get("/api/ripple/docs")
+            r = c.get("/api/ripple/leaderboard/docs")
             codes.append(r.status_code)
             if r.status_code == 429:
                 last_429 = r

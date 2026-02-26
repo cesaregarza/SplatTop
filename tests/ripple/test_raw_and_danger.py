@@ -20,7 +20,7 @@ def test_ripple_raw_includes_raw_fields(client, monkeypatch, test_token):
     )
 
     headers = {"Authorization": f"Bearer {test_token}"}
-    res = client.get("/api/ripple/raw", headers=headers)
+    res = client.get("/api/ripple/leaderboard/raw", headers=headers)
     assert res.status_code == 200
     item = res.json()["data"][0]
     # Raw should include as-is fields like win_pr/loss_pr
@@ -52,7 +52,7 @@ def test_ripple_danger_days_left_and_shape(client, monkeypatch, test_token):
     )
 
     headers = {"Authorization": f"Bearer {test_token}"}
-    res = client.get("/api/ripple/danger", headers=headers)
+    res = client.get("/api/ripple/leaderboard/danger", headers=headers)
     assert res.status_code == 200
     body = res.json()
     assert body["limit"] == 20
@@ -86,7 +86,7 @@ def test_ripple_danger_days_left_none_when_missing(
     )
 
     headers = {"authorization": f"Bearer {test_token}"}
-    r = client.get("/api/ripple/danger", headers=headers)
+    r = client.get("/api/ripple/leaderboard/danger", headers=headers)
     assert r.status_code == 200
     item = r.json()["data"][0]
     assert item.get("days_left") is None

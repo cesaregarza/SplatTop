@@ -4,8 +4,11 @@ import pytest
 @pytest.mark.parametrize(
     "path,fetch_attr",
     [
-        ("/api/ripple/raw?limit=7&offset=3", "fetch_ripple_page"),
-        ("/api/ripple/danger?limit=9&offset=4", "fetch_ripple_danger"),
+        ("/api/ripple/leaderboard/raw?limit=7&offset=3", "fetch_ripple_page"),
+        (
+            "/api/ripple/leaderboard/danger?limit=9&offset=4",
+            "fetch_ripple_danger",
+        ),
     ],
 )
 def test_echoes_limit_offset_parametrized(

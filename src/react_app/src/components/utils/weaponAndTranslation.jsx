@@ -18,8 +18,8 @@ export const WeaponAndTranslationProvider = ({ children }) => {
     const fetchData = async () => {
       setIsLoading(true);
       const apiUrl = getBaseApiUrl();
-      const translationEndpoint = `${apiUrl}/api/game_translation`;
-      const weaponInfoEndpoint = `${apiUrl}/api/weapon_info`;
+      const translationEndpoint = `${apiUrl}/api/game-translation`;
+      const weaponInfoEndpoint = `${apiUrl}/api/weapon-info`;
 
       try {
         // Fetch translations

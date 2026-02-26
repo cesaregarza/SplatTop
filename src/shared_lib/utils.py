@@ -10,7 +10,7 @@ from shared_lib.constants import BASE_CDN_URL
 WEAPON_XREF_PATH = "assets/weapon_flat/WeaponInfoMain.json"
 BADGE_XREF_PATH = "assets/badge/BadgeInfo.json"
 BANNER_XREF_PATH = "assets/npl/NamePlateBgInfo.json"
-WEAPON_PROCESSED_PATH = "https://splat.top/api/weapon_info"
+WEAPON_PROCESSED_PATH = "https://splat.top/api/weapon-info"
 
 weapon_cache = TTLCache(maxsize=100, ttl=3600)
 badge_cache = TTLCache(maxsize=100, ttl=3600)

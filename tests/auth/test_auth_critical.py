@@ -78,5 +78,7 @@ def test_require_scopes_empty_scopes_allow(client, fake_redis, monkeypatch):
         mapping={"id": token_id, "hash": h, "scopes": "[]"},
     )
 
-    r = client.get("/api/ripple", headers={"Authorization": f"Bearer {token}"})
+    r = client.get(
+        "/api/ripple/leaderboard", headers={"Authorization": f"Bearer {token}"}
+    )
     assert r.status_code == 200

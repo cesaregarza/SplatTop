@@ -99,7 +99,17 @@ def _decorate_percentiles(payload: Dict[str, Any]) -> Dict[str, Any]:
     return base
 
 
-@router.get("", name="public-ripple-stable")
+@router.get(
+    "/leaderboard",
+    name="public-ripple-leaderboard",
+    summary="Get public ripple leaderboard",
+)
+@router.get(
+    "",
+    name="public-ripple-stable-legacy",
+    include_in_schema=False,
+    deprecated=True,
+)
 async def get_public_ripple_leaderboard() -> Dict[str, Any]:
     _ensure_enabled()
     payload = _load_payload(RIPPLE_STABLE_LATEST_KEY) or _empty_payload()
@@ -109,14 +119,34 @@ async def get_public_ripple_leaderboard() -> Dict[str, Any]:
     return enriched
 
 
-@router.get("/danger", name="public-ripple-danger")
+@router.get(
+    "/leaderboard/danger",
+    name="public-ripple-leaderboard-danger",
+    summary="Get public ripple danger window",
+)
+@router.get(
+    "/danger",
+    name="public-ripple-danger-legacy",
+    include_in_schema=False,
+    deprecated=True,
+)
 async def get_public_ripple_danger() -> Dict[str, Any]:
     _ensure_enabled()
     payload = _load_payload(RIPPLE_DANGER_LATEST_KEY) or _empty_payload()
     return _decorate(payload)
 
 
-@router.get("/meta", name="public-ripple-meta")
+@router.get(
+    "/metadata",
+    name="public-ripple-metadata",
+    summary="Get public ripple metadata",
+)
+@router.get(
+    "/meta",
+    name="public-ripple-meta-legacy",
+    include_in_schema=False,
+    deprecated=True,
+)
 async def get_public_ripple_meta() -> Dict[str, Any]:
     _ensure_enabled()
     meta = _load_payload(RIPPLE_STABLE_META_KEY) or {}
@@ -142,7 +172,17 @@ async def get_public_ripple_meta() -> Dict[str, Any]:
     }
 
 
-@router.get("/percentiles", name="public-ripple-percentiles")
+@router.get(
+    "/leaderboard/percentiles",
+    name="public-ripple-leaderboard-percentiles",
+    summary="Get public ripple leaderboard percentiles",
+)
+@router.get(
+    "/percentiles",
+    name="public-ripple-percentiles-legacy",
+    include_in_schema=False,
+    deprecated=True,
+)
 async def get_public_ripple_percentiles() -> Dict[str, Any]:
     _ensure_enabled()
     payload = (

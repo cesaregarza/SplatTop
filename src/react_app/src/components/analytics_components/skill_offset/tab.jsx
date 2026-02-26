@@ -20,8 +20,8 @@ const SkillOffsetTab = () => {
       setIsLoading(true);
       document.title = t("document_title");
       const apiUrl = getBaseApiUrl();
-      const endpoint = `${apiUrl}/api/skill_offset`;
-      const translationEndpoint = `${apiUrl}/api/game_translation`;
+      const endpoint = `${apiUrl}/api/skill-offset`;
+      const translationEndpoint = `${apiUrl}/api/game-translation`;
 
       try {
         const response = await axios.get(endpoint);

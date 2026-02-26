@@ -19,7 +19,7 @@ const LorenzTab = () => {
       document.title = t("document_title");
       const apiUrl = getBaseApiUrl();
       const endpoint = `${apiUrl}/api/lorenz`;
-      const translationEndpoint = `${apiUrl}/api/game_translation`;
+      const translationEndpoint = `${apiUrl}/api/game-translation`;
 
       try {
         const response = await axios.get(endpoint);

@@ -1,10 +1,10 @@
 import { useCallback, useEffect, useState } from "react";
 import axios from "axios";
 
-const STABLE_ENDPOINT = "/api/ripple/public";
-const DANGER_ENDPOINT = "/api/ripple/public/danger";
-const META_ENDPOINT = "/api/ripple/public/meta";
-const PERCENTILES_ENDPOINT = "/api/ripple/public/percentiles";
+const STABLE_ENDPOINT = "/api/ripple/public/leaderboard";
+const DANGER_ENDPOINT = "/api/ripple/public/leaderboard/danger";
+const META_ENDPOINT = "/api/ripple/public/metadata";
+const PERCENTILES_ENDPOINT = "/api/ripple/public/leaderboard/percentiles";
 
 const initialState = {
   loading: true,

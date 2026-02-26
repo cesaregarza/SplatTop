@@ -21,6 +21,22 @@ HELM_VALUES_DEV ?= $(if $(wildcard $(HELM_CHART_PATH)/values-local.yaml),$(HELM_
 HELM_CHART_PATH ?= $(CONFIG_REPO_DIR)/helm/splattop
 ARGOCD_MANIFEST_DIR ?= $(CONFIG_REPO_DIR)/argocd
 
+.PHONY: help
+help: list-commands
+
+.PHONY: list-commands
+list-commands:
+	@echo "Available make targets:"
+	@awk '\
+		/^\.[Pp][Hh][Oo][Nn][Yy][[:space:]]*:/ { \
+			sub(/^[^:]*:[[:space:]]*/, "", $$0); \
+			n = split($$0, targets, /[[:space:]]+/); \
+			for (i = 1; i <= n; i++) { \
+				if (targets[i] != "") print targets[i]; \
+			} \
+		} \
+	' $(MAKEFILE_LIST) | sort -u
+
 .PHONY: ensure-kind
 ensure-kind:
 	kubectl config use-context $(KIND_CONTEXT)

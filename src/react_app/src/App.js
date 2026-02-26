@@ -15,6 +15,10 @@ const TopWeapons = React.lazy(() =>
 );
 
 const COMPETITION_OVERRIDE_KEY = "splat.top.competitionOverride";
+const DEFAULT_FAVICON_HREF = "/favicon.ico?v=1";
+const DEFAULT_FAVICON_TYPE = "image/x-icon";
+const COMPETITION_FAVICON_HREF = "/favicon-comp.svg?v=1";
+const COMPETITION_FAVICON_TYPE = "image/svg+xml";
 
 const readBoolean = (value) => {
   if (value == null) return null;
@@ -22,6 +26,15 @@ const readBoolean = (value) => {
   if (normalized === "true" || normalized === "1") return true;
   if (normalized === "false" || normalized === "0") return false;
   return null;
+};
+
+const isCompetitionHostname = () => {
+  if (typeof window === "undefined") {
+    return false;
+  }
+
+  const hostname = window.location.hostname.toLowerCase();
+  return hostname === "comp.localhost" || hostname.startsWith("comp.");
 };
 
 const detectCompetitionHost = () => {
@@ -44,12 +57,29 @@ const detectCompetitionHost = () => {
   if (typeof window === "undefined") {
     return false;
   }
+  return isCompetitionHostname();
+};
 
-  const hostname = window.location.hostname.toLowerCase();
-  if (hostname === "comp.localhost") {
-    return true;
+const setFaviconForMode = (isCompetition) => {
+  if (typeof document === "undefined") {
+    return;
   }
-  return hostname.startsWith("comp.");
+
+  let favicon = document.querySelector('link[rel="icon"]');
+  if (!favicon) {
+    favicon = document.createElement("link");
+    favicon.setAttribute("rel", "icon");
+    document.head.appendChild(favicon);
+  }
+
+  favicon.setAttribute(
+    "href",
+    isCompetition ? COMPETITION_FAVICON_HREF : DEFAULT_FAVICON_HREF
+  );
+  favicon.setAttribute(
+    "type",
+    isCompetition ? COMPETITION_FAVICON_TYPE : DEFAULT_FAVICON_TYPE
+  );
 };
 
 const MainSiteApp = () => (
@@ -72,7 +102,9 @@ const MainSiteApp = () => (
 );
 
 const App = () => {
-  const [isCompetition, setIsCompetition] = useState(() => detectCompetitionHost());
+  const [isCompetition, setIsCompetition] = useState(() =>
+    detectCompetitionHost()
+  );
 
   useEffect(() => {
     if (typeof window !== "undefined") {
@@ -88,7 +120,9 @@ const App = () => {
       }
     }
 
-    setIsCompetition(detectCompetitionHost());
+    const competitionEnabled = detectCompetitionHost();
+    setIsCompetition(competitionEnabled);
+    setFaviconForMode(isCompetitionHostname());
   }, []);
 
   if (isCompetition) {
