@@ -4,6 +4,7 @@ import orjson
 
 from shared_lib.constants import (
     RIPPLE_DANGER_LATEST_KEY,
+    RIPPLE_PLAYER_INDEX_LATEST_KEY,
     RIPPLE_STABLE_DELTAS_KEY,
     RIPPLE_STABLE_LATEST_KEY,
     RIPPLE_STABLE_META_KEY,
@@ -193,3 +194,86 @@ def test_public_meta_reports_presence(client_factory, fake_redis):
         assert data["danger"]["present"] is True
         assert data["feature_flag"]["enabled"] is True
         assert isinstance(data["retrieved_at_ms"], int)
+
+
+def test_public_player_profile_returns_cached_payload(
+    client_factory, fake_redis
+):
+    generated_at = _now_ms()
+    payload = {
+        "generated_at_ms": generated_at,
+        "calculated_at_ms": generated_at - 1_000,
+        "build_version": "2024.09.01",
+        "minimum_required_tournaments": 3,
+        "record_count": 2,
+        "players": {
+            "p1": {
+                "player_id": "p1",
+                "display_name": "Player 1",
+                "eligible": True,
+                "ineligible_reason": None,
+                "minimum_required_tournaments": 3,
+                "lifetime_ranked_tournaments": 12,
+                "window_tournament_count": 4,
+                "progress_to_minimum": {
+                    "current": 3,
+                    "required": 3,
+                    "remaining": 0,
+                },
+                "stable_rank": 7,
+                "stable_score": 5.1,
+                "display_score": 277.5,
+                "danger_days_left": 8.5,
+                "last_active_ms": generated_at - 10_000,
+                "last_tournament_ms": generated_at - 10_000,
+                "rank_delta": 2,
+                "display_score_delta": 4.25,
+                "delta_is_new": False,
+                "delta_has_baseline": True,
+                "previous_rank": 9,
+                "previous_display_score": 273.25,
+            }
+        },
+    }
+    fake_redis.set(RIPPLE_PLAYER_INDEX_LATEST_KEY, orjson.dumps(payload))
+
+    with client_factory(
+        env={"COMP_LEADERBOARD_ENABLED": "true"}, redis=fake_redis
+    ) as client:
+        res = client.get("/api/ripple/public/player/p1")
+        assert res.status_code == 200
+        data = res.json()
+        assert data["player_id"] == "p1"
+        assert data["eligible"] is True
+        assert data["stable_rank"] == 7
+        assert data["display_score"] == 277.5
+        assert data["stale"] is False
+        assert isinstance(data["retrieved_at_ms"], int)
+
+
+def test_public_player_profile_returns_404_for_unknown_player(
+    client_factory, fake_redis
+):
+    generated_at = _now_ms()
+    payload = {
+        "generated_at_ms": generated_at,
+        "calculated_at_ms": generated_at,
+        "build_version": "2024.09.01",
+        "minimum_required_tournaments": 3,
+        "record_count": 1,
+        "players": {
+            "p1": {
+                "player_id": "p1",
+                "display_name": "Player 1",
+                "eligible": True,
+            }
+        },
+    }
+    fake_redis.set(RIPPLE_PLAYER_INDEX_LATEST_KEY, orjson.dumps(payload))
+
+    with client_factory(
+        env={"COMP_LEADERBOARD_ENABLED": "true"}, redis=fake_redis
+    ) as client:
+        res = client.get("/api/ripple/public/player/missing")
+        assert res.status_code == 404
+        assert res.json()["detail"] == "Player not found in competition index"

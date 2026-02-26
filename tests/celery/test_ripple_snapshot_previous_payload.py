@@ -411,7 +411,7 @@ def test_refresh_ripple_snapshots_backfills_previous_payload(monkeypatch):
 
     snapshot_mod.refresh_ripple_snapshots()
 
-    assert fetch_calls == [None, 2_000]
+    assert fetch_calls == [None, None, 2_000]
 
     delta_payload = orjson.loads(fake_redis.get(RIPPLE_STABLE_DELTAS_KEY))
     assert delta_payload["baseline_generated_at_ms"] == 2_000

@@ -1,4 +1,5 @@
 import React, { forwardRef, memo, useEffect, useMemo, useRef, useState } from "react";
+import { Link } from "react-router-dom";
 import { Virtuoso } from "react-virtuoso";
 import {
   CRACKLE_PURPLE,
@@ -320,15 +321,13 @@ const DesktopLeaderboardRow = ({ entry, isLast, isFirst, windowDays }) => {
 
       <div className="min-w-0 flex flex-col">
         {row.player_id ? (
-          <a
-            href={`https://sendou.ink/u/${row.player_id}`}
-            target="_blank"
-            rel="noopener noreferrer"
+          <Link
+            to={`/u/${row.player_id}`}
             className="font-medium text-slate-100 truncate hover:underline"
             title={row.display_name || undefined}
           >
             {row.display_name}
-          </a>
+          </Link>
         ) : (
           <span
             className="font-medium text-slate-100 truncate"
@@ -636,15 +635,13 @@ const StableLeaderboardMobileList = ({
             <div className="mt-3 flex items-start justify-between gap-3">
               <div className="min-w-0">
                 {row.player_id ? (
-                  <a
-                    href={`https://sendou.ink/u/${row.player_id}`}
-                    target="_blank"
-                    rel="noopener noreferrer"
+                  <Link
+                    to={`/u/${row.player_id}`}
                     className="text-base font-semibold text-slate-100 truncate hover:underline"
                     title={row.display_name || undefined}
                   >
                     {row.display_name}
-                  </a>
+                  </Link>
                 ) : (
                   <span
                     className="text-base font-semibold text-slate-100 truncate"

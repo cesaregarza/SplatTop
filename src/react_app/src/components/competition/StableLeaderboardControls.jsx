@@ -181,6 +181,7 @@ const RowsDropdown = ({ pageSize, rowOptions, onSelect }) => {
 const StableLeaderboardControls = ({
   query,
   onQueryChange,
+  onSearchSubmit,
   grades,
   selectedGrade,
   onSelectGrade,
@@ -196,6 +197,13 @@ const StableLeaderboardControls = ({
 
   const handleQueryChange = (event) => {
     onQueryChange(event.target.value);
+  };
+
+  const handleSearchSubmit = (event) => {
+    event.preventDefault();
+    if (typeof onSearchSubmit === "function") {
+      onSearchSubmit(query);
+    }
   };
 
   const handleGradeChange = (value) => {
@@ -214,7 +222,10 @@ const StableLeaderboardControls = ({
       aria-label="Leaderboard controls"
     >
       <div className="flex flex-wrap items-center gap-2">
-        <div className="relative flex-1 min-w-[220px]">
+        <form
+          className="relative flex-1 min-w-[220px]"
+          onSubmit={handleSearchSubmit}
+        >
           <label className="sr-only" htmlFor="stable-leaderboard-search">
             Search players
           </label>
@@ -226,10 +237,13 @@ const StableLeaderboardControls = ({
             onChange={handleQueryChange}
             className="w-full rounded-md bg-slate-950/70 pl-9 pr-3 py-2 text-sm text-slate-100 placeholder:text-slate-500 ring-1 ring-white/10 focus:ring-2 focus:ring-fuchsia-500/60 outline-none"
           />
-          <span className="pointer-events-none absolute left-3 top-2.5 text-slate-500" aria-hidden>
+          <span
+            className="pointer-events-none absolute left-3 top-2.5 text-slate-500"
+            aria-hidden
+          >
             🔎
           </span>
-        </div>
+        </form>
 
         {hasGrades && (
           <GradeDropdown

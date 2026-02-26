@@ -1,4 +1,5 @@
 import React, { memo, useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import "./StableLeaderboardView.css";
 import useCrackleEffect from "../../hooks/useCrackleEffect";
 import useMediaQuery from "../../hooks/useMediaQuery";
@@ -83,6 +84,7 @@ const EmptyState = memo(({ query }) => (
 EmptyState.displayName = "StableLeaderboardEmptyState";
 
 const StableLeaderboardView = ({ rows, loading, error, windowDays, onRefresh }) => {
+  const navigate = useNavigate();
   const [query, setQuery] = useState("");
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(25);
@@ -322,6 +324,24 @@ const StableLeaderboardView = ({ rows, loading, error, windowDays, onRefresh }) 
     setPage(1);
   }, []);
 
+  const handleSearchSubmit = useCallback(
+    (rawValue) => {
+      const needle = String(rawValue || "").trim().toLowerCase();
+      if (!needle) return;
+      const sourceRows = Array.isArray(rows) ? rows : [];
+      const exactPlayerMatch = sourceRows.find(
+        (row) => String(row.player_id || "").toLowerCase() === needle
+      );
+      const prefixNameMatch = sourceRows.find((row) =>
+        String(row.display_name || "").toLowerCase().startsWith(needle)
+      );
+      const target = exactPlayerMatch || prefixNameMatch;
+      if (!target?.player_id) return;
+      navigate(`/u/${target.player_id}`);
+    },
+    [rows, navigate]
+  );
+
   let content;
   if (loading) {
     content = <LoadingSkeleton />;
@@ -353,6 +373,7 @@ const StableLeaderboardView = ({ rows, loading, error, windowDays, onRefresh }) 
       <StableLeaderboardControls
         query={query}
         onQueryChange={handleQueryChange}
+        onSearchSubmit={handleSearchSubmit}
         grades={visibleGrades}
         selectedGrade={gradeFilter}
         onSelectGrade={handleSelectGrade}

@@ -173,12 +173,14 @@ def test_session_cleanup_after_query_failure(monkeypatch):
     # This should succeed with retry
     result = snapshot_mod.refresh_ripple_snapshots()
 
-    # Should have retried once
-    assert call_count["fetch_page"] == 2  # Once on first attempt, once on retry
+    # Should have retried once. Snapshot refresh now executes fetch_ripple_page
+    # twice per attempt (eligible rows + full player index rows).
+    assert call_count["fetch_page"] == 4
     assert (
         call_count["fetch_danger"] == 2
     )  # Once (failed), once (retry succeeded)
-    assert fake_engine.disposed == 1  # Engine was disposed once
+    # Engine is disposed once during retry and once in final cleanup.
+    assert fake_engine.disposed == 2
 
     # All sessions should be closed
     assert session_count["created"] > 0

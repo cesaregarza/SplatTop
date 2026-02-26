@@ -1,0 +1,136 @@
+.comp-player-profile {
+  position: relative;
+  isolation: isolate;
+}
+
+.comp-player-profile::before,
+.comp-player-profile::after {
+  content: "";
+  position: absolute;
+  pointer-events: none;
+  z-index: -1;
+}
+
+.comp-player-profile::before {
+  inset: -4rem -2rem auto;
+  height: 18rem;
+  background:
+    radial-gradient(circle at 22% 35%, rgba(217, 70, 239, 0.2), transparent 58%),
+    radial-gradient(circle at 78% 22%, rgba(139, 92, 246, 0.18), transparent 52%);
+  filter: blur(20px);
+  opacity: 0.9;
+}
+
+.comp-player-profile::after {
+  inset: auto 0 -2rem;
+  height: 10rem;
+  background:
+    linear-gradient(120deg, rgba(196, 181, 253, 0.07) 0%, transparent 28%),
+    linear-gradient(240deg, rgba(249, 168, 212, 0.07) 0%, transparent 28%);
+}
+
+.comp-player-hero {
+  position: relative;
+  overflow: hidden;
+  box-shadow:
+    0 0 0 1px rgba(217, 70, 239, 0.18),
+    0 20px 50px rgba(15, 23, 42, 0.45),
+    0 0 22px rgba(192, 132, 252, 0.2);
+}
+
+.comp-player-hero::before {
+  content: "";
+  position: absolute;
+  inset: -2px -20% auto;
+  height: 2px;
+  background: linear-gradient(
+    90deg,
+    rgba(167, 139, 250, 0),
+    rgba(167, 139, 250, 0.8),
+    rgba(244, 114, 182, 0.75),
+    rgba(167, 139, 250, 0)
+  );
+  animation: compPlayerSweep 4200ms ease-in-out infinite;
+}
+
+.comp-player-card {
+  position: relative;
+}
+
+.comp-player-card--brag {
+  border-color: rgba(217, 70, 239, 0.35);
+  box-shadow:
+    0 0 0 1px rgba(217, 70, 239, 0.15) inset,
+    0 0 14px rgba(217, 70, 239, 0.2);
+}
+
+.comp-player-score-value {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 0.35rem;
+  font-family: var(--font-data, "FiraMono", monospace);
+}
+
+.comp-player-score-track {
+  position: relative;
+  overflow: hidden;
+}
+
+.comp-player-score-track::before {
+  content: "";
+  position: absolute;
+  inset: -1px;
+  border-radius: inherit;
+  background: linear-gradient(
+    120deg,
+    rgba(167, 139, 250, 0.1),
+    transparent 38%,
+    rgba(244, 114, 182, 0.08) 72%,
+    transparent
+  );
+  pointer-events: none;
+}
+
+.comp-player-score-fill {
+  height: 100%;
+  border-radius: 999px;
+  background: linear-gradient(
+    90deg,
+    rgba(167, 139, 250, 0.62),
+    rgba(217, 70, 239, 0.64)
+  );
+  transition: width 260ms ease;
+}
+
+.comp-player-score-fill.is-threshold {
+  background: linear-gradient(
+    90deg,
+    rgba(244, 114, 182, 0.86),
+    rgba(253, 224, 71, 0.82)
+  );
+  box-shadow:
+    0 0 12px rgba(244, 114, 182, 0.45),
+    0 0 22px rgba(253, 224, 71, 0.28);
+}
+
+@keyframes compPlayerSweep {
+  0% {
+    transform: translateX(-30%);
+    opacity: 0.15;
+  }
+  45% {
+    transform: translateX(55%);
+    opacity: 0.9;
+  }
+  100% {
+    transform: translateX(135%);
+    opacity: 0.2;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .comp-player-hero::before {
+    animation: none;
+    opacity: 0.7;
+  }
+}

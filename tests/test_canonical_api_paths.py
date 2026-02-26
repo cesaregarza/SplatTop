@@ -13,6 +13,7 @@ def test_openapi_contains_canonical_kebab_case_paths(client):
     assert "/api/ripple/leaderboard/danger" in paths
     assert "/api/ripple/public/leaderboard" in paths
     assert "/api/ripple/public/leaderboard/danger" in paths
+    assert "/api/ripple/public/player/{player_id}" in paths
     assert "/api/ripple/public/metadata" in paths
     assert "/api/ripple/public/leaderboard/percentiles" in paths
     assert "/api/ripple/leaderboard/docs" in paths

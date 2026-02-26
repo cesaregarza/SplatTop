@@ -10,6 +10,7 @@ from fast_api_app.connections import redis_conn
 from fast_api_app.feature_flags import is_comp_leaderboard_enabled
 from shared_lib.constants import (
     RIPPLE_DANGER_LATEST_KEY,
+    RIPPLE_PLAYER_INDEX_LATEST_KEY,
     RIPPLE_STABLE_DELTAS_KEY,
     RIPPLE_STABLE_LATEST_KEY,
     RIPPLE_STABLE_META_KEY,
@@ -77,6 +78,17 @@ def _empty_deltas_payload() -> Dict[str, Any]:
     }
 
 
+def _empty_player_index_payload() -> Dict[str, Any]:
+    return {
+        "generated_at_ms": None,
+        "calculated_at_ms": None,
+        "build_version": None,
+        "minimum_required_tournaments": 3,
+        "record_count": 0,
+        "players": {},
+    }
+
+
 def _decorate(payload: Dict[str, Any]) -> Dict[str, Any]:
     generated_at_ms = payload.get("generated_at_ms")
     now_ms = int(time.time() * 1000)
@@ -134,6 +146,46 @@ async def get_public_ripple_danger() -> Dict[str, Any]:
     _ensure_enabled()
     payload = _load_payload(RIPPLE_DANGER_LATEST_KEY) or _empty_payload()
     return _decorate(payload)
+
+
+@router.get(
+    "/player/{player_id}",
+    name="public-ripple-player",
+    summary="Get public competition player profile",
+)
+async def get_public_ripple_player(player_id: str) -> Dict[str, Any]:
+    _ensure_enabled()
+    payload = (
+        _load_payload(RIPPLE_PLAYER_INDEX_LATEST_KEY)
+        or _empty_player_index_payload()
+    )
+    players = payload.get("players")
+    if not isinstance(players, dict):
+        players = {}
+
+    player = players.get(player_id)
+    if not isinstance(player, dict):
+        raise HTTPException(
+            status_code=404,
+            detail="Player not found in competition index",
+        )
+
+    enriched = _decorate(
+        {
+            "generated_at_ms": payload.get("generated_at_ms"),
+        }
+    )
+    response = dict(player)
+    response.update(
+        {
+            "generated_at_ms": payload.get("generated_at_ms"),
+            "calculated_at_ms": payload.get("calculated_at_ms"),
+            "build_version": payload.get("build_version"),
+            "stale": enriched["stale"],
+            "retrieved_at_ms": enriched["retrieved_at_ms"],
+        }
+    )
+    return response
 
 
 @router.get(

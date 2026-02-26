@@ -5,6 +5,7 @@ import StableLeaderboardView from "./StableLeaderboardView";
 import CompetitionFaq from "./CompetitionFaq";
 import CompetitionViz from "./CompetitionViz";
 import CompetitionErrorBoundary from "./CompetitionErrorBoundary";
+import CompetitionPlayerPage from "./CompetitionPlayerPage";
 import useCompetitionSnapshot from "../../hooks/useCompetitionSnapshot";
 
 const resolveMainSiteUrl = () => {
@@ -207,6 +208,10 @@ const CompetitionRoutes = () => {
             <CompetitionViz />
           </CompetitionErrorBoundary>
         )}
+      />
+      <Route
+        path="/u/:playerId"
+        element={<CompetitionPlayerPage top500Href={MAIN_SITE_URL} />}
       />
       <Route path="/faq" element={<CompetitionFaqPage snapshot={snapshot} />} />
       <Route path="*" element={<CompetitionLeaderboardPage snapshot={snapshot} />} />

@@ -19,6 +19,8 @@ from conftest import FakeRedis
 from celery_app.tasks import ripple_snapshot as snapshot_mod
 from shared_lib.constants import (
     RIPPLE_DANGER_LATEST_KEY,
+    RIPPLE_PLAYER_INDEX_LATEST_KEY,
+    RIPPLE_PLAYER_INDEX_META_KEY,
     RIPPLE_STABLE_DELTAS_KEY,
     RIPPLE_STABLE_LATEST_KEY,
     RIPPLE_STABLE_META_KEY,
@@ -167,6 +169,22 @@ def test_refresh_ripple_snapshots_persists_payloads(monkeypatch):
     assert delta_payload["baseline_generated_at_ms"] is None
     assert delta_payload["record_count"] == 0
     assert delta_payload["players"] == {}
+
+    player_index_payload = orjson.loads(
+        fake_redis.get(RIPPLE_PLAYER_INDEX_LATEST_KEY)
+    )
+    assert player_index_payload["record_count"] == 2
+    assert set(player_index_payload["players"].keys()) == {"p1", "p2"}
+    assert player_index_payload["players"]["p1"]["eligible"] is True
+    assert (
+        player_index_payload["players"]["p1"]["minimum_required_tournaments"]
+        == 3
+    )
+
+    player_index_meta = orjson.loads(
+        fake_redis.get(RIPPLE_PLAYER_INDEX_META_KEY)
+    )
+    assert player_index_meta["record_count"] == 2
 
     state = orjson.loads(fake_redis.get(RIPPLE_STABLE_STATE_KEY))
     assert set(state.keys()) == {"p1", "p2"}

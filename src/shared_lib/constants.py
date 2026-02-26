@@ -54,6 +54,8 @@ RIPPLE_STABLE_DELTAS_KEY = "ripple:stable:deltas"
 RIPPLE_STABLE_META_KEY = "ripple:stable:meta"
 RIPPLE_DANGER_LATEST_KEY = "ripple:danger:latest"
 RIPPLE_STABLE_PERCENTILES_KEY = "ripple:stable:percentiles"
+RIPPLE_PLAYER_INDEX_LATEST_KEY = "ripple:player_index:latest"
+RIPPLE_PLAYER_INDEX_META_KEY = "ripple:player_index:meta"
 RIPPLE_SNAPSHOT_LOCK_KEY = "ripple:snapshot:lock"
 COMP_LEADERBOARD_FLAG_KEY = "feature:comp_leaderboard"
 

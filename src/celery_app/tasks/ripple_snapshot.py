@@ -20,6 +20,8 @@ from celery_app.connections import (
 )
 from shared_lib.constants import (
     RIPPLE_DANGER_LATEST_KEY,
+    RIPPLE_PLAYER_INDEX_LATEST_KEY,
+    RIPPLE_PLAYER_INDEX_META_KEY,
     RIPPLE_SNAPSHOT_LOCK_KEY,
     RIPPLE_STABLE_DELTAS_KEY,
     RIPPLE_STABLE_LATEST_KEY,
@@ -36,6 +38,7 @@ logger = logging.getLogger(__name__)
 
 LOCK_TTL_SECONDS = 15 * 60
 MAX_REFRESH_RETRIES = 3
+MIN_REQUIRED_TOURNAMENTS = 3
 
 # Fetch the complete snapshot so the public cache can serve every stable row;
 # pagination happens on the consumer side.
@@ -63,7 +66,15 @@ GRADE_THRESHOLDS = [
 DEFAULT_PAGE_PARAMS = {
     "limit": DEFAULT_LIMIT,
     "offset": 0,
-    "min_tournaments": 3,
+    "min_tournaments": MIN_REQUIRED_TOURNAMENTS,
+    "tournament_window_days": DEFAULT_TOURNAMENT_WINDOW_DAYS,
+    "ranked_only": True,
+}
+
+ALL_PLAYERS_PAGE_PARAMS = {
+    "limit": DEFAULT_LIMIT,
+    "offset": 0,
+    "min_tournaments": None,
     "tournament_window_days": DEFAULT_TOURNAMENT_WINDOW_DAYS,
     "ranked_only": True,
 }
@@ -71,7 +82,7 @@ DEFAULT_PAGE_PARAMS = {
 DEFAULT_DANGER_PARAMS = {
     "limit": None,
     "offset": 0,
-    "min_tournaments": 3,
+    "min_tournaments": MIN_REQUIRED_TOURNAMENTS,
     "tournament_window_days": DEFAULT_TOURNAMENT_WINDOW_DAYS,
     "ranked_only": True,
 }
@@ -669,10 +680,163 @@ def _serialize_danger(
     return serialized
 
 
+def _build_player_index_payload(
+    *,
+    all_rows: List[Mapping[str, Any]],
+    stable_rows: List[Mapping[str, Any]],
+    danger_rows: List[Mapping[str, Any]],
+    delta_payload: Mapping[str, Any],
+    generated_at_ms: int,
+    calculated_at_ms: int | None,
+    build_version: str | None,
+) -> tuple[Dict[str, Any], Dict[str, Any]]:
+    stable_by_id: Dict[str, Mapping[str, Any]] = {}
+    for row in stable_rows:
+        player_id = row.get("player_id")
+        if player_id:
+            stable_by_id[str(player_id)] = row
+
+    danger_by_id: Dict[str, Mapping[str, Any]] = {}
+    for row in danger_rows:
+        player_id = row.get("player_id")
+        if player_id:
+            danger_by_id[str(player_id)] = row
+
+    baseline_generated_at_ms = _to_int(
+        delta_payload.get("baseline_generated_at_ms")
+    )
+    has_baseline = baseline_generated_at_ms is not None
+    raw_delta_players = delta_payload.get("players")
+    delta_players: Mapping[str, Any]
+    if isinstance(raw_delta_players, Mapping):
+        delta_players = raw_delta_players
+    else:
+        delta_players = {}
+
+    players: Dict[str, Dict[str, Any]] = {}
+    for row in all_rows:
+        raw_player_id = row.get("player_id")
+        if raw_player_id is None:
+            continue
+        player_id = str(raw_player_id)
+        stable_row = stable_by_id.get(player_id, {})
+        danger_row = danger_by_id.get(player_id, {})
+        delta_entry = delta_players.get(player_id)
+        if not isinstance(delta_entry, Mapping):
+            delta_entry = {}
+
+        lifetime_tournament_count = _to_int(row.get("tournament_count"))
+        if lifetime_tournament_count is None:
+            lifetime_tournament_count = _to_int(
+                stable_row.get("tournament_count")
+            )
+        lifetime_tournament_count = max(0, lifetime_tournament_count or 0)
+
+        window_tournament_count = _to_int(row.get("window_count"))
+        if window_tournament_count is None:
+            window_tournament_count = _to_int(
+                stable_row.get("window_tournament_count")
+            )
+
+        eligible = player_id in stable_by_id
+        ineligible_reason = None
+        if not eligible:
+            if lifetime_tournament_count < MIN_REQUIRED_TOURNAMENTS:
+                ineligible_reason = "insufficient_lifetime_tournaments"
+            else:
+                ineligible_reason = "not_currently_eligible"
+
+        stable_rank = _to_int(stable_row.get("stable_rank"))
+        stable_score = _to_float(stable_row.get("stable_score"))
+        display_score = _to_float(stable_row.get("display_score"))
+
+        # Players with fewer than the minimum required lifetime tournaments
+        # should not show rank/score on the public profile.
+        if lifetime_tournament_count < MIN_REQUIRED_TOURNAMENTS:
+            stable_rank = None
+            stable_score = None
+            display_score = None
+
+        last_active_ms = _to_int(stable_row.get("last_active_ms"))
+        if last_active_ms is None:
+            last_active_ms = _to_int(row.get("last_active_ms"))
+        last_tournament_ms = _to_int(stable_row.get("last_tournament_ms"))
+        if last_tournament_ms is None:
+            last_tournament_ms = last_active_ms
+
+        progress_current = min(
+            lifetime_tournament_count, MIN_REQUIRED_TOURNAMENTS
+        )
+        progress_remaining = max(
+            0, MIN_REQUIRED_TOURNAMENTS - progress_current
+        )
+
+        players[player_id] = {
+            "player_id": player_id,
+            "display_name": stable_row.get("display_name")
+            or row.get("display_name"),
+            "eligible": eligible,
+            "ineligible_reason": ineligible_reason,
+            "minimum_required_tournaments": MIN_REQUIRED_TOURNAMENTS,
+            "lifetime_ranked_tournaments": lifetime_tournament_count,
+            "window_tournament_count": window_tournament_count,
+            "progress_to_minimum": {
+                "current": progress_current,
+                "required": MIN_REQUIRED_TOURNAMENTS,
+                "remaining": progress_remaining,
+            },
+            "stable_rank": stable_rank,
+            "stable_score": stable_score,
+            "display_score": display_score,
+            "danger_days_left": _to_float(danger_row.get("days_left")),
+            "last_active_ms": last_active_ms,
+            "last_tournament_ms": last_tournament_ms,
+            "rank_delta": _to_int(delta_entry.get("rank_delta"))
+            if has_baseline
+            else None,
+            "display_score_delta": _to_float(
+                delta_entry.get("display_score_delta")
+            )
+            if has_baseline
+            else None,
+            "delta_is_new": bool(delta_entry.get("is_new"))
+            if has_baseline
+            else False,
+            "delta_has_baseline": has_baseline,
+            "previous_rank": _to_int(delta_entry.get("previous_rank"))
+            if has_baseline
+            else None,
+            "previous_display_score": _to_float(
+                delta_entry.get("previous_display_score")
+            )
+            if has_baseline
+            else None,
+        }
+
+    payload = {
+        "generated_at_ms": generated_at_ms,
+        "calculated_at_ms": calculated_at_ms,
+        "build_version": build_version,
+        "minimum_required_tournaments": MIN_REQUIRED_TOURNAMENTS,
+        "record_count": len(players),
+        "players": players,
+    }
+    meta = {
+        "generated_at_ms": generated_at_ms,
+        "calculated_at_ms": calculated_at_ms,
+        "build_version": build_version,
+        "minimum_required_tournaments": MIN_REQUIRED_TOURNAMENTS,
+        "record_count": len(players),
+    }
+    return payload, meta
+
+
 async def _refresh_snapshots_async_once() -> Dict[str, Any]:
     generated_at_ms = _now_ms()
     rows: List[Mapping[str, Any]] = []
+    all_rows: List[Mapping[str, Any]] = []
     total: Any = 0
+    all_total: Any = 0
     calc_ts: Any = None
     build_version: Any = None
     danger_rows: List[Dict[str, Any]] = []
@@ -701,6 +865,14 @@ async def _refresh_snapshots_async_once() -> Dict[str, Any]:
                 build_version,
             ) = await ripple_queries.fetch_ripple_page(
                 session, **DEFAULT_PAGE_PARAMS
+            )
+            (
+                all_rows,
+                all_total,
+                _all_calc_ts,
+                _all_build_version,
+            ) = await ripple_queries.fetch_ripple_page(
+                session, **ALL_PLAYERS_PAGE_PARAMS
             )
             (
                 danger_rows_raw,
@@ -820,6 +992,17 @@ async def _refresh_snapshots_async_once() -> Dict[str, Any]:
         comparison_payload,
         generated_at_ms,
     )
+    player_index_payload, player_index_meta_payload = (
+        _build_player_index_payload(
+            all_rows=all_rows,
+            stable_rows=stable_rows,
+            danger_rows=danger_payload,
+            delta_payload=delta_payload,
+            generated_at_ms=generated_at_ms,
+            calculated_at_ms=calc_ts_int,
+            build_version=build_version,
+        )
+    )
 
     _persist_previous_payload(
         preserved_payload,
@@ -832,16 +1015,21 @@ async def _refresh_snapshots_async_once() -> Dict[str, Any]:
     _persist_payload(RIPPLE_STABLE_META_KEY, meta_payload)
     _persist_payload(RIPPLE_STABLE_PERCENTILES_KEY, percentiles_payload)
     _persist_payload(RIPPLE_STABLE_DELTAS_KEY, delta_payload)
+    _persist_payload(RIPPLE_PLAYER_INDEX_LATEST_KEY, player_index_payload)
+    _persist_payload(RIPPLE_PLAYER_INDEX_META_KEY, player_index_meta_payload)
 
     logger.info(
-        "Refreshed ripple snapshots: %s stable rows, %s danger rows",
+        "Refreshed ripple snapshots: %s stable rows, %s danger rows, %s indexed players",
         len(stable_rows),
         len(danger_payload),
+        len(player_index_payload["players"]),
     )
 
     return {
         "stable_rows": len(stable_rows),
         "danger_rows": len(danger_payload),
+        "indexed_players": len(player_index_payload["players"]),
+        "all_rows": _to_int(all_total),
     }
 
 
