@@ -44,7 +44,7 @@ const PlayerDetailContent = () => {
       setIsLoading(true);
       document.title = t("document_title_loading");
       const apiUrl = getBaseApiUrl();
-      const endpoint = `${apiUrl}/api/player/${player_id}`;
+      const endpoint = `${apiUrl}/api/players/${player_id}`;
       const baseWebsocketUrl = getBaseWebsocketUrl();
       const websocketEndpoint = `${baseWebsocketUrl}/ws/player/${player_id}`;
 

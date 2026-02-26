@@ -34,7 +34,7 @@ const useFetchWeaponLeaderboardData = (
   selectedSeason
 ) => {
   const apiUrl = getBaseApiUrl();
-  const pathUrl = `/api/weapon_leaderboard/${weaponId}`;
+  const pathUrl = `/api/weapon-leaderboard/${weaponId}`;
   const queryParams = {
     mode: selectedMode,
     region: selectedRegion,

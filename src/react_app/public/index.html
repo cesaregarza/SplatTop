@@ -2,7 +2,24 @@
 <html lang="en">
   <head>
     <meta charset="utf-8" />
-    <link rel="icon" href="/favicon.ico?v=1" type="image/x-icon" />
+    <link
+      id="site-favicon"
+      rel="icon"
+      href="/favicon.ico?v=1"
+      type="image/x-icon"
+    />
+    <script>
+      (function () {
+        var hostname = window.location.hostname.toLowerCase();
+        if (hostname === "comp.localhost" || hostname.startsWith("comp.")) {
+          var icon = document.getElementById("site-favicon");
+          if (icon) {
+            icon.setAttribute("href", "/favicon-comp.svg?v=1");
+            icon.setAttribute("type", "image/svg+xml");
+          }
+        }
+      })();
+    </script>
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <meta name="theme-color" content="#000000" />
     <meta

@@ -11,10 +11,13 @@ from shared_lib.utils import get_weapon_image
 
 logger = logging.getLogger(__name__)
 
-router = APIRouter()
+router = APIRouter(prefix="/api", tags=["weapon-leaderboard"])
 
 
-@router.get("/api/weapon_leaderboard/{weapon_id}")
+@router.get(
+    "/weapon-leaderboard/{weapon_id}",
+    summary="Get weapon leaderboard",
+)
 async def weapon_leaderboard(
     weapon_id: int,
     mode: str = Query(

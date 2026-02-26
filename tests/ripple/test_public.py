@@ -18,8 +18,27 @@ def test_public_leaderboard_disabled_returns_404(client_factory, fake_redis):
     with client_factory(
         env={"COMP_LEADERBOARD_ENABLED": "false"}, redis=fake_redis
     ) as client:
-        res = client.get("/api/ripple/public")
+        res = client.get("/api/ripple/public/leaderboard")
         assert res.status_code == 404
+
+
+def test_public_legacy_leaderboard_alias_works(client_factory, fake_redis):
+    generated_at = _now_ms()
+    payload = {
+        "build_version": "2024.09.01",
+        "calculated_at_ms": generated_at,
+        "generated_at_ms": generated_at,
+        "query_params": {},
+        "record_count": 0,
+        "total": 0,
+        "data": [],
+    }
+    fake_redis.set(RIPPLE_STABLE_LATEST_KEY, orjson.dumps(payload))
+    with client_factory(
+        env={"COMP_LEADERBOARD_ENABLED": "true"}, redis=fake_redis
+    ) as client:
+        res = client.get("/api/ripple/public")
+        assert res.status_code == 200
 
 
 def test_public_leaderboard_returns_cached_payload(client_factory, fake_redis):
@@ -80,7 +99,7 @@ def test_public_leaderboard_returns_cached_payload(client_factory, fake_redis):
     with client_factory(
         env={"COMP_LEADERBOARD_ENABLED": "true"}, redis=fake_redis
     ) as client:
-        res = client.get("/api/ripple/public")
+        res = client.get("/api/ripple/public/leaderboard")
         assert res.status_code == 200
         data = res.json()
         assert data["build_version"] == "2024.09.01"
@@ -123,7 +142,7 @@ def test_public_danger_returns_cached_payload(client_factory, fake_redis):
     with client_factory(
         env={"COMP_LEADERBOARD_ENABLED": "true"}, redis=fake_redis
     ) as client:
-        res = client.get("/api/ripple/public/danger")
+        res = client.get("/api/ripple/public/leaderboard/danger")
         assert res.status_code == 200
         data = res.json()
         assert data["total"] == 1
@@ -166,7 +185,7 @@ def test_public_meta_reports_presence(client_factory, fake_redis):
     with client_factory(
         env={"COMP_LEADERBOARD_ENABLED": "true"}, redis=fake_redis
     ) as client:
-        res = client.get("/api/ripple/public/meta")
+        res = client.get("/api/ripple/public/metadata")
         assert res.status_code == 200
         data = res.json()
         assert data["meta"]["build_version"] == "2024.09.01"

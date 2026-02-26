@@ -28,7 +28,7 @@ def test_ripple_json_shape_no_sensitive_fields(client, monkeypatch, test_token):
     )
 
     headers = {"Authorization": f"Bearer {test_token}"}
-    res = client.get("/api/ripple", headers=headers)
+    res = client.get("/api/ripple/leaderboard", headers=headers)
     assert res.status_code == 200
     payload = res.json()
 
@@ -59,15 +59,31 @@ def test_ripple_json_shape_no_sensitive_fields(client, monkeypatch, test_token):
     assert item["last_active_ms"] == 1725000000000
 
 
+def test_legacy_ripple_leaderboard_alias_still_works(
+    client, monkeypatch, test_token
+):
+    import fast_api_app.routes.ripple as ripple_mod
+
+    async def fake_fetch_page(session, **kwargs):
+        return [], 0, 1725148800000, "2024.09.01"
+
+    monkeypatch.setattr(
+        ripple_mod, "fetch_ripple_page", fake_fetch_page, raising=False
+    )
+
+    headers = {"Authorization": f"Bearer {test_token}"}
+    res = client.get("/api/ripple", headers=headers)
+    assert res.status_code == 200
+
+
 def test_ripple_docs_contains_expected_sections(client):
-    res = client.get("/api/ripple/docs")
+    res = client.get("/api/ripple/leaderboard/docs")
     assert res.status_code == 200
     # Content-Type may include charset
     assert res.headers.get("content-type", "").startswith("text/html")
     body = res.text
-    assert "Ripple API Documentation" in body
-    assert "/api/ripple" in body
-    assert "win_loss_ratio" in body
+    assert "Ripple API docs moved to OpenAPI" in body
+    assert "/docs#/paths/~1api~1ripple~1leaderboard/get" in body
 
 
 def test_require_scopes_allows_and_denies(client, monkeypatch, fake_redis):
@@ -104,7 +120,8 @@ def test_require_scopes_allows_and_denies(client, monkeypatch, fake_redis):
         },
     )
     r = client.get(
-        "/api/ripple", headers={"Authorization": f"Bearer {token_allow}"}
+        "/api/ripple/leaderboard",
+        headers={"Authorization": f"Bearer {token_allow}"},
     )
     assert r.status_code == 200
 
@@ -124,7 +141,8 @@ def test_require_scopes_allows_and_denies(client, monkeypatch, fake_redis):
         },
     )
     r2 = client.get(
-        "/api/ripple", headers={"Authorization": f"Bearer {token_deny}"}
+        "/api/ripple/leaderboard",
+        headers={"Authorization": f"Bearer {token_deny}"},
     )
     assert r2.status_code == 403
     assert r2.json().get("detail") == "Insufficient scope"

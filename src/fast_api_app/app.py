@@ -97,7 +97,7 @@ setup_metrics(app)
 async def list_routes():
     html = "<h1>API Endpoints</h1><ul>"
     exclude_paths = [
-        "/api/player/",
+        "/api/players/",
         "/ws/",
         "/docs",
         "/openapi.json",
