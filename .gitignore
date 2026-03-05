@@ -200,6 +200,7 @@ e2e_token_rl.py
 # Local notes (ignored)
 LOCAL_NOTES.md
 x.md
+docs_llm/
 
 # NPM
 src/react_app/.npm-cache/*

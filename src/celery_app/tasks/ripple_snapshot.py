@@ -39,6 +39,8 @@ logger = logging.getLogger(__name__)
 LOCK_TTL_SECONDS = 15 * 60
 MAX_REFRESH_RETRIES = 3
 MIN_REQUIRED_TOURNAMENTS = 3
+MAX_PLAYER_HISTORY_ENTRIES = 25
+PLAYER_HISTORY_CHUNK_SIZE = 2_000
 
 # Fetch the complete snapshot so the public cache can serve every stable row;
 # pagination happens on the consumer side.
@@ -168,6 +170,12 @@ def _to_float(value: Any) -> float | None:
         return float(value)
     except (TypeError, ValueError):
         return None
+
+
+def _batched(items: List[str], *, size: int) -> List[List[str]]:
+    if size <= 0:
+        return [items]
+    return [items[idx : idx + size] for idx in range(0, len(items), size)]
 
 
 def _persist_state(state: Dict[str, Any]) -> None:
@@ -526,6 +534,205 @@ async def _fetch_player_events(
     return out
 
 
+async def _fetch_player_ranked_history(
+    session,
+    player_ids: List[str],
+    *,
+    max_per_player: int = MAX_PLAYER_HISTORY_ENTRIES,
+) -> Dict[str, List[Dict[str, Any]]]:
+    if not player_ids:
+        return {}
+
+    max_rows = max(1, int(max_per_player))
+    schema = ripple_queries._schema()
+    schema_sql = f'"{schema}"'
+
+    query = text(
+        f"""
+        WITH player_matches AS (
+            SELECT DISTINCT pat.player_id::text AS player_id,
+                            pat.tournament_id,
+                            pat.team_id,
+                            pat.match_id
+            FROM {schema_sql}.player_appearance_teams pat
+            WHERE pat.player_id::text = ANY(:player_ids)
+        ),
+        per_team AS (
+            SELECT pm.player_id,
+                   pm.tournament_id,
+                   pm.team_id,
+                   COALESCE(
+                     MAX(
+                       CASE
+                         WHEN m.last_game_finished_at_ms IS NULL THEN NULL
+                         WHEN m.last_game_finished_at_ms < 1000000000000
+                           THEN m.last_game_finished_at_ms * 1000
+                         ELSE m.last_game_finished_at_ms
+                       END
+                     ),
+                     MAX(
+                       CASE
+                         WHEN t.start_time_ms IS NULL THEN NULL
+                         WHEN t.start_time_ms < 1000000000000
+                           THEN t.start_time_ms * 1000
+                         ELSE t.start_time_ms
+                       END
+                     )
+                   )::bigint AS event_ms,
+                   MAX(t.name)::text AS tournament_name,
+                   BOOL_OR(COALESCE(t.is_ranked, false)) AS is_ranked,
+                   COALESCE(
+                     SUM(CASE WHEN m.winner_team_id = pm.team_id THEN 1 ELSE 0 END),
+                     0
+                   )::int AS wins,
+                   COALESCE(
+                     SUM(CASE WHEN m.loser_team_id = pm.team_id THEN 1 ELSE 0 END),
+                     0
+                   )::int AS losses
+            FROM player_matches pm
+            LEFT JOIN {schema_sql}.matches m
+              ON m.match_id = pm.match_id
+             AND m.tournament_id = pm.tournament_id
+            LEFT JOIN {schema_sql}.tournaments t
+              ON t.tournament_id = pm.tournament_id
+            GROUP BY pm.player_id, pm.tournament_id, pm.team_id
+        ),
+        per_tournament AS (
+            SELECT pt.player_id,
+                   pt.tournament_id,
+                   pt.event_ms,
+                   pt.tournament_name,
+                   pt.is_ranked,
+                   pt.team_id,
+                   pt.wins,
+                   pt.losses,
+                   tt.name::text AS team_name,
+                   ROW_NUMBER() OVER (
+                     PARTITION BY pt.player_id, pt.tournament_id
+                     ORDER BY (pt.wins + pt.losses) DESC,
+                              pt.wins DESC,
+                              COALESCE(pt.team_id, 0) DESC
+                   ) AS team_row_num
+            FROM per_team pt
+            LEFT JOIN {schema_sql}.tournament_teams tt
+              ON tt.tournament_id = pt.tournament_id
+             AND tt.team_id = pt.team_id
+        ),
+        ranked_rows AS (
+            SELECT pt.player_id,
+                   pt.tournament_id,
+                   pt.event_ms,
+                   pt.tournament_name,
+                   pt.is_ranked,
+                   pt.team_id,
+                   pt.team_name,
+                   pt.wins,
+                   pt.losses,
+                   ROW_NUMBER() OVER (
+                     PARTITION BY pt.player_id
+                     ORDER BY pt.event_ms DESC NULLS LAST, pt.tournament_id DESC
+                   ) AS row_num
+            FROM per_tournament pt
+            WHERE pt.team_row_num = 1
+              AND pt.is_ranked IS TRUE
+        )
+        SELECT player_id,
+               tournament_id,
+               event_ms,
+               tournament_name,
+               is_ranked,
+               team_id,
+               team_name,
+               wins,
+               losses
+        FROM ranked_rows
+        WHERE row_num <= :max_per_player
+        ORDER BY player_id, row_num
+        """
+    )
+
+    history_by_player: Dict[str, List[Dict[str, Any]]] = {}
+
+    for batch in _batched(player_ids, size=PLAYER_HISTORY_CHUNK_SIZE):
+        try:
+            result = await session.execute(
+                query,
+                {
+                    "player_ids": batch,
+                    "max_per_player": max_rows,
+                },
+            )
+            rows = result.mappings().all()
+        except Exception as exc:
+            logger.warning(
+                "Failed to fetch ranked tournament history for %s players: %s",
+                len(batch),
+                exc,
+            )
+            return {}
+
+        for row in rows:
+            if not bool(row.get("is_ranked")):
+                continue
+
+            player_id = str(row.get("player_id") or "")
+            if not player_id:
+                continue
+
+            tournament_id_raw = row.get("tournament_id")
+            tournament_id_int = _to_int(tournament_id_raw)
+            tournament_id: int | str | None = tournament_id_int
+            if tournament_id is None and tournament_id_raw is not None:
+                tournament_id = str(tournament_id_raw)
+
+            tournament_name = row.get("tournament_name")
+            if not tournament_name and tournament_id is not None:
+                tournament_name = f"Tournament {tournament_id}"
+
+            team_id_raw = row.get("team_id")
+            team_id_int = _to_int(team_id_raw)
+            team_id: int | str | None = team_id_int
+            if team_id is None and team_id_raw is not None:
+                team_id = str(team_id_raw)
+
+            wins = _to_int(row.get("wins")) or 0
+            losses = _to_int(row.get("losses")) or 0
+            result_summary = (
+                f"{wins}W-{losses}L"
+                if wins > 0 or losses > 0
+                else None
+            )
+
+            team_name = row.get("team_name")
+            if not team_name and team_id is not None:
+                team_name = f"Team {team_id}"
+
+            history_by_player.setdefault(player_id, []).append(
+                {
+                    "tournament_id": tournament_id,
+                    "tournament_name": tournament_name,
+                    "event_ms": _to_int(row.get("event_ms")),
+                    "ranked": True,
+                    "placement_label": None,
+                    "result_summary": result_summary,
+                    "team_name": team_name,
+                    "team_id": team_id,
+                }
+            )
+
+    for player_id, rows in history_by_player.items():
+        rows.sort(
+            key=lambda row: (
+                _to_int(row.get("event_ms")) or -1,
+                _to_int(row.get("tournament_id")) or -1,
+            ),
+            reverse=True,
+        )
+        history_by_player[player_id] = rows[:max_rows]
+
+    return history_by_player
+
+
 async def _first_scores_after_events(
     session,
     player_events: Dict[str, int],
@@ -685,6 +892,7 @@ def _build_player_index_payload(
     all_rows: List[Mapping[str, Any]],
     stable_rows: List[Mapping[str, Any]],
     danger_rows: List[Mapping[str, Any]],
+    tournament_history_by_player: Mapping[str, List[Mapping[str, Any]]],
     delta_payload: Mapping[str, Any],
     generated_at_ms: int,
     calculated_at_ms: int | None,
@@ -770,6 +978,12 @@ def _build_player_index_payload(
         progress_remaining = max(
             0, MIN_REQUIRED_TOURNAMENTS - progress_current
         )
+        player_history = tournament_history_by_player.get(player_id)
+        if not isinstance(player_history, list):
+            player_history = []
+        history_rows = [
+            dict(item) for item in player_history if isinstance(item, Mapping)
+        ]
 
         players[player_id] = {
             "player_id": player_id,
@@ -811,6 +1025,10 @@ def _build_player_index_payload(
             )
             if has_baseline
             else None,
+            "history_generated_at_ms": generated_at_ms,
+            "history_record_count": len(history_rows),
+            "history_max_records": MAX_PLAYER_HISTORY_ENTRIES,
+            "tournament_history_ranked": history_rows,
         }
 
     payload = {
@@ -844,6 +1062,7 @@ async def _refresh_snapshots_async_once() -> Dict[str, Any]:
     danger_calc_ts: Any = None
     danger_build: Any = None
     events: Dict[str, Dict[str, Any]] = {}
+    tournament_history_by_player: Dict[str, List[Dict[str, Any]]] = {}
     state: Dict[str, Any] = {}
     stable_rows: List[Dict[str, Any]] = []
     previous_stable_payload, preserved_source = _load_previous_stable_payload()
@@ -888,7 +1107,21 @@ async def _refresh_snapshots_async_once() -> Dict[str, Any]:
                 for row in rows
                 if row.get("player_id")
             ]
+            all_player_ids = sorted(
+                {
+                    str(row.get("player_id"))
+                    for row in all_rows
+                    if row.get("player_id")
+                }
+            )
             events = await _fetch_player_events(session, player_ids)
+            tournament_history_by_player = (
+                await _fetch_player_ranked_history(
+                    session,
+                    all_player_ids,
+                    max_per_player=MAX_PLAYER_HISTORY_ENTRIES,
+                )
+            )
             state, stable_rows = await _bootstrap_state(
                 session, rows, events, generated_at_ms
             )
@@ -997,6 +1230,7 @@ async def _refresh_snapshots_async_once() -> Dict[str, Any]:
             all_rows=all_rows,
             stable_rows=stable_rows,
             danger_rows=danger_payload,
+            tournament_history_by_player=tournament_history_by_player,
             delta_payload=delta_payload,
             generated_at_ms=generated_at_ms,
             calculated_at_ms=calc_ts_int,

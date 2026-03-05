@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import asyncio
 import os
 from contextlib import asynccontextmanager
 
@@ -26,6 +27,77 @@ from shared_lib.constants import (
     RIPPLE_STABLE_META_KEY,
     RIPPLE_STABLE_STATE_KEY,
 )
+
+
+def test_fetch_player_ranked_history_limits_and_sorts():
+    rows = [
+        {
+            "player_id": "p1",
+            "tournament_id": 10_000,
+            "event_ms": 10_000,
+            "tournament_name": None,
+            "is_ranked": False,
+        },
+        {
+            "player_id": "p2",
+            "tournament_id": 42,
+            "event_ms": 2_000,
+            "tournament_name": "Weekend Cup",
+            "is_ranked": True,
+            "team_id": 77,
+            "team_name": "Weekend Warriors",
+            "wins": 3,
+            "losses": 1,
+        },
+    ]
+    for idx in range(30):
+        rows.append(
+            {
+                "player_id": "p1",
+                "tournament_id": 1_000 + idx,
+                "event_ms": 1_000 + idx,
+                "tournament_name": None,
+                "is_ranked": True,
+                "team_id": 2_000 + idx,
+                "team_name": None,
+                "wins": 1,
+                "losses": 2,
+            }
+        )
+
+    class FakeMappings:
+        def all(self):
+            return rows
+
+    class FakeResult:
+        def mappings(self):
+            return FakeMappings()
+
+    class FakeSession:
+        async def execute(self, _query, params=None):
+            assert params is not None
+            assert params["max_per_player"] == 25
+            return FakeResult()
+
+    history = asyncio.run(
+        snapshot_mod._fetch_player_ranked_history(
+            FakeSession(),
+            ["p1", "p2"],
+            max_per_player=25,
+        )
+    )
+
+    assert len(history["p1"]) == 25
+    assert history["p1"][0]["event_ms"] == 1_029
+    assert history["p1"][-1]["event_ms"] == 1_005
+    assert all(item["ranked"] is True for item in history["p1"])
+    assert all(item["tournament_id"] != 10_000 for item in history["p1"])
+    assert history["p1"][0]["tournament_name"] == "Tournament 1029"
+    assert history["p1"][0]["result_summary"] == "1W-2L"
+    assert history["p2"][0]["tournament_name"] == "Weekend Cup"
+    assert history["p2"][0]["team_name"] == "Weekend Warriors"
+    assert history["p2"][0]["team_id"] == 77
+    assert history["p2"][0]["result_summary"] == "3W-1L"
 
 
 def test_refresh_ripple_snapshots_persists_payloads(monkeypatch):
@@ -76,6 +148,26 @@ def test_refresh_ripple_snapshots_persists_payloads(monkeypatch):
             "p2": {"latest_event_ms": 800, "tournament_count": 4},
         }
 
+    async def fake_fetch_history(
+        session, player_ids, *, max_per_player=25
+    ):
+        assert set(player_ids) == {"p1", "p2"}
+        assert max_per_player == 25
+        return {
+            "p1": [
+                {
+                    "tournament_id": 9,
+                    "tournament_name": "Winter Open",
+                    "event_ms": 1_100,
+                    "ranked": True,
+                    "placement_label": None,
+                    "result_summary": None,
+                    "team_name": None,
+                    "team_id": None,
+                }
+            ]
+        }
+
     current_ms = 2_000
 
     monkeypatch.setattr(
@@ -94,6 +186,12 @@ def test_refresh_ripple_snapshots_persists_payloads(monkeypatch):
         snapshot_mod,
         "_fetch_player_events",
         fake_fetch_events,
+        raising=False,
+    )
+    monkeypatch.setattr(
+        snapshot_mod,
+        "_fetch_player_ranked_history",
+        fake_fetch_history,
         raising=False,
     )
 
@@ -180,6 +278,16 @@ def test_refresh_ripple_snapshots_persists_payloads(monkeypatch):
         player_index_payload["players"]["p1"]["minimum_required_tournaments"]
         == 3
     )
+    assert (
+        player_index_payload["players"]["p1"]["history_record_count"] == 1
+    )
+    assert (
+        player_index_payload["players"]["p1"]["tournament_history_ranked"][0][
+            "tournament_name"
+        ]
+        == "Winter Open"
+    )
+    assert player_index_payload["players"]["p2"]["history_record_count"] == 0
 
     player_index_meta = orjson.loads(
         fake_redis.get(RIPPLE_PLAYER_INDEX_META_KEY)

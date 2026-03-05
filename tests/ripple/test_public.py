@@ -232,6 +232,21 @@ def test_public_player_profile_returns_cached_payload(
                 "delta_has_baseline": True,
                 "previous_rank": 9,
                 "previous_display_score": 273.25,
+                "history_generated_at_ms": generated_at,
+                "history_record_count": 1,
+                "history_max_records": 25,
+                "tournament_history_ranked": [
+                    {
+                        "tournament_id": 44,
+                        "tournament_name": "Midnight Splat",
+                        "event_ms": generated_at - 86_400_000,
+                        "ranked": True,
+                        "placement_label": None,
+                        "result_summary": None,
+                        "team_name": None,
+                        "team_id": None,
+                    }
+                ],
             }
         },
     }
@@ -247,6 +262,8 @@ def test_public_player_profile_returns_cached_payload(
         assert data["eligible"] is True
         assert data["stable_rank"] == 7
         assert data["display_score"] == 277.5
+        assert data["history_record_count"] == 1
+        assert data["tournament_history_ranked"][0]["tournament_id"] == 44
         assert data["stale"] is False
         assert isinstance(data["retrieved_at_ms"], int)
 

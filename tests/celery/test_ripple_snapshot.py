@@ -529,8 +529,15 @@ def test_refresh_ripple_snapshots_waits_for_post_event_scores(monkeypatch):
         ),
     ]
 
+    fetch_run_state = {"idx": 0}
+
     async def fake_fetch_page(session, **kwargs):
-        rows, total, calc_ts, build = page_rows.pop(0)
+        if kwargs.get("min_tournaments") is None:
+            current_idx = max(0, fetch_run_state["idx"] - 1)
+            rows, total, calc_ts, build = page_rows[current_idx]
+            return rows, total, calc_ts, build
+        rows, total, calc_ts, build = page_rows[fetch_run_state["idx"]]
+        fetch_run_state["idx"] += 1
         return rows, total, calc_ts, build
 
     async def fake_fetch_danger(session, **kwargs):
@@ -1041,7 +1048,7 @@ def test_refresh_ripple_snapshots_backfills_previous_payload(monkeypatch):
 
     snapshot_mod.refresh_ripple_snapshots()
 
-    assert fetch_calls == [None, 2_000]
+    assert fetch_calls == [None, None, 2_000]
 
     delta_payload = orjson.loads(fake_redis.get(RIPPLE_STABLE_DELTAS_KEY))
     assert delta_payload["baseline_generated_at_ms"] == 2_000
