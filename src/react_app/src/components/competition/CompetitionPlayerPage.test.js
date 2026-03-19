@@ -4,6 +4,7 @@ import {
   render,
   screen,
   waitFor,
+  within,
 } from "@testing-library/react";
 import { MemoryRouter, Route, Routes } from "react-router-dom";
 import CompetitionPlayerPage from "./CompetitionPlayerPage";
@@ -62,6 +63,41 @@ describe("CompetitionPlayerPage", () => {
     jest.clearAllMocks();
   });
 
+  it("renders the expanded profile dossier sections", () => {
+    const historyRows = [
+      {
+        tournament_id: 44,
+        tournament_name: "Midnight Splat",
+        event_ms: 1_700_000_000_000,
+        ranked: true,
+        team_name: "Luma",
+        result_summary: "4W-1L",
+      },
+      {
+        tournament_id: 45,
+        tournament_name: "Dawn Cup",
+        event_ms: 1_699_000_000_000,
+        ranked: true,
+        team_name: "Luma",
+        result_summary: "2W-3L",
+      },
+    ];
+
+    renderPage(
+      makeProfile({
+        previous_display_score: 77.5,
+        history_record_count: historyRows.length,
+        tournament_history_ranked: historyRows,
+      })
+    );
+
+    expect(screen.getByText("Snapshot briefing")).toBeInTheDocument();
+    expect(screen.getByText("Recent stretch")).toBeInTheDocument();
+    expect(screen.getByText("Competition pulse")).toBeInTheDocument();
+    expect(screen.getAllByText("Midnight Splat").length).toBeGreaterThan(0);
+    expect(screen.getAllByText("Luma").length).toBeGreaterThan(0);
+  });
+
   it("supports filtering and pagination in the history explorer", () => {
     const historyRows = Array.from({ length: 14 }, (_, idx) => ({
       tournament_id: idx + 1,
@@ -79,9 +115,13 @@ describe("CompetitionPlayerPage", () => {
       })
     );
 
+    const historyPanel = screen
+      .getByText("Ranked history explorer")
+      .closest("section");
+
     expect(screen.getByText("Ranked history explorer")).toBeInTheDocument();
-    expect(screen.getByText("Cup 14")).toBeInTheDocument();
-    expect(screen.queryByText("Cup 1")).not.toBeInTheDocument();
+    expect(within(historyPanel).getByText("Cup 14")).toBeInTheDocument();
+    expect(within(historyPanel).queryByText("Cup 1")).not.toBeInTheDocument();
     expect(screen.getByText("Showing page 1 of 2")).toBeInTheDocument();
 
     fireEvent.change(
@@ -89,8 +129,8 @@ describe("CompetitionPlayerPage", () => {
       { target: { value: "Cup 3" } }
     );
 
-    expect(screen.getByText("Cup 3")).toBeInTheDocument();
-    expect(screen.queryByText("Cup 14")).not.toBeInTheDocument();
+    expect(within(historyPanel).getByText("Cup 3")).toBeInTheDocument();
+    expect(within(historyPanel).queryByText("Cup 14")).not.toBeInTheDocument();
     expect(screen.getByText("Showing page 1 of 1")).toBeInTheDocument();
 
     fireEvent.change(
@@ -98,7 +138,7 @@ describe("CompetitionPlayerPage", () => {
       { target: { value: "" } }
     );
     fireEvent.click(screen.getByRole("button", { name: "Next" }));
-    expect(screen.getByText("Cup 1")).toBeInTheDocument();
+    expect(within(historyPanel).getByText("Cup 1")).toBeInTheDocument();
     expect(screen.getByText("Showing page 2 of 2")).toBeInTheDocument();
   });
 

@@ -1,4 +1,5 @@
 KIND_CONTEXT ?= kind-kind
+KIND_CLUSTER_NAME ?= $(if $(filter kind-%,$(KIND_CONTEXT)),$(patsubst kind-%,%,$(KIND_CONTEXT)),$(KIND_CONTEXT))
 DEV_PORTS ?= 3000 4000 5000 8001 8080 9090
 LOCAL_NAMESPACE ?= splattop-local
 PORT_FORWARD_NAMESPACE ?= $(LOCAL_NAMESPACE)
@@ -41,11 +42,45 @@ list-commands:
 ensure-kind:
 	kubectl config use-context $(KIND_CONTEXT)
 
+.PHONY: prune-kind-node-images
+prune-kind-node-images:
+	@nodes="$$(kind get nodes --name $(KIND_CLUSTER_NAME) 2>/dev/null || true)"; \
+	if [ -z "$$nodes" ]; then \
+		echo "No kind nodes found for cluster $(KIND_CLUSTER_NAME); skipping node image prune"; \
+	else \
+		for node in $$nodes; do \
+			echo "Pruning unused images in $$node..."; \
+			docker exec $$node crictl rmi --prune || true; \
+		done; \
+	fi
+
+.PHONY: prune-docker-dangling-images
+prune-docker-dangling-images:
+	docker image prune -f
+
+.PHONY: maybe-load-splatgpt
+maybe-load-splatgpt:
+	@if docker image inspect splatnlp:latest >/dev/null 2>&1; then \
+		kind load docker-image splatnlp:latest; \
+	else \
+		echo "Skipping splatnlp:latest load; image not present locally"; \
+	fi
+
+.PHONY: maybe-deploy-splatgpt
+maybe-deploy-splatgpt:
+	@if docker image inspect splatnlp:latest >/dev/null 2>&1; then \
+		kubectl apply -n $(LOCAL_NAMESPACE) -f k8s/splatgpt; \
+	else \
+		echo "Skipping k8s/splatgpt; splatnlp:latest not present locally"; \
+	fi
+
 .PHONY: build
 build:
+	@$(MAKE) prune-kind-node-images
 	docker rmi fast-api-app:latest || true
 	docker rmi celery-worker:latest || true
 	docker rmi react-app:latest || true
+	@$(MAKE) prune-docker-dangling-images
 	docker build \
 		-t fast-api-app:latest \
 		-f dockerfiles/dockerfile.fast-api .
@@ -59,13 +94,15 @@ build:
 	kind load docker-image fast-api-app:latest
 	kind load docker-image celery-worker:latest
 	kind load docker-image react-app:latest
-	kind load docker-image splatnlp:latest
+	@$(MAKE) maybe-load-splatgpt
 
 .PHONY: build-no-cache
 build-no-cache:
+	@$(MAKE) prune-kind-node-images
 	docker rmi fast-api-app:latest || true
 	docker rmi celery-worker:latest || true
 	docker rmi react-app:latest || true
+	@$(MAKE) prune-docker-dangling-images
 	docker build --no-cache -t fast-api-app:latest -f dockerfiles/dockerfile.fast-api .
 	docker build --no-cache -t celery-worker:latest -f dockerfiles/dockerfile.celery .
 	docker build --no-cache -t react-app:latest -f dockerfiles/dockerfile.react .
@@ -131,7 +168,7 @@ deploy-manifests:
 	kubectl apply -n $(LOCAL_NAMESPACE) -f k8s/react
 	kubectl apply -n $(LOCAL_NAMESPACE) -f k8s/celery-worker
 	kubectl apply -n $(LOCAL_NAMESPACE) -f k8s/celery-beat
-	kubectl apply -n $(LOCAL_NAMESPACE) -f k8s/splatgpt
+	@$(MAKE) maybe-deploy-splatgpt
 	kubectl apply -n $(LOCAL_NAMESPACE) -f k8s/ingress-dev.yaml
 	@echo "Ensuring ingress controller is installed..."
 	kubectl apply -f $(INGRESS_MANIFEST)
@@ -250,7 +287,7 @@ update-i18n:
 
 .PHONY: load-splatgpt
 load-splatgpt:
-	kind load docker-image splatnlp:latest
+	@$(MAKE) maybe-load-splatgpt
 
 .PHONY: test
 test:

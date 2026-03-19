@@ -12,7 +12,6 @@ import {
   CRACKLE_PURPLE,
   DISPLAY_GRADE_SCALE,
   gradeFor,
-  isXX,
   nf0,
   nf2,
   tierFor,
@@ -24,6 +23,11 @@ import "./CompetitionPlayerPage.css";
 const XX_PLUS_LABEL = "XX+";
 const XX_PLUS_THRESHOLD = 250;
 const HISTORY_PAGE_SIZE = 12;
+const RECENT_EVENT_LIMIT = 5;
+const RECENT_FORM_LIMIT = 6;
+const MINUTE_MS = 60 * 1000;
+const HOUR_MS = 60 * MINUTE_MS;
+const DAY_MS = 24 * HOUR_MS;
 const GRADE_INDEX_BY_LABEL = new Map(
   DISPLAY_GRADE_SCALE.map(([, label], index) => [label, index])
 );
@@ -41,6 +45,18 @@ const formatUtcDateTime = (timestampMs) => {
     hour12: false,
     timeZone: "UTC",
   })} UTC`;
+};
+
+const formatUtcDate = (timestampMs) => {
+  if (timestampMs == null) return "—";
+  const date = new Date(Number(timestampMs));
+  if (Number.isNaN(date.getTime())) return "—";
+  return date.toLocaleDateString(undefined, {
+    year: "numeric",
+    month: "short",
+    day: "2-digit",
+    timeZone: "UTC",
+  });
 };
 
 const describeDropStatus = (profile) => {
@@ -104,6 +120,53 @@ const parseRecord = (value) => {
     wins: Number(match[1]),
     losses: Number(match[2]),
   };
+};
+
+const pluralize = (count, singular, plural = `${singular}s`) =>
+  `${nf0.format(Math.max(0, Number(count) || 0))} ${
+    Number(count) === 1 ? singular : plural
+  }`;
+
+const formatRelativeAge = (timestampMs, referenceMs = Date.now()) => {
+  const value = toFiniteNumber(timestampMs);
+  const reference = toFiniteNumber(referenceMs) ?? Date.now();
+  if (value == null) return "—";
+  const diffMs = Math.max(0, reference - value);
+  if (diffMs < HOUR_MS) {
+    return `${Math.max(1, Math.round(diffMs / MINUTE_MS))}m ago`;
+  }
+  if (diffMs < 36 * HOUR_MS) {
+    return `${Math.max(1, Math.round(diffMs / HOUR_MS))}h ago`;
+  }
+  if (diffMs < 60 * DAY_MS) {
+    return `${Math.max(1, Math.round(diffMs / DAY_MS))}d ago`;
+  }
+  if (diffMs < 730 * DAY_MS) {
+    return `${Math.max(1, Math.round(diffMs / (30 * DAY_MS)))}mo ago`;
+  }
+  return `${Math.max(1, Math.round(diffMs / (365 * DAY_MS)))}y ago`;
+};
+
+const formatCompactSpan = (days) => {
+  const numeric = toFiniteNumber(days);
+  if (numeric == null) return "—";
+  if (numeric < 1) {
+    return `${Math.max(1, Math.round(numeric * 24))}h`;
+  }
+  if (numeric < 60) {
+    return `${Math.max(1, Math.round(numeric))}d`;
+  }
+  if (numeric < 730) {
+    return `${Math.max(1, Math.round(numeric / 30))}mo`;
+  }
+  return `${Math.max(1, Math.round(numeric / 365))}y`;
+};
+
+const formatSignedNumber = (value, formatter, zeroLabel = "No change") => {
+  const numeric = toFiniteNumber(value);
+  if (numeric == null) return "—";
+  if (Math.abs(numeric) < 0.01) return zeroLabel;
+  return `${numeric > 0 ? "+" : "-"}${formatter.format(Math.abs(numeric))}`;
 };
 
 const normalizeTournamentHistory = (rows) => {
@@ -172,6 +235,135 @@ const normalizeTournamentHistory = (rows) => {
   return mapped;
 };
 
+const pickDominantEntry = (map) => {
+  let best = null;
+  for (const entry of map.values()) {
+    if (
+      !best ||
+      entry.count > best.count ||
+      (entry.count === best.count &&
+        entry.label.localeCompare(best.label, undefined, {
+          sensitivity: "base",
+        }) < 0)
+    ) {
+      best = entry;
+    }
+  }
+  return best;
+};
+
+const buildHistorySummary = (rows, referenceMs) => {
+  let wins = 0;
+  let losses = 0;
+  let knownResults = 0;
+  let positive = 0;
+  let negative = 0;
+  let even = 0;
+  let unknown = 0;
+  let totalMatches = 0;
+  let placementNotes = 0;
+
+  const teamCounts = new Map();
+  const yearCounts = new Map();
+  const eventMsValues = [];
+
+  for (const row of rows) {
+    if (row.wins != null && row.losses != null) {
+      wins += row.wins;
+      losses += row.losses;
+      knownResults += 1;
+      totalMatches += row.wins + row.losses;
+    }
+
+    if (row.outcome === "positive") positive += 1;
+    else if (row.outcome === "negative") negative += 1;
+    else if (row.outcome === "even") even += 1;
+    else unknown += 1;
+
+    if (row.placementLabel) placementNotes += 1;
+    if (row.eventMs != null) eventMsValues.push(row.eventMs);
+
+    const teamKey = row.teamId || row.teamName;
+    if (teamKey) {
+      const label = row.teamName || `Team ${row.teamId}`;
+      const existing = teamCounts.get(teamKey);
+      teamCounts.set(teamKey, {
+        label,
+        count: (existing?.count || 0) + 1,
+      });
+    }
+
+    if (row.year) {
+      const existing = yearCounts.get(row.year);
+      yearCounts.set(row.year, {
+        label: row.year,
+        count: (existing?.count || 0) + 1,
+      });
+    }
+  }
+
+  let gapTotalMs = 0;
+  let gapCount = 0;
+  for (let index = 1; index < rows.length; index += 1) {
+    const previousMs = rows[index - 1]?.eventMs;
+    const currentMs = rows[index]?.eventMs;
+    if (previousMs == null || currentMs == null) continue;
+    gapTotalMs += Math.abs(previousMs - currentMs);
+    gapCount += 1;
+  }
+
+  const latestMs = eventMsValues.length ? Math.max(...eventMsValues) : null;
+  const firstMs = eventMsValues.length ? Math.min(...eventMsValues) : null;
+  const reference = toFiniteNumber(referenceMs) ?? latestMs ?? Date.now();
+
+  const countInWindow = (days) =>
+    rows.filter((row) => {
+      if (row.eventMs == null) return false;
+      const delta = reference - row.eventMs;
+      return delta >= 0 && delta <= days * DAY_MS;
+    }).length;
+
+  return {
+    wins,
+    losses,
+    knownResults,
+    positive,
+    negative,
+    even,
+    unknown,
+    uniqueTeams: teamCounts.size,
+    uniqueYears: yearCounts.size,
+    primaryTeam: pickDominantEntry(teamCounts),
+    busiestYear: pickDominantEntry(yearCounts),
+    placementNotes,
+    totalMatches,
+    averageMatches:
+      knownResults > 0 ? totalMatches / knownResults : null,
+    knownWinRate:
+      wins + losses > 0 ? (wins / (wins + losses)) * 100 : null,
+    knownCoveragePct:
+      rows.length > 0 ? (knownResults / rows.length) * 100 : null,
+    latestMs,
+    firstMs,
+    spanDays:
+      latestMs != null && firstMs != null
+        ? Math.max(0, (latestMs - firstMs) / DAY_MS)
+        : null,
+    cadenceDays:
+      gapCount > 0 ? gapTotalMs / gapCount / DAY_MS : null,
+    recent30Count: countInWindow(30),
+    recent90Count: countInWindow(90),
+    recent365Count: countInWindow(365),
+    recentEvents: rows.slice(0, RECENT_EVENT_LIMIT),
+    recentForm: rows.slice(0, RECENT_FORM_LIMIT).map((row) => ({
+      key: row.key,
+      outcome: row.outcome,
+      label: row.resultSummary || row.placementLabel || "Unknown result",
+      secondary: formatUtcDate(row.eventMs),
+    })),
+  };
+};
+
 const buildSnapshotText = ({
   profile,
   grade,
@@ -181,23 +373,30 @@ const buildSnapshotText = ({
 }) => {
   const name = profile?.display_name || "Unknown player";
   const id = profile?.player_id || "unknown";
-  const showScore = lifetimeRanked >= minimumRequired;
-  const rankLabel =
-    showScore && profile?.stable_rank != null
-      ? `#${nf0.format(Number(profile.stable_rank))}`
-      : "Hidden";
-  const scoreLabel =
-    showScore && rankScore != null
-      ? `${nf2.format(rankScore)} / ${XX_PLUS_THRESHOLD}`
-      : "Hidden";
+  const hasLifetimeUnlock = lifetimeRanked >= minimumRequired;
+  const hasVisibleRank =
+    hasLifetimeUnlock && profile?.stable_rank != null;
+  const hasVisibleScore = hasLifetimeUnlock && rankScore != null;
+  const statusLabel = profile?.eligible
+    ? "Live snapshot"
+    : hasLifetimeUnlock
+    ? "Not currently eligible"
+    : "Unlocking profile";
+  const rankLabel = hasVisibleRank
+    ? `#${nf0.format(Number(profile.stable_rank))}`
+    : "Hidden";
+  const scoreLabel = hasVisibleScore
+    ? `${nf2.format(rankScore)} / ${XX_PLUS_THRESHOLD}`
+    : "Hidden";
   const tournamentsLabel = `${nf0.format(
     Number(profile?.window_tournament_count || 0)
   )} / ${nf0.format(lifetimeRanked)}`;
 
   return [
     `${name} (${id})`,
+    `Status: ${statusLabel}`,
     `Rank: ${rankLabel}`,
-    `Grade: ${showScore ? grade : "Hidden"}`,
+    `Grade: ${hasVisibleScore ? grade : "Hidden"}`,
     `Rank score: ${scoreLabel}`,
     `Tournaments (120d/lifetime): ${tournamentsLabel}`,
     `Last tournament: ${formatUtcDateTime(profile?.last_tournament_ms)}`,
@@ -252,21 +451,18 @@ const GradeBadge = ({ label }) => {
   );
 };
 
-const MetricCell = ({
-  label,
-  value,
-  hint,
-  className = "",
-  hintClassName = "",
-}) => (
-  <div className={`comp-player-metric-cell ${className}`.trim()}>
-    <p className="comp-player-metric-label">{label}</p>
-    <p className="comp-player-metric-value">{value}</p>
-    {hint ? (
-      <p className={`comp-player-metric-hint ${hintClassName}`.trim()}>
-        {hint}
-      </p>
-    ) : null}
+const HeroStat = ({ label, value, detail, tone = "slate" }) => (
+  <article className={`comp-player-hero-stat is-${tone}`.trim()}>
+    <p className="comp-player-hero-stat-label">{label}</p>
+    <p className="comp-player-hero-stat-value">{value}</p>
+    {detail ? <p className="comp-player-hero-stat-detail">{detail}</p> : null}
+  </article>
+);
+
+const FactChip = ({ label, value, tone = "slate" }) => (
+  <div className={`comp-player-fact-chip is-${tone}`.trim()}>
+    <p className="comp-player-fact-label">{label}</p>
+    <p className="comp-player-fact-value">{value}</p>
   </div>
 );
 
@@ -274,6 +470,82 @@ const InsightChip = ({ label, value }) => (
   <div className="comp-player-insight-chip">
     <p className="comp-player-insight-label">{label}</p>
     <p className="comp-player-insight-value font-data">{value}</p>
+  </div>
+);
+
+const SummaryCard = ({
+  eyebrow,
+  value,
+  title,
+  detail,
+  tone = "slate",
+}) => (
+  <article className={`comp-player-summary-card is-${tone}`.trim()}>
+    <p className="comp-player-summary-eyebrow">{eyebrow}</p>
+    <p className="comp-player-summary-value">{value}</p>
+    <p className="comp-player-summary-title">{title}</p>
+    {detail ? <p className="comp-player-summary-detail">{detail}</p> : null}
+  </article>
+);
+
+const FormPill = ({ entry }) => {
+  const outcomeLabel =
+    entry.outcome === "positive"
+      ? "W"
+      : entry.outcome === "negative"
+      ? "L"
+      : entry.outcome === "even"
+      ? "="
+      : "?";
+
+  return (
+    <div
+      className={`comp-player-form-pill is-${entry.outcome}`.trim()}
+      title={`${entry.secondary} · ${entry.label}`}
+    >
+      <span className="comp-player-form-pill-mark">{outcomeLabel}</span>
+      <span className="comp-player-form-pill-date">{entry.secondary}</span>
+    </div>
+  );
+};
+
+const RecentEventCard = ({ row, referenceMs }) => {
+  const stateLabel =
+    row.outcome === "positive"
+      ? "Positive"
+      : row.outcome === "negative"
+      ? "Negative"
+      : row.outcome === "even"
+      ? "Even"
+      : "Unknown";
+  const resultLabel =
+    row.resultSummary || row.placementLabel || "Result not logged";
+
+  return (
+    <article className={`comp-player-recent-card is-${row.outcome}`.trim()}>
+      <div className="comp-player-recent-head">
+        <p className="comp-player-recent-age">
+          {formatRelativeAge(row.eventMs, referenceMs)}
+        </p>
+        <span className={`comp-player-result-pill is-${row.outcome}`.trim()}>
+          {stateLabel}
+        </span>
+      </div>
+      <p className="comp-player-recent-title">{row.tournamentName}</p>
+      <p className="comp-player-recent-meta">{formatUtcDate(row.eventMs)}</p>
+      <p className="comp-player-recent-team">{row.teamName || "Unknown team"}</p>
+      <p className="comp-player-recent-result font-data">{resultLabel}</p>
+    </article>
+  );
+};
+
+const PulseRow = ({ label, value, detail }) => (
+  <div className="comp-player-pulse-row">
+    <div className="comp-player-pulse-copy">
+      <p className="comp-player-pulse-label">{label}</p>
+      {detail ? <p className="comp-player-pulse-detail">{detail}</p> : null}
+    </div>
+    <p className="comp-player-pulse-value">{value}</p>
   </div>
 );
 
@@ -305,12 +577,20 @@ const CompetitionPlayerPage = ({ top500Href }) => {
 
   const minimumRequired = Number(profile?.minimum_required_tournaments || 3);
   const lifetimeRanked = Number(profile?.lifetime_ranked_tournaments || 0);
-  const showScore = lifetimeRanked >= minimumRequired;
+  const hasLifetimeUnlock = lifetimeRanked >= minimumRequired;
   const rankScore =
     profile?.display_score == null ? null : Number(profile.display_score) + 150;
-  const grade = rankScore == null ? "—" : gradeFor(rankScore);
+  const previousRankScore =
+    profile?.previous_display_score == null
+      ? null
+      : Number(profile.previous_display_score) + 150;
+  const hasVisibleRank =
+    hasLifetimeUnlock && profile?.stable_rank != null;
+  const hasVisibleScore =
+    hasLifetimeUnlock && rankScore != null;
+  const grade = hasVisibleScore ? gradeFor(rankScore) : "—";
   const heroHasLightning = Boolean(
-    showScore && (grade === "XX+" || grade === "XX★")
+    hasVisibleScore && (grade === "XX+" || grade === "XX★")
   );
   const trackTarget = useMemo(() => {
     if (grade === "XX+" || grade === "XX★") {
@@ -351,11 +631,12 @@ const CompetitionPlayerPage = ({ top500Href }) => {
   }, [grade]);
   const scoreDeltaToThreshold =
     rankScore == null ? null : rankScore - trackTarget.threshold;
-  const scoreProgressPct = rankScore == null
-    ? 0
-    : trackTarget.forceFull
-    ? 100
-    : Math.max(0, Math.min((rankScore / trackTarget.threshold) * 100, 100));
+  const scoreProgressPct =
+    rankScore == null
+      ? 0
+      : trackTarget.forceFull
+      ? 100
+      : Math.max(0, Math.min((rankScore / trackTarget.threshold) * 100, 100));
   const scoreTrackClass =
     rankScore != null && rankScore >= XX_PLUS_THRESHOLD
       ? "comp-player-score-fill is-threshold"
@@ -391,6 +672,14 @@ const CompetitionPlayerPage = ({ top500Href }) => {
         new Set(tournamentHistory.map((row) => row.year).filter(Boolean))
       ).sort((a, b) => Number(b) - Number(a)),
     [tournamentHistory]
+  );
+  const historyGeneratedAtMs =
+    profile?.history_generated_at_ms ?? profile?.generated_at_ms;
+  const historyReferenceMs =
+    toFiniteNumber(historyGeneratedAtMs) ?? Date.now();
+  const historySummary = useMemo(
+    () => buildHistorySummary(tournamentHistory, historyReferenceMs),
+    [tournamentHistory, historyReferenceMs]
   );
   const filteredHistory = useMemo(() => {
     const query = historyQuery.trim().toLowerCase();
@@ -440,33 +729,6 @@ const CompetitionPlayerPage = ({ top500Href }) => {
     const start = (safeHistoryPage - 1) * HISTORY_PAGE_SIZE;
     return filteredHistory.slice(start, start + HISTORY_PAGE_SIZE);
   }, [filteredHistory, safeHistoryPage]);
-  const historySummary = useMemo(() => {
-    let wins = 0;
-    let losses = 0;
-    let knownResults = 0;
-    let positive = 0;
-    for (const row of tournamentHistory) {
-      if (row.wins != null && row.losses != null) {
-        wins += row.wins;
-        losses += row.losses;
-        knownResults += 1;
-      }
-      if (row.outcome === "positive") positive += 1;
-    }
-    return {
-      wins,
-      losses,
-      knownResults,
-      positive,
-      uniqueTeams: new Set(
-        tournamentHistory
-          .map((row) => row.teamId || row.teamName)
-          .filter(Boolean)
-      ).size,
-    };
-  }, [tournamentHistory]);
-  const historyGeneratedAtMs =
-    profile?.history_generated_at_ms ?? profile?.generated_at_ms;
   const historyCount =
     toFiniteNumber(profile?.history_record_count) ?? tournamentHistory.length;
   const shareProfileUrl = useMemo(() => {
@@ -500,7 +762,12 @@ const CompetitionPlayerPage = ({ top500Href }) => {
     }
   }, []);
 
-  useCrackleEffect(rootRef, [profile?.player_id, grade, rankScore, showScore]);
+  useCrackleEffect(rootRef, [
+    profile?.player_id,
+    grade,
+    rankScore,
+    hasVisibleScore,
+  ]);
 
   if (loading) {
     return (
@@ -541,10 +808,7 @@ const CompetitionPlayerPage = ({ top500Href }) => {
             <p className="comp-player-error-body">{error}</p>
           </div>
           <div className="comp-player-inline-actions">
-            <Link
-              to="/"
-              className="comp-player-button"
-            >
+            <Link to="/" className="comp-player-button">
               Back to leaderboard
             </Link>
             <button
@@ -588,14 +852,115 @@ const CompetitionPlayerPage = ({ top500Href }) => {
     ? `${profile.rank_delta > 0 ? "+" : ""}${profile.rank_delta} rank`
     : "No rank change";
 
-  const movementScoreLabel = !profile.delta_has_baseline
-    ? "—"
-    : Number.isFinite(profile.display_score_delta) &&
-      Math.abs(profile.display_score_delta) >= 0.01
-    ? `${profile.display_score_delta > 0 ? "+" : "-"}${nf2.format(
-        Math.abs(profile.display_score_delta)
-      )}`
-    : "No score change";
+  const remainingToUnlock = Math.max(0, minimumRequired - lifetimeRanked);
+  const windowCount = Number(profile.window_tournament_count || 0);
+  const windowCoveragePct =
+    lifetimeRanked > 0 ? (windowCount / lifetimeRanked) * 100 : null;
+  const lastTournamentMs =
+    toFiniteNumber(profile.last_tournament_ms) ?? historySummary.latestMs;
+  const lastActiveMs =
+    toFiniteNumber(profile.last_active_ms) ?? lastTournamentMs;
+  const lastSeenLabel = formatRelativeAge(lastTournamentMs, historyReferenceMs);
+  const lastActiveLabel = formatRelativeAge(lastActiveMs, historyReferenceMs);
+  const snapshotStatusLabel = profile.eligible
+    ? "Live on stable leaderboard"
+    : hasLifetimeUnlock
+    ? "History unlocked, currently off board"
+    : `${pluralize(remainingToUnlock, "event")} to unlock`;
+  const heroDek = profile.eligible
+    ? `${dropStatus.label}. ${pluralize(
+        historySummary.recent90Count,
+        "ranked tournament"
+      )} in the last 90 days.`
+    : hasLifetimeUnlock
+    ? `This player has enough lifetime history to unlock the profile, but they are not currently in the live stable snapshot.`
+    : `Needs ${pluralize(
+        remainingToUnlock,
+        "more ranked tournament"
+      )} before rank and score unlock on the public profile.`;
+  const cadenceLabel = historySummary.cadenceDays == null
+    ? "No cadence yet"
+    : `Every ${formatCompactSpan(historySummary.cadenceDays)}`;
+  const rankMotionValue = !profile.delta_has_baseline
+    ? "No baseline"
+    : profile.delta_is_new
+    ? "New entrant"
+    : Number.isFinite(profile.rank_delta) && profile.rank_delta !== 0
+    ? `${profile.rank_delta > 0 ? "+" : ""}${nf0.format(
+        Math.abs(Number(profile.rank_delta)))
+      }`
+    : "Steady";
+  const rankMotionTitle = hasVisibleRank
+    ? `Now #${nf0.format(Number(profile.stable_rank))}`
+    : hasLifetimeUnlock
+    ? "Outside stable leaderboard"
+    : "Rank still locked";
+  const rankMotionDetail = Number.isFinite(profile.previous_rank)
+    ? `Previous snapshot #${nf0.format(Number(profile.previous_rank))}`
+    : hasVisibleRank
+    ? movementLabel
+    : "No prior stable snapshot to compare";
+  const scoreSwingValue = !profile.delta_has_baseline
+    ? "No baseline"
+    : Number.isFinite(profile.display_score_delta)
+    ? formatSignedNumber(profile.display_score_delta, nf2)
+    : "Steady";
+  const scoreSwingTitle = hasVisibleScore
+    ? `${nf2.format(rankScore)} current rank score`
+    : hasLifetimeUnlock
+    ? "Score not published in this snapshot"
+    : "Score locked";
+  const scoreSwingDetail =
+    hasVisibleScore && previousRankScore != null
+      ? `Previous snapshot ${nf2.format(previousRankScore)}`
+      : hasVisibleScore
+      ? scoreHint
+      : "Scores appear once the player qualifies for a live stable snapshot";
+  const windowPressureDetail = windowCoveragePct == null
+    ? "No lifetime tournament data yet"
+    : `${nf0.format(windowCoveragePct)}% of lifetime ranked tournaments are still in the active 120d window`;
+  const footprintValue =
+    tournamentHistory.length > 0
+      ? `${pluralize(historySummary.uniqueTeams, "team")} · ${pluralize(
+          historySummary.uniqueYears,
+          "season year"
+        )}`
+      : "No archived events";
+  const footprintDetail =
+    historySummary.firstMs != null && historySummary.latestMs != null
+      ? `${formatUtcDate(historySummary.firstMs)} to ${formatUtcDate(
+          historySummary.latestMs
+        )} · ${formatCompactSpan(historySummary.spanDays)} span`
+      : "Tournament archive has not populated yet";
+  const recordValue =
+    historySummary.knownResults > 0
+      ? `${nf0.format(historySummary.wins)}W-${nf0.format(
+          historySummary.losses
+        )}L`
+      : "No logged records";
+  const recordDetail =
+    historySummary.knownWinRate != null
+      ? `${nf0.format(historySummary.knownWinRate)}% win rate across ${pluralize(
+          historySummary.knownResults,
+          "tracked event"
+        )}`
+      : "Most archived rows are missing match-level result summaries";
+  const activityDetail =
+    historySummary.recent365Count > 0
+      ? `${pluralize(
+          historySummary.recent30Count,
+          "event"
+        )} in 30d · ${pluralize(historySummary.recent365Count, "event")} in 1y`
+      : "No recent tournament timestamps in the archive";
+  const visibilityNote =
+    profile.ineligible_reason === "insufficient_lifetime_tournaments"
+      ? `This player needs ${pluralize(
+          remainingToUnlock,
+          "more lifetime ranked tournament"
+        )} before rank and score unlock.`
+      : profile.ineligible_reason === "not_currently_eligible"
+      ? "This player has enough lifetime history, but they are currently outside the live stable leaderboard snapshot."
+      : null;
 
   return (
     <CompetitionLayout
@@ -622,102 +987,149 @@ const CompetitionPlayerPage = ({ top500Href }) => {
                 {profile.display_name || "Unknown player"}
               </h2>
               <p className="comp-player-id font-data">{profile.player_id}</p>
+              <p className="comp-player-hero-dek">{heroDek}</p>
             </div>
             <div className="comp-player-actions">
               <Link to="/" className="comp-player-button">
                 Back to leaderboard
               </Link>
-              <button type="button" onClick={refresh} className="comp-player-button">
+              <button
+                type="button"
+                onClick={refresh}
+                className="comp-player-button"
+              >
                 Refresh
               </button>
             </div>
           </div>
-          <div className="comp-player-metric-band">
-            <MetricCell
-              label="Rank"
+
+          <div className="comp-player-hero-band">
+            <div className="comp-player-grade-spotlight">
+              <p className="comp-player-spotlight-label">Current grade</p>
+              <div className="comp-player-grade-row">
+                {hasVisibleScore ? (
+                  <GradeBadge label={grade} />
+                ) : (
+                  <span className="comp-player-grade-fallback">
+                    {hasLifetimeUnlock ? "Off board" : "Locked"}
+                  </span>
+                )}
+                <span className="comp-player-grade-caption">
+                  {snapshotStatusLabel}
+                </span>
+              </div>
+
+              {hasVisibleScore && (
+                <div className="comp-player-score-track comp-player-score-track--hero">
+                  <div className="comp-player-score-track-head">
+                    <span className="comp-player-track-label">
+                      Path to {trackTarget.label}
+                    </span>
+                    <span className="comp-player-track-value font-data">
+                      {nf2.format(rankScore)} / {nf2.format(trackTarget.threshold)}
+                    </span>
+                  </div>
+                  <div className="comp-player-score-rail">
+                    <div
+                      className={scoreTrackClass}
+                      style={{ width: `${scoreProgressPct}%` }}
+                    />
+                  </div>
+                </div>
+              )}
+            </div>
+
+            <div className="comp-player-hero-stats">
+              <HeroStat
+                label="Rank"
+                value={
+                  hasVisibleRank
+                    ? `#${nf0.format(Number(profile.stable_rank))}`
+                    : "—"
+                }
+                detail={hasVisibleRank ? movementLabel : snapshotStatusLabel}
+                tone="violet"
+              />
+              <HeroStat
+                label="Rank score"
+                value={
+                  hasVisibleScore ? (
+                    <span
+                      className={`comp-player-score-value ${
+                        scoreHasLightning ? "xxstar-score" : ""
+                      }`.trim()}
+                    >
+                      <span>{nf2.format(rankScore)}</span>
+                      <span className="comp-player-score-target">
+                        {" "}
+                        / {XX_PLUS_THRESHOLD}
+                      </span>
+                    </span>
+                  ) : (
+                    "—"
+                  )
+                }
+                detail={hasVisibleScore ? scoreHint : "Score hidden in this snapshot"}
+                tone={scoreHasLightning ? "amber" : "cyan"}
+              />
+              <HeroStat
+                label="Window"
+                value={`${nf0.format(windowCount)} / ${nf0.format(
+                  minimumRequired
+                )}`}
+                detail={dropStatus.label}
+                tone="emerald"
+              />
+              <HeroStat
+                label="Last seen"
+                value={lastSeenLabel}
+                detail={formatUtcDateTime(lastTournamentMs)}
+                tone="rose"
+              />
+            </div>
+          </div>
+
+          <div className="comp-player-fact-row">
+            <FactChip
+              label="Snapshot"
+              value={profile.eligible ? "Live" : "Off board"}
+              tone={profile.eligible ? "emerald" : "amber"}
+            />
+            <FactChip
+              label="Lifetime ranked"
+              value={nf0.format(lifetimeRanked)}
+              tone="violet"
+            />
+            <FactChip
+              label="90d activity"
+              value={pluralize(historySummary.recent90Count, "event")}
+              tone="cyan"
+            />
+            <FactChip
+              label="Primary team"
+              value={historySummary.primaryTeam?.label || "Unknown"}
+              tone="rose"
+            />
+            <FactChip
+              label="Archive span"
               value={
-                showScore && profile.stable_rank != null
-                  ? `#${nf0.format(Number(profile.stable_rank))}`
+                historySummary.spanDays != null
+                  ? formatCompactSpan(historySummary.spanDays)
                   : "—"
               }
-              hint={showScore ? movementLabel : "Rank hidden until eligible"}
-            />
-            <MetricCell
-              label="Rank score"
-              value={
-                showScore && rankScore != null ? (
-                <span
-                    className={`comp-player-score-value ${scoreHasLightning ? "xxstar-score" : ""}`.trim()}
-                  >
-                    <span>{nf2.format(rankScore)}</span>
-                    <span className="comp-player-score-target"> / {XX_PLUS_THRESHOLD}</span>
-                  </span>
-                ) : (
-                  "—"
-                )
-              }
-              hint={
-                showScore
-                  ? `${movementScoreLabel} · ${scoreHint}`
-                  : "Score hidden until eligible"
-              }
-              className={scoreHasLightning ? "comp-player-metric-cell--brag" : ""}
-              hintClassName={scoreHasLightning ? "text-fuchsia-200/80" : ""}
-            />
-            <MetricCell
-              label="Grade"
-              value={showScore ? <GradeBadge label={grade} /> : "—"}
-              className={showScore && isXX(grade) ? "comp-player-metric-cell--brag" : ""}
-              hintClassName={showScore && isXX(grade) ? "text-fuchsia-200/80" : ""}
-              hint={showScore ? (isXX(grade) ? "Top-tier grade unlocked" : null) : null}
-            />
-            <MetricCell
-              label="Drop status"
-              value={
-                <span className={`comp-player-status-pill ${dropStatus.className}`}>
-                  {dropStatus.label}
-                </span>
-              }
-            />
-            <MetricCell
-              label="Tournaments"
-              value={`${nf0.format(
-                Number(profile.window_tournament_count || 0)
-              )} / ${nf0.format(lifetimeRanked)}`}
-              hint="120d / lifetime ranked tournaments"
-            />
-            <MetricCell
-              label="Last tournament"
-              value={formatUtcDateTime(profile.last_tournament_ms)}
+              tone="slate"
             />
           </div>
-          {showScore && rankScore != null && (
-            <div className="comp-player-score-track comp-player-score-track--hero">
-              <div className="comp-player-score-track-head">
-                <span className="comp-player-track-label">Path to {trackTarget.label}</span>
-                <span className="comp-player-track-value font-data">
-                  {nf2.format(rankScore)} / {nf2.format(trackTarget.threshold)}
-                </span>
-              </div>
-              <div className="comp-player-score-rail">
-                <div className={scoreTrackClass} style={{ width: `${scoreProgressPct}%` }} />
-              </div>
-            </div>
-          )}
         </div>
 
-        {!profile.eligible && (
+        {!profile.eligible && visibilityNote && (
           <div className="comp-player-note comp-player-note--warn">
             <p className="comp-player-note-title">Player is not currently eligible</p>
-            <p className="comp-player-note-body">
-              This card uses competition snapshot data only. If this player has
-              fewer than {minimumRequired} lifetime ranked tournaments, rank and
-              score stay hidden until the minimum is reached.
-            </p>
+            <p className="comp-player-note-body">{visibilityNote}</p>
           </div>
         )}
 
-        {!showScore && (
+        {!hasLifetimeUnlock && (
           <div className="comp-player-note">
             <p className="comp-player-note-body">
               Progress to eligibility:{" "}
@@ -736,15 +1148,230 @@ const CompetitionPlayerPage = ({ top500Href }) => {
           </div>
         )}
 
+        <div className="comp-player-dossier-grid">
+          <section className="comp-player-panel comp-player-overview-panel">
+            <div className="comp-player-panel-head">
+              <div>
+                <h3 className="comp-player-panel-title">Snapshot briefing</h3>
+                <p className="comp-player-panel-subtitle">
+                  Derived from the live snapshot plus the cached tournament archive.
+                </p>
+              </div>
+              <p className="comp-player-panel-meta">
+                Updated {formatUtcDateTime(historyGeneratedAtMs)}
+              </p>
+            </div>
+
+            <div className="comp-player-summary-grid">
+              <SummaryCard
+                eyebrow="Rank motion"
+                value={rankMotionValue}
+                title={rankMotionTitle}
+                detail={rankMotionDetail}
+                tone="violet"
+              />
+              <SummaryCard
+                eyebrow="Score swing"
+                value={scoreSwingValue}
+                title={scoreSwingTitle}
+                detail={scoreSwingDetail}
+                tone="cyan"
+              />
+              <SummaryCard
+                eyebrow="Window pressure"
+                value={dropStatus.label}
+                title={`${nf0.format(windowCount)} active-window tournaments`}
+                detail={windowPressureDetail}
+                tone="amber"
+              />
+              <SummaryCard
+                eyebrow="Cadence"
+                value={cadenceLabel}
+                title={lastActiveLabel === "—" ? "No recent timestamp" : `Last active ${lastActiveLabel}`}
+                detail={activityDetail}
+                tone="emerald"
+              />
+              <SummaryCard
+                eyebrow="Footprint"
+                value={footprintValue}
+                title={
+                  historySummary.busiestYear
+                    ? `Busiest year ${historySummary.busiestYear.label}`
+                    : "Archive still sparse"
+                }
+                detail={footprintDetail}
+                tone="rose"
+              />
+              <SummaryCard
+                eyebrow="Logged record"
+                value={recordValue}
+                title={
+                  historySummary.positive > 0
+                    ? `${pluralize(historySummary.positive, "positive finish")}`
+                    : "No positive-result rows yet"
+                }
+                detail={recordDetail}
+                tone="slate"
+              />
+            </div>
+
+            {historySummary.recentEvents.length > 0 && (
+              <div className="comp-player-recent-section">
+                <div className="comp-player-panel-head comp-player-panel-head--tight">
+                  <div>
+                    <h4 className="comp-player-panel-title">Recent stretch</h4>
+                    <p className="comp-player-panel-subtitle">
+                      The latest archived tournaments on this profile.
+                    </p>
+                  </div>
+                </div>
+                <div className="comp-player-recent-grid">
+                  {historySummary.recentEvents.map((row) => (
+                    <RecentEventCard
+                      key={row.key}
+                      row={row}
+                      referenceMs={historyReferenceMs}
+                    />
+                  ))}
+                </div>
+              </div>
+            )}
+          </section>
+
+          <aside className="comp-player-side-rail">
+            <section className="comp-player-panel">
+              <div className="comp-player-panel-head">
+                <h3 className="comp-player-panel-title">Competition pulse</h3>
+                <p className="comp-player-panel-meta">
+                  {nf0.format(historyCount)} cached rows
+                </p>
+              </div>
+              <div className="comp-player-pulse-list">
+                <PulseRow
+                  label="Last tournament"
+                  value={lastSeenLabel}
+                  detail={formatUtcDateTime(lastTournamentMs)}
+                />
+                <PulseRow
+                  label="Last active"
+                  value={lastActiveLabel}
+                  detail={formatUtcDateTime(lastActiveMs)}
+                />
+                <PulseRow
+                  label="Window coverage"
+                  value={
+                    windowCoveragePct == null
+                      ? "—"
+                      : `${nf0.format(windowCoveragePct)}%`
+                  }
+                  detail={`${nf0.format(windowCount)} of ${nf0.format(
+                    lifetimeRanked
+                  )} lifetime tournaments are in the active window`}
+                />
+                <PulseRow
+                  label="Most common team"
+                  value={historySummary.primaryTeam?.label || "Unknown"}
+                  detail={
+                    historySummary.primaryTeam
+                      ? `${pluralize(
+                          historySummary.primaryTeam.count,
+                          "appearance"
+                        )} in archive`
+                      : "No tagged team names in archive yet"
+                  }
+                />
+                <PulseRow
+                  label="Archive coverage"
+                  value={
+                    historySummary.knownCoveragePct == null
+                      ? "—"
+                      : `${nf0.format(historySummary.knownCoveragePct)}%`
+                  }
+                  detail={`${pluralize(
+                    historySummary.knownResults,
+                    "row"
+                  )} include a match record`}
+                />
+              </div>
+
+              {historySummary.recentForm.length > 0 && (
+                <>
+                  <div className="comp-player-panel-head comp-player-panel-head--tight">
+                    <h4 className="comp-player-panel-title">Recent form</h4>
+                    <p className="comp-player-panel-meta">
+                      Last {nf0.format(historySummary.recentForm.length)}
+                    </p>
+                  </div>
+                  <div className="comp-player-form-strip">
+                    {historySummary.recentForm.map((entry) => (
+                      <FormPill key={entry.key} entry={entry} />
+                    ))}
+                  </div>
+                </>
+              )}
+            </section>
+
+            <section className="comp-player-panel comp-player-share-panel">
+              <h3 className="comp-player-panel-title">Share profile</h3>
+              <p className="comp-player-panel-subtitle">
+                Copy a direct link or snapshot text for Discord, socials, and team chats.
+              </p>
+              <div className="comp-player-share-actions">
+                <button
+                  type="button"
+                  onClick={() => handleCopy(shareProfileUrl, "Profile link copied.")}
+                  className="comp-player-button comp-player-button--small"
+                >
+                  Copy profile link
+                </button>
+                <button
+                  type="button"
+                  onClick={() =>
+                    handleCopy(shareSnapshotText, "Profile snapshot text copied.")
+                  }
+                  className="comp-player-button comp-player-button--small"
+                >
+                  Copy profile snapshot
+                </button>
+              </div>
+              <p className="comp-player-link-preview">{shareProfileUrl}</p>
+              {shareStatus && (
+                <p
+                  className={`comp-player-share-status ${
+                    shareStatus.kind === "error"
+                      ? "comp-player-share-status--error"
+                      : "comp-player-share-status--ok"
+                  }`}
+                >
+                  {shareStatus.message}
+                </p>
+              )}
+            </section>
+
+            {(historySummary.knownResults === 0 ||
+              historySummary.placementNotes < tournamentHistory.length) && (
+              <p className="comp-player-note-tip">
+                Some archived tournaments are missing team names, match records, or
+                placement notes, so the profile emphasizes the data that is actually
+                present instead of guessing.
+              </p>
+            )}
+          </aside>
+        </div>
+
         <div className="comp-player-main-grid">
           <section className="comp-player-panel comp-player-history-panel">
             <div className="comp-player-panel-head">
-              <h3 className="comp-player-panel-title">Ranked history explorer</h3>
-              <p className="comp-player-panel-meta">{nf0.format(historyCount)} cached</p>
+              <div>
+                <h3 className="comp-player-panel-title">Ranked history explorer</h3>
+                <p className="comp-player-panel-subtitle">
+                  Filter the cached ranked tournament archive by time, outcome, or team.
+                </p>
+              </div>
+              <p className="comp-player-panel-meta">
+                {nf0.format(filteredHistory.length)} matching
+              </p>
             </div>
-            <p className="comp-player-panel-subtitle">
-              Updated {formatUtcDateTime(historyGeneratedAtMs)}
-            </p>
 
             <div className="comp-player-insight-row">
               <InsightChip
@@ -753,7 +1380,9 @@ const CompetitionPlayerPage = ({ top500Href }) => {
               />
               <InsightChip
                 label="Known match record"
-                value={`${nf0.format(historySummary.wins)}W-${nf0.format(historySummary.losses)}L`}
+                value={`${nf0.format(historySummary.wins)}W-${nf0.format(
+                  historySummary.losses
+                )}L`}
               />
               <InsightChip
                 label="Positive events"
@@ -762,6 +1391,18 @@ const CompetitionPlayerPage = ({ top500Href }) => {
               <InsightChip
                 label="Teams played"
                 value={nf0.format(historySummary.uniqueTeams)}
+              />
+              <InsightChip
+                label="90d activity"
+                value={nf0.format(historySummary.recent90Count)}
+              />
+              <InsightChip
+                label="Avg matches"
+                value={
+                  historySummary.averageMatches == null
+                    ? "—"
+                    : nf2.format(historySummary.averageMatches)
+                }
               />
             </div>
 
@@ -853,7 +1494,9 @@ const CompetitionPlayerPage = ({ top500Href }) => {
                                 {row.teamName || "Unknown team"}
                               </p>
                               {row.teamId && (
-                                <p className="comp-player-table-secondary">Team {row.teamId}</p>
+                                <p className="comp-player-table-secondary">
+                                  Team {row.teamId}
+                                </p>
                               )}
                             </td>
                             <td>
@@ -874,7 +1517,8 @@ const CompetitionPlayerPage = ({ top500Href }) => {
                 </div>
                 <div className="comp-player-pagination">
                   <p className="comp-player-panel-subtitle">
-                    Showing page {nf0.format(safeHistoryPage)} of {nf0.format(historyPageCount)}
+                    Showing page {nf0.format(safeHistoryPage)} of{" "}
+                    {nf0.format(historyPageCount)}
                   </p>
                   <div className="comp-player-inline-actions">
                     <button
@@ -903,55 +1547,11 @@ const CompetitionPlayerPage = ({ top500Href }) => {
                 </div>
               </>
             ) : (
-              <p className="comp-player-empty-text">No history rows match these filters yet.</p>
+              <p className="comp-player-empty-text">
+                No history rows match these filters yet.
+              </p>
             )}
           </section>
-
-          <aside className="comp-player-side-rail">
-            <section className="comp-player-panel comp-player-share-panel">
-              <h3 className="comp-player-panel-title">Share profile</h3>
-              <p className="comp-player-panel-subtitle">
-                Copy a direct link or snapshot text for Discord, socials, and team chats.
-              </p>
-              <div className="comp-player-share-actions">
-                <button
-                  type="button"
-                  onClick={() => handleCopy(shareProfileUrl, "Profile link copied.")}
-                  className="comp-player-button comp-player-button--small"
-                >
-                  Copy profile link
-                </button>
-                <button
-                  type="button"
-                  onClick={() =>
-                    handleCopy(shareSnapshotText, "Profile snapshot text copied.")
-                  }
-                  className="comp-player-button comp-player-button--small"
-                >
-                  Copy profile snapshot
-                </button>
-              </div>
-              <p className="comp-player-link-preview">{shareProfileUrl}</p>
-              {shareStatus && (
-                <p
-                  className={`comp-player-share-status ${
-                    shareStatus.kind === "error"
-                      ? "comp-player-share-status--error"
-                      : "comp-player-share-status--ok"
-                  }`}
-                >
-                  {shareStatus.message}
-                </p>
-              )}
-            </section>
-
-            {historySummary.knownResults === 0 && (
-              <p className="comp-player-note-tip">
-                Match-level results are missing for some tournaments, so those rows
-                show unknown outcomes.
-              </p>
-            )}
-          </aside>
         </div>
       </section>
     </CompetitionLayout>
