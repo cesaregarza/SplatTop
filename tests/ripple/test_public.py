@@ -247,6 +247,40 @@ def test_public_player_profile_returns_cached_payload(
                         "team_id": None,
                     }
                 ],
+                "match_loo_generated_at_ms": generated_at,
+                "match_loo_record_count": 1,
+                "match_loo_max_records": 20,
+                "match_loo_impacts": [
+                    {
+                        "match_id": 501,
+                        "tournament_id": 44,
+                        "tournament_name": "Midnight Splat",
+                        "event_ms": generated_at - 86_400_000,
+                        "player_rank": 7,
+                        "player_score": 5.1,
+                        "is_win": False,
+                        "exact_score_delta": 0.42,
+                        "exact_abs_delta": 0.42,
+                        "player_team_id": 17,
+                        "player_team_name": "Luma",
+                        "opponent_team_id": 19,
+                        "opponent_team_name": "Nova",
+                        "player_team_score": 1,
+                        "opponent_team_score": 3,
+                        "player_team_players": [
+                            "Aster",
+                            "Beryl",
+                            "Cinder",
+                            "Drift",
+                        ],
+                        "opponent_team_players": [
+                            "Ember",
+                            "Flint",
+                            "Glint",
+                            "Halo",
+                        ],
+                    }
+                ],
             }
         },
     }
@@ -264,6 +298,11 @@ def test_public_player_profile_returns_cached_payload(
         assert data["display_score"] == 277.5
         assert data["history_record_count"] == 1
         assert data["tournament_history_ranked"][0]["tournament_id"] == 44
+        assert data["match_loo_record_count"] == 1
+        assert data["match_loo_impacts"][0]["match_id"] == 501
+        assert data["match_loo_impacts"][0]["player_team_name"] == "Luma"
+        assert data["match_loo_impacts"][0]["opponent_team_score"] == 3
+        assert data["match_loo_impacts"][0]["player_team_players"][0] == "Aster"
         assert data["stale"] is False
         assert isinstance(data["retrieved_at_ms"], int)
 

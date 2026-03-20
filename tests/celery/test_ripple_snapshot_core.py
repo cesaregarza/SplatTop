@@ -100,6 +100,107 @@ def test_fetch_player_ranked_history_limits_and_sorts():
     assert history["p2"][0]["result_summary"] == "3W-1L"
 
 
+def test_fetch_player_match_loo_impacts_formats_rows():
+    rows = [
+        {
+            "player_id": "p1",
+            "match_id": 501,
+            "tournament_id": 42,
+            "tournament_name": "Weekend Cup",
+            "event_ms": 2_000,
+            "player_rank": 7,
+            "player_score": 1.75,
+            "is_win": False,
+            "exact_score_delta": 0.36,
+            "exact_abs_delta": 0.36,
+            "player_team_id": 101,
+            "player_team_name": "Weekend Warriors",
+            "opponent_team_id": 202,
+            "opponent_team_name": "Night Shift",
+            "player_team_score": 1,
+            "opponent_team_score": 3,
+            "player_team_players": [
+                "Alpha",
+                "Bravo",
+                "Charlie",
+                "Delta",
+            ],
+            "opponent_team_players": [
+                "Echo",
+                "Foxtrot",
+                "Golf",
+                "Hotel",
+            ],
+        },
+        {
+            "player_id": "p2",
+            "match_id": 999,
+            "tournament_id": 88,
+            "tournament_name": None,
+            "event_ms": None,
+            "player_rank": 22,
+            "player_score": 0.8,
+            "is_win": True,
+            "exact_score_delta": -0.41,
+            "exact_abs_delta": 0.41,
+            "player_team_id": 404,
+            "player_team_name": None,
+            "opponent_team_id": 505,
+            "opponent_team_name": None,
+            "player_team_score": 3,
+            "opponent_team_score": 0,
+            "player_team_players": ["9001", "9002"],
+            "opponent_team_players": ["9101", "9102"],
+        },
+    ]
+
+    class FakeMappings:
+        def all(self):
+            return rows
+
+    class FakeResult:
+        def mappings(self):
+            return FakeMappings()
+
+    class FakeSession:
+        async def execute(self, _query, params=None):
+            assert params is not None
+            assert params["calculated_at_ms"] == 1234
+            assert params["build_version"] == "2024.09.01"
+            assert params["max_per_player"] == 20
+            return FakeResult()
+
+    impacts = asyncio.run(
+        snapshot_mod._fetch_player_match_loo_impacts(
+            FakeSession(),
+            ["p1", "p2"],
+            calculated_at_ms=1234,
+            build_version="2024.09.01",
+            max_per_player=20,
+        )
+    )
+
+    assert impacts["p1"][0]["match_id"] == 501
+    assert impacts["p1"][0]["tournament_name"] == "Weekend Cup"
+    assert impacts["p1"][0]["is_win"] is False
+    assert impacts["p1"][0]["exact_score_delta"] == pytest.approx(0.36)
+    assert impacts["p1"][0]["player_team_name"] == "Weekend Warriors"
+    assert impacts["p1"][0]["opponent_team_name"] == "Night Shift"
+    assert impacts["p1"][0]["player_team_score"] == 1
+    assert impacts["p1"][0]["opponent_team_score"] == 3
+    assert impacts["p1"][0]["player_team_players"] == [
+        "Alpha",
+        "Bravo",
+        "Charlie",
+        "Delta",
+    ]
+    assert impacts["p2"][0]["tournament_name"] == "Tournament 88"
+    assert impacts["p2"][0]["is_win"] is True
+    assert impacts["p2"][0]["player_team_name"] == "Team 404"
+    assert impacts["p2"][0]["opponent_team_name"] == "Team 505"
+    assert impacts["p2"][0]["player_team_players"] == ["9001", "9002"]
+
+
 def test_refresh_ripple_snapshots_persists_payloads(monkeypatch):
     fake_redis = FakeRedis()
     monkeypatch.setattr(snapshot_mod, "redis_conn", fake_redis, raising=False)
@@ -168,6 +269,52 @@ def test_refresh_ripple_snapshots_persists_payloads(monkeypatch):
             ]
         }
 
+    async def fake_fetch_match_loo_impacts(
+        session,
+        player_ids,
+        *,
+        calculated_at_ms,
+        build_version,
+        max_per_player=20,
+    ):
+        assert set(player_ids) == {"p1", "p2"}
+        assert calculated_at_ms == 1234
+        assert build_version == "2024.09.01"
+        assert max_per_player == 20
+        return {
+            "p1": [
+                {
+                    "match_id": 501,
+                    "tournament_id": 9,
+                    "tournament_name": "Winter Open",
+                    "event_ms": 1_100,
+                    "player_rank": 1,
+                    "player_score": 1.2,
+                    "is_win": False,
+                    "exact_score_delta": 0.32,
+                    "exact_abs_delta": 0.32,
+                    "player_team_id": 70,
+                    "player_team_name": "Ink Storm",
+                    "opponent_team_id": 71,
+                    "opponent_team_name": "Tidal Wave",
+                    "player_team_score": 2,
+                    "opponent_team_score": 3,
+                    "player_team_players": [
+                        "Player One",
+                        "Player Two",
+                        "Player Three",
+                        "Player Four",
+                    ],
+                    "opponent_team_players": [
+                        "Opponent One",
+                        "Opponent Two",
+                        "Opponent Three",
+                        "Opponent Four",
+                    ],
+                }
+            ]
+        }
+
     current_ms = 2_000
 
     monkeypatch.setattr(
@@ -192,6 +339,12 @@ def test_refresh_ripple_snapshots_persists_payloads(monkeypatch):
         snapshot_mod,
         "_fetch_player_ranked_history",
         fake_fetch_history,
+        raising=False,
+    )
+    monkeypatch.setattr(
+        snapshot_mod,
+        "_fetch_player_match_loo_impacts",
+        fake_fetch_match_loo_impacts,
         raising=False,
     )
 
@@ -287,7 +440,29 @@ def test_refresh_ripple_snapshots_persists_payloads(monkeypatch):
         ]
         == "Winter Open"
     )
+    assert (
+        player_index_payload["players"]["p1"]["match_loo_record_count"] == 1
+    )
+    assert (
+        player_index_payload["players"]["p1"]["match_loo_impacts"][0][
+            "match_id"
+        ]
+        == 501
+    )
+    assert (
+        player_index_payload["players"]["p1"]["match_loo_impacts"][0][
+            "player_team_name"
+        ]
+        == "Ink Storm"
+    )
+    assert (
+        player_index_payload["players"]["p1"]["match_loo_impacts"][0][
+            "player_team_players"
+        ][0]
+        == "Player One"
+    )
     assert player_index_payload["players"]["p2"]["history_record_count"] == 0
+    assert player_index_payload["players"]["p2"]["match_loo_record_count"] == 0
 
     player_index_meta = orjson.loads(
         fake_redis.get(RIPPLE_PLAYER_INDEX_META_KEY)

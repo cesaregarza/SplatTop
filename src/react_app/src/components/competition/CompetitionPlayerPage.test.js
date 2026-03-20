@@ -35,6 +35,10 @@ const makeProfile = (overrides = {}) => ({
   history_generated_at_ms: 1_700_000_010_000,
   history_record_count: 0,
   tournament_history_ranked: [],
+  match_loo_generated_at_ms: 1_700_000_010_000,
+  match_loo_record_count: 0,
+  match_loo_max_records: 20,
+  match_loo_impacts: [],
   ...overrides,
 });
 
@@ -167,14 +171,204 @@ describe("CompetitionPlayerPage", () => {
   it("targets the next grade threshold in the path tracker", () => {
     renderPage(makeProfile({ display_score: -10 }));
 
-    expect(screen.getByText("Path to XS-")).toBeInTheDocument();
+    expect(screen.getByLabelText("Path to XS-")).toBeInTheDocument();
     expect(screen.getByText("140.00 / 150.00")).toBeInTheDocument();
   });
 
   it("uses the XX+ threshold for path to XX+", () => {
     renderPage(makeProfile({ display_score: 90 }));
 
-    expect(screen.getByText("Path to XX+")).toBeInTheDocument();
+    expect(screen.getByLabelText("Path to XX+")).toBeInTheDocument();
     expect(screen.getByText("240.00 / 250.00")).toBeInTheDocument();
+  });
+
+  it("renders the strongest results views when loo impacts are present", () => {
+    renderPage(
+      makeProfile({
+        display_name: "Aster",
+        match_loo_record_count: 3,
+        match_loo_impacts: [
+          {
+            match_id: 501,
+            tournament_id: 44,
+            tournament_name: "Midnight Splat",
+            event_ms: 1_700_000_000_000,
+            player_rank: 7,
+            player_score: 5.1,
+            is_win: false,
+            exact_score_delta: 0.42,
+            exact_abs_delta: 0.42,
+            player_team_name: "Luma",
+            opponent_team_name: "Nova",
+            player_team_score: 1,
+            opponent_team_score: 3,
+            player_team_players: ["Aster", "Beryl", "Cinder", "Drift"],
+            opponent_team_players: ["Ember", "Flint", "Glint", "Halo"],
+          },
+          {
+            match_id: 502,
+            tournament_id: 45,
+            tournament_name: "Dawn Cup",
+            event_ms: 1_699_500_000_000,
+            player_rank: 7,
+            player_score: 5.1,
+            is_win: true,
+            exact_score_delta: -0.33,
+            exact_abs_delta: 0.33,
+            player_team_name: "Luma",
+            opponent_team_name: "Mistral",
+            player_team_score: 3,
+            opponent_team_score: 2,
+            player_team_players: ["Aster", "Beryl", "Cinder", "Drift"],
+            opponent_team_players: ["Iris", "Jade", "Kite", "Lumen"],
+          },
+          {
+            match_id: 503,
+            tournament_id: 46,
+            tournament_name: "Twilight Clash",
+            event_ms: 1_699_000_000_000,
+            player_rank: 7,
+            player_score: 5.1,
+            is_win: false,
+            exact_score_delta: 0.18,
+            exact_abs_delta: 0.18,
+            player_team_name: "Luma",
+            opponent_team_name: "Orbit",
+            player_team_score: 2,
+            opponent_team_score: 3,
+            player_team_players: ["Aster", "Beryl", "Cinder", "Drift"],
+            opponent_team_players: ["Mica", "Nova", "Onyx", "Pyre"],
+          },
+        ],
+      })
+    );
+
+    const helpfulButton = screen.getByRole("button", {
+      name: "Most helpful",
+    });
+    const harmfulButton = screen.getByRole("button", {
+      name: "Most harmful",
+    });
+
+    expect(screen.getByText("Strongest results")).toBeInTheDocument();
+    expect(helpfulButton).toHaveAttribute("aria-pressed", "true");
+    expect(harmfulButton).toHaveAttribute("aria-pressed", "false");
+    expect(
+      screen.getByRole("button", { name: "Biggest swings" })
+    ).toBeInTheDocument();
+    expect(screen.getByText("Dawn Cup")).toBeInTheDocument();
+    expect(screen.getByText("Luma vs Mistral")).toBeInTheDocument();
+    expect(screen.getByText("Final 3-2")).toBeInTheDocument();
+    expect(
+      screen.getAllByText("Luma:", { selector: "span" }).length
+    ).toBeGreaterThan(0);
+    expect(
+      screen.getAllByText("Aster", { selector: "strong" }).length
+    ).toBeGreaterThan(0);
+    expect(screen.getAllByText("Beryl").length).toBeGreaterThan(0);
+    expect(screen.getAllByText("+0.33").length).toBeGreaterThan(0);
+
+    fireEvent.click(harmfulButton);
+
+    expect(harmfulButton).toHaveAttribute("aria-pressed", "true");
+    expect(screen.getByText("Midnight Splat")).toBeInTheDocument();
+    expect(screen.getByText("Luma vs Nova")).toBeInTheDocument();
+    expect(screen.getByText("Nova:")).toBeInTheDocument();
+    expect(screen.getByText("Ember")).toBeInTheDocument();
+    expect(screen.getByText("Final 1-3")).toBeInTheDocument();
+    expect(screen.getAllByText("-0.42").length).toBeGreaterThan(0);
+    expect(screen.queryByText(/Removal effect/)).not.toBeInTheDocument();
+    expect(screen.queryByText(/Magnitude/)).not.toBeInTheDocument();
+    expect(screen.queryByText(/Snapshot #/)).not.toBeInTheDocument();
+    expect(screen.queryByText(/Match 501/)).not.toBeInTheDocument();
+    expect(screen.queryByText(/Tournament 44/)).not.toBeInTheDocument();
+    expect(screen.queryByText(/Showing page/)).not.toBeInTheDocument();
+    expect(
+      screen
+        .getAllByRole("link", { name: /Midnight Splat/i })
+        .some(
+          (link) =>
+            link.getAttribute("href") ===
+            "https://sendou.ink/to/44/matches/501"
+        )
+    ).toBe(true);
+    expect(
+      screen.getByRole("button", {
+        name:
+          /Technical note: leave-one-out shortlist from this ranking run/i,
+      })
+    ).toBeInTheDocument();
+  });
+
+  it("switches strongest result views without pagination", () => {
+    const helpfulRows = Array.from({ length: 5 }, (_, index) => ({
+      match_id: 700 + index,
+      tournament_id: 80 + index,
+      tournament_name: `Helpful ${index + 1}`,
+      event_ms: 1_700_000_000_000 - index,
+      player_rank: 7,
+      player_score: 5.1,
+      is_win: true,
+      exact_score_delta: -0.1 * (index + 1),
+      exact_abs_delta: 0.1 * (index + 1),
+      player_team_name: "Luma",
+      opponent_team_name: "Nova",
+      player_team_score: 3,
+      opponent_team_score: 2,
+      player_team_players: ["Aster", "Beryl", "Cinder", "Drift"],
+      opponent_team_players: ["Ember", "Flint", "Glint", "Halo"],
+    }));
+    const harmfulRows = Array.from({ length: 5 }, (_, index) => ({
+      match_id: 800 + index,
+      tournament_id: 90 + index,
+      tournament_name: `Harmful ${index + 1}`,
+      event_ms: 1_699_000_000_000 - index,
+      player_rank: 7,
+      player_score: 5.1,
+      is_win: false,
+      exact_score_delta: 0.1 * (index + 1),
+      exact_abs_delta: 0.1 * (index + 1),
+      player_team_name: "Luma",
+      opponent_team_name: "Orbit",
+      player_team_score: 2,
+      opponent_team_score: 3,
+      player_team_players: ["Aster", "Beryl", "Cinder", "Drift"],
+      opponent_team_players: ["Mica", "Nova", "Onyx", "Pyre"],
+    }));
+
+    renderPage(
+      makeProfile({
+        display_name: "Aster",
+        match_loo_record_count: 10,
+        match_loo_impacts: [...helpfulRows, ...harmfulRows],
+      })
+    );
+
+    const helpfulButton = screen.getByRole("button", {
+      name: "Most helpful",
+    });
+    const harmfulButton = screen.getByRole("button", {
+      name: "Most harmful",
+    });
+    const swingsButton = screen.getByRole("button", {
+      name: "Biggest swings",
+    });
+
+    expect(helpfulButton).toHaveAttribute("aria-pressed", "true");
+    expect(screen.getByText("Helpful 5")).toBeInTheDocument();
+    expect(screen.queryByText("Harmful 5")).not.toBeInTheDocument();
+
+    fireEvent.click(harmfulButton);
+
+    expect(harmfulButton).toHaveAttribute("aria-pressed", "true");
+    expect(screen.getByText("Harmful 5")).toBeInTheDocument();
+    expect(screen.queryByText("Helpful 5")).not.toBeInTheDocument();
+
+    fireEvent.click(swingsButton);
+
+    expect(swingsButton).toHaveAttribute("aria-pressed", "true");
+    expect(screen.getByText("Helpful 5")).toBeInTheDocument();
+    expect(screen.getByText("Harmful 5")).toBeInTheDocument();
+    expect(screen.queryByText(/Showing page/)).not.toBeInTheDocument();
   });
 });

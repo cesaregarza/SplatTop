@@ -41,6 +41,8 @@ MAX_REFRESH_RETRIES = 3
 MIN_REQUIRED_TOURNAMENTS = 3
 MAX_PLAYER_HISTORY_ENTRIES = 25
 PLAYER_HISTORY_CHUNK_SIZE = 2_000
+MAX_PLAYER_MATCH_LOO_ENTRIES = 20
+PLAYER_MATCH_LOO_CHUNK_SIZE = 2_000
 
 # Fetch the complete snapshot so the public cache can serve every stable row;
 # pagination happens on the consumer side.
@@ -92,6 +94,20 @@ DEFAULT_DANGER_PARAMS = {
 
 def _display_score(score: float) -> float:
     return (score + SCORE_OFFSET) * SCORE_MULTIPLIER
+
+
+def _to_text_list(value: Any) -> List[str]:
+    if not isinstance(value, (list, tuple)):
+        return []
+
+    items: List[str] = []
+    for item in value:
+        if item is None:
+            continue
+        text = str(item).strip()
+        if text:
+            items.append(text)
+    return items
 
 
 def _grade_threshold_percentiles(
@@ -733,6 +749,315 @@ async def _fetch_player_ranked_history(
     return history_by_player
 
 
+async def _fetch_player_match_loo_impacts(
+    session,
+    player_ids: List[str],
+    *,
+    calculated_at_ms: int | None,
+    build_version: str | None,
+    max_per_player: int = MAX_PLAYER_MATCH_LOO_ENTRIES,
+) -> Dict[str, List[Dict[str, Any]]]:
+    if not player_ids or calculated_at_ms is None:
+        return {}
+
+    max_rows = max(1, int(max_per_player))
+    schema = ripple_queries._schema()
+    schema_sql = f'"{schema}"'
+
+    query = text(
+        f"""
+        WITH player_match_team AS (
+            SELECT
+                pat.player_id::text AS player_id,
+                pat.match_id,
+                pat.tournament_id,
+                MAX(pat.team_id)::bigint AS player_team_id
+            FROM {schema_sql}.player_appearance_teams pat
+            WHERE pat.player_id::text = ANY(:player_ids)
+            GROUP BY pat.player_id::text, pat.match_id, pat.tournament_id
+        ),
+        base_ids AS (
+            SELECT
+                impacts.player_id::text AS player_id,
+                impacts.match_id,
+                impacts.tournament_id,
+                tournaments.name::text AS tournament_name,
+                CASE
+                    WHEN matches.last_game_finished_at_ms IS NULL THEN
+                        CASE
+                            WHEN tournaments.start_time_ms IS NULL THEN NULL
+                            WHEN tournaments.start_time_ms < 1000000000000
+                                THEN tournaments.start_time_ms * 1000
+                            ELSE tournaments.start_time_ms
+                        END
+                    WHEN matches.last_game_finished_at_ms < 1000000000000
+                        THEN matches.last_game_finished_at_ms * 1000
+                    ELSE matches.last_game_finished_at_ms
+                END::bigint AS event_ms,
+                impacts.player_rank,
+                impacts.player_score,
+                impacts.is_win,
+                impacts.exact_score_delta,
+                impacts.exact_abs_delta,
+                COALESCE(
+                    player_match_team.player_team_id,
+                    CASE
+                        WHEN impacts.is_win IS TRUE THEN matches.winner_team_id
+                        WHEN impacts.is_win IS FALSE THEN matches.loser_team_id
+                        ELSE NULL
+                    END
+                )::bigint AS player_team_id,
+                matches.team1_id,
+                matches.team1_score,
+                matches.team2_id,
+                matches.team2_score
+            FROM {schema_sql}.player_match_loo_impacts impacts
+            LEFT JOIN {schema_sql}.tournaments tournaments
+              ON tournaments.tournament_id = impacts.tournament_id
+            LEFT JOIN {schema_sql}.matches matches
+              ON matches.match_id = impacts.match_id
+             AND matches.tournament_id = impacts.tournament_id
+            LEFT JOIN player_match_team
+              ON player_match_team.player_id = impacts.player_id::text
+             AND player_match_team.match_id = impacts.match_id
+             AND player_match_team.tournament_id = impacts.tournament_id
+            WHERE impacts.player_id::text = ANY(:player_ids)
+              AND impacts.calculated_at_ms = :calculated_at_ms
+              AND (
+                CAST(:build_version AS TEXT) IS NULL
+                OR impacts.build_version = CAST(:build_version AS TEXT)
+              )
+        ),
+        base AS (
+            SELECT
+                base_ids.player_id,
+                base_ids.match_id,
+                base_ids.tournament_id,
+                base_ids.tournament_name,
+                base_ids.event_ms,
+                base_ids.player_rank,
+                base_ids.player_score,
+                base_ids.is_win,
+                base_ids.exact_score_delta,
+                base_ids.exact_abs_delta,
+                base_ids.player_team_id,
+                CASE
+                    WHEN base_ids.player_team_id = base_ids.team1_id
+                        THEN base_ids.team2_id
+                    WHEN base_ids.player_team_id = base_ids.team2_id
+                        THEN base_ids.team1_id
+                    ELSE NULL
+                END::bigint AS opponent_team_id,
+                CASE
+                    WHEN base_ids.player_team_id = base_ids.team1_id
+                        THEN base_ids.team1_score
+                    WHEN base_ids.player_team_id = base_ids.team2_id
+                        THEN base_ids.team2_score
+                    ELSE NULL
+                END::int AS player_team_score,
+                CASE
+                    WHEN base_ids.player_team_id = base_ids.team1_id
+                        THEN base_ids.team2_score
+                    WHEN base_ids.player_team_id = base_ids.team2_id
+                        THEN base_ids.team1_score
+                    ELSE NULL
+                END::int AS opponent_team_score
+            FROM base_ids
+        ),
+        roster_keys AS (
+            SELECT DISTINCT
+                base.tournament_id,
+                base.match_id,
+                base.player_team_id AS team_id
+            FROM base
+            WHERE base.player_team_id IS NOT NULL
+            UNION
+            SELECT DISTINCT
+                base.tournament_id,
+                base.match_id,
+                base.opponent_team_id AS team_id
+            FROM base
+            WHERE base.opponent_team_id IS NOT NULL
+        ),
+        team_rosters AS (
+            SELECT
+                roster_keys.tournament_id,
+                roster_keys.match_id,
+                roster_keys.team_id,
+                COALESCE(
+                    ARRAY_AGG(
+                        DISTINCT COALESCE(
+                            NULLIF(BTRIM(players.display_name::text), ''),
+                            pat.player_id::text
+                        )
+                        ORDER BY COALESCE(
+                            NULLIF(BTRIM(players.display_name::text), ''),
+                            pat.player_id::text
+                        )
+                    ) FILTER (WHERE pat.player_id IS NOT NULL),
+                    ARRAY[]::text[]
+                ) AS player_names
+            FROM roster_keys
+            LEFT JOIN {schema_sql}.player_appearance_teams pat
+              ON pat.tournament_id = roster_keys.tournament_id
+             AND pat.match_id = roster_keys.match_id
+             AND pat.team_id = roster_keys.team_id
+            LEFT JOIN {schema_sql}.players players
+              ON players.player_id = pat.player_id
+            GROUP BY
+                roster_keys.tournament_id,
+                roster_keys.match_id,
+                roster_keys.team_id
+        ),
+        enriched AS (
+            SELECT
+                base.*,
+                player_team.name::text AS player_team_name,
+                opponent_team.name::text AS opponent_team_name,
+                player_roster.player_names AS player_team_players,
+                opponent_roster.player_names AS opponent_team_players
+            FROM base
+            LEFT JOIN {schema_sql}.tournament_teams player_team
+              ON player_team.tournament_id = base.tournament_id
+             AND player_team.team_id = base.player_team_id
+            LEFT JOIN {schema_sql}.tournament_teams opponent_team
+              ON opponent_team.tournament_id = base.tournament_id
+             AND opponent_team.team_id = base.opponent_team_id
+            LEFT JOIN team_rosters player_roster
+              ON player_roster.tournament_id = base.tournament_id
+             AND player_roster.match_id = base.match_id
+             AND player_roster.team_id = base.player_team_id
+            LEFT JOIN team_rosters opponent_roster
+              ON opponent_roster.tournament_id = base.tournament_id
+             AND opponent_roster.match_id = base.match_id
+             AND opponent_roster.team_id = base.opponent_team_id
+        ),
+        ranked AS (
+            SELECT
+                enriched.*,
+                ROW_NUMBER() OVER (
+                    PARTITION BY enriched.player_id
+                    ORDER BY
+                        enriched.exact_abs_delta DESC NULLS LAST,
+                        enriched.exact_score_delta DESC NULLS LAST,
+                        enriched.match_id DESC NULLS LAST
+                ) AS row_num
+            FROM enriched
+        )
+        SELECT
+            player_id,
+            match_id,
+            tournament_id,
+            tournament_name,
+            event_ms,
+            player_rank,
+            player_score,
+            is_win,
+            exact_score_delta,
+            exact_abs_delta,
+            player_team_id,
+            player_team_name,
+            opponent_team_id,
+            opponent_team_name,
+            player_team_score,
+            opponent_team_score,
+            player_team_players,
+            opponent_team_players
+        FROM ranked
+        WHERE row_num <= :max_per_player
+        ORDER BY player_id, row_num
+        """
+    )
+
+    impacts_by_player: Dict[str, List[Dict[str, Any]]] = {}
+
+    for batch in _batched(player_ids, size=PLAYER_MATCH_LOO_CHUNK_SIZE):
+        try:
+            result = await session.execute(
+                query,
+                {
+                    "player_ids": batch,
+                    "calculated_at_ms": int(calculated_at_ms),
+                    "build_version": build_version,
+                    "max_per_player": max_rows,
+                },
+            )
+            rows = result.mappings().all()
+        except Exception as exc:
+            logger.warning(
+                "Failed to fetch player match LOO impacts for %s players: %s",
+                len(batch),
+                exc,
+            )
+            return {}
+
+        for row in rows:
+            player_id = str(row.get("player_id") or "")
+            if not player_id:
+                continue
+
+            tournament_id_raw = row.get("tournament_id")
+            tournament_id_int = _to_int(tournament_id_raw)
+            tournament_id: int | str | None = tournament_id_int
+            if tournament_id is None and tournament_id_raw is not None:
+                tournament_id = str(tournament_id_raw)
+
+            match_id_raw = row.get("match_id")
+            match_id_int = _to_int(match_id_raw)
+            match_id: int | str | None = match_id_int
+            if match_id is None and match_id_raw is not None:
+                match_id = str(match_id_raw)
+
+            tournament_name = row.get("tournament_name")
+            if not tournament_name and tournament_id is not None:
+                tournament_name = f"Tournament {tournament_id}"
+
+            is_win_raw = row.get("is_win")
+            is_win = bool(is_win_raw) if is_win_raw is not None else None
+            player_team_id = _to_int(row.get("player_team_id"))
+            opponent_team_id = _to_int(row.get("opponent_team_id"))
+            player_team_name = row.get("player_team_name")
+            if not player_team_name and player_team_id is not None:
+                player_team_name = f"Team {player_team_id}"
+            opponent_team_name = row.get("opponent_team_name")
+            if not opponent_team_name and opponent_team_id is not None:
+                opponent_team_name = f"Team {opponent_team_id}"
+
+            impacts_by_player.setdefault(player_id, []).append(
+                {
+                    "match_id": match_id,
+                    "tournament_id": tournament_id,
+                    "tournament_name": tournament_name,
+                    "event_ms": _to_int(row.get("event_ms")),
+                    "player_rank": _to_int(row.get("player_rank")),
+                    "player_score": _to_float(row.get("player_score")),
+                    "is_win": is_win,
+                    "exact_score_delta": _to_float(
+                        row.get("exact_score_delta")
+                    ),
+                    "exact_abs_delta": _to_float(row.get("exact_abs_delta")),
+                    "player_team_id": player_team_id,
+                    "player_team_name": player_team_name,
+                    "opponent_team_id": opponent_team_id,
+                    "opponent_team_name": opponent_team_name,
+                    "player_team_score": _to_int(
+                        row.get("player_team_score")
+                    ),
+                    "opponent_team_score": _to_int(
+                        row.get("opponent_team_score")
+                    ),
+                    "player_team_players": _to_text_list(
+                        row.get("player_team_players")
+                    ),
+                    "opponent_team_players": _to_text_list(
+                        row.get("opponent_team_players")
+                    ),
+                }
+            )
+
+    return impacts_by_player
+
+
 async def _first_scores_after_events(
     session,
     player_events: Dict[str, int],
@@ -893,6 +1218,7 @@ def _build_player_index_payload(
     stable_rows: List[Mapping[str, Any]],
     danger_rows: List[Mapping[str, Any]],
     tournament_history_by_player: Mapping[str, List[Mapping[str, Any]]],
+    match_loo_impacts_by_player: Mapping[str, List[Mapping[str, Any]]],
     delta_payload: Mapping[str, Any],
     generated_at_ms: int,
     calculated_at_ms: int | None,
@@ -984,6 +1310,14 @@ def _build_player_index_payload(
         history_rows = [
             dict(item) for item in player_history if isinstance(item, Mapping)
         ]
+        player_match_impacts = match_loo_impacts_by_player.get(player_id)
+        if not isinstance(player_match_impacts, list):
+            player_match_impacts = []
+        match_impact_rows = [
+            dict(item)
+            for item in player_match_impacts
+            if isinstance(item, Mapping)
+        ]
 
         players[player_id] = {
             "player_id": player_id,
@@ -1029,6 +1363,10 @@ def _build_player_index_payload(
             "history_record_count": len(history_rows),
             "history_max_records": MAX_PLAYER_HISTORY_ENTRIES,
             "tournament_history_ranked": history_rows,
+            "match_loo_generated_at_ms": generated_at_ms,
+            "match_loo_record_count": len(match_impact_rows),
+            "match_loo_max_records": MAX_PLAYER_MATCH_LOO_ENTRIES,
+            "match_loo_impacts": match_impact_rows,
         }
 
     payload = {
@@ -1063,6 +1401,7 @@ async def _refresh_snapshots_async_once() -> Dict[str, Any]:
     danger_build: Any = None
     events: Dict[str, Dict[str, Any]] = {}
     tournament_history_by_player: Dict[str, List[Dict[str, Any]]] = {}
+    match_loo_impacts_by_player: Dict[str, List[Dict[str, Any]]] = {}
     state: Dict[str, Any] = {}
     stable_rows: List[Dict[str, Any]] = []
     previous_stable_payload, preserved_source = _load_previous_stable_payload()
@@ -1114,12 +1453,22 @@ async def _refresh_snapshots_async_once() -> Dict[str, Any]:
                     if row.get("player_id")
                 }
             )
+            calc_ts_int = _to_int(calc_ts)
             events = await _fetch_player_events(session, player_ids)
             tournament_history_by_player = (
                 await _fetch_player_ranked_history(
                     session,
                     all_player_ids,
                     max_per_player=MAX_PLAYER_HISTORY_ENTRIES,
+                )
+            )
+            match_loo_impacts_by_player = (
+                await _fetch_player_match_loo_impacts(
+                    session,
+                    all_player_ids,
+                    calculated_at_ms=calc_ts_int,
+                    build_version=build_version,
+                    max_per_player=MAX_PLAYER_MATCH_LOO_ENTRIES,
                 )
             )
             state, stable_rows = await _bootstrap_state(
@@ -1130,7 +1479,6 @@ async def _refresh_snapshots_async_once() -> Dict[str, Any]:
             if day_start_ms:
                 yesterday_cutoff_ms = day_start_ms - 1
 
-        calc_ts_int = _to_int(calc_ts)
         danger_calc_ts_int = _to_int(danger_calc_ts)
         stable_total = _to_int(total)
         danger_total_value = _to_int(danger_total)
@@ -1231,6 +1579,7 @@ async def _refresh_snapshots_async_once() -> Dict[str, Any]:
             stable_rows=stable_rows,
             danger_rows=danger_payload,
             tournament_history_by_player=tournament_history_by_player,
+            match_loo_impacts_by_player=match_loo_impacts_by_player,
             delta_payload=delta_payload,
             generated_at_ms=generated_at_ms,
             calculated_at_ms=calc_ts_int,

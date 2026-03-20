@@ -28,6 +28,29 @@ const RECENT_FORM_LIMIT = 6;
 const MINUTE_MS = 60 * 1000;
 const HOUR_MS = 60 * MINUTE_MS;
 const DAY_MS = 24 * HOUR_MS;
+const MATCH_RESULTS_TECHNICAL_NOTE =
+  "Technical note: leave-one-out shortlist from this ranking run. Contribution is the negated score delta after removing one shortlisted match.";
+const EMPTY_TEXT_LIST = Object.freeze([]);
+const MATCH_RESULT_VIEW_OPTIONS = Object.freeze([
+  {
+    id: "helpful",
+    label: "Most helpful",
+    tone: "emerald",
+    emptyText: "No helpful matches made the shortlist.",
+  },
+  {
+    id: "harmful",
+    label: "Most harmful",
+    tone: "rose",
+    emptyText: "No harmful matches made the shortlist.",
+  },
+  {
+    id: "swings",
+    label: "Biggest swings",
+    tone: "amber",
+    emptyText: "No shortlisted match swings yet.",
+  },
+]);
 const GRADE_INDEX_BY_LABEL = new Map(
   DISPLAY_GRADE_SCALE.map(([, label], index) => [label, index])
 );
@@ -104,6 +127,18 @@ const toSafeText = (value) => {
   if (typeof value !== "string") return null;
   const trimmed = value.trim();
   return trimmed || null;
+};
+
+const toTextList = (value) => {
+  if (!Array.isArray(value)) return [];
+  return value
+    .map((item) => toSafeText(String(item ?? "")))
+    .filter(Boolean);
+};
+
+const toComparisonKey = (value) => {
+  const safe = toSafeText(String(value ?? ""));
+  return safe ? safe.toLowerCase() : null;
 };
 
 const toFiniteNumber = (value) => {
@@ -230,6 +265,77 @@ const normalizeTournamentHistory = (rows) => {
     return String(b.tournamentId || "").localeCompare(
       String(a.tournamentId || "")
     );
+  });
+
+  return mapped;
+};
+
+const normalizeMatchLooImpacts = (rows) => {
+  if (!Array.isArray(rows)) return [];
+
+  const mapped = rows
+    .map((row, index) => {
+      const matchId = row?.match_id == null ? null : String(row.match_id);
+      const tournamentId =
+        row?.tournament_id == null ? null : String(row.tournament_id);
+      const eventMs = toFiniteNumber(row?.event_ms);
+      const tournamentName =
+        toSafeText(row?.tournament_name) ||
+        (tournamentId ? `Tournament ${tournamentId}` : "Tournament");
+      const exactScoreDelta = toFiniteNumber(row?.exact_score_delta);
+      const exactAbsDeltaRaw = toFiniteNumber(row?.exact_abs_delta);
+      const exactAbsDelta =
+        exactAbsDeltaRaw ??
+        (exactScoreDelta == null ? null : Math.abs(exactScoreDelta));
+      const contributionDelta =
+        exactScoreDelta == null ? null : exactScoreDelta * -1;
+      const isWin =
+        typeof row?.is_win === "boolean" ? row.is_win : null;
+      const outcome =
+        isWin == null ? "unknown" : isWin ? "positive" : "negative";
+      const matchUrl =
+        tournamentId && matchId
+          ? `https://sendou.ink/to/${encodeURIComponent(
+              tournamentId
+            )}/matches/${encodeURIComponent(matchId)}`
+          : null;
+
+      return {
+        key: `${matchId || "match"}:${tournamentId || "na"}:${index}`,
+        matchId,
+        tournamentId,
+        tournamentName,
+        eventMs,
+        playerRank: toFiniteNumber(row?.player_rank),
+        playerScore: toFiniteNumber(row?.player_score),
+        isWin,
+        outcome,
+        exactScoreDelta,
+        exactAbsDelta,
+        contributionDelta,
+        matchUrl,
+        playerTeamName: toSafeText(row?.player_team_name),
+        opponentTeamName: toSafeText(row?.opponent_team_name),
+        playerTeamScore: toFiniteNumber(row?.player_team_score),
+        opponentTeamScore: toFiniteNumber(row?.opponent_team_score),
+        playerTeamPlayers: toTextList(row?.player_team_players),
+        opponentTeamPlayers: toTextList(row?.opponent_team_players),
+      };
+    })
+    .filter(
+      (row) =>
+        row.matchId ||
+        row.tournamentId ||
+        row.exactScoreDelta != null ||
+        row.exactAbsDelta != null
+    );
+
+  mapped.sort((left, right) => {
+    const delta = (right.exactAbsDelta ?? -1) - (left.exactAbsDelta ?? -1);
+    if (delta !== 0) return delta;
+    const eventDelta = (right.eventMs ?? -1) - (left.eventMs ?? -1);
+    if (eventDelta !== 0) return eventDelta;
+    return String(right.matchId || "").localeCompare(String(left.matchId || ""));
   });
 
   return mapped;
@@ -451,37 +557,61 @@ const GradeBadge = ({ label }) => {
   );
 };
 
+const toneForTrackTarget = (label) => {
+  switch (tierFor(label)) {
+    case "grade-tier-xxstar":
+    case "grade-tier-xxplus":
+    case "grade-tier-xx":
+      return "amber";
+    case "grade-tier-xsplus":
+    case "grade-tier-xs":
+    case "grade-tier-xsminus":
+      return "violet";
+    case "grade-tier-xaplus":
+    case "grade-tier-xa":
+    case "grade-tier-xaminus":
+      return "cyan";
+    default:
+      return "slate";
+  }
+};
+
 const HeroStat = ({ label, value, detail, tone = "slate" }) => (
-  <article className={`comp-player-hero-stat is-${tone}`.trim()}>
-    <p className="comp-player-hero-stat-label">{label}</p>
+  <article
+    className={`comp-player-hero-stat is-${tone}`.trim()}
+    aria-label={label}
+  >
     <p className="comp-player-hero-stat-value">{value}</p>
-    {detail ? <p className="comp-player-hero-stat-detail">{detail}</p> : null}
+    <p className="comp-player-hero-stat-detail">
+      <span className="comp-player-inline-label">{label}</span>
+      {detail ? ` · ${detail}` : ""}
+    </p>
   </article>
 );
 
 const FactChip = ({ label, value, tone = "slate" }) => (
-  <div className={`comp-player-fact-chip is-${tone}`.trim()}>
-    <p className="comp-player-fact-label">{label}</p>
-    <p className="comp-player-fact-value">{value}</p>
+  <div className={`comp-player-fact-chip is-${tone}`.trim()} aria-label={label}>
+    <p className="comp-player-fact-value">
+      <span className="comp-player-inline-label">{label}: </span>
+      {value}
+    </p>
   </div>
 );
 
-const InsightChip = ({ label, value }) => (
-  <div className="comp-player-insight-chip">
-    <p className="comp-player-insight-label">{label}</p>
-    <p className="comp-player-insight-value font-data">{value}</p>
+const InsightChip = ({ label, value, tone = "slate" }) => (
+  <div
+    className={`comp-player-insight-chip is-${tone}`.trim()}
+    aria-label={label}
+  >
+    <p className="comp-player-insight-value font-data">
+      <span className="comp-player-inline-label">{label}: </span>
+      {value}
+    </p>
   </div>
 );
 
-const SummaryCard = ({
-  eyebrow,
-  value,
-  title,
-  detail,
-  tone = "slate",
-}) => (
+const SummaryCard = ({ value, title, detail, tone = "slate" }) => (
   <article className={`comp-player-summary-card is-${tone}`.trim()}>
-    <p className="comp-player-summary-eyebrow">{eyebrow}</p>
     <p className="comp-player-summary-value">{value}</p>
     <p className="comp-player-summary-title">{title}</p>
     {detail ? <p className="comp-player-summary-detail">{detail}</p> : null}
@@ -539,6 +669,185 @@ const RecentEventCard = ({ row, referenceMs }) => {
   );
 };
 
+const MatchImpactRosterLine = ({
+  label,
+  players,
+  highlightedPlayerNames = EMPTY_TEXT_LIST,
+}) => {
+  const highlightedKeys = new Set(
+    highlightedPlayerNames
+      .map((name) => toComparisonKey(name))
+      .filter(Boolean)
+  );
+  const entries = players.length ? players : ["Players unavailable"];
+
+  return (
+    <div className="comp-player-impact-roster-line">
+      <span className="comp-player-impact-roster-team">{label}:</span>
+      <div className="comp-player-impact-roster-values">
+        {entries.map((name, index) => {
+          const isCurrent = highlightedKeys.has(toComparisonKey(name));
+          const Tag = isCurrent ? "strong" : "span";
+          return (
+            <React.Fragment key={`${label}:${name}`}>
+              <Tag
+                className={`comp-player-impact-roster-name${
+                  isCurrent ? " is-current" : ""
+                }`.trim()}
+              >
+                {name}
+              </Tag>
+              {index < entries.length - 1 ? (
+                <span className="comp-player-impact-roster-separator">, </span>
+              ) : null}
+            </React.Fragment>
+          );
+        })}
+      </div>
+    </div>
+  );
+};
+
+const toneForMatchImpact = (row) => {
+  if ((row?.contributionDelta ?? 0) > 0) return "emerald";
+  if ((row?.contributionDelta ?? 0) < 0) return "rose";
+  return "amber";
+};
+
+const MatchImpactRow = ({
+  row,
+  referenceMs,
+  highlightedPlayerNames = EMPTY_TEXT_LIST,
+  showDirection = false,
+}) => {
+  const tone = toneForMatchImpact(row);
+  const winLabel =
+    row.isWin == null ? "Unknown result" : row.isWin ? "Win" : "Loss";
+  const contribution = formatSignedNumber(
+    row.contributionDelta,
+    nf2,
+    nf2.format(0)
+  );
+  const eventLabel =
+    row.eventMs == null
+      ? "Date unavailable"
+      : `${formatUtcDate(row.eventMs)} · ${formatRelativeAge(
+          row.eventMs,
+          referenceMs
+        )}`;
+  const playerTeamLabel = row.playerTeamName || "Unknown team";
+  const opponentTeamLabel = row.opponentTeamName || "Unknown opponent";
+  const matchupLabel =
+    row.playerTeamName || row.opponentTeamName
+      ? `${playerTeamLabel} vs ${opponentTeamLabel}`
+      : "Teams unavailable";
+  const finalScoreLabel =
+    row.playerTeamScore != null && row.opponentTeamScore != null
+      ? `Final ${nf0.format(row.playerTeamScore)}-${nf0.format(
+          row.opponentTeamScore
+        )}`
+      : "Final score unavailable";
+  const directionLabel =
+    (row.contributionDelta ?? 0) > 0
+      ? "Helpful"
+      : (row.contributionDelta ?? 0) < 0
+      ? "Harmful"
+      : "Even";
+  const rowBody = (
+    <>
+      <div className="comp-player-impact-row-event">
+        <p className="comp-player-impact-row-title">{row.tournamentName}</p>
+        <p className="comp-player-impact-row-meta">{eventLabel}</p>
+      </div>
+      <div className="comp-player-impact-row-result">
+        <div className="comp-player-impact-row-matchup">
+          <p className="comp-player-impact-row-matchup-text">{matchupLabel}</p>
+          <p className="comp-player-impact-row-score">
+            <span
+              className={`comp-player-impact-score-dot is-${row.outcome}`.trim()}
+              aria-hidden="true"
+            />
+            <span>{finalScoreLabel}</span>
+            <span className="comp-player-impact-row-score-state">{winLabel}</span>
+          </p>
+        </div>
+        <MatchImpactRosterLine
+          label={playerTeamLabel}
+          players={row.playerTeamPlayers}
+          highlightedPlayerNames={highlightedPlayerNames}
+        />
+        <MatchImpactRosterLine
+          label={opponentTeamLabel}
+          players={row.opponentTeamPlayers}
+          highlightedPlayerNames={highlightedPlayerNames}
+        />
+      </div>
+      <div className="comp-player-impact-row-summary">
+        <p className="comp-player-impact-row-delta font-data">{contribution}</p>
+        {showDirection ? (
+          <p
+            className={`comp-player-impact-row-direction is-${tone}`.trim()}
+          >
+            {directionLabel}
+          </p>
+        ) : null}
+      </div>
+    </>
+  );
+
+  if (row.matchUrl) {
+    return (
+      <a
+        className={`comp-player-impact-row is-${tone}`.trim()}
+        href={row.matchUrl}
+        rel="noreferrer"
+        target="_blank"
+      >
+        {rowBody}
+      </a>
+    );
+  }
+
+  return (
+    <article className={`comp-player-impact-row is-${tone}`.trim()}>
+      {rowBody}
+    </article>
+  );
+};
+
+const MatchImpactTable = ({
+  rows,
+  emptyText,
+  referenceMs,
+  highlightedPlayerNames,
+  showDirection = false,
+}) => {
+  return (
+    rows.length ? (
+      <div className="comp-player-impact-table">
+        <div className="comp-player-impact-table-head">
+          <p>Event</p>
+          <p>Result</p>
+          <p>Contribution</p>
+        </div>
+        <div className="comp-player-impact-table-body">
+          {rows.map((row) => (
+            <MatchImpactRow
+              key={row.key}
+              row={row}
+              referenceMs={referenceMs}
+              highlightedPlayerNames={highlightedPlayerNames}
+              showDirection={showDirection}
+            />
+          ))}
+        </div>
+      </div>
+    ) : (
+      <p className="comp-player-empty-text">{emptyText}</p>
+    )
+  );
+};
+
 const PulseRow = ({ label, value, detail }) => (
   <div className="comp-player-pulse-row">
     <div className="comp-player-pulse-copy">
@@ -556,7 +865,10 @@ const CompetitionPlayerPage = ({ top500Href }) => {
   const [historyYear, setHistoryYear] = useState("all");
   const [historyOutcome, setHistoryOutcome] = useState("all");
   const [historySort, setHistorySort] = useState("recent");
-  const [historyPage, setHistoryPage] = useState(1);
+  const [pageState, setPageState] = useState({
+    history: 1,
+    resultsView: MATCH_RESULT_VIEW_OPTIONS[0].id,
+  });
   const [shareStatus, setShareStatus] = useState(null);
   const { loading, error, profile, refresh } = useCompetitionPlayer(playerId);
 
@@ -641,6 +953,7 @@ const CompetitionPlayerPage = ({ top500Href }) => {
     rankScore != null && rankScore >= XX_PLUS_THRESHOLD
       ? "comp-player-score-fill is-threshold"
       : "comp-player-score-fill";
+  const scoreTrackTone = toneForTrackTarget(trackTarget.label);
   const scoreHasLightning =
     rankScore != null && (rankScore >= XX_PLUS_THRESHOLD || grade === "XX★");
   const scoreHint =
@@ -681,6 +994,52 @@ const CompetitionPlayerPage = ({ top500Href }) => {
     () => buildHistorySummary(tournamentHistory, historyReferenceMs),
     [tournamentHistory, historyReferenceMs]
   );
+  const matchLooImpacts = useMemo(
+    () => normalizeMatchLooImpacts(profile?.match_loo_impacts),
+    [profile?.match_loo_impacts]
+  );
+  const matchImpactHighlightedPlayerNames = useMemo(
+    () =>
+      Array.from(
+        new Set(
+          [profile?.display_name, profile?.player_id]
+            .map((value) => toSafeText(String(value ?? "")))
+            .filter(Boolean)
+        )
+      ),
+    [profile?.display_name, profile?.player_id]
+  );
+  const matchLooCount =
+    toFiniteNumber(profile?.match_loo_record_count) ?? matchLooImpacts.length;
+  const harmfulMatchImpacts = useMemo(
+    () =>
+      matchLooImpacts
+        .filter((row) => (row.exactScoreDelta ?? 0) > 0)
+        .sort((left, right) => {
+          const delta =
+            (right.exactScoreDelta ?? -Infinity) -
+            (left.exactScoreDelta ?? -Infinity);
+          if (delta !== 0) return delta;
+          return (right.exactAbsDelta ?? -1) - (left.exactAbsDelta ?? -1);
+        }),
+    [matchLooImpacts]
+  );
+  const helpfulMatchImpacts = useMemo(
+    () =>
+      matchLooImpacts
+        .filter((row) => (row.exactScoreDelta ?? 0) < 0)
+        .sort((left, right) => {
+          const delta =
+            (left.exactScoreDelta ?? Infinity) -
+            (right.exactScoreDelta ?? Infinity);
+          if (delta !== 0) return delta;
+          return (right.exactAbsDelta ?? -1) - (left.exactAbsDelta ?? -1);
+        }),
+    [matchLooImpacts]
+  );
+  const swingMatchImpacts = matchLooImpacts;
+  const hasMatchImpactPanel =
+    profile?.match_loo_record_count != null || matchLooImpacts.length > 0;
   const filteredHistory = useMemo(() => {
     const query = historyQuery.trim().toLowerCase();
     const filtered = tournamentHistory.filter((row) => {
@@ -724,13 +1083,31 @@ const CompetitionPlayerPage = ({ top500Href }) => {
     1,
     Math.ceil(filteredHistory.length / HISTORY_PAGE_SIZE)
   );
-  const safeHistoryPage = Math.min(historyPage, historyPageCount);
+  const safeHistoryPage = Math.min(pageState.history, historyPageCount);
   const historyRows = useMemo(() => {
     const start = (safeHistoryPage - 1) * HISTORY_PAGE_SIZE;
     return filteredHistory.slice(start, start + HISTORY_PAGE_SIZE);
   }, [filteredHistory, safeHistoryPage]);
   const historyCount =
     toFiniteNumber(profile?.history_record_count) ?? tournamentHistory.length;
+  const strongestHarmfulImpact = harmfulMatchImpacts[0] || null;
+  const strongestHelpfulImpact = helpfulMatchImpacts[0] || null;
+  const activeMatchImpactView =
+    MATCH_RESULT_VIEW_OPTIONS.find(
+      (option) => option.id === pageState.resultsView
+    ) || MATCH_RESULT_VIEW_OPTIONS[0];
+  const activeMatchImpactRows =
+    activeMatchImpactView.id === "harmful"
+      ? harmfulMatchImpacts
+      : activeMatchImpactView.id === "swings"
+      ? swingMatchImpacts
+      : helpfulMatchImpacts;
+  useEffect(() => {
+    setPageState((current) => ({
+      ...current,
+      resultsView: MATCH_RESULT_VIEW_OPTIONS[0].id,
+    }));
+  }, [profile?.player_id, matchLooCount]);
   const shareProfileUrl = useMemo(() => {
     const id = encodeURIComponent(profile?.player_id || playerId || "");
     if (typeof window === "undefined") return `/u/${id}`;
@@ -1020,10 +1397,18 @@ const CompetitionPlayerPage = ({ top500Href }) => {
               </div>
 
               {hasVisibleScore && (
-                <div className="comp-player-score-track comp-player-score-track--hero">
+                <div
+                  className={`comp-player-score-track comp-player-score-track--hero is-${scoreTrackTone}`.trim()}
+                >
                   <div className="comp-player-score-track-head">
-                    <span className="comp-player-track-label">
-                      Path to {trackTarget.label}
+                    <span
+                      className="comp-player-track-label"
+                      aria-label={`Path to ${trackTarget.label}`}
+                    >
+                      Path to{" "}
+                      <span className="comp-player-track-target">
+                        {trackTarget.label}
+                      </span>
                     </span>
                     <span className="comp-player-track-value font-data">
                       {nf2.format(rankScore)} / {nf2.format(trackTarget.threshold)}
@@ -1164,35 +1549,30 @@ const CompetitionPlayerPage = ({ top500Href }) => {
 
             <div className="comp-player-summary-grid">
               <SummaryCard
-                eyebrow="Rank motion"
                 value={rankMotionValue}
                 title={rankMotionTitle}
                 detail={rankMotionDetail}
                 tone="violet"
               />
               <SummaryCard
-                eyebrow="Score swing"
                 value={scoreSwingValue}
                 title={scoreSwingTitle}
                 detail={scoreSwingDetail}
                 tone="cyan"
               />
               <SummaryCard
-                eyebrow="Window pressure"
                 value={dropStatus.label}
                 title={`${nf0.format(windowCount)} active-window tournaments`}
                 detail={windowPressureDetail}
                 tone="amber"
               />
               <SummaryCard
-                eyebrow="Cadence"
                 value={cadenceLabel}
                 title={lastActiveLabel === "—" ? "No recent timestamp" : `Last active ${lastActiveLabel}`}
                 detail={activityDetail}
                 tone="emerald"
               />
               <SummaryCard
-                eyebrow="Footprint"
                 value={footprintValue}
                 title={
                   historySummary.busiestYear
@@ -1203,7 +1583,6 @@ const CompetitionPlayerPage = ({ top500Href }) => {
                 tone="rose"
               />
               <SummaryCard
-                eyebrow="Logged record"
                 value={recordValue}
                 title={
                   historySummary.positive > 0
@@ -1360,6 +1739,103 @@ const CompetitionPlayerPage = ({ top500Href }) => {
         </div>
 
         <div className="comp-player-main-grid">
+          {hasMatchImpactPanel && (
+            <section className="comp-player-panel comp-player-impact-panel">
+              <div className="comp-player-panel-head">
+                <div>
+                  <div className="comp-player-panel-title-row">
+                    <h3 className="comp-player-panel-title">
+                      Strongest results
+                    </h3>
+                    <button
+                      type="button"
+                      className="comp-player-help-dot"
+                      title={MATCH_RESULTS_TECHNICAL_NOTE}
+                      aria-label={MATCH_RESULTS_TECHNICAL_NOTE}
+                    >
+                      ?
+                    </button>
+                  </div>
+                </div>
+              </div>
+
+              {matchLooImpacts.length > 0 ? (
+                <>
+                  <div className="comp-player-impact-toolbar">
+                    <div
+                      className="comp-player-impact-view-toggle"
+                      role="toolbar"
+                      aria-label="Strongest results views"
+                    >
+                      {MATCH_RESULT_VIEW_OPTIONS.map((option) => {
+                        const isActive = activeMatchImpactView.id === option.id;
+                        return (
+                          <button
+                            key={option.id}
+                            type="button"
+                            aria-pressed={isActive}
+                            className={`comp-player-impact-view-button is-${option.tone}${
+                              isActive ? " is-active" : ""
+                            }`.trim()}
+                            onClick={() =>
+                              setPageState((current) => ({
+                                ...current,
+                                resultsView: option.id,
+                              }))
+                            }
+                          >
+                            {option.label}
+                          </button>
+                        );
+                      })}
+                    </div>
+                    <div className="comp-player-impact-stat-row">
+                      <p className="comp-player-impact-stat">
+                        Best{" "}
+                        <span className="font-data">
+                          {strongestHelpfulImpact
+                            ? formatSignedNumber(
+                                strongestHelpfulImpact.contributionDelta,
+                                nf2,
+                                nf2.format(0)
+                              )
+                            : "—"}
+                        </span>
+                      </p>
+                      <p className="comp-player-impact-stat">
+                        Worst{" "}
+                        <span className="font-data">
+                          {strongestHarmfulImpact
+                            ? formatSignedNumber(
+                                strongestHarmfulImpact.contributionDelta,
+                                nf2,
+                                nf2.format(0)
+                              )
+                            : "—"}
+                        </span>
+                      </p>
+                      <p className="comp-player-impact-stat">
+                        {nf0.format(matchLooCount)} shortlisted
+                      </p>
+                    </div>
+                  </div>
+
+                  <MatchImpactTable
+                    rows={activeMatchImpactRows}
+                    emptyText={activeMatchImpactView.emptyText}
+                    referenceMs={historyReferenceMs}
+                    highlightedPlayerNames={matchImpactHighlightedPlayerNames}
+                    showDirection={activeMatchImpactView.id === "swings"}
+                  />
+                </>
+              ) : (
+                <p className="comp-player-empty-text">
+                  This snapshot does not include shortlisted match-impact rows yet.
+                </p>
+              )}
+            </section>
+          )}
+
           <section className="comp-player-panel comp-player-history-panel">
             <div className="comp-player-panel-head">
               <div>
@@ -1377,24 +1853,29 @@ const CompetitionPlayerPage = ({ top500Href }) => {
               <InsightChip
                 label="Total tournaments"
                 value={nf0.format(tournamentHistory.length)}
+                tone="violet"
               />
               <InsightChip
                 label="Known match record"
                 value={`${nf0.format(historySummary.wins)}W-${nf0.format(
                   historySummary.losses
                 )}L`}
+                tone="emerald"
               />
               <InsightChip
                 label="Positive events"
                 value={nf0.format(historySummary.positive)}
+                tone="amber"
               />
               <InsightChip
                 label="Teams played"
                 value={nf0.format(historySummary.uniqueTeams)}
+                tone="rose"
               />
               <InsightChip
                 label="90d activity"
                 value={nf0.format(historySummary.recent90Count)}
+                tone="cyan"
               />
               <InsightChip
                 label="Avg matches"
@@ -1403,6 +1884,7 @@ const CompetitionPlayerPage = ({ top500Href }) => {
                     ? "—"
                     : nf2.format(historySummary.averageMatches)
                 }
+                tone="slate"
               />
             </div>
 
@@ -1412,7 +1894,7 @@ const CompetitionPlayerPage = ({ top500Href }) => {
                 value={historyQuery}
                 onChange={(event) => {
                   setHistoryQuery(event.target.value);
-                  setHistoryPage(1);
+                  setPageState((current) => ({ ...current, history: 1 }));
                 }}
                 placeholder="Search tournaments or teams"
                 className="comp-player-control"
@@ -1421,7 +1903,7 @@ const CompetitionPlayerPage = ({ top500Href }) => {
                 value={historyYear}
                 onChange={(event) => {
                   setHistoryYear(event.target.value);
-                  setHistoryPage(1);
+                  setPageState((current) => ({ ...current, history: 1 }));
                 }}
                 className="comp-player-control"
               >
@@ -1436,7 +1918,7 @@ const CompetitionPlayerPage = ({ top500Href }) => {
                 value={historyOutcome}
                 onChange={(event) => {
                   setHistoryOutcome(event.target.value);
-                  setHistoryPage(1);
+                  setPageState((current) => ({ ...current, history: 1 }));
                 }}
                 className="comp-player-control"
               >
@@ -1450,7 +1932,7 @@ const CompetitionPlayerPage = ({ top500Href }) => {
                 value={historySort}
                 onChange={(event) => {
                   setHistorySort(event.target.value);
-                  setHistoryPage(1);
+                  setPageState((current) => ({ ...current, history: 1 }));
                 }}
                 className="comp-player-control"
               >
@@ -1524,7 +2006,10 @@ const CompetitionPlayerPage = ({ top500Href }) => {
                     <button
                       type="button"
                       onClick={() =>
-                        setHistoryPage((current) => Math.max(1, current - 1))
+                        setPageState((current) => ({
+                          ...current,
+                          history: Math.max(1, current.history - 1),
+                        }))
                       }
                       disabled={safeHistoryPage <= 1}
                       className="comp-player-button comp-player-button--small"
@@ -1534,9 +2019,13 @@ const CompetitionPlayerPage = ({ top500Href }) => {
                     <button
                       type="button"
                       onClick={() =>
-                        setHistoryPage((current) =>
-                          Math.min(historyPageCount, current + 1)
-                        )
+                        setPageState((current) => ({
+                          ...current,
+                          history: Math.min(
+                            historyPageCount,
+                            current.history + 1
+                          ),
+                        }))
                       }
                       disabled={safeHistoryPage >= historyPageCount}
                       className="comp-player-button comp-player-button--small"
