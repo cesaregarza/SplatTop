@@ -67,7 +67,8 @@ describe("CompetitionPlayerPage", () => {
     jest.clearAllMocks();
   });
 
-  it("renders the expanded profile dossier sections", () => {
+  it("renders the dense profile layout instead of the old dashboard sections", () => {
+    const openSpy = jest.spyOn(window, "open").mockImplementation(() => null);
     const historyRows = [
       {
         tournament_id: 44,
@@ -95,11 +96,43 @@ describe("CompetitionPlayerPage", () => {
       })
     );
 
-    expect(screen.getByText("Snapshot briefing")).toBeInTheDocument();
-    expect(screen.getByText("Recent stretch")).toBeInTheDocument();
-    expect(screen.getByText("Competition pulse")).toBeInTheDocument();
+    expect(screen.queryByRole("heading", { name: "At a glance" })).not.toBeInTheDocument();
+    expect(
+      screen.getByRole("heading", { name: "Recent activity" })
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole("tablist", { name: "Profile data views" })
+    ).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Share" })).toBeInTheDocument();
+    expect(screen.getByText("Win rate")).toBeInTheDocument();
     expect(screen.getAllByText("Midnight Splat").length).toBeGreaterThan(0);
     expect(screen.getAllByText("Luma").length).toBeGreaterThan(0);
+    expect(screen.queryByRole("heading", { name: "Profile data" })).not.toBeInTheDocument();
+    expect(screen.queryByText("Snapshot briefing")).not.toBeInTheDocument();
+    expect(screen.queryByText("Recent stretch")).not.toBeInTheDocument();
+    expect(screen.queryByText("Competition pulse")).not.toBeInTheDocument();
+    expect(screen.queryByText("Recent form")).not.toBeInTheDocument();
+    expect(screen.queryByText("Share profile")).not.toBeInTheDocument();
+    expect(
+      screen.queryByText("One snapshot line for standing, activity, and archive footprint.")
+    ).not.toBeInTheDocument();
+    expect(
+      screen.queryByText("Dense views for strongest results and ranked history.")
+    ).not.toBeInTheDocument();
+    expect(screen.queryByText(/Snapshot:/)).not.toBeInTheDocument();
+    expect(screen.queryByText("90d activity")).not.toBeInTheDocument();
+    expect(screen.queryByText("Primary team")).not.toBeInTheDocument();
+    expect(screen.queryByText("Archive span")).not.toBeInTheDocument();
+
+    fireEvent.click(screen.getAllByText("Midnight Splat")[0].closest("tr"));
+
+    expect(openSpy).toHaveBeenCalledWith(
+      "https://sendou.ink/to/44",
+      "_blank",
+      "noopener,noreferrer"
+    );
+
+    openSpy.mockRestore();
   });
 
   it("supports filtering and pagination in the history explorer", () => {
@@ -119,11 +152,12 @@ describe("CompetitionPlayerPage", () => {
       })
     );
 
+    fireEvent.click(screen.getByRole("tab", { name: "History explorer" }));
+
     const historyPanel = screen
-      .getByText("Ranked history explorer")
+      .getByRole("tablist", { name: "Profile data views" })
       .closest("section");
 
-    expect(screen.getByText("Ranked history explorer")).toBeInTheDocument();
     expect(within(historyPanel).getByText("Cup 14")).toBeInTheDocument();
     expect(within(historyPanel).queryByText("Cup 1")).not.toBeInTheDocument();
     expect(screen.getByText("Showing page 1 of 2")).toBeInTheDocument();
@@ -155,10 +189,10 @@ describe("CompetitionPlayerPage", () => {
 
     renderPage(makeProfile({ display_score: 101.2 }));
 
+    fireEvent.click(screen.getByRole("button", { name: "Share" }));
+
     await act(async () => {
-      fireEvent.click(
-        screen.getByRole("button", { name: "Copy profile snapshot" })
-      );
+      fireEvent.click(await screen.findByRole("button", { name: "Copy snapshot" }));
     });
 
     await waitFor(() => {
@@ -171,18 +205,26 @@ describe("CompetitionPlayerPage", () => {
   it("targets the next grade threshold in the path tracker", () => {
     renderPage(makeProfile({ display_score: -10 }));
 
-    expect(screen.getByLabelText("Path to XS-")).toBeInTheDocument();
-    expect(screen.getByText("140.00 / 150.00")).toBeInTheDocument();
+    const path = screen.getByLabelText("Path to XS-");
+    const scoreStat = path.closest(".comp-player-header-stat");
+
+    expect(path).toBeInTheDocument();
+    expect(scoreStat).toHaveTextContent("140.00 / 150");
   });
 
   it("uses the XX+ threshold for path to XX+", () => {
     renderPage(makeProfile({ display_score: 90 }));
 
-    expect(screen.getByLabelText("Path to XX+")).toBeInTheDocument();
-    expect(screen.getByText("240.00 / 250.00")).toBeInTheDocument();
+    const path = screen.getByLabelText("Path to XX+");
+    const scoreStat = path.closest(".comp-player-header-stat");
+
+    expect(path).toBeInTheDocument();
+    expect(scoreStat).toHaveTextContent("240.00 / 250");
   });
 
-  it("renders the strongest results views when loo impacts are present", () => {
+  it("renders expandable strongest results rows and opens sendou links", () => {
+    const openSpy = jest.spyOn(window, "open").mockImplementation(() => null);
+
     renderPage(
       makeProfile({
         display_name: "Aster",
@@ -243,6 +285,9 @@ describe("CompetitionPlayerPage", () => {
       })
     );
 
+    const resultsTab = screen.getByRole("tab", {
+      name: "Strongest results",
+    });
     const helpfulButton = screen.getByRole("button", {
       name: "Most helpful",
     });
@@ -250,33 +295,32 @@ describe("CompetitionPlayerPage", () => {
       name: "Most harmful",
     });
 
-    expect(screen.getByText("Strongest results")).toBeInTheDocument();
+    expect(resultsTab).toHaveAttribute("aria-selected", "true");
     expect(helpfulButton).toHaveAttribute("aria-pressed", "true");
     expect(harmfulButton).toHaveAttribute("aria-pressed", "false");
     expect(
       screen.getByRole("button", { name: "Biggest swings" })
     ).toBeInTheDocument();
+    expect(screen.getByText(/Results updated /)).toBeInTheDocument();
     expect(screen.getByText("Dawn Cup")).toBeInTheDocument();
     expect(screen.getByText("Luma vs Mistral")).toBeInTheDocument();
-    expect(screen.getByText("Final 3-2")).toBeInTheDocument();
-    expect(
-      screen.getAllByText("Luma:", { selector: "span" }).length
-    ).toBeGreaterThan(0);
-    expect(
-      screen.getAllByText("Aster", { selector: "strong" }).length
-    ).toBeGreaterThan(0);
-    expect(screen.getAllByText("Beryl").length).toBeGreaterThan(0);
-    expect(screen.getAllByText("+0.33").length).toBeGreaterThan(0);
+    expect(screen.getByText("3-2")).toBeInTheDocument();
+    expect(screen.getAllByText("+8.25").length).toBeGreaterThan(0);
+
+    fireEvent.click(screen.getByRole("button", { name: "Show lineups" }));
+
+    expect(screen.getByText("Luma:")).toBeInTheDocument();
+    expect(screen.getByText("Mistral:")).toBeInTheDocument();
+    expect(screen.getAllByText("Aster", { selector: "strong" }).length).toBe(1);
+    expect(screen.getByText("Beryl")).toBeInTheDocument();
 
     fireEvent.click(harmfulButton);
 
     expect(harmfulButton).toHaveAttribute("aria-pressed", "true");
     expect(screen.getByText("Midnight Splat")).toBeInTheDocument();
     expect(screen.getByText("Luma vs Nova")).toBeInTheDocument();
-    expect(screen.getByText("Nova:")).toBeInTheDocument();
-    expect(screen.getByText("Ember")).toBeInTheDocument();
-    expect(screen.getByText("Final 1-3")).toBeInTheDocument();
-    expect(screen.getAllByText("-0.42").length).toBeGreaterThan(0);
+    expect(screen.getByText("1-3")).toBeInTheDocument();
+    expect(screen.getAllByText("-10.50").length).toBeGreaterThan(0);
     expect(screen.queryByText(/Removal effect/)).not.toBeInTheDocument();
     expect(screen.queryByText(/Magnitude/)).not.toBeInTheDocument();
     expect(screen.queryByText(/Snapshot #/)).not.toBeInTheDocument();
@@ -284,23 +328,24 @@ describe("CompetitionPlayerPage", () => {
     expect(screen.queryByText(/Tournament 44/)).not.toBeInTheDocument();
     expect(screen.queryByText(/Showing page/)).not.toBeInTheDocument();
     expect(
-      screen
-        .getAllByRole("link", { name: /Midnight Splat/i })
-        .some(
-          (link) =>
-            link.getAttribute("href") ===
-            "https://sendou.ink/to/44/matches/501"
-        )
-    ).toBe(true);
-    expect(
       screen.getByRole("button", {
         name:
           /Technical note: leave-one-out shortlist from this ranking run/i,
       })
     ).toBeInTheDocument();
+
+    fireEvent.click(screen.getByText("Midnight Splat"));
+
+    expect(openSpy).toHaveBeenCalledWith(
+      "https://sendou.ink/to/44/matches/501",
+      "_blank",
+      "noopener,noreferrer"
+    );
+
+    openSpy.mockRestore();
   });
 
-  it("switches strongest result views without pagination", () => {
+  it("switches between strongest results and history tabs", () => {
     const helpfulRows = Array.from({ length: 5 }, (_, index) => ({
       match_id: 700 + index,
       tournament_id: 80 + index,
@@ -341,9 +386,25 @@ describe("CompetitionPlayerPage", () => {
         display_name: "Aster",
         match_loo_record_count: 10,
         match_loo_impacts: [...helpfulRows, ...harmfulRows],
+        tournament_history_ranked: [
+          {
+            tournament_id: 999,
+            tournament_name: "Archive Cup",
+            event_ms: 1_700_000_000_000,
+            ranked: true,
+            team_name: "Archive Team",
+            result_summary: "4W-1L",
+          },
+        ],
       })
     );
 
+    const resultsTab = screen.getByRole("tab", {
+      name: "Strongest results",
+    });
+    const historyTab = screen.getByRole("tab", {
+      name: "History explorer",
+    });
     const helpfulButton = screen.getByRole("button", {
       name: "Most helpful",
     });
@@ -354,6 +415,7 @@ describe("CompetitionPlayerPage", () => {
       name: "Biggest swings",
     });
 
+    expect(resultsTab).toHaveAttribute("aria-selected", "true");
     expect(helpfulButton).toHaveAttribute("aria-pressed", "true");
     expect(screen.getByText("Helpful 5")).toBeInTheDocument();
     expect(screen.queryByText("Harmful 5")).not.toBeInTheDocument();
@@ -370,5 +432,18 @@ describe("CompetitionPlayerPage", () => {
     expect(screen.getByText("Helpful 5")).toBeInTheDocument();
     expect(screen.getByText("Harmful 5")).toBeInTheDocument();
     expect(screen.queryByText(/Showing page/)).not.toBeInTheDocument();
+
+    fireEvent.click(historyTab);
+
+    expect(historyTab).toHaveAttribute("aria-selected", "true");
+    expect(screen.getAllByText("Archive Cup").length).toBeGreaterThan(0);
+    expect(
+      screen.getByPlaceholderText("Search tournaments or teams")
+    ).toBeInTheDocument();
+
+    fireEvent.click(resultsTab);
+
+    expect(resultsTab).toHaveAttribute("aria-selected", "true");
+    expect(screen.getByText("Helpful 5")).toBeInTheDocument();
   });
 });
