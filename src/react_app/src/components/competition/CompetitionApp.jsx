@@ -5,7 +5,9 @@ import {
   RouterProvider,
   createBrowserRouter,
   createRoutesFromElements,
+  useLoaderData,
   useOutletContext,
+  useRevalidator,
 } from "react-router-dom";
 import CompetitionLayout from "./CompetitionLayout";
 import StableLeaderboardView from "./StableLeaderboardView";
@@ -15,7 +17,6 @@ import CompetitionErrorBoundary from "./CompetitionErrorBoundary";
 import CompetitionPlayerPage, {
   loadCompetitionPlayer,
 } from "./CompetitionPlayerPage";
-import useCompetitionSnapshot from "../../hooks/useCompetitionSnapshot";
 
 const resolveMainSiteUrl = () => {
   const override = process.env.REACT_APP_MAIN_SITE_URL;
@@ -33,14 +34,101 @@ const resolveMainSiteUrl = () => {
 
 const MAIN_SITE_URL = resolveMainSiteUrl();
 
-const CompetitionRouteShell = () => {
-  const snapshot = useCompetitionSnapshot();
+const STABLE_ENDPOINT = "/api/ripple/public/leaderboard";
+const DANGER_ENDPOINT = "/api/ripple/public/leaderboard/danger";
+const META_ENDPOINT = "/api/ripple/public/metadata";
+const PERCENTILES_ENDPOINT = "/api/ripple/public/leaderboard/percentiles";
+
+const normalizeLoaderError = (error) => {
+  if (!error) {
+    return "Unknown error";
+  }
+  if (typeof error.detail === "string" && error.detail) {
+    return error.detail;
+  }
+  return error.message || "Unexpected error";
+};
+
+const fetchCompetitionJson = async (url, signal) => {
+  const response = await fetch(url, { signal });
+  let data = null;
+
+  try {
+    data = await response.json();
+  } catch {}
+
+  if (!response.ok) {
+    const error = new Error(
+      typeof data?.detail === "string" && data.detail
+        ? data.detail
+        : `Request failed with status ${response.status}`
+    );
+    error.status = response.status;
+    error.detail = data?.detail ?? null;
+    throw error;
+  }
+
+  return data;
+};
+
+export const loadCompetitionSnapshot = async ({ request }) => {
+  try {
+    const [stable, danger, meta, percentiles] = await Promise.all([
+      fetchCompetitionJson(STABLE_ENDPOINT, request.signal),
+      fetchCompetitionJson(DANGER_ENDPOINT, request.signal),
+      fetchCompetitionJson(META_ENDPOINT, request.signal),
+      fetchCompetitionJson(PERCENTILES_ENDPOINT, request.signal),
+    ]);
+
+    return {
+      disabled: false,
+      error: null,
+      stable,
+      danger,
+      meta,
+      percentiles,
+    };
+  } catch (error) {
+    if (error?.name === "AbortError") {
+      throw error;
+    }
+
+    if (error?.status === 404) {
+      return {
+        disabled: true,
+        error: null,
+        stable: null,
+        danger: null,
+        meta: null,
+        percentiles: null,
+      };
+    }
+
+    return {
+      disabled: false,
+      error: normalizeLoaderError(error),
+      stable: null,
+      danger: null,
+      meta: null,
+      percentiles: null,
+    };
+  }
+};
+
+export const CompetitionRouteShell = () => {
+  const snapshotData = useLoaderData();
+  const revalidator = useRevalidator();
+  const snapshot = {
+    ...snapshotData,
+    loading: revalidator.state === "loading",
+    refresh: () => revalidator.revalidate(),
+  };
   return <Outlet context={{ snapshot }} />;
 };
 
 const useCompetitionRouteContext = () => useOutletContext();
 
-const CompetitionLeaderboardPage = () => {
+export const CompetitionLeaderboardPage = () => {
   const { snapshot } = useCompetitionRouteContext();
   const { loading, error, disabled, stable, danger, refresh } = snapshot;
   const generatedAtMs = stable?.generated_at_ms ?? danger?.generated_at_ms ?? null;
@@ -169,7 +257,7 @@ const CompetitionLeaderboardPage = () => {
   );
 };
 
-const CompetitionFaqPage = () => {
+export const CompetitionFaqPage = () => {
   const { snapshot } = useCompetitionRouteContext();
   const { loading, stable, danger, disabled, percentiles } = snapshot;
 
@@ -206,9 +294,9 @@ const CompetitionFaqPage = () => {
   );
 };
 
-const competitionRouter = createBrowserRouter(
+export const createCompetitionRouter = () => createBrowserRouter(
   createRoutesFromElements(
-    <Route element={<CompetitionRouteShell />}>
+    <Route>
       <Route
         path="/learn"
         element={(
@@ -230,12 +318,20 @@ const competitionRouter = createBrowserRouter(
         loader={loadCompetitionPlayer}
         element={<CompetitionPlayerPage top500Href={MAIN_SITE_URL} />}
       />
-      <Route path="/faq" element={<CompetitionFaqPage />} />
-      <Route path="*" element={<CompetitionLeaderboardPage />} />
+      <Route
+        loader={loadCompetitionSnapshot}
+        element={<CompetitionRouteShell />}
+      >
+        <Route path="/faq" element={<CompetitionFaqPage />} />
+        <Route path="*" element={<CompetitionLeaderboardPage />} />
+      </Route>
     </Route>
   )
 );
 
-const CompetitionApp = () => <RouterProvider router={competitionRouter} />;
+const CompetitionApp = () => {
+  const router = useMemo(() => createCompetitionRouter(), []);
+  return <RouterProvider router={router} />;
+};
 
 export default CompetitionApp;
