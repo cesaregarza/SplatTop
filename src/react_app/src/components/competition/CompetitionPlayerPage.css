@@ -193,8 +193,7 @@
   gap: 0.32rem;
 }
 
-.comp-player-button,
-.comp-player-share-action {
+.comp-player-button {
   border: 1px solid rgba(148, 163, 184, 0.2);
   border-radius: var(--cp-radius-control);
   background: rgba(9, 18, 31, 0.78);
@@ -211,8 +210,7 @@
 }
 
 .comp-player-button:hover:not(:disabled),
-.comp-player-share-action:hover,
-.comp-player-share-action:focus-visible {
+.comp-player-button:focus-visible {
   background: rgba(15, 30, 47, 0.88);
   border-color: var(--cp-border-strong);
   color: var(--cp-text-0);
@@ -239,30 +237,6 @@
 .comp-player-back-link:hover,
 .comp-player-back-link:focus-visible {
   color: var(--cp-text-0);
-}
-
-.comp-player-share-menu {
-  position: relative;
-}
-
-.comp-player-share-popover {
-  position: absolute;
-  right: 0;
-  top: calc(100% + 0.32rem);
-  z-index: 5;
-  display: grid;
-  gap: 0.32rem;
-  min-width: 9rem;
-  border-radius: var(--cp-radius-soft);
-  border: 1px solid var(--cp-border);
-  background: rgba(6, 17, 27, 0.98);
-  box-shadow: 0 10px 24px rgba(2, 6, 23, 0.34);
-  padding: 0.42rem;
-}
-
-.comp-player-share-action {
-  justify-content: flex-start;
-  width: 100%;
 }
 
 .comp-player-share-status {

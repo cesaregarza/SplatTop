@@ -402,3 +402,74 @@ def test_public_player_profile_returns_404_for_unknown_player(
         res = client.get("/api/ripple/public/player/missing")
         assert res.status_code == 404
         assert res.json()["detail"] == "Player not found in competition index"
+
+
+def test_public_player_share_page_returns_dynamic_meta(
+    client_factory, fake_redis
+):
+    generated_at = _now_ms()
+    meta_payload = {
+        "generated_at_ms": generated_at,
+        "calculated_at_ms": generated_at - 1_000,
+        "build_version": "2024.09.01",
+        "minimum_required_tournaments": 3,
+        "record_count": 1,
+    }
+    player_payload = {
+        "player_id": "p1",
+        "display_name": "Player 1",
+        "eligible": True,
+        "minimum_required_tournaments": 3,
+        "lifetime_ranked_tournaments": 12,
+        "window_tournament_count": 4,
+        "stable_rank": 7,
+        "display_score": 80,
+        "last_active_ms": generated_at - 10_000,
+    }
+    fake_redis.set(RIPPLE_PLAYER_INDEX_META_KEY, orjson.dumps(meta_payload))
+    fake_redis.set(_player_index_key("p1"), orjson.dumps(player_payload))
+
+    with client_factory(
+        env={"COMP_LEADERBOARD_ENABLED": "true"}, redis=fake_redis
+    ) as client:
+        res = client.get("/share/u/p1")
+        assert res.status_code == 200
+        assert res.headers["content-type"].startswith("text/html")
+        body = res.text
+        assert 'property="og:title" content="Player 1 · #7 · splat.top Competitive"' in body
+        assert 'property="og:image" content="http://testserver/share/u/p1/image.svg"' in body
+        assert 'http-equiv="refresh" content="0;url=http://testserver/u/p1"' in body
+
+
+def test_public_player_share_image_returns_svg(client_factory, fake_redis):
+    generated_at = _now_ms()
+    meta_payload = {
+        "generated_at_ms": generated_at,
+        "calculated_at_ms": generated_at - 1_000,
+        "build_version": "2024.09.01",
+        "minimum_required_tournaments": 3,
+        "record_count": 1,
+    }
+    player_payload = {
+        "player_id": "p1",
+        "display_name": "Player 1",
+        "eligible": True,
+        "minimum_required_tournaments": 3,
+        "lifetime_ranked_tournaments": 12,
+        "window_tournament_count": 4,
+        "stable_rank": 7,
+        "display_score": 80,
+        "last_active_ms": generated_at - 10_000,
+    }
+    fake_redis.set(RIPPLE_PLAYER_INDEX_META_KEY, orjson.dumps(meta_payload))
+    fake_redis.set(_player_index_key("p1"), orjson.dumps(player_payload))
+
+    with client_factory(
+        env={"COMP_LEADERBOARD_ENABLED": "true"}, redis=fake_redis
+    ) as client:
+        res = client.get("/share/u/p1/image.svg")
+        assert res.status_code == 200
+        assert res.headers["content-type"].startswith("image/svg+xml")
+        assert "Player 1" in res.text
+        assert "#7" in res.text
+        assert "230.00 / 250" in res.text

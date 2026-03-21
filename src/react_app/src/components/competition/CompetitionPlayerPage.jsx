@@ -440,46 +440,6 @@ const buildHistorySummary = (rows, referenceMs) => {
   };
 };
 
-const buildSnapshotText = ({
-  profile,
-  grade,
-  rankScore,
-  minimumRequired,
-  lifetimeRanked,
-}) => {
-  const name = profile?.display_name || "Unknown player";
-  const id = profile?.player_id || "unknown";
-  const hasLifetimeUnlock = lifetimeRanked >= minimumRequired;
-  const hasVisibleRank =
-    hasLifetimeUnlock && profile?.stable_rank != null;
-  const hasVisibleScore = hasLifetimeUnlock && rankScore != null;
-  const statusLabel = profile?.eligible
-    ? "Live snapshot"
-    : hasLifetimeUnlock
-    ? "Not currently eligible"
-    : "Unlocking profile";
-  const rankLabel = hasVisibleRank
-    ? `#${nf0.format(Number(profile.stable_rank))}`
-    : "Hidden";
-  const scoreLabel = hasVisibleScore
-    ? `${nf2.format(rankScore)} / ${XX_PLUS_THRESHOLD}`
-    : "Hidden";
-  const tournamentsLabel = `${nf0.format(
-    Number(profile?.window_tournament_count || 0)
-  )} / ${nf0.format(lifetimeRanked)}`;
-
-  return [
-    `${name} (${id})`,
-    `Status: ${statusLabel}`,
-    `Rank: ${rankLabel}`,
-    `Grade: ${hasVisibleScore ? grade : "Hidden"}`,
-    `Rank score: ${scoreLabel}`,
-    `Tournaments (120d/lifetime): ${tournamentsLabel}`,
-    `Last tournament: ${formatUtcDateTime(profile?.last_tournament_ms)}`,
-    `Snapshot updated: ${formatUtcDateTime(profile?.generated_at_ms)}`,
-  ].join("\n");
-};
-
 const copyTextToClipboard = async (text) => {
   if (!text) return false;
 
@@ -860,7 +820,6 @@ const CompetitionPlayerPage = ({ top500Href }) => {
     expandedImpactRows: {},
   });
   const [shareStatus, setShareStatus] = useState(null);
-  const [shareMenuOpen, setShareMenuOpen] = useState(false);
   const { loading, error, profile, refresh } = useCompetitionPlayer(playerId);
 
   useEffect(() => {
@@ -1086,29 +1045,16 @@ const CompetitionPlayerPage = ({ top500Href }) => {
     }));
   }, [profile?.player_id, matchLooCount, hasMatchImpactPanel]);
   useEffect(() => {
-    setShareMenuOpen(false);
     setShareStatus(null);
   }, [profile?.player_id]);
   const shareProfileUrl = useMemo(() => {
     const id = encodeURIComponent(profile?.player_id || playerId || "");
-    if (typeof window === "undefined") return `/u/${id}`;
+    if (typeof window === "undefined") return `/share/u/${id}`;
     const origin = window.location.origin.replace(/\/$/, "");
-    return `${origin}/u/${id}`;
+    return `${origin}/share/u/${id}`;
   }, [playerId, profile?.player_id]);
-  const shareSnapshotText = useMemo(
-    () =>
-      buildSnapshotText({
-        profile,
-        grade,
-        rankScore,
-        minimumRequired,
-        lifetimeRanked,
-      }),
-    [profile, grade, rankScore, minimumRequired, lifetimeRanked]
-  );
 
   const handleCopy = useCallback(async (text, successMessage) => {
-    setShareMenuOpen(false);
     try {
       const copied = await copyTextToClipboard(text);
       if (!copied) throw new Error("Clipboard write failed");
@@ -1350,41 +1296,15 @@ const CompetitionPlayerPage = ({ top500Href }) => {
                 <Link to="/" className="comp-player-back-link">
                   Back
                 </Link>
-                <div className="comp-player-share-menu">
-                  <button
-                    type="button"
-                    aria-expanded={shareMenuOpen}
-                    onClick={() => setShareMenuOpen((current) => !current)}
-                    className="comp-player-button comp-player-button--small"
-                  >
-                    Share
-                  </button>
-                  {shareMenuOpen ? (
-                    <div className="comp-player-share-popover">
-                      <button
-                        type="button"
-                        className="comp-player-share-action"
-                        onClick={() =>
-                          handleCopy(shareProfileUrl, "Profile link copied.")
-                        }
-                      >
-                        Copy link
-                      </button>
-                      <button
-                        type="button"
-                        className="comp-player-share-action"
-                        onClick={() =>
-                          handleCopy(
-                            shareSnapshotText,
-                            "Profile snapshot text copied."
-                          )
-                        }
-                      >
-                        Copy snapshot
-                      </button>
-                    </div>
-                  ) : null}
-                </div>
+                <button
+                  type="button"
+                  onClick={() =>
+                    handleCopy(shareProfileUrl, "Profile link copied.")
+                  }
+                  className="comp-player-button comp-player-button--small"
+                >
+                  Share
+                </button>
               </div>
               {shareStatus ? (
                 <p

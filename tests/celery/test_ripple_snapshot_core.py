@@ -22,11 +22,16 @@ from shared_lib.constants import (
     RIPPLE_DANGER_LATEST_KEY,
     RIPPLE_PLAYER_INDEX_LATEST_KEY,
     RIPPLE_PLAYER_INDEX_META_KEY,
+    RIPPLE_PLAYER_INDEX_PLAYER_PREFIX,
     RIPPLE_STABLE_DELTAS_KEY,
     RIPPLE_STABLE_LATEST_KEY,
     RIPPLE_STABLE_META_KEY,
     RIPPLE_STABLE_STATE_KEY,
 )
+
+
+def _player_index_key(player_id: str) -> str:
+    return f"{RIPPLE_PLAYER_INDEX_PLAYER_PREFIX}{player_id}"
 
 
 def test_fetch_player_ranked_history_limits_and_sorts():
@@ -167,7 +172,6 @@ def test_fetch_player_match_loo_impacts_formats_rows():
             assert params is not None
             assert params["calculated_at_ms"] == 1234
             assert params["build_version"] == "2024.09.01"
-            assert params["max_per_player"] == 20
             return FakeResult()
 
     impacts = asyncio.run(
@@ -201,9 +205,59 @@ def test_fetch_player_match_loo_impacts_formats_rows():
     assert impacts["p2"][0]["player_team_players"] == ["9001", "9002"]
 
 
+def test_select_player_match_loo_rows_keeps_helpful_and_harmful_sides():
+    rows = []
+    for idx in range(14):
+        rows.append(
+            {
+                "match_id": 2_000 + idx,
+                "exact_score_delta": 1.4 - idx * 0.1,
+                "exact_abs_delta": 1.4 - idx * 0.1,
+            }
+        )
+    for idx in range(6):
+        rows.append(
+            {
+                "match_id": 3_000 + idx,
+                "exact_score_delta": -0.6 + idx * 0.05,
+                "exact_abs_delta": 0.6 - idx * 0.05,
+            }
+        )
+
+    selected = snapshot_mod._select_player_match_loo_rows(
+        rows, max_per_player=10
+    )
+
+    assert len(selected) == 10
+    harmful = [row for row in selected if row["exact_score_delta"] > 0]
+    helpful = [row for row in selected if row["exact_score_delta"] < 0]
+    assert len(harmful) == 5
+    assert len(helpful) == 5
+    assert [row["match_id"] for row in harmful] == [2000, 2001, 2002, 2003, 2004]
+    assert [row["match_id"] for row in helpful] == [3000, 3001, 3002, 3003, 3004]
+    assert [row["exact_abs_delta"] for row in selected] == sorted(
+        [row["exact_abs_delta"] for row in selected],
+        reverse=True,
+    )
+
+
 def test_refresh_ripple_snapshots_persists_payloads(monkeypatch):
     fake_redis = FakeRedis()
     monkeypatch.setattr(snapshot_mod, "redis_conn", fake_redis, raising=False)
+    fake_redis.set(
+        RIPPLE_PLAYER_INDEX_LATEST_KEY,
+        orjson.dumps(
+            {
+                "generated_at_ms": 1,
+                "record_count": 2,
+                "player_ids": ["p1", "stale-player"],
+            }
+        ),
+    )
+    fake_redis.set(
+        _player_index_key("stale-player"),
+        orjson.dumps({"player_id": "stale-player"}),
+    )
 
     rows = [
         {
@@ -425,44 +479,33 @@ def test_refresh_ripple_snapshots_persists_payloads(monkeypatch):
         fake_redis.get(RIPPLE_PLAYER_INDEX_LATEST_KEY)
     )
     assert player_index_payload["record_count"] == 2
-    assert set(player_index_payload["players"].keys()) == {"p1", "p2"}
-    assert player_index_payload["players"]["p1"]["eligible"] is True
+    assert set(player_index_payload["player_ids"]) == {"p1", "p2"}
+
+    player_one_payload = orjson.loads(fake_redis.get(_player_index_key("p1")))
+    assert player_one_payload["eligible"] is True
     assert (
-        player_index_payload["players"]["p1"]["minimum_required_tournaments"]
-        == 3
+        player_one_payload["minimum_required_tournaments"] == 3
     )
+    assert player_one_payload["history_record_count"] == 1
     assert (
-        player_index_payload["players"]["p1"]["history_record_count"] == 1
-    )
-    assert (
-        player_index_payload["players"]["p1"]["tournament_history_ranked"][0][
-            "tournament_name"
-        ]
+        player_one_payload["tournament_history_ranked"][0]["tournament_name"]
         == "Winter Open"
     )
+    assert player_one_payload["match_loo_record_count"] == 1
+    assert player_one_payload["match_loo_impacts"][0]["match_id"] == 501
     assert (
-        player_index_payload["players"]["p1"]["match_loo_record_count"] == 1
-    )
-    assert (
-        player_index_payload["players"]["p1"]["match_loo_impacts"][0][
-            "match_id"
-        ]
-        == 501
-    )
-    assert (
-        player_index_payload["players"]["p1"]["match_loo_impacts"][0][
-            "player_team_name"
-        ]
+        player_one_payload["match_loo_impacts"][0]["player_team_name"]
         == "Ink Storm"
     )
     assert (
-        player_index_payload["players"]["p1"]["match_loo_impacts"][0][
-            "player_team_players"
-        ][0]
+        player_one_payload["match_loo_impacts"][0]["player_team_players"][0]
         == "Player One"
     )
-    assert player_index_payload["players"]["p2"]["history_record_count"] == 0
-    assert player_index_payload["players"]["p2"]["match_loo_record_count"] == 0
+
+    player_two_payload = orjson.loads(fake_redis.get(_player_index_key("p2")))
+    assert player_two_payload["history_record_count"] == 0
+    assert player_two_payload["match_loo_record_count"] == 0
+    assert fake_redis.get(_player_index_key("stale-player")) is None
 
     player_index_meta = orjson.loads(
         fake_redis.get(RIPPLE_PLAYER_INDEX_META_KEY)

@@ -27,6 +27,7 @@ from fast_api_app.routes import (
     player_detail_router,
     ripple_docs_router,
     ripple_public_router,
+    ripple_share_router,
     ripple_router,
     search_router,
     sendou_proxy_router,
@@ -86,6 +87,7 @@ app.include_router(ping_router)
 app.include_router(ripple_docs_router)
 app.include_router(ripple_router)
 app.include_router(ripple_public_router)
+app.include_router(ripple_share_router)
 app.include_router(sendou_proxy_router)
 app.include_router(admin_tokens_router)
 

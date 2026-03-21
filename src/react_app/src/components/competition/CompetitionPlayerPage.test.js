@@ -191,7 +191,7 @@ describe("CompetitionPlayerPage", () => {
     openSpy.mockRestore();
   });
 
-  it("copies profile snapshot text", async () => {
+  it("copies the profile link", async () => {
     const writeText = jest.fn().mockResolvedValue(undefined);
     Object.defineProperty(navigator, "clipboard", {
       value: { writeText },
@@ -200,17 +200,15 @@ describe("CompetitionPlayerPage", () => {
 
     renderPage(makeProfile({ display_score: 101.2 }));
 
-    fireEvent.click(screen.getByRole("button", { name: "Share" }));
-
     await act(async () => {
-      fireEvent.click(await screen.findByRole("button", { name: "Copy snapshot" }));
+      fireEvent.click(screen.getByRole("button", { name: "Share" }));
     });
 
     await waitFor(() => {
       expect(writeText).toHaveBeenCalledTimes(1);
     });
-    expect(writeText.mock.calls[0][0]).toContain("Rank score: 251.20 / 250");
-    await screen.findByText("Profile snapshot text copied.");
+    expect(writeText.mock.calls[0][0]).toBe("http://localhost/share/u/p1");
+    await screen.findByText("Profile link copied.");
   });
 
   it("targets the next grade threshold in the path tracker", () => {
