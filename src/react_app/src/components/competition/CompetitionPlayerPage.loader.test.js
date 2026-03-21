@@ -62,6 +62,7 @@ const makeProfile = (overrides = {}) => ({
 describe("CompetitionPlayerPage loader", () => {
   beforeEach(() => {
     jest.clearAllMocks();
+    window.scrollTo = jest.fn();
   });
 
   afterEach(() => {
@@ -85,6 +86,50 @@ describe("CompetitionPlayerPage loader", () => {
       error: "Player not found in competition index",
       profile: null,
     });
+  });
+
+  it("scrolls to the top when a player page opens and when the route changes", async () => {
+    global.fetch = jest.fn()
+      .mockResolvedValueOnce(
+        makeJsonResponse(
+          makeProfile({
+            player_id: "a",
+            display_name: "Player A",
+          })
+        )
+      )
+      .mockResolvedValueOnce(
+        makeJsonResponse(
+          makeProfile({
+            player_id: "b",
+            display_name: "Player B",
+          })
+        )
+      );
+
+    const router = createMemoryRouter(
+      [
+        {
+          path: "/u/:playerId",
+          loader: loadCompetitionPlayer,
+          element: <CompetitionPlayerPage top500Href="/" />,
+        },
+      ],
+      { initialEntries: ["/u/a"] }
+    );
+
+    render(<RouterProvider router={router} />);
+
+    await screen.findByText("Player A");
+    expect(window.scrollTo).toHaveBeenCalledWith(0, 0);
+
+    await act(async () => {
+      await router.navigate("/u/b");
+    });
+
+    await screen.findByText("Player B");
+    expect(window.scrollTo).toHaveBeenCalledTimes(2);
+    expect(window.scrollTo).toHaveBeenLastCalledWith(0, 0);
   });
 
   it("drops stale param navigations by aborting the older loader request", async () => {

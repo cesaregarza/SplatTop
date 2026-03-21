@@ -1,6 +1,7 @@
 import React, {
   useCallback,
   useEffect,
+  useLayoutEffect,
   useMemo,
   useRef,
   useState,
@@ -975,6 +976,12 @@ const CompetitionPlayerPage = ({ top500Href }) => {
   const revalidator = useRevalidator();
   const loading =
     navigation.state !== "idle" || revalidator.state !== "idle";
+
+  useLayoutEffect(() => {
+    if (!playerId || typeof window === "undefined") return;
+    if (typeof window.scrollTo !== "function") return;
+    window.scrollTo(0, 0);
+  }, [playerId]);
 
   return (
     <CompetitionPlayerPageContent
