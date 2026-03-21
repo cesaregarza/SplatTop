@@ -136,6 +136,7 @@ describe("CompetitionPlayerPage", () => {
   });
 
   it("supports filtering and pagination in the history explorer", () => {
+    const openSpy = jest.spyOn(window, "open").mockImplementation(() => null);
     const historyRows = Array.from({ length: 14 }, (_, idx) => ({
       tournament_id: idx + 1,
       tournament_name: `Cup ${idx + 1}`,
@@ -178,6 +179,16 @@ describe("CompetitionPlayerPage", () => {
     fireEvent.click(screen.getByRole("button", { name: "Next" }));
     expect(within(historyPanel).getByText("Cup 1")).toBeInTheDocument();
     expect(screen.getByText("Showing page 2 of 2")).toBeInTheDocument();
+
+    fireEvent.click(within(historyPanel).getByText("Cup 1").closest("tr"));
+
+    expect(openSpy).toHaveBeenCalledWith(
+      "https://sendou.ink/to/1",
+      "_blank",
+      "noopener,noreferrer"
+    );
+
+    openSpy.mockRestore();
   });
 
   it("copies profile snapshot text", async () => {

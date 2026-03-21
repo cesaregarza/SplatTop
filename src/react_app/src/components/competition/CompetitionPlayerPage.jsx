@@ -1350,13 +1350,6 @@ const CompetitionPlayerPage = ({ top500Href }) => {
                 <Link to="/" className="comp-player-back-link">
                   Back
                 </Link>
-                <button
-                  type="button"
-                  onClick={refresh}
-                  className="comp-player-button comp-player-button--small"
-                >
-                  Refresh
-                </button>
                 <div className="comp-player-share-menu">
                   <button
                     type="button"
@@ -1740,7 +1733,34 @@ const CompetitionPlayerPage = ({ top500Href }) => {
                           </thead>
                           <tbody>
                             {historyRows.map((row) => (
-                              <tr key={row.key}>
+                              <tr
+                                key={row.key}
+                                className={
+                                  row.tournamentId
+                                    ? "comp-player-table-row is-clickable"
+                                    : "comp-player-table-row"
+                                }
+                                role={row.tournamentId ? "link" : undefined}
+                                tabIndex={row.tournamentId ? 0 : undefined}
+                                onClick={
+                                  row.tournamentId
+                                    ? () => openTournamentUrl(row.tournamentId)
+                                    : undefined
+                                }
+                                onKeyDown={
+                                  row.tournamentId
+                                    ? (event) => {
+                                        if (
+                                          event.key === "Enter" ||
+                                          event.key === " "
+                                        ) {
+                                          event.preventDefault();
+                                          openTournamentUrl(row.tournamentId);
+                                        }
+                                      }
+                                    : undefined
+                                }
+                              >
                                 <td
                                   className="font-data comp-player-table-date"
                                   title={formatUtcDateTime(row.eventMs)}

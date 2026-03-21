@@ -22,6 +22,7 @@ from shared_lib.constants import (
     RIPPLE_DANGER_LATEST_KEY,
     RIPPLE_PLAYER_INDEX_LATEST_KEY,
     RIPPLE_PLAYER_INDEX_META_KEY,
+    RIPPLE_PLAYER_INDEX_PLAYER_PREFIX,
     RIPPLE_SNAPSHOT_LOCK_KEY,
     RIPPLE_STABLE_DELTAS_KEY,
     RIPPLE_STABLE_LATEST_KEY,
@@ -203,6 +204,124 @@ def _persist_state(state: Dict[str, Any]) -> None:
 
 def _persist_payload(key: str, payload: Mapping[str, Any]) -> None:
     redis_conn.set(key, orjson.dumps(payload))
+
+
+def _load_cached_payload(key: str) -> Dict[str, Any] | None:
+    raw = redis_conn.get(key)
+    if not raw:
+        return None
+    try:
+        payload = orjson.loads(raw)
+    except orjson.JSONDecodeError:
+        return None
+    return payload if isinstance(payload, dict) else None
+
+
+def _player_index_key(player_id: str) -> str:
+    return f"{RIPPLE_PLAYER_INDEX_PLAYER_PREFIX}{player_id}"
+
+
+def _extract_player_index_ids(payload: Mapping[str, Any] | None) -> set[str]:
+    if not isinstance(payload, Mapping):
+        return set()
+
+    raw_player_ids = payload.get("player_ids")
+    if isinstance(raw_player_ids, list):
+        return {str(player_id) for player_id in raw_player_ids if player_id}
+
+    raw_players = payload.get("players")
+    if isinstance(raw_players, Mapping):
+        return {
+            str(player_id)
+            for player_id in raw_players.keys()
+            if player_id is not None
+        }
+
+    return set()
+
+
+def _match_loo_match_id_rank_value(row: Mapping[str, Any]) -> int:
+    match_id = _to_int(row.get("match_id"))
+    return match_id if match_id is not None else -1
+
+
+def _select_player_match_loo_rows(
+    rows: List[Dict[str, Any]],
+    *,
+    max_per_player: int,
+) -> List[Dict[str, Any]]:
+    max_rows = max(1, int(max_per_player))
+    side_cap = max_rows // 2
+
+    harmful_rows = []
+    helpful_rows = []
+    neutral_rows = []
+    for row in rows:
+        exact_score_delta = _to_float(row.get("exact_score_delta"))
+        if exact_score_delta is None or exact_score_delta == 0:
+            neutral_rows.append(row)
+        elif exact_score_delta > 0:
+            harmful_rows.append(row)
+        else:
+            helpful_rows.append(row)
+
+    harmful_rows = sorted(
+        harmful_rows,
+        key=lambda row: (
+            _to_float(row.get("exact_score_delta"))
+            if _to_float(row.get("exact_score_delta")) is not None
+            else float("-inf"),
+            _to_float(row.get("exact_abs_delta"))
+            if _to_float(row.get("exact_abs_delta")) is not None
+            else float("-inf"),
+            _match_loo_match_id_rank_value(row),
+        ),
+        reverse=True,
+    )[:side_cap]
+
+    helpful_rows = sorted(
+        helpful_rows,
+        key=lambda row: (
+            _to_float(row.get("exact_score_delta"))
+            if _to_float(row.get("exact_score_delta")) is not None
+            else float("inf"),
+            -(
+                _to_float(row.get("exact_abs_delta"))
+                if _to_float(row.get("exact_abs_delta")) is not None
+                else float("-inf")
+            ),
+            -_match_loo_match_id_rank_value(row),
+        ),
+    )[:side_cap]
+
+    selected_rows = harmful_rows + helpful_rows
+    remaining_slots = max_rows - len(selected_rows)
+    if remaining_slots > 0:
+        neutral_rows = sorted(
+            neutral_rows,
+            key=lambda row: (
+                _to_float(row.get("exact_abs_delta"))
+                if _to_float(row.get("exact_abs_delta")) is not None
+                else float("-inf"),
+                _match_loo_match_id_rank_value(row),
+            ),
+            reverse=True,
+        )[:remaining_slots]
+        selected_rows.extend(neutral_rows)
+
+    return sorted(
+        selected_rows,
+        key=lambda row: (
+            _to_float(row.get("exact_abs_delta"))
+            if _to_float(row.get("exact_abs_delta")) is not None
+            else float("-inf"),
+            _to_float(row.get("exact_score_delta"))
+            if _to_float(row.get("exact_score_delta")) is not None
+            else float("-inf"),
+            _match_loo_match_id_rank_value(row),
+        ),
+        reverse=True,
+    )
 
 
 def _load_previous_stable_payload() -> Tuple[Dict[str, Any] | None, str | None]:
@@ -931,18 +1050,6 @@ async def _fetch_player_match_loo_impacts(
               ON opponent_roster.tournament_id = base.tournament_id
              AND opponent_roster.match_id = base.match_id
              AND opponent_roster.team_id = base.opponent_team_id
-        ),
-        ranked AS (
-            SELECT
-                enriched.*,
-                ROW_NUMBER() OVER (
-                    PARTITION BY enriched.player_id
-                    ORDER BY
-                        enriched.exact_abs_delta DESC NULLS LAST,
-                        enriched.exact_score_delta DESC NULLS LAST,
-                        enriched.match_id DESC NULLS LAST
-                ) AS row_num
-            FROM enriched
         )
         SELECT
             player_id,
@@ -963,9 +1070,12 @@ async def _fetch_player_match_loo_impacts(
             opponent_team_score,
             player_team_players,
             opponent_team_players
-        FROM ranked
-        WHERE row_num <= :max_per_player
-        ORDER BY player_id, row_num
+        FROM enriched
+        ORDER BY
+            player_id,
+            exact_abs_delta DESC NULLS LAST,
+            exact_score_delta DESC NULLS LAST,
+            match_id DESC NULLS LAST
         """
     )
 
@@ -979,7 +1089,6 @@ async def _fetch_player_match_loo_impacts(
                     "player_ids": batch,
                     "calculated_at_ms": int(calculated_at_ms),
                     "build_version": build_version,
-                    "max_per_player": max_rows,
                 },
             )
             rows = result.mappings().all()
@@ -1054,6 +1163,11 @@ async def _fetch_player_match_loo_impacts(
                     ),
                 }
             )
+
+    for player_id, rows in impacts_by_player.items():
+        impacts_by_player[player_id] = _select_player_match_loo_rows(
+            rows, max_per_player=max_rows
+        )
 
     return impacts_by_player
 
@@ -1223,7 +1337,7 @@ def _build_player_index_payload(
     generated_at_ms: int,
     calculated_at_ms: int | None,
     build_version: str | None,
-) -> tuple[Dict[str, Any], Dict[str, Any]]:
+) -> tuple[Dict[str, Any], Dict[str, Any], Dict[str, Dict[str, Any]]]:
     stable_by_id: Dict[str, Mapping[str, Any]] = {}
     for row in stable_rows:
         player_id = row.get("player_id")
@@ -1375,7 +1489,7 @@ def _build_player_index_payload(
         "build_version": build_version,
         "minimum_required_tournaments": MIN_REQUIRED_TOURNAMENTS,
         "record_count": len(players),
-        "players": players,
+        "player_ids": sorted(players.keys()),
     }
     meta = {
         "generated_at_ms": generated_at_ms,
@@ -1384,7 +1498,7 @@ def _build_player_index_payload(
         "minimum_required_tournaments": MIN_REQUIRED_TOURNAMENTS,
         "record_count": len(players),
     }
-    return payload, meta
+    return payload, meta, players
 
 
 async def _refresh_snapshots_async_once() -> Dict[str, Any]:
@@ -1573,7 +1687,11 @@ async def _refresh_snapshots_async_once() -> Dict[str, Any]:
         comparison_payload,
         generated_at_ms,
     )
-    player_index_payload, player_index_meta_payload = (
+    (
+        player_index_payload,
+        player_index_meta_payload,
+        player_index_players,
+    ) = (
         _build_player_index_payload(
             all_rows=all_rows,
             stable_rows=stable_rows,
@@ -1586,6 +1704,13 @@ async def _refresh_snapshots_async_once() -> Dict[str, Any]:
             build_version=build_version,
         )
     )
+    previous_player_index_payload = _load_cached_payload(
+        RIPPLE_PLAYER_INDEX_LATEST_KEY
+    )
+    previous_player_ids = _extract_player_index_ids(
+        previous_player_index_payload
+    )
+    current_player_ids = set(player_index_players.keys())
 
     _persist_previous_payload(
         preserved_payload,
@@ -1598,6 +1723,10 @@ async def _refresh_snapshots_async_once() -> Dict[str, Any]:
     _persist_payload(RIPPLE_STABLE_META_KEY, meta_payload)
     _persist_payload(RIPPLE_STABLE_PERCENTILES_KEY, percentiles_payload)
     _persist_payload(RIPPLE_STABLE_DELTAS_KEY, delta_payload)
+    for player_id, player_payload in player_index_players.items():
+        _persist_payload(_player_index_key(player_id), player_payload)
+    for stale_player_id in previous_player_ids - current_player_ids:
+        redis_conn.delete(_player_index_key(stale_player_id))
     _persist_payload(RIPPLE_PLAYER_INDEX_LATEST_KEY, player_index_payload)
     _persist_payload(RIPPLE_PLAYER_INDEX_META_KEY, player_index_meta_payload)
 
@@ -1605,13 +1734,13 @@ async def _refresh_snapshots_async_once() -> Dict[str, Any]:
         "Refreshed ripple snapshots: %s stable rows, %s danger rows, %s indexed players",
         len(stable_rows),
         len(danger_payload),
-        len(player_index_payload["players"]),
+        len(player_index_players),
     )
 
     return {
         "stable_rows": len(stable_rows),
         "danger_rows": len(danger_payload),
-        "indexed_players": len(player_index_payload["players"]),
+        "indexed_players": len(player_index_players),
         "all_rows": _to_int(all_total),
     }
 

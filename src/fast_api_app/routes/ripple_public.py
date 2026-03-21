@@ -11,6 +11,8 @@ from fast_api_app.feature_flags import is_comp_leaderboard_enabled
 from shared_lib.constants import (
     RIPPLE_DANGER_LATEST_KEY,
     RIPPLE_PLAYER_INDEX_LATEST_KEY,
+    RIPPLE_PLAYER_INDEX_META_KEY,
+    RIPPLE_PLAYER_INDEX_PLAYER_PREFIX,
     RIPPLE_STABLE_DELTAS_KEY,
     RIPPLE_STABLE_LATEST_KEY,
     RIPPLE_STABLE_META_KEY,
@@ -85,8 +87,24 @@ def _empty_player_index_payload() -> Dict[str, Any]:
         "build_version": None,
         "minimum_required_tournaments": 3,
         "record_count": 0,
+        "player_ids": [],
         "players": {},
     }
+
+
+def _player_index_key(player_id: str) -> str:
+    return f"{RIPPLE_PLAYER_INDEX_PLAYER_PREFIX}{player_id}"
+
+
+def _extract_player_from_legacy_index(
+    payload: Dict[str, Any], player_id: str
+) -> Optional[Dict[str, Any]]:
+    players = payload.get("players")
+    if not isinstance(players, dict):
+        return None
+
+    player = players.get(player_id)
+    return player if isinstance(player, dict) else None
 
 
 def _decorate(payload: Dict[str, Any]) -> Dict[str, Any]:
@@ -155,32 +173,45 @@ async def get_public_ripple_danger() -> Dict[str, Any]:
 )
 async def get_public_ripple_player(player_id: str) -> Dict[str, Any]:
     _ensure_enabled()
-    payload = (
-        _load_payload(RIPPLE_PLAYER_INDEX_LATEST_KEY)
-        or _empty_player_index_payload()
-    )
-    players = payload.get("players")
-    if not isinstance(players, dict):
-        players = {}
+    meta_payload = _load_payload(RIPPLE_PLAYER_INDEX_META_KEY)
+    if not isinstance(meta_payload, dict):
+        meta_payload = None
 
-    player = players.get(player_id)
+    player = _load_payload(_player_index_key(player_id))
+    latest_payload: Dict[str, Any] | None = None
+    if not isinstance(player, dict):
+        latest_payload = _load_payload(RIPPLE_PLAYER_INDEX_LATEST_KEY)
+        if isinstance(latest_payload, dict):
+            player = _extract_player_from_legacy_index(latest_payload, player_id)
+            if meta_payload is None:
+                meta_payload = latest_payload
+
     if not isinstance(player, dict):
         raise HTTPException(
             status_code=404,
             detail="Player not found in competition index",
         )
 
+    if meta_payload is None:
+        meta_payload = (
+            latest_payload
+            if isinstance(latest_payload, dict)
+            else _load_payload(RIPPLE_PLAYER_INDEX_LATEST_KEY)
+        )
+    if not isinstance(meta_payload, dict):
+        meta_payload = _empty_player_index_payload()
+
     enriched = _decorate(
         {
-            "generated_at_ms": payload.get("generated_at_ms"),
+            "generated_at_ms": meta_payload.get("generated_at_ms"),
         }
     )
     response = dict(player)
     response.update(
         {
-            "generated_at_ms": payload.get("generated_at_ms"),
-            "calculated_at_ms": payload.get("calculated_at_ms"),
-            "build_version": payload.get("build_version"),
+            "generated_at_ms": meta_payload.get("generated_at_ms"),
+            "calculated_at_ms": meta_payload.get("calculated_at_ms"),
+            "build_version": meta_payload.get("build_version"),
             "stale": enriched["stale"],
             "retrieved_at_ms": enriched["retrieved_at_ms"],
         }

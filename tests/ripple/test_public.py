@@ -5,6 +5,8 @@ import orjson
 from shared_lib.constants import (
     RIPPLE_DANGER_LATEST_KEY,
     RIPPLE_PLAYER_INDEX_LATEST_KEY,
+    RIPPLE_PLAYER_INDEX_META_KEY,
+    RIPPLE_PLAYER_INDEX_PLAYER_PREFIX,
     RIPPLE_STABLE_DELTAS_KEY,
     RIPPLE_STABLE_LATEST_KEY,
     RIPPLE_STABLE_META_KEY,
@@ -13,6 +15,10 @@ from shared_lib.constants import (
 
 def _now_ms() -> int:
     return int(time.time() * 1000)
+
+
+def _player_index_key(player_id: str) -> str:
+    return f"{RIPPLE_PLAYER_INDEX_PLAYER_PREFIX}{player_id}"
 
 
 def test_public_leaderboard_disabled_returns_404(client_factory, fake_redis):
@@ -200,56 +206,126 @@ def test_public_player_profile_returns_cached_payload(
     client_factory, fake_redis
 ):
     generated_at = _now_ms()
-    payload = {
+    meta_payload = {
         "generated_at_ms": generated_at,
         "calculated_at_ms": generated_at - 1_000,
         "build_version": "2024.09.01",
         "minimum_required_tournaments": 3,
         "record_count": 2,
+    }
+    player_payload = {
+        "player_id": "p1",
+        "display_name": "Player 1",
+        "eligible": True,
+        "ineligible_reason": None,
+        "minimum_required_tournaments": 3,
+        "lifetime_ranked_tournaments": 12,
+        "window_tournament_count": 4,
+        "progress_to_minimum": {
+            "current": 3,
+            "required": 3,
+            "remaining": 0,
+        },
+        "stable_rank": 7,
+        "stable_score": 5.1,
+        "display_score": 277.5,
+        "danger_days_left": 8.5,
+        "last_active_ms": generated_at - 10_000,
+        "last_tournament_ms": generated_at - 10_000,
+        "rank_delta": 2,
+        "display_score_delta": 4.25,
+        "delta_is_new": False,
+        "delta_has_baseline": True,
+        "previous_rank": 9,
+        "previous_display_score": 273.25,
+        "history_generated_at_ms": generated_at,
+        "history_record_count": 1,
+        "history_max_records": 25,
+        "tournament_history_ranked": [
+            {
+                "tournament_id": 44,
+                "tournament_name": "Midnight Splat",
+                "event_ms": generated_at - 86_400_000,
+                "ranked": True,
+                "placement_label": None,
+                "result_summary": None,
+                "team_name": None,
+                "team_id": None,
+            }
+        ],
+        "match_loo_generated_at_ms": generated_at,
+        "match_loo_record_count": 1,
+        "match_loo_max_records": 20,
+        "match_loo_impacts": [
+            {
+                "match_id": 501,
+                "tournament_id": 44,
+                "tournament_name": "Midnight Splat",
+                "event_ms": generated_at - 86_400_000,
+                "player_rank": 7,
+                "player_score": 5.1,
+                "is_win": False,
+                "exact_score_delta": 0.42,
+                "exact_abs_delta": 0.42,
+                "player_team_id": 17,
+                "player_team_name": "Luma",
+                "opponent_team_id": 19,
+                "opponent_team_name": "Nova",
+                "player_team_score": 1,
+                "opponent_team_score": 3,
+                "player_team_players": [
+                    "Aster",
+                    "Beryl",
+                    "Cinder",
+                    "Drift",
+                ],
+                "opponent_team_players": [
+                    "Ember",
+                    "Flint",
+                    "Glint",
+                    "Halo",
+                ],
+            }
+        ],
+    }
+    fake_redis.set(RIPPLE_PLAYER_INDEX_META_KEY, orjson.dumps(meta_payload))
+    fake_redis.set(
+        _player_index_key("p1"),
+        orjson.dumps(player_payload),
+    )
+
+    with client_factory(
+        env={"COMP_LEADERBOARD_ENABLED": "true"}, redis=fake_redis
+    ) as client:
+        res = client.get("/api/ripple/public/player/p1")
+        assert res.status_code == 200
+        data = res.json()
+        assert data["player_id"] == "p1"
+        assert data["eligible"] is True
+        assert data["match_loo_impacts"][0]["match_id"] == 501
+        assert data["match_loo_impacts"][0]["player_team_name"] == "Luma"
+        assert data["match_loo_impacts"][0]["opponent_team_score"] == 3
+        assert data["match_loo_impacts"][0]["player_team_players"][0] == "Aster"
+        assert data["build_version"] == "2024.09.01"
+        assert data["stale"] is False
+        assert isinstance(data["retrieved_at_ms"], int)
+
+
+def test_public_player_profile_falls_back_to_legacy_index_blob(
+    client_factory, fake_redis
+):
+    generated_at = _now_ms()
+    payload = {
+        "generated_at_ms": generated_at,
+        "calculated_at_ms": generated_at - 1_000,
+        "build_version": "2024.09.01",
+        "minimum_required_tournaments": 3,
+        "record_count": 1,
         "players": {
             "p1": {
                 "player_id": "p1",
                 "display_name": "Player 1",
                 "eligible": True,
-                "ineligible_reason": None,
-                "minimum_required_tournaments": 3,
-                "lifetime_ranked_tournaments": 12,
-                "window_tournament_count": 4,
-                "progress_to_minimum": {
-                    "current": 3,
-                    "required": 3,
-                    "remaining": 0,
-                },
-                "stable_rank": 7,
-                "stable_score": 5.1,
-                "display_score": 277.5,
-                "danger_days_left": 8.5,
-                "last_active_ms": generated_at - 10_000,
-                "last_tournament_ms": generated_at - 10_000,
-                "rank_delta": 2,
-                "display_score_delta": 4.25,
-                "delta_is_new": False,
-                "delta_has_baseline": True,
-                "previous_rank": 9,
-                "previous_display_score": 273.25,
-                "history_generated_at_ms": generated_at,
-                "history_record_count": 1,
-                "history_max_records": 25,
-                "tournament_history_ranked": [
-                    {
-                        "tournament_id": 44,
-                        "tournament_name": "Midnight Splat",
-                        "event_ms": generated_at - 86_400_000,
-                        "ranked": True,
-                        "placement_label": None,
-                        "result_summary": None,
-                        "team_name": None,
-                        "team_id": None,
-                    }
-                ],
-                "match_loo_generated_at_ms": generated_at,
-                "match_loo_record_count": 1,
-                "match_loo_max_records": 20,
                 "match_loo_impacts": [
                     {
                         "match_id": 501,
@@ -281,7 +357,7 @@ def test_public_player_profile_returns_cached_payload(
                         ],
                     }
                 ],
-            }
+            },
         },
     }
     fake_redis.set(RIPPLE_PLAYER_INDEX_LATEST_KEY, orjson.dumps(payload))
@@ -294,15 +370,13 @@ def test_public_player_profile_returns_cached_payload(
         data = res.json()
         assert data["player_id"] == "p1"
         assert data["eligible"] is True
-        assert data["stable_rank"] == 7
-        assert data["display_score"] == 277.5
-        assert data["history_record_count"] == 1
-        assert data["tournament_history_ranked"][0]["tournament_id"] == 44
-        assert data["match_loo_record_count"] == 1
         assert data["match_loo_impacts"][0]["match_id"] == 501
         assert data["match_loo_impacts"][0]["player_team_name"] == "Luma"
         assert data["match_loo_impacts"][0]["opponent_team_score"] == 3
         assert data["match_loo_impacts"][0]["player_team_players"][0] == "Aster"
+        assert data["build_version"] == "2024.09.01"
+        assert data["calculated_at_ms"] == generated_at - 1_000
+        assert data["generated_at_ms"] == generated_at
         assert data["stale"] is False
         assert isinstance(data["retrieved_at_ms"], int)
 
@@ -317,14 +391,9 @@ def test_public_player_profile_returns_404_for_unknown_player(
         "build_version": "2024.09.01",
         "minimum_required_tournaments": 3,
         "record_count": 1,
-        "players": {
-            "p1": {
-                "player_id": "p1",
-                "display_name": "Player 1",
-                "eligible": True,
-            }
-        },
+        "player_ids": ["p1"],
     }
+    fake_redis.set(RIPPLE_PLAYER_INDEX_META_KEY, orjson.dumps(payload))
     fake_redis.set(RIPPLE_PLAYER_INDEX_LATEST_KEY, orjson.dumps(payload))
 
     with client_factory(
