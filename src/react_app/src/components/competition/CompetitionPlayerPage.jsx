@@ -56,6 +56,17 @@ const GRADE_INDEX_BY_LABEL = new Map(
   DISPLAY_GRADE_SCALE.map(([, label], index) => [label, index])
 );
 
+const pickInitialMatchResultView = ({
+  helpfulCount,
+  harmfulCount,
+  swingCount,
+}) => {
+  if (helpfulCount > 0) return "helpful";
+  if (harmfulCount > 0) return "harmful";
+  if (swingCount > 0) return "swings";
+  return MATCH_RESULT_VIEW_OPTIONS[0].id;
+};
+
 const formatUtcDateTime = (timestampMs) => {
   if (timestampMs == null) return "—";
   const date = new Date(Number(timestampMs));
@@ -815,7 +826,7 @@ const CompetitionPlayerPage = ({ top500Href }) => {
   const [historySort, setHistorySort] = useState("recent");
   const [pageState, setPageState] = useState({
     history: 1,
-    resultsView: MATCH_RESULT_VIEW_OPTIONS[0].id,
+    resultsView: null,
     dataTab: "history",
     expandedImpactRows: {},
   });
@@ -974,6 +985,19 @@ const CompetitionPlayerPage = ({ top500Href }) => {
   );
   const swingMatchImpacts = matchLooImpacts;
   const hasMatchImpactPanel = matchLooCount > 0 || matchLooImpacts.length > 0;
+  const defaultMatchImpactViewId = useMemo(
+    () =>
+      pickInitialMatchResultView({
+        helpfulCount: helpfulMatchImpacts.length,
+        harmfulCount: harmfulMatchImpacts.length,
+        swingCount: swingMatchImpacts.length,
+      }),
+    [
+      harmfulMatchImpacts.length,
+      helpfulMatchImpacts.length,
+      swingMatchImpacts.length,
+    ]
+  );
   const filteredHistory = useMemo(() => {
     const query = historyQuery.trim().toLowerCase();
     const filtered = tournamentHistory.filter((row) => {
@@ -1026,7 +1050,8 @@ const CompetitionPlayerPage = ({ top500Href }) => {
   const strongestHelpfulImpact = helpfulMatchImpacts[0] || null;
   const activeMatchImpactView =
     MATCH_RESULT_VIEW_OPTIONS.find(
-      (option) => option.id === pageState.resultsView
+      (option) =>
+        option.id === (pageState.resultsView || defaultMatchImpactViewId)
     ) || MATCH_RESULT_VIEW_OPTIONS[0];
   const activeDataTab =
     pageState.dataTab || (hasMatchImpactPanel ? "results" : "history");
@@ -1039,11 +1064,16 @@ const CompetitionPlayerPage = ({ top500Href }) => {
   useEffect(() => {
     setPageState((current) => ({
       ...current,
-      resultsView: MATCH_RESULT_VIEW_OPTIONS[0].id,
+      resultsView: defaultMatchImpactViewId,
       dataTab: hasMatchImpactPanel ? "results" : "history",
       expandedImpactRows: {},
     }));
-  }, [profile?.player_id, matchLooCount, hasMatchImpactPanel]);
+  }, [
+    defaultMatchImpactViewId,
+    profile?.player_id,
+    matchLooCount,
+    hasMatchImpactPanel,
+  ]);
   useEffect(() => {
     setShareStatus(null);
   }, [profile?.player_id]);

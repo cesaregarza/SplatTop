@@ -245,6 +245,18 @@ def _match_loo_match_id_rank_value(row: Mapping[str, Any]) -> int:
     return match_id if match_id is not None else -1
 
 
+def _match_loo_abs_rank_key(row: Mapping[str, Any]) -> tuple[float, float, int]:
+    return (
+        _to_float(row.get("exact_abs_delta"))
+        if _to_float(row.get("exact_abs_delta")) is not None
+        else float("-inf"),
+        _to_float(row.get("exact_score_delta"))
+        if _to_float(row.get("exact_score_delta")) is not None
+        else float("-inf"),
+        _match_loo_match_id_rank_value(row),
+    )
+
+
 def _select_player_match_loo_rows(
     rows: List[Dict[str, Any]],
     *,
@@ -277,7 +289,7 @@ def _select_player_match_loo_rows(
             _match_loo_match_id_rank_value(row),
         ),
         reverse=True,
-    )[:side_cap]
+    )
 
     helpful_rows = sorted(
         helpful_rows,
@@ -292,34 +304,30 @@ def _select_player_match_loo_rows(
             ),
             -_match_loo_match_id_rank_value(row),
         ),
-    )[:side_cap]
+    )
 
-    selected_rows = harmful_rows + helpful_rows
+    selected_rows = harmful_rows[:side_cap] + helpful_rows[:side_cap]
     remaining_slots = max_rows - len(selected_rows)
+    if remaining_slots > 0:
+        leftover_signed_rows = sorted(
+            harmful_rows[side_cap:] + helpful_rows[side_cap:],
+            key=_match_loo_abs_rank_key,
+            reverse=True,
+        )[:remaining_slots]
+        selected_rows.extend(leftover_signed_rows)
+        remaining_slots = max_rows - len(selected_rows)
+
     if remaining_slots > 0:
         neutral_rows = sorted(
             neutral_rows,
-            key=lambda row: (
-                _to_float(row.get("exact_abs_delta"))
-                if _to_float(row.get("exact_abs_delta")) is not None
-                else float("-inf"),
-                _match_loo_match_id_rank_value(row),
-            ),
+            key=_match_loo_abs_rank_key,
             reverse=True,
         )[:remaining_slots]
         selected_rows.extend(neutral_rows)
 
     return sorted(
         selected_rows,
-        key=lambda row: (
-            _to_float(row.get("exact_abs_delta"))
-            if _to_float(row.get("exact_abs_delta")) is not None
-            else float("-inf"),
-            _to_float(row.get("exact_score_delta"))
-            if _to_float(row.get("exact_score_delta")) is not None
-            else float("-inf"),
-            _match_loo_match_id_rank_value(row),
-        ),
+        key=_match_loo_abs_rank_key,
         reverse=True,
     )
 

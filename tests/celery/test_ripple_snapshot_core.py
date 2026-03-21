@@ -241,6 +241,88 @@ def test_select_player_match_loo_rows_keeps_helpful_and_harmful_sides():
     )
 
 
+def test_select_player_match_loo_rows_backfills_from_dominant_side():
+    rows = [
+        {
+            "match_id": 4_000 + idx,
+            "exact_score_delta": 2.0 - idx * 0.1,
+            "exact_abs_delta": 2.0 - idx * 0.1,
+        }
+        for idx in range(12)
+    ]
+
+    selected = snapshot_mod._select_player_match_loo_rows(
+        rows, max_per_player=10
+    )
+
+    assert len(selected) == 10
+    assert all(row["exact_score_delta"] > 0 for row in selected)
+    assert [row["match_id"] for row in selected] == [
+        4000,
+        4001,
+        4002,
+        4003,
+        4004,
+        4005,
+        4006,
+        4007,
+        4008,
+        4009,
+    ]
+
+
+def test_select_player_match_loo_rows_prefers_leftover_signed_rows_over_neutral():
+    rows = [
+        {
+            "match_id": 5_000 + idx,
+            "exact_score_delta": 1.5 - idx * 0.1,
+            "exact_abs_delta": 1.5 - idx * 0.1,
+        }
+        for idx in range(7)
+    ]
+    rows.extend(
+        [
+            {
+                "match_id": 5_100,
+                "exact_score_delta": -0.4,
+                "exact_abs_delta": 0.4,
+            },
+            {
+                "match_id": 5_101,
+                "exact_score_delta": -0.3,
+                "exact_abs_delta": 0.3,
+            },
+            {
+                "match_id": 5_200,
+                "exact_score_delta": 0.0,
+                "exact_abs_delta": 0.95,
+            },
+            {
+                "match_id": 5_201,
+                "exact_score_delta": 0.0,
+                "exact_abs_delta": 0.9,
+            },
+        ]
+    )
+
+    selected = snapshot_mod._select_player_match_loo_rows(
+        rows, max_per_player=8
+    )
+
+    assert len(selected) == 8
+    assert [row["match_id"] for row in selected] == [
+        5000,
+        5001,
+        5002,
+        5003,
+        5004,
+        5005,
+        5100,
+        5101,
+    ]
+    assert all(row["match_id"] not in {5200, 5201} for row in selected)
+
+
 def test_refresh_ripple_snapshots_persists_payloads(monkeypatch):
     fake_redis = FakeRedis()
     monkeypatch.setattr(snapshot_mod, "redis_conn", fake_redis, raising=False)

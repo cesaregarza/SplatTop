@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import axios from "axios";
 
 const normalizeError = (err) => {
@@ -15,15 +15,29 @@ const initialState = {
 
 export default function useCompetitionPlayer(playerId) {
   const [state, setState] = useState(initialState);
+  const requestSequenceRef = useRef(0);
+  const mountedRef = useRef(true);
+
+  useEffect(() => {
+    mountedRef.current = true;
+    return () => {
+      mountedRef.current = false;
+      requestSequenceRef.current += 1;
+    };
+  }, []);
 
   const fetchProfile = useCallback(async () => {
     const id = String(playerId || "").trim();
+    const requestSequence = requestSequenceRef.current + 1;
+    requestSequenceRef.current = requestSequence;
     if (!id) {
-      setState({
-        loading: false,
-        error: "Missing player id",
-        profile: null,
-      });
+      if (mountedRef.current) {
+        setState({
+          loading: false,
+          error: "Missing player id",
+          profile: null,
+        });
+      }
       return;
     }
 
@@ -31,12 +45,24 @@ export default function useCompetitionPlayer(playerId) {
 
     try {
       const response = await axios.get(`/api/ripple/public/player/${id}`);
+      if (
+        !mountedRef.current ||
+        requestSequence !== requestSequenceRef.current
+      ) {
+        return;
+      }
       setState({
         loading: false,
         error: null,
         profile: response.data || null,
       });
     } catch (err) {
+      if (
+        !mountedRef.current ||
+        requestSequence !== requestSequenceRef.current
+      ) {
+        return;
+      }
       setState({
         loading: false,
         error: normalizeError(err),

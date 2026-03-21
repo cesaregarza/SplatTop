@@ -207,7 +207,7 @@ describe("CompetitionPlayerPage", () => {
     await waitFor(() => {
       expect(writeText).toHaveBeenCalledTimes(1);
     });
-    expect(writeText.mock.calls[0][0]).toBe("http://localhost/share/u/p1");
+    expect(writeText.mock.calls[0][0]).toBe("http://localhost/u/p1");
     await screen.findByText("Profile link copied.");
   });
 
@@ -229,6 +229,87 @@ describe("CompetitionPlayerPage", () => {
 
     expect(path).toBeInTheDocument();
     expect(scoreStat).toHaveTextContent("240.00 / 250");
+  });
+
+  it("defaults to most harmful when helpful rows are empty", () => {
+    renderPage(
+      makeProfile({
+        match_loo_record_count: 2,
+        match_loo_impacts: [
+          {
+            match_id: 601,
+            tournament_id: 71,
+            tournament_name: "Hazard Cup",
+            event_ms: 1_700_000_000_000,
+            is_win: false,
+            exact_score_delta: 0.42,
+            exact_abs_delta: 0.42,
+            player_team_name: "Luma",
+            opponent_team_name: "Nova",
+            player_team_score: 1,
+            opponent_team_score: 3,
+            player_team_players: ["Aster", "Beryl", "Cinder", "Drift"],
+            opponent_team_players: ["Ember", "Flint", "Glint", "Halo"],
+          },
+          {
+            match_id: 602,
+            tournament_id: 72,
+            tournament_name: "Risk Open",
+            event_ms: 1_699_000_000_000,
+            is_win: false,
+            exact_score_delta: 0.18,
+            exact_abs_delta: 0.18,
+            player_team_name: "Luma",
+            opponent_team_name: "Orbit",
+            player_team_score: 2,
+            opponent_team_score: 3,
+            player_team_players: ["Aster", "Beryl", "Cinder", "Drift"],
+            opponent_team_players: ["Mica", "Nova", "Onyx", "Pyre"],
+          },
+        ],
+      })
+    );
+
+    expect(
+      screen.getByRole("button", { name: "Most harmful" })
+    ).toHaveAttribute("aria-pressed", "true");
+    expect(
+      screen.getByRole("button", { name: "Most helpful" })
+    ).toHaveAttribute("aria-pressed", "false");
+    expect(screen.getByText("Hazard Cup")).toBeInTheDocument();
+  });
+
+  it("defaults to biggest swings when only neutral rows exist", () => {
+    renderPage(
+      makeProfile({
+        match_loo_record_count: 1,
+        match_loo_impacts: [
+          {
+            match_id: 701,
+            tournament_id: 81,
+            tournament_name: "Even Split",
+            event_ms: 1_700_000_000_000,
+            is_win: true,
+            exact_score_delta: 0,
+            exact_abs_delta: 0.27,
+            player_team_name: "Luma",
+            opponent_team_name: "Nova",
+            player_team_score: 3,
+            opponent_team_score: 2,
+            player_team_players: ["Aster", "Beryl", "Cinder", "Drift"],
+            opponent_team_players: ["Ember", "Flint", "Glint", "Halo"],
+          },
+        ],
+      })
+    );
+
+    expect(
+      screen.getByRole("button", { name: "Biggest swings" })
+    ).toHaveAttribute("aria-pressed", "true");
+    expect(
+      screen.getByRole("button", { name: "Most helpful" })
+    ).toHaveAttribute("aria-pressed", "false");
+    expect(screen.getByText("Even Split")).toBeInTheDocument();
   });
 
   it("renders expandable strongest results rows and opens sendou links", () => {

@@ -10,6 +10,7 @@ WORKDIR /app
 # Install system build dependencies
 RUN apt-get update && apt-get install -y \
     curl \
+    fonts-dejavu-core \
     gcc \
     make \
     && rm -rf /var/lib/apt/lists/*

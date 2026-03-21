@@ -25,6 +25,7 @@ dependencies = [
     "numpy>=1.26.4,<2",
     "prometheus-client>=0.24.1,<1",
     "htpasswd>=2.3",
+    "pillow>=11.2.1,<12",
 ]
 
 [project.scripts]
