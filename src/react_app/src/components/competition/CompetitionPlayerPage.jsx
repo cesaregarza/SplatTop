@@ -1049,9 +1049,9 @@ const CompetitionPlayerPage = ({ top500Href }) => {
   }, [profile?.player_id]);
   const shareProfileUrl = useMemo(() => {
     const id = encodeURIComponent(profile?.player_id || playerId || "");
-    if (typeof window === "undefined") return `/share/u/${id}`;
+    if (typeof window === "undefined") return `/u/${id}`;
     const origin = window.location.origin.replace(/\/$/, "");
-    return `${origin}/share/u/${id}`;
+    return `${origin}/u/${id}`;
   }, [playerId, profile?.player_id]);
 
   const handleCopy = useCallback(async (text, successMessage) => {

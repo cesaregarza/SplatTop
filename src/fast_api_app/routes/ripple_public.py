@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from html import escape
+from io import BytesIO
 import time
 from typing import Any, Dict, Optional
 from urllib.parse import quote
@@ -8,6 +9,7 @@ from urllib.parse import quote
 import orjson
 from fastapi import APIRouter, HTTPException, Request
 from fastapi.responses import HTMLResponse, Response
+from PIL import Image, ImageDraw, ImageFont
 
 from fast_api_app.connections import redis_conn
 from fast_api_app.feature_flags import is_comp_leaderboard_enabled
@@ -31,6 +33,12 @@ _SHARE_CARD_WIDTH = 1200
 _SHARE_CARD_HEIGHT = 630
 _SHARE_SCORE_OFFSET = 150.0
 _SHARE_SCORE_TARGET = 250.0
+_SHARE_FONT_REGULAR_PATH = (
+    "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf"
+)
+_SHARE_FONT_BOLD_PATH = (
+    "/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf"
+)
 
 
 def _ensure_enabled() -> None:
@@ -301,7 +309,10 @@ def _share_profile_url(request: Request, player_id: str) -> str:
 
 
 def _share_image_url(request: Request, player_id: str) -> str:
-    return f"{_share_origin(request)}/share/u/{quote(player_id, safe='')}/image.svg"
+    return (
+        f"{_share_origin(request)}/api/ripple/public/player/"
+        f"{quote(player_id, safe='')}/share-image.png"
+    )
 
 
 def _share_rank_score(player: Dict[str, Any]) -> Optional[float]:
@@ -380,88 +391,356 @@ def _truncate_text(value: str, limit: int) -> str:
     return f"{value[: max(0, limit - 1)].rstrip()}…"
 
 
-def _share_card_svg(player: Dict[str, Any]) -> str:
+def _load_share_font(size: int, *, bold: bool = False) -> ImageFont.ImageFont:
+    font_path = _SHARE_FONT_BOLD_PATH if bold else _SHARE_FONT_REGULAR_PATH
+    try:
+        return ImageFont.truetype(font_path, size=size)
+    except OSError:
+        return ImageFont.load_default()
+
+
+def _measure_text(
+    draw: ImageDraw.ImageDraw,
+    text: str,
+    font: ImageFont.ImageFont,
+) -> tuple[int, int]:
+    left, top, right, bottom = draw.textbbox((0, 0), text, font=font)
+    return right - left, bottom - top
+
+
+def _truncate_text_for_width(
+    draw: ImageDraw.ImageDraw,
+    text: str,
+    font: ImageFont.ImageFont,
+    max_width: int,
+) -> str:
+    candidate = text
+    if _measure_text(draw, candidate, font)[0] <= max_width:
+        return candidate
+
+    while len(candidate) > 1:
+        candidate = candidate[:-1].rstrip()
+        trial = f"{candidate}…"
+        if _measure_text(draw, trial, font)[0] <= max_width:
+            return trial
+    return "…"
+
+
+def _draw_chip(
+    draw: ImageDraw.ImageDraw,
+    *,
+    x: int,
+    y: int,
+    text: str,
+    font: ImageFont.ImageFont,
+    fill: tuple[int, int, int, int],
+    outline: tuple[int, int, int, int],
+    text_fill: tuple[int, int, int, int],
+    min_width: int = 0,
+) -> int:
+    text_width, text_height = _measure_text(draw, text, font)
+    box_width = max(min_width, text_width + 44)
+    box_height = max(54, text_height + 24)
+    draw.rounded_rectangle(
+        (x, y, x + box_width, y + box_height),
+        radius=14,
+        fill=fill,
+        outline=outline,
+        width=2,
+    )
+    draw.text(
+        (x + 22, y + ((box_height - text_height) / 2) - 2),
+        text,
+        font=font,
+        fill=text_fill,
+    )
+    return x + box_width
+
+
+def _draw_stat_panel(
+    draw: ImageDraw.ImageDraw,
+    *,
+    x: int,
+    y: int,
+    width: int,
+    label: str,
+    value: str,
+    label_font: ImageFont.ImageFont,
+    value_font: ImageFont.ImageFont,
+) -> None:
+    draw.rounded_rectangle(
+        (x, y, x + width, y + 112),
+        radius=18,
+        fill=(11, 22, 35, 198),
+        outline=(148, 163, 184, 42),
+        width=2,
+    )
+    draw.text((x + 24, y + 20), label, font=label_font, fill=(142, 162, 184))
+    draw.text((x + 24, y + 56), value, font=value_font, fill=(248, 250, 252))
+
+
+def _share_progress_label(player: Dict[str, Any]) -> str:
+    score = _share_rank_score(player)
+    if score is None:
+        return "Rank score hidden"
+    remaining = max(0.0, _SHARE_SCORE_TARGET - score)
+    if remaining < 0.01:
+        return "Ready for XX+"
+    return f"{remaining:.2f} to XX+"
+
+
+def _share_card_png(player: Dict[str, Any]) -> bytes:
     display_name = str(
         player.get("display_name") or player.get("player_id") or "Unknown player"
     )
     player_id = str(player.get("player_id") or "unknown")
-    title_name = escape(_truncate_text(display_name, 28))
-    subtitle = escape(player_id)
-    rank_label = escape(_share_rank_label(player))
-    status_label = escape(_share_status_label(player))
-    description = escape(_share_description(player))
-    last_active = escape(_share_last_active_label(player))
+    rank_label = _share_rank_label(player)
+    status_label = _share_status_label(player)
+    description = _share_description(player)
+    last_active = _share_last_active_label(player)
 
     score = _share_rank_score(player)
-    score_label = escape(
+    score_label = (
         f"{score:.2f} / {_SHARE_SCORE_TARGET:.0f}" if score is not None else "Hidden"
     )
     progress_pct = 0.0
     if score is not None:
         progress_pct = max(0.0, min((score / _SHARE_SCORE_TARGET) * 100.0, 100.0))
-    progress_width = round(560 * progress_pct / 100.0, 2)
+    progress_width = round(520 * progress_pct / 100.0, 2)
 
-    active_window = escape(
+    active_window = (
         f"{int(player.get('window_tournament_count') or 0)}/"
         f"{int(player.get('minimum_required_tournaments') or 3)}"
     )
-    lifetime = escape(
-        str(int(player.get("lifetime_ranked_tournaments") or 0))
+    lifetime = str(int(player.get("lifetime_ranked_tournaments") or 0))
+
+    image = Image.new("RGBA", (_SHARE_CARD_WIDTH, _SHARE_CARD_HEIGHT), "#08111d")
+    draw = ImageDraw.Draw(image)
+
+    for y in range(_SHARE_CARD_HEIGHT):
+        blend = y / max(1, _SHARE_CARD_HEIGHT - 1)
+        red = int(8 + (7 * blend))
+        green = int(17 + (14 * blend))
+        blue = int(29 + (19 * blend))
+        draw.line(
+            ((0, y), (_SHARE_CARD_WIDTH, y)),
+            fill=(red, green, blue, 255),
+        )
+
+    draw.ellipse(
+        (760, -180, 1360, 360),
+        fill=(34, 211, 238, 34),
+    )
+    draw.rounded_rectangle(
+        (36, 36, 1164, 594),
+        radius=26,
+        fill=(9, 18, 31, 234),
+        outline=(148, 163, 184, 54),
+        width=2,
     )
 
-    return f"""<svg xmlns="http://www.w3.org/2000/svg" width="{_SHARE_CARD_WIDTH}" height="{_SHARE_CARD_HEIGHT}" viewBox="0 0 {_SHARE_CARD_WIDTH} {_SHARE_CARD_HEIGHT}" role="img" aria-label="{escape(_share_title(player))}">
-  <defs>
-    <linearGradient id="bg" x1="0%" y1="0%" x2="100%" y2="100%">
-      <stop offset="0%" stop-color="#08111d" />
-      <stop offset="55%" stop-color="#101c2d" />
-      <stop offset="100%" stop-color="#07111d" />
-    </linearGradient>
-    <radialGradient id="glow" cx="85%" cy="15%" r="75%">
-      <stop offset="0%" stop-color="rgba(34,211,238,0.34)" />
-      <stop offset="100%" stop-color="rgba(34,211,238,0)" />
-    </radialGradient>
-    <linearGradient id="bar" x1="0%" y1="0%" x2="100%" y2="0%">
-      <stop offset="0%" stop-color="#22d3ee" />
-      <stop offset="100%" stop-color="#a78bfa" />
-    </linearGradient>
-  </defs>
-  <rect width="1200" height="630" fill="url(#bg)" />
-  <rect width="1200" height="630" fill="url(#glow)" />
-  <rect x="36" y="36" width="1128" height="558" rx="26" fill="rgba(9,18,31,0.86)" stroke="rgba(148,163,184,0.22)" />
-  <text x="72" y="96" fill="#8ea2b8" font-family="system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif" font-size="24" letter-spacing="2">SPLAT.TOP / COMPETITIVE</text>
-  <text x="72" y="182" fill="#f8fafc" font-family="'Fira Mono', ui-monospace, SFMono-Regular, Menlo, monospace" font-size="64" font-weight="700">{title_name}</text>
-  <text x="72" y="224" fill="#9fb1c4" font-family="'Fira Mono', ui-monospace, SFMono-Regular, Menlo, monospace" font-size="24">{subtitle}</text>
+    eyebrow_font = _load_share_font(24)
+    title_font = _load_share_font(58, bold=True)
+    subtitle_font = _load_share_font(24)
+    chip_font = _load_share_font(24, bold=True)
+    score_label_font = _load_share_font(20, bold=True)
+    score_font = _load_share_font(42, bold=True)
+    panel_label_font = _load_share_font(18, bold=True)
+    panel_value_font = _load_share_font(38, bold=True)
+    body_font = _load_share_font(26)
+    footer_font = _load_share_font(22)
 
-  <rect x="72" y="262" width="136" height="54" rx="14" fill="rgba(167,139,250,0.14)" stroke="rgba(167,139,250,0.28)" />
-  <text x="100" y="296" fill="#f3e8ff" font-family="'Fira Mono', ui-monospace, SFMono-Regular, Menlo, monospace" font-size="30" font-weight="700">{rank_label}</text>
-  <rect x="224" y="262" width="250" height="54" rx="14" fill="rgba(34,211,238,0.1)" stroke="rgba(34,211,238,0.22)" />
-  <text x="250" y="296" fill="#e0fbff" font-family="'Fira Mono', ui-monospace, SFMono-Regular, Menlo, monospace" font-size="24">{status_label}</text>
+    title_name = _truncate_text_for_width(
+        draw,
+        display_name,
+        title_font,
+        820,
+    )
+    subtitle = _truncate_text(player_id, 40)
+    description = _truncate_text_for_width(draw, description, body_font, 1040)
+    progress_label = _share_progress_label(player)
 
-  <text x="72" y="368" fill="#8ea2b8" font-family="'Fira Mono', ui-monospace, SFMono-Regular, Menlo, monospace" font-size="20" letter-spacing="1.4">RANK SCORE</text>
-  <text x="72" y="420" fill="#f8fafc" font-family="'Fira Mono', ui-monospace, SFMono-Regular, Menlo, monospace" font-size="44" font-weight="700">{score_label}</text>
-  <rect x="72" y="442" width="560" height="14" rx="7" fill="rgba(20,33,48,0.94)" />
-  <rect x="72" y="442" width="{progress_width}" height="14" rx="7" fill="url(#bar)" />
-  <text x="72" y="486" fill="#8ea2b8" font-family="system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif" font-size="22">Path to XX+</text>
+    draw.text(
+        (72, 84),
+        "SPLAT.TOP / COMPETITIVE",
+        font=eyebrow_font,
+        fill=(142, 162, 184),
+    )
+    draw.text((72, 152), title_name, font=title_font, fill=(248, 250, 252))
+    draw.text((72, 214), subtitle, font=subtitle_font, fill=(159, 177, 196))
 
-  <rect x="700" y="338" width="180" height="112" rx="18" fill="rgba(11,22,35,0.78)" stroke="rgba(148,163,184,0.14)" />
-  <text x="726" y="376" fill="#8ea2b8" font-family="'Fira Mono', ui-monospace, SFMono-Regular, Menlo, monospace" font-size="18">ACTIVE WINDOW</text>
-  <text x="726" y="424" fill="#f8fafc" font-family="'Fira Mono', ui-monospace, SFMono-Regular, Menlo, monospace" font-size="40" font-weight="700">{active_window}</text>
+    next_x = _draw_chip(
+        draw,
+        x=72,
+        y=258,
+        text=rank_label,
+        font=chip_font,
+        fill=(167, 139, 250, 36),
+        outline=(167, 139, 250, 88),
+        text_fill=(243, 232, 255, 255),
+        min_width=136,
+    )
+    _draw_chip(
+        draw,
+        x=next_x + 16,
+        y=258,
+        text=status_label,
+        font=chip_font,
+        fill=(34, 211, 238, 28),
+        outline=(34, 211, 238, 74),
+        text_fill=(224, 251, 255, 255),
+        min_width=250,
+    )
 
-  <rect x="898" y="338" width="230" height="112" rx="18" fill="rgba(11,22,35,0.78)" stroke="rgba(148,163,184,0.14)" />
-  <text x="924" y="376" fill="#8ea2b8" font-family="'Fira Mono', ui-monospace, SFMono-Regular, Menlo, monospace" font-size="18">LIFETIME RANKED</text>
-  <text x="924" y="424" fill="#f8fafc" font-family="'Fira Mono', ui-monospace, SFMono-Regular, Menlo, monospace" font-size="40" font-weight="700">{lifetime}</text>
+    draw.text(
+        (72, 352),
+        "RANK SCORE",
+        font=score_label_font,
+        fill=(142, 162, 184),
+    )
+    draw.text((72, 392), score_label, font=score_font, fill=(248, 250, 252))
+    draw.rounded_rectangle(
+        (72, 450, 592, 466),
+        radius=8,
+        fill=(20, 33, 48, 240),
+    )
+    draw.rounded_rectangle(
+        (72, 450, 72 + progress_width, 466),
+        radius=8,
+        fill=(34, 211, 238, 255),
+    )
+    draw.text((72, 486), progress_label, font=footer_font, fill=(142, 162, 184))
 
-  <text x="72" y="544" fill="#d8e2ee" font-family="system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif" font-size="26">{description}</text>
-  <text x="72" y="582" fill="#8ea2b8" font-family="system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif" font-size="22">Last active: {last_active}</text>
-</svg>"""
+    _draw_stat_panel(
+        draw,
+        x=700,
+        y=338,
+        width=184,
+        label="ACTIVE WINDOW",
+        value=active_window,
+        label_font=panel_label_font,
+        value_font=panel_value_font,
+    )
+    _draw_stat_panel(
+        draw,
+        x=900,
+        y=338,
+        width=228,
+        label="LIFETIME RANKED",
+        value=lifetime,
+        label_font=panel_label_font,
+        value_font=panel_value_font,
+    )
+
+    draw.text((72, 540), description, font=body_font, fill=(216, 226, 238))
+    draw.text(
+        (72, 578),
+        f"Last active: {last_active}",
+        font=footer_font,
+        fill=(142, 162, 184),
+    )
+
+    buffer = BytesIO()
+    image.convert("RGB").save(buffer, format="PNG", optimize=True)
+    return buffer.getvalue()
+
+
+def _share_preview_html(
+    *,
+    title: str,
+    description: str,
+    profile_url: str,
+    image_url: str,
+    redirect_url: str | None = None,
+) -> str:
+    refresh_meta = ""
+    redirect_script = ""
+    redirect_body = ""
+    if redirect_url:
+        escaped_redirect = escape(redirect_url)
+        refresh_meta = (
+            f'<meta http-equiv="refresh" content="0;url={escaped_redirect}" />'
+        )
+        redirect_script = (
+            f"<script>window.location.replace("
+            f"{orjson.dumps(redirect_url).decode()});</script>"
+        )
+        redirect_body = (
+            f'<p>Redirecting to <a href="{escaped_redirect}">'
+            f"{escape(title)}</a>…</p>"
+        )
+    else:
+        redirect_body = (
+            f'<main><h1>{escape(title)}</h1>'
+            f"<p>{escape(description)}</p>"
+            f'<p>Open <a href="{escape(profile_url)}">{escape(profile_url)}</a> '
+            "to view the full competitive profile.</p></main>"
+        )
+
+    return f"""<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>{escape(title)}</title>
+    <meta name="description" content="{escape(description)}" />
+    <meta property="og:title" content="{escape(title)}" />
+    <meta property="og:description" content="{escape(description)}" />
+    <meta property="og:image" content="{escape(image_url)}" />
+    <meta property="og:image:type" content="image/png" />
+    <meta property="og:image:width" content="{_SHARE_CARD_WIDTH}" />
+    <meta property="og:image:height" content="{_SHARE_CARD_HEIGHT}" />
+    <meta property="og:image:alt" content="{escape(description)}" />
+    <meta property="og:url" content="{escape(profile_url)}" />
+    <meta property="og:type" content="website" />
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content="{escape(title)}" />
+    <meta name="twitter:description" content="{escape(description)}" />
+    <meta name="twitter:image" content="{escape(image_url)}" />
+    <link rel="canonical" href="{escape(profile_url)}" />
+    {refresh_meta}
+    {redirect_script}
+    <style>
+      body {{
+        margin: 0;
+        min-height: 100vh;
+        display: grid;
+        place-items: center;
+        background: #020617;
+        color: #e2e8f0;
+        font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+        padding: 32px;
+      }}
+      main, p {{
+        max-width: 680px;
+        text-align: center;
+      }}
+      h1 {{
+        margin: 0 0 12px;
+        font-size: 28px;
+      }}
+      p {{
+        margin: 0;
+        line-height: 1.5;
+      }}
+      a {{
+        color: #67e8f9;
+      }}
+    </style>
+  </head>
+  <body>
+    {redirect_body}
+  </body>
+</html>"""
 
 
 @share_router.get(
-    "/share/u/{player_id}",
+    "/u/{player_id}",
     response_class=HTMLResponse,
-    summary="Shareable competition player preview",
+    include_in_schema=False,
+    summary="Competition player preview",
 )
-async def get_public_ripple_player_share(
+async def get_public_ripple_player_preview(
     request: Request, player_id: str
 ) -> HTMLResponse:
     _ensure_enabled()
@@ -477,55 +756,55 @@ async def get_public_ripple_player_share(
     title = _share_title(player)
     description = _share_description(player)
 
-    html = f"""<!DOCTYPE html>
-<html lang="en">
-  <head>
-    <meta charset="utf-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>{escape(title)}</title>
-    <meta name="description" content="{escape(description)}" />
-    <meta property="og:title" content="{escape(title)}" />
-    <meta property="og:description" content="{escape(description)}" />
-    <meta property="og:image" content="{escape(image_url)}" />
-    <meta property="og:image:type" content="image/svg+xml" />
-    <meta property="og:image:width" content="{_SHARE_CARD_WIDTH}" />
-    <meta property="og:image:height" content="{_SHARE_CARD_HEIGHT}" />
-    <meta property="og:image:alt" content="{escape(description)}" />
-    <meta property="og:url" content="{escape(profile_url)}" />
-    <meta property="og:type" content="website" />
-    <meta name="twitter:card" content="summary_large_image" />
-    <meta name="twitter:title" content="{escape(title)}" />
-    <meta name="twitter:description" content="{escape(description)}" />
-    <meta name="twitter:image" content="{escape(image_url)}" />
-    <meta http-equiv="refresh" content="0;url={escape(profile_url)}" />
-    <script>window.location.replace({orjson.dumps(profile_url).decode()});</script>
-    <style>
-      body {{
-        margin: 0;
-        min-height: 100vh;
-        display: grid;
-        place-items: center;
-        background: #020617;
-        color: #e2e8f0;
-        font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
-      }}
-      a {{ color: #67e8f9; }}
-    </style>
-  </head>
-  <body>
-    <p>Redirecting to <a href="{escape(profile_url)}">{escape(title)}</a>…</p>
-  </body>
-</html>"""
-    return HTMLResponse(content=html)
+    return HTMLResponse(
+        content=_share_preview_html(
+            title=title,
+            description=description,
+            profile_url=profile_url,
+            image_url=image_url,
+        )
+    )
 
 
 @share_router.get(
-    "/share/u/{player_id}/image.svg",
-    summary="Shareable competition player summary image",
+    "/share/u/{player_id}",
+    response_class=HTMLResponse,
+    include_in_schema=False,
+    deprecated=True,
 )
-async def get_public_ripple_player_share_image(
-    player_id: str,
-) -> Response:
+async def get_public_ripple_player_share_alias(
+    request: Request, player_id: str
+) -> HTMLResponse:
+    _ensure_enabled()
+    player = _load_public_player_payload(player_id)
+    if not isinstance(player, dict):
+        raise HTTPException(
+            status_code=404,
+            detail="Player not found in competition index",
+        )
+
+    profile_url = _share_profile_url(request, player_id)
+    image_url = _share_image_url(request, player_id)
+    title = _share_title(player)
+    description = _share_description(player)
+
+    return HTMLResponse(
+        content=_share_preview_html(
+            title=title,
+            description=description,
+            profile_url=profile_url,
+            image_url=image_url,
+            redirect_url=profile_url,
+        )
+    )
+
+
+@router.get(
+    "/player/{player_id}/share-image.png",
+    include_in_schema=False,
+    summary="Competition player preview image",
+)
+async def get_public_ripple_player_share_image(player_id: str) -> Response:
     _ensure_enabled()
     player = _load_public_player_payload(player_id)
     if not isinstance(player, dict):
@@ -535,6 +814,6 @@ async def get_public_ripple_player_share_image(
         )
 
     return Response(
-        content=_share_card_svg(player),
-        media_type="image/svg+xml",
+        content=_share_card_png(player),
+        media_type="image/png",
     )
