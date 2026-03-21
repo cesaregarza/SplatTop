@@ -14,106 +14,14 @@ import StableLeaderboardView from "./StableLeaderboardView";
 import CompetitionFaq from "./CompetitionFaq";
 import CompetitionViz from "./CompetitionViz";
 import CompetitionErrorBoundary from "./CompetitionErrorBoundary";
+import { resolveCompetitionMainSiteUrl } from "./competitionHost";
+import { loadCompetitionSnapshot } from "./competitionSnapshotApi";
+import { mergeCompetitionSnapshotRows } from "./competitionSnapshotUtils";
 import CompetitionPlayerPage, {
   loadCompetitionPlayer,
 } from "./CompetitionPlayerPage";
 
-const resolveMainSiteUrl = () => {
-  const override = process.env.REACT_APP_MAIN_SITE_URL;
-  if (override) return override;
-
-  if (typeof window !== "undefined") {
-    const { protocol, hostname } = window.location;
-    if (hostname === "comp.localhost") {
-      return `${protocol}//localhost:3000/`;
-    }
-  }
-
-  return "https://splat.top/";
-};
-
-const MAIN_SITE_URL = resolveMainSiteUrl();
-
-const STABLE_ENDPOINT = "/api/ripple/public/leaderboard";
-const DANGER_ENDPOINT = "/api/ripple/public/leaderboard/danger";
-const META_ENDPOINT = "/api/ripple/public/metadata";
-const PERCENTILES_ENDPOINT = "/api/ripple/public/leaderboard/percentiles";
-
-const normalizeLoaderError = (error) => {
-  if (!error) {
-    return "Unknown error";
-  }
-  if (typeof error.detail === "string" && error.detail) {
-    return error.detail;
-  }
-  return error.message || "Unexpected error";
-};
-
-const fetchCompetitionJson = async (url, signal) => {
-  const response = await fetch(url, { signal });
-  let data = null;
-
-  try {
-    data = await response.json();
-  } catch {}
-
-  if (!response.ok) {
-    const error = new Error(
-      typeof data?.detail === "string" && data.detail
-        ? data.detail
-        : `Request failed with status ${response.status}`
-    );
-    error.status = response.status;
-    error.detail = data?.detail ?? null;
-    throw error;
-  }
-
-  return data;
-};
-
-export const loadCompetitionSnapshot = async ({ request }) => {
-  try {
-    const [stable, danger, meta, percentiles] = await Promise.all([
-      fetchCompetitionJson(STABLE_ENDPOINT, request.signal),
-      fetchCompetitionJson(DANGER_ENDPOINT, request.signal),
-      fetchCompetitionJson(META_ENDPOINT, request.signal),
-      fetchCompetitionJson(PERCENTILES_ENDPOINT, request.signal),
-    ]);
-
-    return {
-      disabled: false,
-      error: null,
-      stable,
-      danger,
-      meta,
-      percentiles,
-    };
-  } catch (error) {
-    if (error?.name === "AbortError") {
-      throw error;
-    }
-
-    if (error?.status === 404) {
-      return {
-        disabled: true,
-        error: null,
-        stable: null,
-        danger: null,
-        meta: null,
-        percentiles: null,
-      };
-    }
-
-    return {
-      disabled: false,
-      error: normalizeLoaderError(error),
-      stable: null,
-      danger: null,
-      meta: null,
-      percentiles: null,
-    };
-  }
-};
+const MAIN_SITE_URL = resolveCompetitionMainSiteUrl();
 
 export const CompetitionRouteShell = () => {
   const snapshotData = useLoaderData();
@@ -141,72 +49,10 @@ export const CompetitionLeaderboardPage = () => {
     };
   }, []);
 
-  const mergedRows = useMemo(() => {
-    const stableRows = Array.isArray(stable?.data) ? stable.data : [];
-    const dangerRows = Array.isArray(danger?.data) ? danger.data : [];
-    const deltas = stable?.deltas ?? null;
-    const dangerById = new Map(dangerRows.map((row) => [row.player_id, row]));
-    const deltaPlayers = deltas?.players ?? {};
-    const hasBaseline = deltas?.baseline_generated_at_ms != null;
-    const newcomerIds = new Set(deltas?.newcomers ?? []);
-    const deltaWindowMs = 24 * 60 * 60 * 1000;
-
-    const resolveDisplayDelta = (entry) => {
-      if (!entry) return null;
-      if (typeof entry.display_score_delta === "number") {
-        return entry.display_score_delta;
-      }
-      if (typeof entry.score_delta === "number") {
-        return entry.score_delta * 25;
-      }
-      return null;
-    };
-
-    return stableRows.map((row) => {
-      const playerId = row.player_id;
-      const dangerRow = dangerById.get(playerId);
-      const deltaEntry = playerId != null ? deltaPlayers[playerId] : undefined;
-      const rankDelta = hasBaseline && deltaEntry && typeof deltaEntry.rank_delta === "number"
-        ? deltaEntry.rank_delta
-        : null;
-      let displayScoreDelta = hasBaseline ? resolveDisplayDelta(deltaEntry) : null;
-      const isNewEntry = hasBaseline && Boolean(deltaEntry?.is_new || newcomerIds.has(playerId));
-      const lastTournamentMs = row.last_tournament_ms ?? null;
-
-      if (
-        displayScoreDelta != null &&
-        generatedAtMs != null &&
-        lastTournamentMs != null &&
-        generatedAtMs - lastTournamentMs > deltaWindowMs
-      ) {
-        displayScoreDelta = null;
-      }
-
-      return {
-        ...row,
-        danger_days_left: dangerRow?.days_left ?? null,
-        danger_next_expiry_ms: dangerRow?.next_expiry_ms ?? null,
-        danger_oldest_in_window_ms: dangerRow?.oldest_in_window_ms ?? null,
-        // Prefer danger's live window count; otherwise use stable payload's
-        // window count when available. Do NOT fall back to total tournaments,
-        // as that incorrectly implies all tournaments occurred in the window.
-        window_tournament_count:
-          dangerRow?.window_tournament_count ?? row.window_tournament_count ?? null,
-        rank_delta: rankDelta,
-        display_score_delta: displayScoreDelta,
-        delta_is_new: isNewEntry,
-        delta_has_baseline: hasBaseline,
-        delta_previous_rank:
-          deltaEntry && typeof deltaEntry.previous_rank === "number"
-            ? deltaEntry.previous_rank
-            : null,
-        delta_previous_display_score:
-          deltaEntry && typeof deltaEntry.previous_display_score === "number"
-            ? deltaEntry.previous_display_score
-            : null,
-      };
-    });
-  }, [stable?.data, stable?.deltas, danger?.data, generatedAtMs]);
+  const mergedRows = useMemo(
+    () => mergeCompetitionSnapshotRows({ stable, danger }),
+    [stable, danger]
+  );
 
   if (disabled) {
     return (
@@ -335,3 +181,4 @@ const CompetitionApp = () => {
 };
 
 export default CompetitionApp;
+export { loadCompetitionSnapshot };

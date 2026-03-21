@@ -11,6 +11,22 @@ const ROW_OPTIONS = [25, 50, 100];
 
 const noop = () => {};
 
+const GradeChipPreview = ({ label, active }) => {
+  const crackle = isXX(label);
+  const chipClassName = `${gradeChipClass(label, active)} ${
+    crackle ? "crackle" : ""
+  }`.trim();
+  const dataProps = crackle
+    ? { "data-color": CRACKLE_PURPLE, "data-rate": rateFor(label) }
+    : {};
+
+  return (
+    <span className={chipClassName} {...dataProps}>
+      {label}
+    </span>
+  );
+};
+
 const useDismissibleMenu = (initialOpen = false) => {
   const [open, setOpen] = useState(initialOpen);
   const containerRef = useRef(null);
@@ -52,19 +68,6 @@ const GradeDropdown = ({ grades, selectedGrade, onSelectGrade }) => {
     setOpen(false);
   };
 
-  const renderChip = (label, isActive) => {
-    const crackle = isXX(label);
-    const chipClassName = `${gradeChipClass(label, isActive)} ${crackle ? "crackle" : ""}`.trim();
-    const dataProps = crackle
-      ? { "data-color": CRACKLE_PURPLE, "data-rate": rateFor(label) }
-      : {};
-    return (
-      <span className={chipClassName} {...dataProps}>
-        {label}
-      </span>
-    );
-  };
-
   return (
     <div className="relative" ref={containerRef}>
       <button
@@ -76,7 +79,7 @@ const GradeDropdown = ({ grades, selectedGrade, onSelectGrade }) => {
       >
         <span className="text-xs uppercase tracking-wide text-slate-400">Grade filter</span>
         {hasSelection ? (
-          renderChip(selectedGrade, true)
+          <GradeChipPreview label={selectedGrade} active />
         ) : (
           <span className="rounded-full border border-slate-700 bg-slate-900/80 px-2 py-0.5 text-xs font-semibold text-slate-300">
             All
@@ -116,7 +119,7 @@ const GradeDropdown = ({ grades, selectedGrade, onSelectGrade }) => {
                   aria-checked={active}
                 >
                   <span className="font-medium">{label}</span>
-                  {renderChip(label, active)}
+                  <GradeChipPreview label={label} active={active} />
                 </button>
               );
             })}

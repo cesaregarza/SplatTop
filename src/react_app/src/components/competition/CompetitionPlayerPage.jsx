@@ -15,509 +15,40 @@ import {
 import useCrackleEffect from "../../hooks/useCrackleEffect";
 import {
   CRACKLE_PURPLE,
-  DISPLAY_GRADE_SCALE,
   gradeFor,
   nf0,
   nf2,
-  tierFor,
 } from "./stableLeaderboardUtils";
 import CompetitionLayout from "./CompetitionLayout";
+import {
+  AtGlanceItem,
+  CompetitionPlayerHistoryTable,
+  GradeBadge,
+  HeaderMetric,
+  MatchImpactTable,
+  RecentEventRow,
+} from "./CompetitionPlayerPageSections";
+import { loadCompetitionPlayer } from "./competitionPlayerLoader";
+import {
+  HISTORY_PAGE_SIZE,
+  MATCH_RESULT_VIEW_OPTIONS,
+  MATCH_RESULTS_TECHNICAL_NOTE,
+  XX_PLUS_THRESHOLD,
+  buildHistorySummary,
+  describeDropStatus,
+  formatRelativeAge,
+  formatSignedNumber,
+  formatUtcDateTime,
+  normalizeMatchLooImpacts,
+  normalizeTournamentHistory,
+  pickInitialMatchResultView,
+  pluralize,
+  resolveCompetitionTrackTarget,
+  toFiniteNumber,
+  toSafeText,
+} from "./competitionPlayerPageUtils";
 import "./StableLeaderboardView.css";
 import "./CompetitionPlayerPage.css";
-
-const XX_PLUS_LABEL = "XX+";
-const XX_PLUS_THRESHOLD = 250;
-const HISTORY_PAGE_SIZE = 12;
-const RECENT_EVENT_LIMIT = 5;
-const MATCH_LOO_DISPLAY_SCALE = 25;
-const MINUTE_MS = 60 * 1000;
-const HOUR_MS = 60 * MINUTE_MS;
-const DAY_MS = 24 * HOUR_MS;
-const MATCH_RESULTS_TECHNICAL_NOTE =
-  "Technical note: leave-one-out shortlist from this ranking run. Contribution is the negated score delta after removing one shortlisted match.";
-const EMPTY_TEXT_LIST = Object.freeze([]);
-const EMPTY_EXPANDED_ROWS = Object.freeze({});
-const MATCH_RESULT_VIEW_OPTIONS = Object.freeze([
-  {
-    id: "helpful",
-    label: "Most helpful",
-    tone: "emerald",
-    emptyText: "No helpful matches made the shortlist.",
-  },
-  {
-    id: "harmful",
-    label: "Most harmful",
-    tone: "rose",
-    emptyText: "No harmful matches made the shortlist.",
-  },
-  {
-    id: "swings",
-    label: "Biggest swings",
-    tone: "amber",
-    emptyText: "No shortlisted match swings yet.",
-  },
-]);
-const GRADE_INDEX_BY_LABEL = new Map(
-  DISPLAY_GRADE_SCALE.map(([, label], index) => [label, index])
-);
-
-const pickInitialMatchResultView = ({
-  helpfulCount,
-  harmfulCount,
-  swingCount,
-}) => {
-  if (helpfulCount > 0) return "helpful";
-  if (harmfulCount > 0) return "harmful";
-  if (swingCount > 0) return "swings";
-  return MATCH_RESULT_VIEW_OPTIONS[0].id;
-};
-
-const normalizePlayerRouteError = (value) => {
-  if (!value) return "Unknown error";
-  if (typeof value === "string") return value;
-  if (typeof value.message === "string" && value.message) return value.message;
-  return "Unexpected error";
-};
-
-const readPlayerRouteError = async (response) => {
-  try {
-    const payload = await response.clone().json();
-    if (typeof payload?.detail === "string" && payload.detail.trim()) {
-      return payload.detail;
-    }
-  } catch {
-    // Fall back to a generic message when the response is not JSON.
-  }
-
-  if (response.status === 404) {
-    return "Player not found in competition index";
-  }
-  return `Unable to load player profile (${response.status})`;
-};
-
-export const loadCompetitionPlayer = async ({ params, request }) => {
-  const id = String(params?.playerId || "").trim();
-  if (!id) {
-    return {
-      error: "Missing player id",
-      profile: null,
-    };
-  }
-
-  try {
-    const response = await fetch(
-      `/api/ripple/public/player/${encodeURIComponent(id)}`,
-      {
-        headers: { Accept: "application/json" },
-        signal: request.signal,
-      }
-    );
-
-    if (!response.ok) {
-      return {
-        error: await readPlayerRouteError(response),
-        profile: null,
-      };
-    }
-
-    return {
-      error: null,
-      profile: (await response.json()) || null,
-    };
-  } catch (error) {
-    if (error?.name === "AbortError") {
-      throw error;
-    }
-    return {
-      error: normalizePlayerRouteError(error),
-      profile: null,
-    };
-  }
-};
-
-const formatUtcDateTime = (timestampMs) => {
-  if (timestampMs == null) return "—";
-  const date = new Date(Number(timestampMs));
-  if (Number.isNaN(date.getTime())) return "—";
-  return `${date.toLocaleString(undefined, {
-    year: "numeric",
-    month: "short",
-    day: "2-digit",
-    hour: "2-digit",
-    minute: "2-digit",
-    hour12: false,
-    timeZone: "UTC",
-  })} UTC`;
-};
-
-const describeDropStatus = (profile) => {
-  const minRequired = Number(profile?.minimum_required_tournaments || 3);
-  const rawWindowCount = profile?.window_tournament_count;
-  const rawDaysLeft = profile?.danger_days_left;
-  const windowCount =
-    rawWindowCount == null ? null : Number(rawWindowCount);
-  const daysLeft = rawDaysLeft == null ? null : Number(rawDaysLeft);
-
-  if (Number.isFinite(daysLeft)) {
-    if (daysLeft < 0) {
-      return {
-        label: "Inactive",
-        className: "bg-rose-500/20 text-rose-100 ring-1 ring-rose-400/25",
-      };
-    }
-    if (daysLeft < 1) {
-      return {
-        label: "Drops in <1d",
-        className: "bg-amber-500/20 text-amber-100 ring-1 ring-amber-400/30",
-      };
-    }
-    return {
-      label: `Drops in ${Math.round(daysLeft)}d`,
-      className: "bg-amber-500/20 text-amber-100 ring-1 ring-amber-400/30",
-    };
-  }
-
-  if (Number.isFinite(windowCount) && windowCount >= minRequired) {
-    const buffer = windowCount - minRequired;
-    return {
-      label: `Buffer +${buffer}`,
-      className: "bg-emerald-500/20 text-emerald-100 ring-1 ring-emerald-400/25",
-    };
-  }
-
-  return {
-    label: "Not tracking",
-    className: "bg-slate-700/30 text-slate-200 ring-1 ring-white/10",
-  };
-};
-
-const toSafeText = (value) => {
-  if (typeof value !== "string") return null;
-  const trimmed = value.trim();
-  return trimmed || null;
-};
-
-const toTextList = (value) => {
-  if (!Array.isArray(value)) return [];
-  return value
-    .map((item) => toSafeText(String(item ?? "")))
-    .filter(Boolean);
-};
-
-const toComparisonKey = (value) => {
-  const safe = toSafeText(String(value ?? ""));
-  return safe ? safe.toLowerCase() : null;
-};
-
-const toFiniteNumber = (value) => {
-  const numeric = Number(value);
-  return Number.isFinite(numeric) ? numeric : null;
-};
-
-const parseRecord = (value) => {
-  const raw = toSafeText(value);
-  if (!raw) return { wins: null, losses: null };
-  const match = /^(\d+)\s*W\s*-\s*(\d+)\s*L$/i.exec(raw);
-  if (!match) return { wins: null, losses: null };
-  return {
-    wins: Number(match[1]),
-    losses: Number(match[2]),
-  };
-};
-
-const pluralize = (count, singular, plural = `${singular}s`) =>
-  `${nf0.format(Math.max(0, Number(count) || 0))} ${
-    Number(count) === 1 ? singular : plural
-  }`;
-
-const formatRelativeAge = (timestampMs, referenceMs = Date.now()) => {
-  const value = toFiniteNumber(timestampMs);
-  const reference = toFiniteNumber(referenceMs) ?? Date.now();
-  if (value == null) return "—";
-  const diffMs = Math.max(0, reference - value);
-  if (diffMs < HOUR_MS) {
-    return `${Math.max(1, Math.round(diffMs / MINUTE_MS))}m ago`;
-  }
-  if (diffMs < 36 * HOUR_MS) {
-    return `${Math.max(1, Math.round(diffMs / HOUR_MS))}h ago`;
-  }
-  if (diffMs < 60 * DAY_MS) {
-    return `${Math.max(1, Math.round(diffMs / DAY_MS))}d ago`;
-  }
-  if (diffMs < 730 * DAY_MS) {
-    return `${Math.max(1, Math.round(diffMs / (30 * DAY_MS)))}mo ago`;
-  }
-  return `${Math.max(1, Math.round(diffMs / (365 * DAY_MS)))}y ago`;
-};
-
-const formatSignedNumber = (value, formatter, zeroLabel = "No change") => {
-  const numeric = toFiniteNumber(value);
-  if (numeric == null) return "—";
-  if (Math.abs(numeric) < 0.01) return zeroLabel;
-  return `${numeric > 0 ? "+" : "-"}${formatter.format(Math.abs(numeric))}`;
-};
-
-const normalizeTournamentHistory = (rows) => {
-  if (!Array.isArray(rows)) return [];
-
-  const mapped = rows
-    .map((row, index) => {
-      const tournamentId = row?.tournament_id;
-      const tournamentIdLabel =
-        tournamentId == null ? null : String(tournamentId);
-      const eventMs = toFiniteNumber(row?.event_ms);
-      const tournamentName =
-        toSafeText(row?.tournament_name) ||
-        (tournamentIdLabel ? `Tournament ${tournamentIdLabel}` : "Tournament");
-      const placementLabel = toSafeText(row?.placement_label);
-      const resultSummary = toSafeText(row?.result_summary);
-      const { wins, losses } = parseRecord(resultSummary);
-      const matchesPlayed =
-        wins != null && losses != null ? wins + losses : null;
-      const outcome =
-        wins == null || losses == null
-          ? "unknown"
-          : wins > losses
-          ? "positive"
-          : wins < losses
-          ? "negative"
-          : "even";
-      const teamName = toSafeText(row?.team_name);
-      const teamId =
-        row?.team_id == null
-          ? null
-          : toSafeText(String(row.team_id)) || String(row.team_id);
-      const eventDate = eventMs == null ? null : new Date(eventMs);
-      const year =
-        eventDate && !Number.isNaN(eventDate.getTime())
-          ? String(eventDate.getUTCFullYear())
-          : null;
-      const key = `${tournamentIdLabel || "tournament"}:${eventMs || "na"}:${index}`;
-
-      return {
-        key,
-        tournamentId: tournamentIdLabel,
-        tournamentName,
-        eventMs,
-        placementLabel,
-        resultSummary,
-        wins,
-        losses,
-        matchesPlayed,
-        outcome,
-        teamName,
-        teamId,
-        year,
-      };
-    })
-    .filter((row) => row.tournamentId || row.eventMs != null);
-
-  mapped.sort((a, b) => {
-    const delta = (b.eventMs ?? -1) - (a.eventMs ?? -1);
-    if (delta !== 0) return delta;
-    return String(b.tournamentId || "").localeCompare(
-      String(a.tournamentId || "")
-    );
-  });
-
-  return mapped;
-};
-
-const normalizeMatchLooImpacts = (rows) => {
-  if (!Array.isArray(rows)) return [];
-
-  const mapped = rows
-    .map((row, index) => {
-      const matchId = row?.match_id == null ? null : String(row.match_id);
-      const tournamentId =
-        row?.tournament_id == null ? null : String(row.tournament_id);
-      const eventMs = toFiniteNumber(row?.event_ms);
-      const tournamentName =
-        toSafeText(row?.tournament_name) ||
-        (tournamentId ? `Tournament ${tournamentId}` : "Tournament");
-      const exactScoreDelta = toFiniteNumber(row?.exact_score_delta);
-      const exactAbsDeltaRaw = toFiniteNumber(row?.exact_abs_delta);
-      const exactAbsDelta =
-        exactAbsDeltaRaw ??
-        (exactScoreDelta == null ? null : Math.abs(exactScoreDelta));
-      const contributionDelta =
-        exactScoreDelta == null
-          ? null
-          : exactScoreDelta * -1 * MATCH_LOO_DISPLAY_SCALE;
-      const isWin =
-        typeof row?.is_win === "boolean" ? row.is_win : null;
-      const outcome =
-        isWin == null ? "unknown" : isWin ? "positive" : "negative";
-      const matchUrl =
-        tournamentId && matchId
-          ? `https://sendou.ink/to/${encodeURIComponent(
-              tournamentId
-            )}/matches/${encodeURIComponent(matchId)}`
-          : null;
-
-      return {
-        key: `${matchId || "match"}:${tournamentId || "na"}:${index}`,
-        matchId,
-        tournamentId,
-        tournamentName,
-        eventMs,
-        playerRank: toFiniteNumber(row?.player_rank),
-        playerScore: toFiniteNumber(row?.player_score),
-        isWin,
-        outcome,
-        exactScoreDelta,
-        exactAbsDelta,
-        contributionDelta,
-        matchUrl,
-        playerTeamName: toSafeText(row?.player_team_name),
-        opponentTeamName: toSafeText(row?.opponent_team_name),
-        playerTeamScore: toFiniteNumber(row?.player_team_score),
-        opponentTeamScore: toFiniteNumber(row?.opponent_team_score),
-        playerTeamPlayers: toTextList(row?.player_team_players),
-        opponentTeamPlayers: toTextList(row?.opponent_team_players),
-      };
-    })
-    .filter(
-      (row) =>
-        row.matchId ||
-        row.tournamentId ||
-        row.exactScoreDelta != null ||
-        row.exactAbsDelta != null
-    );
-
-  mapped.sort((left, right) => {
-    const delta = (right.exactAbsDelta ?? -1) - (left.exactAbsDelta ?? -1);
-    if (delta !== 0) return delta;
-    const eventDelta = (right.eventMs ?? -1) - (left.eventMs ?? -1);
-    if (eventDelta !== 0) return eventDelta;
-    return String(right.matchId || "").localeCompare(String(left.matchId || ""));
-  });
-
-  return mapped;
-};
-
-const pickDominantEntry = (map) => {
-  let best = null;
-  for (const entry of map.values()) {
-    if (
-      !best ||
-      entry.count > best.count ||
-      (entry.count === best.count &&
-        entry.label.localeCompare(best.label, undefined, {
-          sensitivity: "base",
-        }) < 0)
-    ) {
-      best = entry;
-    }
-  }
-  return best;
-};
-
-const buildHistorySummary = (rows, referenceMs) => {
-  let wins = 0;
-  let losses = 0;
-  let knownResults = 0;
-  let positive = 0;
-  let negative = 0;
-  let even = 0;
-  let unknown = 0;
-  let totalMatches = 0;
-  let placementNotes = 0;
-
-  const teamCounts = new Map();
-  const yearCounts = new Map();
-  const eventMsValues = [];
-
-  for (const row of rows) {
-    if (row.wins != null && row.losses != null) {
-      wins += row.wins;
-      losses += row.losses;
-      knownResults += 1;
-      totalMatches += row.wins + row.losses;
-    }
-
-    if (row.outcome === "positive") positive += 1;
-    else if (row.outcome === "negative") negative += 1;
-    else if (row.outcome === "even") even += 1;
-    else unknown += 1;
-
-    if (row.placementLabel) placementNotes += 1;
-    if (row.eventMs != null) eventMsValues.push(row.eventMs);
-
-    const teamKey = row.teamId || row.teamName;
-    if (teamKey) {
-      const label = row.teamName || `Team ${row.teamId}`;
-      const existing = teamCounts.get(teamKey);
-      teamCounts.set(teamKey, {
-        label,
-        count: (existing?.count || 0) + 1,
-      });
-    }
-
-    if (row.year) {
-      const existing = yearCounts.get(row.year);
-      yearCounts.set(row.year, {
-        label: row.year,
-        count: (existing?.count || 0) + 1,
-      });
-    }
-  }
-
-  let gapTotalMs = 0;
-  let gapCount = 0;
-  for (let index = 1; index < rows.length; index += 1) {
-    const previousMs = rows[index - 1]?.eventMs;
-    const currentMs = rows[index]?.eventMs;
-    if (previousMs == null || currentMs == null) continue;
-    gapTotalMs += Math.abs(previousMs - currentMs);
-    gapCount += 1;
-  }
-
-  const latestMs = eventMsValues.length ? Math.max(...eventMsValues) : null;
-  const firstMs = eventMsValues.length ? Math.min(...eventMsValues) : null;
-  const reference = toFiniteNumber(referenceMs) ?? latestMs ?? Date.now();
-
-  const countInWindow = (days) =>
-    rows.filter((row) => {
-      if (row.eventMs == null) return false;
-      const delta = reference - row.eventMs;
-      return delta >= 0 && delta <= days * DAY_MS;
-    }).length;
-
-  return {
-    wins,
-    losses,
-    knownResults,
-    positive,
-    negative,
-    even,
-    unknown,
-    uniqueTeams: teamCounts.size,
-    uniqueYears: yearCounts.size,
-    primaryTeam: pickDominantEntry(teamCounts),
-    busiestYear: pickDominantEntry(yearCounts),
-    placementNotes,
-    totalMatches,
-    averageMatches:
-      knownResults > 0 ? totalMatches / knownResults : null,
-    knownWinRate:
-      wins + losses > 0 ? (wins / (wins + losses)) * 100 : null,
-    knownCoveragePct:
-      rows.length > 0 ? (knownResults / rows.length) * 100 : null,
-    latestMs,
-    firstMs,
-    spanDays:
-      latestMs != null && firstMs != null
-        ? Math.max(0, (latestMs - firstMs) / DAY_MS)
-        : null,
-    cadenceDays:
-      gapCount > 0 ? gapTotalMs / gapCount / DAY_MS : null,
-    recent30Count: countInWindow(30),
-    recent90Count: countInWindow(90),
-    recent365Count: countInWindow(365),
-    recentEvents: rows.slice(0, RECENT_EVENT_LIMIT),
-  };
-};
 
 const copyTextToClipboard = async (text) => {
   if (!text) return false;
@@ -542,347 +73,6 @@ const copyTextToClipboard = async (text) => {
   const copied = document.execCommand("copy");
   document.body.removeChild(textarea);
   return copied;
-};
-
-const GradeBadge = ({ label }) => {
-  if (!label || label === "—") {
-    return (
-      <span className="grade-badge grade-tier-default" aria-label="No grade">
-        —
-      </span>
-    );
-  }
-
-  const tier = tierFor(label);
-
-  return (
-    <span
-      className={`grade-badge ${tier}`.trim()}
-      title={`Grade ${label}`}
-      aria-label={`Grade ${label}`}
-    >
-      {label}
-    </span>
-  );
-};
-
-const HeaderMetric = ({
-  label,
-  value,
-  detail,
-  tone = "slate",
-  title,
-  wide = false,
-  progressPct = null,
-  progressClassName = "",
-  progressLabel,
-}) => (
-  <div
-    className={`comp-player-header-stat is-${tone}${
-      wide ? " is-wide" : ""
-    }`.trim()}
-    title={title}
-  >
-    <span className="comp-player-header-stat-label">{label}</span>
-    <span className="comp-player-header-stat-value">{value}</span>
-    {detail ? <span className="comp-player-header-stat-detail">{detail}</span> : null}
-    {progressPct != null ? (
-      <div
-        className="comp-player-header-progress"
-        aria-label={progressLabel}
-      >
-        <div
-          className={`comp-player-header-progress-fill ${progressClassName}`.trim()}
-          style={{ width: `${progressPct}%` }}
-        />
-      </div>
-    ) : null}
-  </div>
-);
-
-const AtGlanceItem = ({ label, value }) => (
-  <div className="comp-player-glance-item">
-    <dt className="comp-player-glance-label">{label}</dt>
-    <dd className="comp-player-glance-value">
-      <span className="font-data">{value}</span>
-    </dd>
-  </div>
-);
-
-const RecentEventRow = ({ row, referenceMs }) => {
-  const outcomeLabel =
-    row.outcome === "positive"
-      ? "W"
-      : row.outcome === "negative"
-      ? "L"
-      : row.outcome === "even"
-      ? "="
-      : "?";
-  const resultLabel =
-    row.resultSummary || row.placementLabel || "Result not logged";
-  const hasTournamentLink = Boolean(row.tournamentId);
-
-  return (
-    <tr
-      key={row.key}
-      className={hasTournamentLink ? "comp-player-table-row is-clickable" : "comp-player-table-row"}
-      role={hasTournamentLink ? "link" : undefined}
-      tabIndex={hasTournamentLink ? 0 : undefined}
-      onClick={
-        hasTournamentLink
-          ? () => openTournamentUrl(row.tournamentId)
-          : undefined
-      }
-      onKeyDown={
-        hasTournamentLink
-          ? (event) => {
-              if (event.key === "Enter" || event.key === " ") {
-                event.preventDefault();
-                openTournamentUrl(row.tournamentId);
-              }
-            }
-          : undefined
-      }
-    >
-      <td
-        className="font-data comp-player-table-date"
-        title={formatUtcDateTime(row.eventMs)}
-      >
-        {formatRelativeAge(row.eventMs, referenceMs)}
-      </td>
-      <td>
-        <p className="comp-player-table-primary">{row.tournamentName}</p>
-      </td>
-      <td>
-        <p className="comp-player-table-primary">{row.teamName || "Unknown team"}</p>
-      </td>
-      <td>
-        <div className="comp-player-result-inline">
-          <span className={`comp-player-result-pill is-${row.outcome}`.trim()}>
-            {outcomeLabel}
-          </span>
-          <p className="font-data comp-player-table-primary">{resultLabel}</p>
-        </div>
-      </td>
-    </tr>
-  );
-};
-
-const MatchImpactRosterLine = ({
-  label,
-  players,
-  highlightedPlayerNames = EMPTY_TEXT_LIST,
-}) => {
-  const highlightedKeys = new Set(
-    highlightedPlayerNames
-      .map((name) => toComparisonKey(name))
-      .filter(Boolean)
-  );
-  const entries = players.length ? players : ["Players unavailable"];
-
-  return (
-    <div className="comp-player-impact-roster-line">
-      <span className="comp-player-impact-roster-team">{label}:</span>
-      <div className="comp-player-impact-roster-values">
-        {entries.map((name, index) => {
-          const isCurrent = highlightedKeys.has(toComparisonKey(name));
-          const Tag = isCurrent ? "strong" : "span";
-          return (
-            <React.Fragment key={`${label}:${name}`}>
-              <Tag
-                className={`comp-player-impact-roster-name${
-                  isCurrent ? " is-current" : ""
-                }`.trim()}
-              >
-                {name}
-              </Tag>
-              {index < entries.length - 1 ? (
-                <span className="comp-player-impact-roster-separator">, </span>
-              ) : null}
-            </React.Fragment>
-          );
-        })}
-      </div>
-    </div>
-  );
-};
-
-const toneForMatchImpact = (row) => {
-  if ((row?.contributionDelta ?? 0) > 0) return "emerald";
-  if ((row?.contributionDelta ?? 0) < 0) return "rose";
-  return "amber";
-};
-
-const openMatchUrl = (matchUrl) => {
-  if (!matchUrl || typeof window === "undefined") return;
-  window.open(matchUrl, "_blank", "noopener,noreferrer");
-};
-
-const openTournamentUrl = (tournamentId) => {
-  if (!tournamentId || typeof window === "undefined") return;
-  window.open(
-    `https://sendou.ink/to/${encodeURIComponent(tournamentId)}`,
-    "_blank",
-    "noopener,noreferrer"
-  );
-};
-
-const MatchImpactRow = ({
-  row,
-  referenceMs,
-  highlightedPlayerNames = EMPTY_TEXT_LIST,
-  expanded = false,
-  onToggleExpand,
-}) => {
-  const tone = toneForMatchImpact(row);
-  const hasLineups =
-    row.playerTeamPlayers.length > 0 || row.opponentTeamPlayers.length > 0;
-  const contribution = formatSignedNumber(
-    row.contributionDelta,
-    nf2,
-    nf2.format(0)
-  );
-  const eventLabel =
-    row.eventMs == null
-      ? "Date unavailable"
-      : formatRelativeAge(row.eventMs, referenceMs);
-  const playerTeamLabel = row.playerTeamName || "Unknown team";
-  const opponentTeamLabel = row.opponentTeamName || "Unknown opponent";
-  const matchupLabel =
-    row.playerTeamName || row.opponentTeamName
-      ? `${playerTeamLabel} vs ${opponentTeamLabel}`
-      : "Teams unavailable";
-  const finalScoreLabel =
-    row.playerTeamScore != null && row.opponentTeamScore != null
-      ? `${nf0.format(row.playerTeamScore)}-${nf0.format(
-          row.opponentTeamScore
-        )}`
-      : "Score unavailable";
-  const winMark =
-    row.isWin == null ? "?" : row.isWin ? "W" : "L";
-  const rowBody = (
-    <div className="comp-player-impact-row-shell">
-      <div className="comp-player-impact-row-primary">
-        <div className="comp-player-impact-row-event">
-          <p className="comp-player-impact-row-title">
-            <span
-              className="comp-player-impact-row-title-text"
-              title={row.tournamentName}
-            >
-              {row.tournamentName}
-            </span>
-            <span
-              className="comp-player-impact-row-meta"
-              title={formatUtcDateTime(row.eventMs)}
-            >
-              {eventLabel}
-            </span>
-          </p>
-        </div>
-        <div className="comp-player-impact-row-result">
-          <p className="comp-player-impact-row-matchup-text">
-            <span>{matchupLabel}</span>
-            <span
-              className={`comp-player-impact-score-dot is-${row.outcome}`.trim()}
-              aria-hidden="true"
-            />
-            <span className="comp-player-impact-row-score">
-              {finalScoreLabel}
-            </span>
-            <span className="comp-player-impact-row-score-state">{winMark}</span>
-          </p>
-        </div>
-        <div className="comp-player-impact-row-summary">
-          <p className="comp-player-impact-row-delta font-data">{contribution}</p>
-          {hasLineups ? (
-            <button
-              type="button"
-              className="comp-player-impact-toggle"
-              aria-label={expanded ? "Hide lineups" : "Show lineups"}
-              onClick={(event) => {
-                event.stopPropagation();
-                onToggleExpand?.();
-              }}
-            >
-              {expanded ? "▾" : "▸"}
-            </button>
-          ) : null}
-        </div>
-      </div>
-      {expanded && hasLineups ? (
-        <div className="comp-player-impact-expanded">
-          <MatchImpactRosterLine
-            label={playerTeamLabel}
-            players={row.playerTeamPlayers}
-            highlightedPlayerNames={highlightedPlayerNames}
-          />
-          <MatchImpactRosterLine
-            label={opponentTeamLabel}
-            players={row.opponentTeamPlayers}
-            highlightedPlayerNames={highlightedPlayerNames}
-          />
-        </div>
-      ) : null}
-    </div>
-  );
-
-  return (
-    <article
-      className={`comp-player-impact-row is-${tone} ${
-        row.matchUrl ? "is-clickable" : ""
-      }`.trim()}
-      role={row.matchUrl ? "link" : undefined}
-      tabIndex={row.matchUrl ? 0 : undefined}
-      onClick={row.matchUrl ? () => openMatchUrl(row.matchUrl) : undefined}
-      onKeyDown={
-        row.matchUrl
-          ? (event) => {
-              if (event.key === "Enter" || event.key === " ") {
-                event.preventDefault();
-                openMatchUrl(row.matchUrl);
-              }
-            }
-          : undefined
-      }
-    >
-      {rowBody}
-    </article>
-  );
-};
-
-const MatchImpactTable = ({
-  rows,
-  emptyText,
-  referenceMs,
-  highlightedPlayerNames,
-  expandedRows = EMPTY_EXPANDED_ROWS,
-  onToggleExpand,
-}) => {
-  return (
-    rows.length ? (
-      <div className="comp-player-impact-table">
-        <div className="comp-player-impact-table-head">
-          <p>Event</p>
-          <p>Result</p>
-          <p>Contribution</p>
-        </div>
-        <div className="comp-player-impact-table-body">
-          {rows.map((row) => (
-            <MatchImpactRow
-              key={row.key}
-              row={row}
-              referenceMs={referenceMs}
-              highlightedPlayerNames={highlightedPlayerNames}
-              expanded={Boolean(expandedRows[row.key])}
-              onToggleExpand={() => onToggleExpand?.(row.key)}
-            />
-          ))}
-        </div>
-      </div>
-    ) : (
-      <p className="comp-player-empty-text">{emptyText}</p>
-    )
-  );
 };
 
 export const CompetitionPlayerPageContent = ({
@@ -923,43 +113,10 @@ export const CompetitionPlayerPageContent = ({
   const heroHasLightning = Boolean(
     hasVisibleScore && (grade === "XX+" || grade === "XX★")
   );
-  const trackTarget = useMemo(() => {
-    if (grade === "XX+" || grade === "XX★") {
-      return {
-        label: XX_PLUS_LABEL,
-        threshold: XX_PLUS_THRESHOLD,
-        forceFull: true,
-      };
-    }
-    const gradeIndex = GRADE_INDEX_BY_LABEL.get(grade);
-    const currentThresholdEntry =
-      gradeIndex != null ? DISPLAY_GRADE_SCALE[gradeIndex] : null;
-    const nextThresholdEntry =
-      gradeIndex != null && gradeIndex + 1 < DISPLAY_GRADE_SCALE.length
-        ? DISPLAY_GRADE_SCALE[gradeIndex + 1]
-        : null;
-    if (!currentThresholdEntry || !nextThresholdEntry) {
-      return {
-        label: XX_PLUS_LABEL,
-        threshold: XX_PLUS_THRESHOLD,
-        forceFull: false,
-      };
-    }
-    const [currentThreshold] = currentThresholdEntry;
-    const [, nextLabel] = nextThresholdEntry;
-    if (!Number.isFinite(currentThreshold) || nextLabel === "XX★") {
-      return {
-        label: XX_PLUS_LABEL,
-        threshold: XX_PLUS_THRESHOLD,
-        forceFull: true,
-      };
-    }
-    return {
-      label: nextLabel,
-      threshold: Number(currentThreshold),
-      forceFull: false,
-    };
-  }, [grade]);
+  const trackTarget = useMemo(
+    () => resolveCompetitionTrackTarget(grade),
+    [grade]
+  );
   const scoreDeltaToThreshold =
     rankScore == null ? null : rankScore - trackTarget.threshold;
   const scoreProgressPct =
@@ -1060,10 +217,12 @@ export const CompetitionPlayerPageContent = ({
       swingMatchImpacts.length,
     ]
   );
-  const [historyQuery, setHistoryQuery] = useState("");
-  const [historyYear, setHistoryYear] = useState("all");
-  const [historyOutcome, setHistoryOutcome] = useState("all");
-  const [historySort, setHistorySort] = useState("recent");
+  const [historyFilters, setHistoryFilters] = useState({
+    query: "",
+    year: "all",
+    outcome: "all",
+    sort: "recent",
+  });
   const [pageState, setPageState] = useState(() => ({
     history: 1,
     resultsView: defaultMatchImpactViewId,
@@ -1072,10 +231,15 @@ export const CompetitionPlayerPageContent = ({
   }));
   const [shareStatus, setShareStatus] = useState(null);
   const filteredHistory = useMemo(() => {
-    const query = historyQuery.trim().toLowerCase();
+    const query = historyFilters.query.trim().toLowerCase();
     const filtered = tournamentHistory.filter((row) => {
-      if (historyYear !== "all" && row.year !== historyYear) return false;
-      if (historyOutcome !== "all" && row.outcome !== historyOutcome) {
+      if (historyFilters.year !== "all" && row.year !== historyFilters.year) {
+        return false;
+      }
+      if (
+        historyFilters.outcome !== "all" &&
+        row.outcome !== historyFilters.outcome
+      ) {
         return false;
       }
       if (!query) return true;
@@ -1089,14 +253,14 @@ export const CompetitionPlayerPageContent = ({
     });
 
     filtered.sort((left, right) => {
-      if (historySort === "oldest") {
+      if (historyFilters.sort === "oldest") {
         const delta = (left.eventMs ?? Infinity) - (right.eventMs ?? Infinity);
         if (delta !== 0) return delta;
         return String(left.tournamentId || "").localeCompare(
           String(right.tournamentId || "")
         );
       }
-      if (historySort === "most_matches") {
+      if (historyFilters.sort === "most_matches") {
         const delta =
           (right.matchesPlayed ?? -1) - (left.matchesPlayed ?? -1);
         if (delta !== 0) return delta;
@@ -1109,7 +273,7 @@ export const CompetitionPlayerPageContent = ({
     });
 
     return filtered;
-  }, [tournamentHistory, historyQuery, historyYear, historyOutcome, historySort]);
+  }, [tournamentHistory, historyFilters]);
   const historyPageCount = Math.max(
     1,
     Math.ceil(filteredHistory.length / HISTORY_PAGE_SIZE)
@@ -1673,18 +837,24 @@ export const CompetitionPlayerPageContent = ({
               <div className="comp-player-controls-strip">
                 <input
                   type="search"
-                  value={historyQuery}
+                  value={historyFilters.query}
                   onChange={(event) => {
-                    setHistoryQuery(event.target.value);
+                    setHistoryFilters((current) => ({
+                      ...current,
+                      query: event.target.value,
+                    }));
                     setPageState((current) => ({ ...current, history: 1 }));
                   }}
                   placeholder="Search tournaments or teams"
                   className="comp-player-control"
                 />
                 <select
-                  value={historyYear}
+                  value={historyFilters.year}
                   onChange={(event) => {
-                    setHistoryYear(event.target.value);
+                    setHistoryFilters((current) => ({
+                      ...current,
+                      year: event.target.value,
+                    }));
                     setPageState((current) => ({ ...current, history: 1 }));
                   }}
                   className="comp-player-control"
@@ -1697,9 +867,12 @@ export const CompetitionPlayerPageContent = ({
                   ))}
                 </select>
                 <select
-                  value={historyOutcome}
+                  value={historyFilters.outcome}
                   onChange={(event) => {
-                    setHistoryOutcome(event.target.value);
+                    setHistoryFilters((current) => ({
+                      ...current,
+                      outcome: event.target.value,
+                    }));
                     setPageState((current) => ({ ...current, history: 1 }));
                   }}
                   className="comp-player-control"
@@ -1711,9 +884,12 @@ export const CompetitionPlayerPageContent = ({
                   <option value="unknown">Unknown results</option>
                 </select>
                 <select
-                  value={historySort}
+                  value={historyFilters.sort}
                   onChange={(event) => {
-                    setHistorySort(event.target.value);
+                    setHistoryFilters((current) => ({
+                      ...current,
+                      sort: event.target.value,
+                    }));
                     setPageState((current) => ({ ...current, history: 1 }));
                   }}
                   className="comp-player-control"
@@ -1726,79 +902,10 @@ export const CompetitionPlayerPageContent = ({
 
               {historyRows.length ? (
                 <>
-                  <div className="comp-player-data-body">
-                    <div className="comp-player-table-wrap">
-                      <div className="comp-player-table-scroll">
-                        <table className="comp-player-table comp-player-table--compact">
-                          <thead>
-                            <tr>
-                              <th>Date</th>
-                              <th>Tournament</th>
-                              <th>Team</th>
-                              <th>Result</th>
-                            </tr>
-                          </thead>
-                          <tbody>
-                            {historyRows.map((row) => (
-                              <tr
-                                key={row.key}
-                                className={
-                                  row.tournamentId
-                                    ? "comp-player-table-row is-clickable"
-                                    : "comp-player-table-row"
-                                }
-                                role={row.tournamentId ? "link" : undefined}
-                                tabIndex={row.tournamentId ? 0 : undefined}
-                                onClick={
-                                  row.tournamentId
-                                    ? () => openTournamentUrl(row.tournamentId)
-                                    : undefined
-                                }
-                                onKeyDown={
-                                  row.tournamentId
-                                    ? (event) => {
-                                        if (
-                                          event.key === "Enter" ||
-                                          event.key === " "
-                                        ) {
-                                          event.preventDefault();
-                                          openTournamentUrl(row.tournamentId);
-                                        }
-                                      }
-                                    : undefined
-                                }
-                              >
-                                <td
-                                  className="font-data comp-player-table-date"
-                                  title={formatUtcDateTime(row.eventMs)}
-                                >
-                                  {formatRelativeAge(row.eventMs, historyReferenceMs)}
-                                </td>
-                                <td>
-                                  <p className="comp-player-table-primary">
-                                    {row.tournamentName}
-                                  </p>
-                                </td>
-                                <td>
-                                  <p className="comp-player-table-primary">
-                                    {row.teamName || "Unknown team"}
-                                  </p>
-                                </td>
-                                <td>
-                                  <p className="font-data comp-player-table-primary">
-                                    {row.resultSummary || row.placementLabel || "—"}
-                                    {row.matchesPlayed != null
-                                      ? ` · ${nf0.format(row.matchesPlayed)} matches`
-                                      : ""}
-                                  </p>
-                                </td>
-                              </tr>
-                            ))}
-                          </tbody>
-                        </table>
-                      </div>
-                    </div>
-                  </div>
+                  <CompetitionPlayerHistoryTable
+                    rows={historyRows}
+                    referenceMs={historyReferenceMs}
+                  />
                   <div className="comp-player-data-footer comp-player-pagination">
                     <p className="comp-player-panel-subtitle">
                       Showing page {nf0.format(safeHistoryPage)} of{" "}
@@ -1883,3 +990,4 @@ const CompetitionPlayerPage = ({ top500Href }) => {
 };
 
 export default CompetitionPlayerPage;
+export { loadCompetitionPlayer };

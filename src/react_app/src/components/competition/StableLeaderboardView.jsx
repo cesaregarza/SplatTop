@@ -6,14 +6,10 @@ import useMediaQuery from "../../hooks/useMediaQuery";
 import StableLeaderboardHeader from "./StableLeaderboardHeader";
 import StableLeaderboardControls from "./StableLeaderboardControls";
 import StableLeaderboardTable from "./StableLeaderboardTable";
-import { DISPLAY_GRADE_SCALE, createGradeShowcaseRows, gradeFor } from "./stableLeaderboardUtils";
-
-const rawShowcaseFlag = process.env.REACT_APP_SHOWCASE_STABLE_LEADERBOARD;
-const ENABLE_SHOWCASE_ROWS =
-  rawShowcaseFlag != null
-    ? String(rawShowcaseFlag).trim().toLowerCase() !== "false"
-    : process.env.NODE_ENV !== "production";
-const SHOWCASE_ROWS = ENABLE_SHOWCASE_ROWS ? createGradeShowcaseRows() : [];
+import {
+  getVisibleStableLeaderboardGrades,
+  prepareStableLeaderboardRows,
+} from "./stableLeaderboardViewModel";
 
 const LoadingSkeleton = memo(() => (
   <div className="rounded-lg border border-slate-800 bg-slate-950/60 shadow-md overflow-hidden">
@@ -95,95 +91,22 @@ const StableLeaderboardView = ({ rows, loading, error, windowDays, onRefresh }) 
   const rootRef = useRef(null);
   const isDesktop = useMediaQuery("(min-width: 768px)");
 
-  const prepared = useMemo(() => {
-    const data = Array.isArray(rows) ? rows : [];
+  const prepared = useMemo(
+    () =>
+      prepareStableLeaderboardRows({
+        rows,
+        query,
+        page,
+        pageSize,
+        gradeFilter,
+      }),
+    [rows, query, page, pageSize, gradeFilter]
+  );
 
-    const mapWithGrade = (row) => {
-      const baseDisplay = row.display_score ?? null;
-      const shifted = baseDisplay == null ? null : baseDisplay + 150;
-      const rawScore =
-        row.stable_score !== undefined && row.stable_score !== null
-          ? row.stable_score
-          : row.score !== undefined && row.score !== null
-          ? row.score
-          : null;
-      const gradeMetric =
-        rawScore != null
-          ? rawScore * 25 + 150
-          : shifted != null
-          ? shifted
-          : null;
-      const grade = gradeMetric == null ? "—" : gradeFor(gradeMetric);
-      return { ...row, _shifted: shifted, _grade: grade };
-    };
-
-    const matchesQuery = (row, needle) =>
-      row.display_name?.toLowerCase().includes(needle) ||
-      String(row.player_id ?? "").toLowerCase().includes(needle);
-
-    const q = query.trim().toLowerCase();
-
-    const mappedReal = data.map(mapWithGrade);
-    const presentGrades = Array.from(
-      new Set(mappedReal.map((row) => row._grade).filter((value) => value && value !== "—"))
-    );
-
-    const filteredReal = q
-      ? mappedReal.filter((row) => matchesQuery(row, q))
-      : mappedReal.slice();
-
-    filteredReal.sort(
-      (a, b) => (a.stable_rank ?? Infinity) - (b.stable_rank ?? Infinity)
-    );
-
-    const gradeFilteredReal = gradeFilter
-      ? filteredReal.filter((row) => row._grade === gradeFilter)
-      : filteredReal;
-
-    const total = gradeFilteredReal.length;
-    const effectivePageCount = Math.max(1, Math.ceil(Math.max(total, 1) / pageSize));
-    const current = Math.min(page, effectivePageCount);
-    const start = (current - 1) * pageSize;
-    const end = start + pageSize;
-    const pageRows = gradeFilteredReal.slice(start, end);
-
-    let filteredShowcase = [];
-    let pageShowcase = [];
-    if (!gradeFilter && SHOWCASE_ROWS.length) {
-      const mappedShowcase = SHOWCASE_ROWS.map(mapWithGrade);
-      filteredShowcase = q
-        ? mappedShowcase.filter((row) => matchesQuery(row, q))
-        : mappedShowcase.slice();
-      filteredShowcase.sort((a, b) => {
-        const orderA = a.showcase_order ?? Number.MAX_SAFE_INTEGER;
-        const orderB = b.showcase_order ?? Number.MAX_SAFE_INTEGER;
-        return orderA - orderB;
-      });
-      pageShowcase = current === 1 ? filteredShowcase : [];
-    }
-
-    const displayRows = [...pageRows, ...pageShowcase];
-    const combinedAll = [...gradeFilteredReal, ...filteredShowcase];
-
-    return {
-      filtered: displayRows,
-      total,
-      pageCount: effectivePageCount,
-      current,
-      all: combinedAll,
-      hasShowcase: filteredShowcase.length > 0,
-      pageRealCount: pageRows.length,
-      availableGrades: presentGrades,
-    };
-  }, [rows, query, page, pageSize, gradeFilter]);
-
-  const visibleGrades = useMemo(() => {
-    const present = new Set(prepared.availableGrades || []);
-    return DISPLAY_GRADE_SCALE.map(([, label]) => label)
-      .slice()
-      .reverse()
-      .filter((label) => present.has(label));
-  }, [prepared.availableGrades]);
+  const visibleGrades = useMemo(
+    () => getVisibleStableLeaderboardGrades(prepared.availableGrades),
+    [prepared.availableGrades]
+  );
 
   const pageRangeStart = prepared.total === 0 ? 0 : (prepared.current - 1) * pageSize + 1;
   const pageRangeEnd = prepared.total === 0
