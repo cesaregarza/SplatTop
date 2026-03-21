@@ -5,8 +5,13 @@ import React, {
   useRef,
   useState,
 } from "react";
-import { Link, useParams } from "react-router-dom";
-import useCompetitionPlayer from "../../hooks/useCompetitionPlayer";
+import {
+  Link,
+  useLoaderData,
+  useNavigation,
+  useParams,
+  useRevalidator,
+} from "react-router-dom";
 import useCrackleEffect from "../../hooks/useCrackleEffect";
 import {
   CRACKLE_PURPLE,
@@ -65,6 +70,69 @@ const pickInitialMatchResultView = ({
   if (harmfulCount > 0) return "harmful";
   if (swingCount > 0) return "swings";
   return MATCH_RESULT_VIEW_OPTIONS[0].id;
+};
+
+const normalizePlayerRouteError = (value) => {
+  if (!value) return "Unknown error";
+  if (typeof value === "string") return value;
+  if (typeof value.message === "string" && value.message) return value.message;
+  return "Unexpected error";
+};
+
+const readPlayerRouteError = async (response) => {
+  try {
+    const payload = await response.clone().json();
+    if (typeof payload?.detail === "string" && payload.detail.trim()) {
+      return payload.detail;
+    }
+  } catch {
+    // Fall back to a generic message when the response is not JSON.
+  }
+
+  if (response.status === 404) {
+    return "Player not found in competition index";
+  }
+  return `Unable to load player profile (${response.status})`;
+};
+
+export const loadCompetitionPlayer = async ({ params, request }) => {
+  const id = String(params?.playerId || "").trim();
+  if (!id) {
+    return {
+      error: "Missing player id",
+      profile: null,
+    };
+  }
+
+  try {
+    const response = await fetch(
+      `/api/ripple/public/player/${encodeURIComponent(id)}`,
+      {
+        headers: { Accept: "application/json" },
+        signal: request.signal,
+      }
+    );
+
+    if (!response.ok) {
+      return {
+        error: await readPlayerRouteError(response),
+        profile: null,
+      };
+    }
+
+    return {
+      error: null,
+      profile: (await response.json()) || null,
+    };
+  } catch (error) {
+    if (error?.name === "AbortError") {
+      throw error;
+    }
+    return {
+      error: normalizePlayerRouteError(error),
+      profile: null,
+    };
+  }
 };
 
 const formatUtcDateTime = (timestampMs) => {
@@ -817,21 +885,15 @@ const MatchImpactTable = ({
   );
 };
 
-const CompetitionPlayerPage = ({ top500Href }) => {
-  const { playerId } = useParams();
+export const CompetitionPlayerPageContent = ({
+  error,
+  loading,
+  playerId,
+  profile,
+  refresh,
+  top500Href,
+}) => {
   const rootRef = useRef(null);
-  const [historyQuery, setHistoryQuery] = useState("");
-  const [historyYear, setHistoryYear] = useState("all");
-  const [historyOutcome, setHistoryOutcome] = useState("all");
-  const [historySort, setHistorySort] = useState("recent");
-  const [pageState, setPageState] = useState({
-    history: 1,
-    resultsView: null,
-    dataTab: "history",
-    expandedImpactRows: {},
-  });
-  const [shareStatus, setShareStatus] = useState(null);
-  const { loading, error, profile, refresh } = useCompetitionPlayer(playerId);
 
   useEffect(() => {
     const previous = document.title;
@@ -998,6 +1060,17 @@ const CompetitionPlayerPage = ({ top500Href }) => {
       swingMatchImpacts.length,
     ]
   );
+  const [historyQuery, setHistoryQuery] = useState("");
+  const [historyYear, setHistoryYear] = useState("all");
+  const [historyOutcome, setHistoryOutcome] = useState("all");
+  const [historySort, setHistorySort] = useState("recent");
+  const [pageState, setPageState] = useState(() => ({
+    history: 1,
+    resultsView: defaultMatchImpactViewId,
+    dataTab: hasMatchImpactPanel ? "results" : "history",
+    expandedImpactRows: {},
+  }));
+  const [shareStatus, setShareStatus] = useState(null);
   const filteredHistory = useMemo(() => {
     const query = historyQuery.trim().toLowerCase();
     const filtered = tournamentHistory.filter((row) => {
@@ -1061,22 +1134,6 @@ const CompetitionPlayerPage = ({ top500Href }) => {
       : activeMatchImpactView.id === "swings"
       ? swingMatchImpacts
       : helpfulMatchImpacts;
-  useEffect(() => {
-    setPageState((current) => ({
-      ...current,
-      resultsView: defaultMatchImpactViewId,
-      dataTab: hasMatchImpactPanel ? "results" : "history",
-      expandedImpactRows: {},
-    }));
-  }, [
-    defaultMatchImpactViewId,
-    profile?.player_id,
-    matchLooCount,
-    hasMatchImpactPanel,
-  ]);
-  useEffect(() => {
-    setShareStatus(null);
-  }, [profile?.player_id]);
   const shareProfileUrl = useMemo(() => {
     const id = encodeURIComponent(profile?.player_id || playerId || "");
     if (typeof window === "undefined") return `/u/${id}`;
@@ -1113,7 +1170,7 @@ const CompetitionPlayerPage = ({ top500Href }) => {
     hasVisibleScore,
   ]);
 
-  if (loading) {
+  if (loading && !profile && !error) {
     return (
       <CompetitionLayout
         generatedAtMs={null}
@@ -1138,7 +1195,7 @@ const CompetitionPlayerPage = ({ top500Href }) => {
       <CompetitionLayout
         generatedAtMs={null}
         stale={false}
-        loading={false}
+        loading={loading}
         onRefresh={refresh}
         faqLinkHref="/"
         faqLinkLabel="View leaderboard"
@@ -1173,7 +1230,7 @@ const CompetitionPlayerPage = ({ top500Href }) => {
       <CompetitionLayout
         generatedAtMs={null}
         stale={false}
-        loading={false}
+        loading={loading}
         onRefresh={refresh}
         faqLinkHref="/"
         faqLinkLabel="View leaderboard"
@@ -1801,6 +1858,27 @@ const CompetitionPlayerPage = ({ top500Href }) => {
         )}
       </section>
     </CompetitionLayout>
+  );
+};
+
+const CompetitionPlayerPage = ({ top500Href }) => {
+  const { playerId } = useParams();
+  const { error, profile } = useLoaderData();
+  const navigation = useNavigation();
+  const revalidator = useRevalidator();
+  const loading =
+    navigation.state !== "idle" || revalidator.state !== "idle";
+
+  return (
+    <CompetitionPlayerPageContent
+      key={profile?.player_id || playerId || "missing-player"}
+      error={error}
+      loading={loading}
+      playerId={playerId}
+      profile={profile}
+      refresh={() => revalidator.revalidate()}
+      top500Href={top500Href}
+    />
   );
 };
 

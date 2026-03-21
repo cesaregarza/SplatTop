@@ -6,14 +6,12 @@ import {
   waitFor,
   within,
 } from "@testing-library/react";
-import { MemoryRouter, Route, Routes } from "react-router-dom";
-import CompetitionPlayerPage from "./CompetitionPlayerPage";
-import useCompetitionPlayer from "../../hooks/useCompetitionPlayer";
+import { MemoryRouter } from "react-router-dom";
+import {
+  CompetitionPlayerPageContent,
+} from "./CompetitionPlayerPage";
 
-jest.mock("../../hooks/useCompetitionPlayer");
 jest.mock("../../hooks/useCrackleEffect", () => jest.fn());
-
-const mockedUseCompetitionPlayer = useCompetitionPlayer;
 
 const makeProfile = (overrides = {}) => ({
   player_id: "p1",
@@ -42,22 +40,18 @@ const makeProfile = (overrides = {}) => ({
   ...overrides,
 });
 
-const renderPage = (profile) => {
-  mockedUseCompetitionPlayer.mockReturnValue({
-    loading: false,
-    error: null,
-    profile,
-    refresh: jest.fn(),
-  });
-
+const renderPage = (profile, overrides = {}) => {
   return render(
-    <MemoryRouter initialEntries={["/u/p1"]}>
-      <Routes>
-        <Route
-          path="/u/:playerId"
-          element={<CompetitionPlayerPage top500Href="/" />}
-        />
-      </Routes>
+    <MemoryRouter>
+      <CompetitionPlayerPageContent
+        error={null}
+        loading={false}
+        playerId="p1"
+        profile={profile}
+        refresh={jest.fn()}
+        top500Href="/"
+        {...overrides}
+      />
     </MemoryRouter>
   );
 };

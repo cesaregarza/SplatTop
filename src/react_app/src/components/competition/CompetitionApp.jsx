@@ -1,11 +1,20 @@
 import React, { useEffect, useMemo } from "react";
-import { BrowserRouter as Router, Route, Routes } from "react-router-dom";
+import {
+  Outlet,
+  Route,
+  RouterProvider,
+  createBrowserRouter,
+  createRoutesFromElements,
+  useOutletContext,
+} from "react-router-dom";
 import CompetitionLayout from "./CompetitionLayout";
 import StableLeaderboardView from "./StableLeaderboardView";
 import CompetitionFaq from "./CompetitionFaq";
 import CompetitionViz from "./CompetitionViz";
 import CompetitionErrorBoundary from "./CompetitionErrorBoundary";
-import CompetitionPlayerPage from "./CompetitionPlayerPage";
+import CompetitionPlayerPage, {
+  loadCompetitionPlayer,
+} from "./CompetitionPlayerPage";
 import useCompetitionSnapshot from "../../hooks/useCompetitionSnapshot";
 
 const resolveMainSiteUrl = () => {
@@ -24,7 +33,15 @@ const resolveMainSiteUrl = () => {
 
 const MAIN_SITE_URL = resolveMainSiteUrl();
 
-const CompetitionLeaderboardPage = ({ snapshot }) => {
+const CompetitionRouteShell = () => {
+  const snapshot = useCompetitionSnapshot();
+  return <Outlet context={{ snapshot }} />;
+};
+
+const useCompetitionRouteContext = () => useOutletContext();
+
+const CompetitionLeaderboardPage = () => {
+  const { snapshot } = useCompetitionRouteContext();
   const { loading, error, disabled, stable, danger, refresh } = snapshot;
   const generatedAtMs = stable?.generated_at_ms ?? danger?.generated_at_ms ?? null;
 
@@ -152,7 +169,8 @@ const CompetitionLeaderboardPage = ({ snapshot }) => {
   );
 };
 
-const CompetitionFaqPage = ({ snapshot }) => {
+const CompetitionFaqPage = () => {
+  const { snapshot } = useCompetitionRouteContext();
   const { loading, stable, danger, disabled, percentiles } = snapshot;
 
   useEffect(() => {
@@ -188,11 +206,9 @@ const CompetitionFaqPage = ({ snapshot }) => {
   );
 };
 
-const CompetitionRoutes = () => {
-  const snapshot = useCompetitionSnapshot();
-
-  return (
-    <Routes>
+const competitionRouter = createBrowserRouter(
+  createRoutesFromElements(
+    <Route element={<CompetitionRouteShell />}>
       <Route
         path="/learn"
         element={(
@@ -211,18 +227,15 @@ const CompetitionRoutes = () => {
       />
       <Route
         path="/u/:playerId"
+        loader={loadCompetitionPlayer}
         element={<CompetitionPlayerPage top500Href={MAIN_SITE_URL} />}
       />
-      <Route path="/faq" element={<CompetitionFaqPage snapshot={snapshot} />} />
-      <Route path="*" element={<CompetitionLeaderboardPage snapshot={snapshot} />} />
-    </Routes>
-  );
-};
-
-const CompetitionApp = () => (
-  <Router>
-    <CompetitionRoutes />
-  </Router>
+      <Route path="/faq" element={<CompetitionFaqPage />} />
+      <Route path="*" element={<CompetitionLeaderboardPage />} />
+    </Route>
+  )
 );
+
+const CompetitionApp = () => <RouterProvider router={competitionRouter} />;
 
 export default CompetitionApp;
