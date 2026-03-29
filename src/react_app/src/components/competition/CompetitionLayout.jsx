@@ -1,5 +1,7 @@
 import React from "react";
 import { Link } from "react-router-dom";
+import { useCompetitionAuth } from "./CompetitionAuth";
+import { resolveCompetitionDiscordLoginUrl } from "./competitionAuthApi";
 
 const UTC_TIME_FORMATTER = new Intl.DateTimeFormat("en-GB", {
   hour: "2-digit",
@@ -69,6 +71,16 @@ const CompetitionLayout = ({
   top500Href = "/top500",
 }) => {
   const timestampParts = formatTimestampParts(generatedAtMs);
+  const {
+    available: authAvailable,
+    authenticated,
+    discordId,
+    error: authError,
+    loading: authLoading,
+    logout,
+    logoutPending,
+  } = useCompetitionAuth();
+  const loginHref = resolveCompetitionDiscordLoginUrl();
 
   return (
     <div
@@ -77,7 +89,7 @@ const CompetitionLayout = ({
     >
       <header className="border-b border-slate-800 bg-slate-900/90">
         <div className="max-w-6xl mx-auto px-6 pt-6 pb-4">
-          <div className="flex items-center justify-between">
+          <div className="flex items-start justify-between gap-4">
             <div className="flex items-center gap-3">
               <a
                 href={top500Href}
@@ -90,6 +102,44 @@ const CompetitionLayout = ({
               <span className="text-white/80 text-sm">Top 500</span>
               <span className="text-white/30">/</span>
               <span className="text-white text-sm font-medium">Competitive</span>
+            </div>
+            <div className="flex flex-col items-end gap-2 text-right">
+              {authenticated ? (
+                <div className="flex flex-wrap items-center justify-end gap-2">
+                  <span className="rounded-md bg-white/8 px-3 py-1.5 text-xs text-slate-200 ring-1 ring-white/10">
+                    Discord ID{" "}
+                    <span className="font-mono text-white">{discordId}</span>
+                  </span>
+                  <button
+                    type="button"
+                    className="rounded-md bg-white/10 px-3 py-1.5 text-xs font-medium text-white ring-1 ring-white/15 transition hover:bg-white/15 disabled:opacity-60"
+                    onClick={() => {
+                      void logout();
+                    }}
+                    disabled={logoutPending}
+                  >
+                    {logoutPending ? "Logging out…" : "Log out"}
+                  </button>
+                </div>
+              ) : authLoading ? (
+                <span className="text-xs text-slate-400">
+                  Checking Discord session…
+                </span>
+              ) : !authAvailable ? (
+                <span className="text-xs text-slate-400">
+                  Discord login unavailable
+                </span>
+              ) : (
+                <a
+                  href={loginHref}
+                  className="rounded-md bg-indigo-500/20 px-3 py-1.5 text-xs font-semibold text-indigo-100 ring-1 ring-indigo-300/30 transition hover:bg-indigo-500/30"
+                >
+                  Log in with Discord
+                </a>
+              )}
+              {authError && (
+                <span className="text-xs text-amber-300">{authError}</span>
+              )}
             </div>
           </div>
 

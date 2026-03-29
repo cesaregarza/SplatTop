@@ -8,8 +8,13 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import HTMLResponse
 from slowapi import _rate_limit_exceeded_handler
 from slowapi.errors import RateLimitExceeded
+from starlette.middleware.sessions import SessionMiddleware
 
 from fast_api_app.background_tasks import background_runner
+from fast_api_app.comp_auth import (
+    get_comp_auth_session_middleware_kwargs,
+    get_public_cors_origin_regex,
+)
 from fast_api_app.connections import celery, limiter
 from fast_api_app.feature_flags import is_comp_leaderboard_enabled
 from fast_api_app.metrics import setup_metrics
@@ -20,6 +25,7 @@ from fast_api_app.middleware import (
 from fast_api_app.pubsub import start_pubsub_listener
 from fast_api_app.routes import (
     admin_tokens_router,
+    comp_auth_router,
     front_page_router,
     infer_router,
     jwks_router,
@@ -65,12 +71,19 @@ app.state.limiter = limiter
 app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
 app.add_middleware(APITokenUsageMiddleware)
 app.add_middleware(APITokenRateLimitMiddleware)
+app.add_middleware(
+    SessionMiddleware,
+    **get_comp_auth_session_middleware_kwargs(),
+)
 
-# Setup CORS - public API, so allow any origin.
+# Setup CORS:
+# - Keep the public API browser-readable from arbitrary origins.
+# - Echo a concrete origin so credentialed competition auth requests can work.
+# - Sensitive auth endpoints still validate their allowed frontend origins.
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
-    allow_credentials=False,
+    allow_origin_regex=get_public_cors_origin_regex(),
+    allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
@@ -90,6 +103,7 @@ app.include_router(ripple_public_router)
 app.include_router(ripple_share_router)
 app.include_router(sendou_proxy_router)
 app.include_router(admin_tokens_router)
+app.include_router(comp_auth_router)
 
 setup_metrics(app)
 

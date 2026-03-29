@@ -14,6 +14,7 @@ import StableLeaderboardView from "./StableLeaderboardView";
 import CompetitionFaq from "./CompetitionFaq";
 import CompetitionViz from "./CompetitionViz";
 import CompetitionErrorBoundary from "./CompetitionErrorBoundary";
+import { CompetitionAuthProvider } from "./CompetitionAuth";
 import { resolveCompetitionMainSiteUrl } from "./competitionHost";
 import { loadCompetitionSnapshot } from "./competitionSnapshotApi";
 import { mergeCompetitionSnapshotRows } from "./competitionSnapshotUtils";
@@ -177,7 +178,11 @@ export const createCompetitionRouter = () => createBrowserRouter(
 
 const CompetitionApp = () => {
   const router = useMemo(() => createCompetitionRouter(), []);
-  return <RouterProvider router={router} />;
+  return (
+    <CompetitionAuthProvider>
+      <RouterProvider router={router} />
+    </CompetitionAuthProvider>
+  );
 };
 
 export default CompetitionApp;

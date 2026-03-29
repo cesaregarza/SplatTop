@@ -60,7 +60,10 @@ You can run SplatTop locally without Kubernetes by starting each component manua
 2. **Environment Variables**: Copy the example and set credentials:
    ```sh
    cp .env.example .env
-   # Edit .env to set DB_HOST, DB_PORT, DB_USER, DB_PASSWORD, DB_NAME, DEV_MODE=1
+   # Edit .env to set DB_HOST, DB_PORT, DB_USER, DB_PASSWORD, DB_NAME, ENV=development
+   # Optional for competition Discord login:
+   # COMP_DISCORD_CLIENT_ID, COMP_DISCORD_CLIENT_SECRET,
+   # COMP_DISCORD_REDIRECT_URI, COMP_AUTH_SESSION_SECRET
    ```
 
 3. **Install Dependencies**:
@@ -128,6 +131,14 @@ Sensitive settings (database credentials, ML storage endpoints) should be provid
 
 1. **Local `.env`**:
    - Copy `.env.example` to `.env` and fill in DB and other service credentials.
+   - Competition Discord login also uses:
+     - `COMP_DISCORD_CLIENT_ID`
+     - `COMP_DISCORD_CLIENT_SECRET`
+     - `COMP_DISCORD_REDIRECT_URI`
+     - `COMP_AUTH_SESSION_SECRET`
+   - Optional competition auth overrides:
+     - `COMP_AUTH_FRONTEND_URL`
+     - `COMP_AUTH_ALLOWED_ORIGINS`
 
 2. **Kubernetes `secrets.yaml`**:
    - For production or K8s deployments, create a `k8s/secrets.yaml` containing the same keys as your `.env` (DB_* vars and ML settings).

@@ -484,8 +484,10 @@ def client_factory(fake_redis, monkeypatch):
 
             # Reload app-related modules to pick up new env
             for mod in [
+                "fast_api_app.comp_auth",
                 "fast_api_app.middleware",
                 "fast_api_app.auth",
+                "fast_api_app.routes.comp_auth",
                 "fast_api_app.routes.ripple",
                 "fast_api_app.routes.ripple_public",
                 "fast_api_app.routes.admin_tokens",
