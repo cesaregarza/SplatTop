@@ -73,8 +73,8 @@ function ChartController({
   const isCurrentSeason = selectedSeason === calculateSeasonNow() + 1;
   const seasonToolbar = (
     <div className="flex flex-col gap-3">
-      <div className="flex flex-wrap items-end gap-3">
-        <div className="min-w-[13rem] flex-1">
+      <div className="grid gap-3 [grid-template-columns:repeat(auto-fit,minmax(min(22rem,100%),1fr))]">
+        <div className="flex min-w-0 flex-col gap-1">
           <span className="text-[11px] font-semibold uppercase tracking-[0.16em] text-gray-500">
             {t("controller.mode")}
           </span>
@@ -83,20 +83,21 @@ function ChartController({
             setSelectedMode={setMode}
             allowedModes={allowedModes}
             showTitle={false}
-            baseClass="w-auto"
+            baseClass="w-full"
             buttonPadding="px-2.5 py-1.5"
             imageWidth="w-5"
             imageHeight="h-5"
             showLabels={true}
             buttonVariant="utility"
+            equalWidthButtons={true}
           />
         </div>
-        <div className="min-w-[10rem]">
+        <div className="flex min-w-0 flex-col gap-1">
           <span className="text-[11px] font-semibold uppercase tracking-[0.16em] text-gray-500">
             {t("controller.color")}
           </span>
           <div
-            className="inline-flex rounded-md border border-gray-800 bg-black/20 p-1"
+            className="grid w-full grid-cols-2 rounded-md border border-gray-800 bg-black/20 p-1"
             title={t("controller.color_hint")}
           >
             {["Seasonal", "Accessible"].map((option) => (
@@ -104,7 +105,7 @@ function ChartController({
                 key={option}
                 type="button"
                 onClick={() => setColorMode(option)}
-                className={`rounded px-3 py-1.5 text-sm font-medium transition ${
+                className={`rounded px-3 py-1.5 text-sm font-medium leading-tight transition ${
                   colorMode === option
                     ? "bg-purple-950/50 text-purple-100"
                     : "text-gray-300 hover:bg-gray-900 hover:text-white"
@@ -118,7 +119,7 @@ function ChartController({
             ))}
           </div>
         </div>
-        <div className="min-w-[13rem] flex-1">
+        <div className="flex min-w-0 flex-col gap-1">
           <span className="text-[11px] font-semibold uppercase tracking-[0.16em] text-gray-500">
             {t("controller.weapon_seasons")}
           </span>

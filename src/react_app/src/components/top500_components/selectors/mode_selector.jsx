@@ -28,6 +28,7 @@ const ModeSelector = ({
   includeAllModes = false,
   showLabels = false,
   buttonVariant = "default",
+  equalWidthButtons = false,
 }) => {
   const { t } = useTranslation();
 
@@ -39,11 +40,13 @@ const ModeSelector = ({
     const isAllowed = allowedModes[modes.indexOf(mode)];
 
     if (buttonVariant === "utility") {
-      return `m-1 rounded-md border ${buttonPadding} ${modeButtonSize} ${
+      return `rounded-md border ${buttonPadding} ${modeButtonSize} ${
         isSelected
           ? "border-purple-500/60 bg-purple-950/40 text-white"
           : "border-gray-800 bg-gray-950/70 text-gray-200 hover:border-gray-700 hover:bg-gray-900"
       } flex justify-center items-center ${
+        equalWidthButtons ? "w-full min-w-0" : ""
+      } ${
         !isAllowed ? "cursor-not-allowed opacity-45 grayscale" : ""
       }`;
     }
@@ -60,9 +63,18 @@ const ModeSelector = ({
   return (
     <div className={baseClass}>
       {showTitle && <h2 className="text-xl font-bold mb-2">{t("modes")}</h2>}
-      <div className="flex justify-center items-center flex-wrap">
+      <div
+        className={
+          equalWidthButtons
+            ? "grid grid-cols-2 gap-2"
+            : "flex justify-center items-center flex-wrap"
+        }
+      >
         {modes.map((mode) => (
-          <div key={mode} className="flex justify-center">
+          <div
+            key={mode}
+            className={equalWidthButtons ? "min-w-0" : "flex justify-center"}
+          >
             <button
               onClick={() =>
                 allowedModes[modes.indexOf(mode)] ? setSelectedMode(mode) : null
@@ -83,7 +95,13 @@ const ModeSelector = ({
                 className={`${imageWidth} ${imageHeight} object-cover aspect-square`}
               />
               {showLabels ? (
-                <span className="ml-2 text-sm font-medium">
+                <span
+                  className={`ml-2 text-sm font-medium ${
+                    equalWidthButtons
+                      ? "min-w-0 text-left leading-tight whitespace-normal"
+                      : ""
+                  }`}
+                >
                   {getModeLabel(mode)}
                 </span>
               ) : null}
@@ -91,14 +109,16 @@ const ModeSelector = ({
           </div>
         ))}
         {includeAllModes && (
-          <div className="flex justify-center">
+          <div className={equalWidthButtons ? "min-w-0" : "flex justify-center"}>
             <button
               onClick={() => setSelectedMode("All Modes")}
-              className={`m-1 rounded-md ${buttonPadding} ${modeButtonSize} ${
+              className={`rounded-md ${buttonPadding} ${modeButtonSize} ${
                 selectedMode === "All Modes"
                   ? "bg-purpledark text-white hover:bg-purple"
                   : "bg-gray-700 hover:bg-purple"
-              } flex justify-center items-center`}
+              } flex justify-center items-center ${
+                equalWidthButtons ? "w-full min-w-0" : ""
+              }`}
               aria-label="All Modes"
               aria-pressed={selectedMode === "All Modes"}
             >
@@ -108,7 +128,15 @@ const ModeSelector = ({
                 className={`${imageWidth} ${imageHeight} object-cover aspect-square`}
               />
               {showLabels ? (
-                <span className="ml-2 text-sm font-medium">All Modes</span>
+                <span
+                  className={`ml-2 text-sm font-medium ${
+                    equalWidthButtons
+                      ? "min-w-0 text-left leading-tight whitespace-normal"
+                      : ""
+                  }`}
+                >
+                  All Modes
+                </span>
               ) : null}
             </button>
           </div>

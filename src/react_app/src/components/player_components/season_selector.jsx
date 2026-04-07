@@ -82,7 +82,7 @@ function SeasonSelector({ data, mode, onSeasonChange, compact = false }) {
   })();
 
   return (
-    <div className={compact ? "w-auto min-w-[11rem]" : "w-full"}>
+    <div className={compact ? "w-full min-w-0" : "w-full"}>
       <div className="relative inline-block w-full text-left" ref={menuRef}>
         <button
           type="button"
@@ -98,7 +98,9 @@ function SeasonSelector({ data, mode, onSeasonChange, compact = false }) {
           onClick={() => setIsMenuOpen(!isMenuOpen)}
         >
           {compact ? (
-            <span className="truncate text-sm text-gray-200">{selectionLabel}</span>
+            <span className="min-w-0 text-sm leading-tight text-gray-200">
+              {selectionLabel}
+            </span>
           ) : (
             <span className="flex flex-col">
               <span className="text-sm font-semibold">
