@@ -50,7 +50,7 @@ const XChart = (props) => {
     chart: {
       zoomType: "x",
       height: 400,
-      backgroundColor: "#1a202c",
+      backgroundColor: "transparent",
     },
     accessibility: {
       enabled: false,

@@ -13,6 +13,7 @@ const WeaponsChart = (props) => {
   const { t } = useTranslation("player");
   const { t: g } = useTranslation("game");
   const [options, setOptions] = useState({});
+  const [legendItems, setLegendItems] = useState([]);
 
   useEffect(() => {
     const { weapon_winrate } = props.data;
@@ -20,28 +21,70 @@ const WeaponsChart = (props) => {
     const modeName = g(modeKeyMap[mode]);
     const { weaponTranslations, weaponReferenceData } = props;
 
-    const filteredWinrate = weapon_winrate.filter((d) => d.mode === mode);
-
+    const filteredWinrate = weapon_winrate.filter((entry) => entry.mode === mode);
     const otherThresholdPercent = 4;
 
-    const { innerSeriesData, outerSeriesData, drilldownData } =
-      computeDrilldown(
-        filteredWinrate,
-        otherThresholdPercent,
-        weaponReferenceData,
-        weaponTranslations,
-        t("weaponchart.other")
-      );
+    if (filteredWinrate.length === 0) {
+      setOptions({
+        chart: {
+          type: "pie",
+          height: 300,
+          backgroundColor: "transparent",
+        },
+        title: {
+          text: t("weaponchart.title").replace("%MODE%", modeName),
+          style: { color: "#ffffff" },
+        },
+        subtitle: {
+          text: t("no_data"),
+          style: { color: "#9ca3af" },
+        },
+        series: [],
+      });
+      setLegendItems([]);
+      return;
+    }
+
+    const drilldownResult = computeDrilldown(
+      filteredWinrate,
+      otherThresholdPercent,
+      weaponReferenceData,
+      weaponTranslations,
+      t("weaponchart.other")
+    );
+    const innerSeriesData = drilldownResult?.innerSeriesData ?? [];
+    const outerSeriesData = drilldownResult?.outerSeriesData ?? [];
+    const drilldownData = drilldownResult?.drilldownData ?? [];
+
+    if (innerSeriesData.length === 0) {
+      setOptions({
+        chart: {
+          type: "pie",
+          height: 300,
+          backgroundColor: "transparent",
+        },
+        title: {
+          text: t("weaponchart.title").replace("%MODE%", modeName),
+          style: { color: "#ffffff" },
+        },
+        subtitle: {
+          text: t("no_data"),
+          style: { color: "#9ca3af" },
+        },
+        series: [],
+      });
+      setLegendItems([]);
+      return;
+    }
 
     const totalUsage = innerSeriesData.reduce((acc, item) => acc + item.y, 0);
-
     const chartTitle = t("weaponchart.title").replace("%MODE%", modeName);
 
     const chartOptions = {
       chart: {
         type: "pie",
-        height: 400,
-        backgroundColor: "#1a202c",
+        height: 360,
+        backgroundColor: "transparent",
       },
       accessibility: {
         enabled: false,
@@ -50,28 +93,12 @@ const WeaponsChart = (props) => {
         rules: [
           {
             condition: {
-              maxWidth: 500,
+              maxWidth: 640,
             },
             chartOptions: {
               chart: {
-                height: 250,
+                height: 280,
               },
-              series: [
-                {},
-                {
-                  dataLabels: {
-                    formatter: function () {
-                      return `<b style="font-size: 9px;">${this.point.name}</b>`;
-                    },
-                    filter: {
-                      property: "percentage",
-                      operator: ">",
-                      value: 5,
-                    },
-                    distance: 5,
-                  },
-                },
-              ],
             },
           },
         ],
@@ -85,7 +112,7 @@ const WeaponsChart = (props) => {
       subtitle: {
         text: t("weaponchart.subtitle"),
         style: {
-          color: "#ffcc00",
+          color: "#fcd34d",
         },
       },
       series: [
@@ -102,7 +129,7 @@ const WeaponsChart = (props) => {
           size: "60%",
           dataLabels: {
             enabled: true,
-            distance: -30,
+            distance: -24,
             inside: true,
             formatter: function () {
               return `<span style="color: #000000;">${this.point.name}</span>`;
@@ -122,14 +149,7 @@ const WeaponsChart = (props) => {
           innerSize: "60%",
           id: "weapons",
           dataLabels: {
-            formatter: function () {
-              return `<b>${this.point.name}</b>: ${this.y.toFixed(2)}%`;
-            },
-            filter: {
-              property: "percentage",
-              operator: ">",
-              value: 2,
-            },
+            enabled: false,
           },
           showInLegend: false,
         },
@@ -200,11 +220,47 @@ const WeaponsChart = (props) => {
     };
 
     setOptions(chartOptions);
+    setLegendItems(
+      [...outerSeriesData]
+        .sort((left, right) => right.y - left.y)
+        .slice(0, 8)
+        .map((item) => ({
+          ...item,
+          share: (item.y / totalUsage) * 100,
+        }))
+    );
   }, [props, t, g]);
 
   return (
-    <div>
-      <HighchartsReact highcharts={Highcharts} options={options} />
+    <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_16rem] lg:items-start">
+      <div className="min-w-0">
+        <HighchartsReact highcharts={Highcharts} options={options} />
+      </div>
+      <aside className="border-t border-gray-800/60 pt-3 lg:border-t-0 lg:border-l lg:pl-4 lg:pt-0">
+        <h3 className="text-xs font-medium uppercase tracking-[0.16em] text-gray-400">
+          {t("weaponchart.outer.title")}
+        </h3>
+        <div className="mt-3 space-y-2">
+          {legendItems.map((item, index) => (
+            <div
+              key={item.name}
+              className="flex items-center gap-3 text-sm text-white"
+            >
+              <span
+                className="h-2.5 w-2.5 shrink-0 rounded-full"
+                style={{ backgroundColor: item.classColor }}
+              ></span>
+              <span className="w-5 shrink-0 text-xs tabular-nums text-gray-500">
+                {index + 1}
+              </span>
+              <span className="min-w-0 flex-1 truncate">{item.name}</span>
+              <span className="shrink-0 tabular-nums text-gray-300">
+                {item.share.toFixed(1)}%
+              </span>
+            </div>
+          ))}
+        </div>
+      </aside>
     </div>
   );
 };

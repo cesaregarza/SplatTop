@@ -1,6 +1,5 @@
-import React, { useState, useEffect, useRef, Suspense } from "react";
+import React, { Suspense, useEffect, useRef, useState } from "react";
 import { useLocation } from "react-router-dom";
-import axios from "axios";
 import Loading from "./misc_components/loading";
 import { modes } from "./constants";
 import { getBaseApiUrl, getBaseWebsocketUrl } from "./utils";
@@ -10,17 +9,81 @@ import {
   WeaponAndTranslationProvider,
   useWeaponAndTranslation,
 } from "./utils/weaponAndTranslation";
+import { fetchJson } from "./utils/fetchJson";
+import { getPlayerSummary } from "./player_components/playerPageUtils";
 
 const ChartController = React.lazy(() =>
   import("./player_components/chart_controller")
 );
 const Aliases = React.lazy(() => import("./player_components/aliases"));
-const SeasonResults = React.lazy(() =>
-  import("./player_components/season_results")
-);
 const Achievements = React.lazy(() =>
   import("./player_components/achievements")
 );
+
+const formatSummaryDate = (value) => {
+  if (!value) {
+    return "--";
+  }
+
+  return new Date(value).toLocaleString("default", {
+    year: "numeric",
+    month: "short",
+    day: "2-digit",
+  });
+};
+
+const formatSummaryNumber = (value, digits = 0, prefix = "") => {
+  if (typeof value !== "number" || !Number.isFinite(value)) {
+    return "--";
+  }
+
+  const formattedValue = digits > 0 ? value.toFixed(digits) : value.toString();
+  return `${prefix}${formattedValue}`;
+};
+
+const InlineLoadingPanel = ({ text }) => (
+  <div className="flex min-h-[14rem] flex-col items-center justify-center rounded-xl border border-gray-800/80 bg-gray-950/35 p-4 text-center">
+    <div className="h-9 w-9 animate-spin rounded-full border-2 border-purple border-t-transparent"></div>
+    <p className="mt-4 text-sm text-gray-300">{text}</p>
+  </div>
+);
+
+const CompactPlayerHeader = ({ summary, t }) => {
+  const metadataItems = [
+    t("summary.last_seen_inline").replace(
+      "%DATE%",
+      formatSummaryDate(summary.lastSeen)
+    ),
+    t("summary.aliases_inline").replace("%COUNT%", summary.aliasCount ?? 0),
+    t("summary.best_rank_inline").replace(
+      "%VALUE%",
+      formatSummaryNumber(summary.bestRank, 0, "#")
+    ),
+    t("summary.best_xp_inline").replace(
+      "%VALUE%",
+      formatSummaryNumber(summary.bestXp, 1)
+    ),
+  ];
+
+  return (
+    <header className="border-b border-gray-800/60 pb-4">
+      <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-gray-500">
+        {t("summary.dossier_label")}
+      </p>
+      <h1 className="text-3xl font-black tracking-tight text-white sm:text-4xl">
+        {summary.currentAlias || t("page_title")}
+      </h1>
+      <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-sm text-gray-400">
+        {metadataItems.map((item, index) => (
+          <React.Fragment key={item}>
+            {index > 0 ? <span className="text-gray-600">·</span> : null}
+            <span className="tabular-nums">{item}</span>
+          </React.Fragment>
+        ))}
+      </div>
+    </header>
+  );
+};
 
 const PlayerDetailContent = () => {
   const { t } = useTranslation("player");
@@ -49,12 +112,13 @@ const PlayerDetailContent = () => {
       const websocketEndpoint = `${baseWebsocketUrl}/ws/player/${player_id}`;
 
       try {
-        const response = await axios.get(endpoint);
-        setData(response.data);
-        if (response.data && response.data.length > 0) {
+        const playerData = await fetchJson(endpoint);
+        setData(playerData);
+
+        if (playerData && playerData.length > 0) {
           document.title = t("document_title_loaded").replace(
             "%PLAYER%",
-            response.data[0].splashtag
+            playerData[0].splashtag
           );
         }
 
@@ -72,13 +136,11 @@ const PlayerDetailContent = () => {
               const decompressedData = pako.inflate(reader.result, {
                 to: "string",
               });
-              const newData = JSON.parse(decompressedData);
-              setChartData(newData);
+              setChartData(JSON.parse(decompressedData));
             };
             reader.readAsArrayBuffer(event.data);
           } else {
-            const newData = JSON.parse(event.data);
-            setChartData(newData);
+            setChartData(JSON.parse(event.data));
           }
         };
 
@@ -86,13 +148,9 @@ const PlayerDetailContent = () => {
           console.error("Websocket error", event);
         };
 
-        newSocket.onclose = (event) => {
-          // Optionally handle the connection close
-        };
-
         socketRef.current = newSocket;
-      } catch (error) {
-        setError(error);
+      } catch (currentError) {
+        setError(currentError);
       } finally {
         setIsLoading(false);
       }
@@ -110,7 +168,7 @@ const PlayerDetailContent = () => {
 
   if (isLoading || isWeaponDataLoading) {
     return (
-      <div className="flex justify-center items-center h-full">
+      <div className="flex h-full items-center justify-center">
         <Loading text={t("load_page")} />
       </div>
     );
@@ -118,31 +176,32 @@ const PlayerDetailContent = () => {
 
   if (error || weaponDataError) {
     return (
-      <div className="text-red-500 text-center">
+      <div className="rounded-xl border border-red-900/60 bg-red-950/20 px-4 py-6 text-center text-red-300">
         {(error || weaponDataError).message}
       </div>
     );
   }
 
+  if (!data || data.length === 0) {
+    return <div className="text-center">{t("no_data")}</div>;
+  }
+
+  const summary = getPlayerSummary(data, chartData, modes);
+
   return (
-    <Suspense fallback={<Loading text={t("load_component")} />}>
-      {data && data.length > 0 ? (
-        <div className="flex flex-col md:flex-row">
-          <div className="md:w-2/5 md:pr-8">
-            <Aliases data={data} />
+    <Suspense fallback={<InlineLoadingPanel text={t("load_component")} />}>
+      <div className="space-y-6">
+        <CompactPlayerHeader summary={summary} t={t} />
+        <div className="grid gap-6 xl:grid-cols-[minmax(18rem,0.88fr)_minmax(0,1.55fr)]">
+          <aside className="order-2 space-y-4 xl:order-1">
+            <Aliases data={summary.aliases} />
             {chartData ? (
-              <>
-                <SeasonResults
-                  data={chartData}
-                  weaponReferenceData={weaponReferenceData}
-                />
-                <Achievements data={chartData} />
-              </>
+              <Achievements data={chartData} />
             ) : (
-              <Loading text={t("load_results")} />
+              <InlineLoadingPanel text={t("load_results")} />
             )}
-          </div>
-          <div className="md:w-3/5 mt-8 md:mt-0">
+          </aside>
+          <section className="order-1 xl:order-2">
             {chartData ? (
               <ChartController
                 data={chartData}
@@ -151,32 +210,25 @@ const PlayerDetailContent = () => {
                 weaponReferenceData={weaponReferenceData}
               />
             ) : (
-              <Loading text={t("load_chart")} />
+              <InlineLoadingPanel text={t("load_chart")} />
             )}
-          </div>
+          </section>
         </div>
-      ) : (
-        <div className="text-center">{t("no_data")}</div>
-      )}
+      </div>
     </Suspense>
   );
 };
 
-const PlayerDetail = () => {
-  const { t } = useTranslation("player");
-
-  return (
-    <WeaponAndTranslationProvider>
-      <div className="flex flex-col min-h-screen">
-        <header className="text-3xl font-bold mb-4 text-center text-white">
-          {t("page_title")}
-        </header>
-        <main className="grow container mx-auto px-4 py-8 bg-gray-900 text-white overflow-auto">
+const PlayerDetail = () => (
+  <WeaponAndTranslationProvider>
+    <div className="flex min-h-screen flex-col bg-gray-900 text-white">
+      <main className="grow">
+        <div className="container mx-auto px-4 py-8">
           <PlayerDetailContent />
-        </main>
-      </div>
-    </WeaponAndTranslationProvider>
-  );
-};
+        </div>
+      </main>
+    </div>
+  </WeaponAndTranslationProvider>
+);
 
 export default PlayerDetail;
