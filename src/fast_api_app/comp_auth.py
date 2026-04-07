@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import os
+import re
 from dataclasses import dataclass
 from urllib.parse import urlsplit
 
@@ -19,6 +20,23 @@ DEFAULT_COMP_FRONTEND_URL = "https://comp.splat.top"
 DEFAULT_LOCAL_COMP_FRONTEND_URL = "http://comp.localhost:3000"
 DEFAULT_DEV_SESSION_SECRET = "development-comp-auth-session-secret"
 PUBLIC_CORS_ORIGIN_REGEX = r"https?://.*"
+_ENV_LIST_SPLIT_RE = re.compile(r"[\n,]+")
+_DEFAULT_LOCAL_COMP_AUTH_ORIGINS = frozenset(
+    {
+        "http://comp.localhost",
+        "http://comp.localhost:3000",
+        "http://comp.localhost:4000",
+        "http://comp.localhost:8080",
+        "http://localhost",
+        "http://localhost:3000",
+        "http://localhost:4000",
+        "http://localhost:8080",
+        "http://127.0.0.1",
+        "http://127.0.0.1:3000",
+        "http://127.0.0.1:4000",
+        "http://127.0.0.1:8080",
+    }
+)
 
 
 @dataclass(frozen=True)
@@ -64,18 +82,21 @@ def _parse_env_list(name: str) -> list[str]:
     ]
 
 
-def get_comp_auth_allowed_origins() -> list[str]:
-    configured = _parse_env_list("COMP_AUTH_ALLOWED_ORIGINS")
-    if configured:
-        return configured
+def _parse_env_token_list(name: str) -> list[str]:
+    raw = os.getenv(name, "")
+    return [
+        value.strip()
+        for value in _ENV_LIST_SPLIT_RE.split(raw)
+        if value.strip()
+    ]
 
+
+def _default_comp_auth_allowed_origins() -> set[str]:
     origins = {
-        DEFAULT_LOCAL_COMP_FRONTEND_URL,
-        "http://localhost:3000",
-        "http://127.0.0.1:3000",
         DEFAULT_COMP_FRONTEND_URL,
         "https://splat.top",
         "https://www.splat.top",
+        *_DEFAULT_LOCAL_COMP_AUTH_ORIGINS,
     }
 
     frontend_override = (
@@ -84,7 +105,95 @@ def get_comp_auth_allowed_origins() -> list[str]:
     if frontend_override:
         origins.add(frontend_override)
 
+    return origins
+
+
+def get_comp_auth_allowed_origins() -> list[str]:
+    configured = _parse_env_list("COMP_AUTH_ALLOWED_ORIGINS")
+    origins = _default_comp_auth_allowed_origins()
+    origins.update(configured)
     return sorted(origins)
+
+
+def get_comp_auth_admin_discord_ids() -> frozenset[str]:
+    return frozenset(_parse_env_token_list("COMP_AUTH_ADMIN_DISCORD_IDS"))
+
+
+def is_comp_admin_discord_id(discord_id: str | None) -> bool:
+    if not discord_id:
+        return False
+    return str(discord_id).strip() in get_comp_auth_admin_discord_ids()
+
+
+def get_comp_auth_player_owner_map() -> dict[str, frozenset[str]]:
+    entries: dict[str, set[str]] = {}
+
+    for token in _parse_env_token_list("COMP_AUTH_PLAYER_OWNERS"):
+        player_id, separator, discord_id = token.partition("=")
+        player_key = player_id.strip()
+        discord_key = discord_id.strip()
+
+        if separator != "=" or not player_key or not discord_key:
+            continue
+
+        entries.setdefault(player_key, set()).add(discord_key)
+
+    return {
+        player_id: frozenset(discord_ids)
+        for player_id, discord_ids in entries.items()
+    }
+
+
+def is_comp_player_owner(
+    player_id: str | None,
+    discord_id: str | None,
+) -> bool:
+    if not player_id or not discord_id:
+        return False
+
+    player_key = str(player_id).strip()
+    discord_key = str(discord_id).strip()
+    if not player_key or not discord_key:
+        return False
+
+    return discord_key in get_comp_auth_player_owner_map().get(
+        player_key, frozenset()
+    )
+
+
+def read_authenticated_comp_discord_id(request: Request) -> str | None:
+    session_payload = request.session.get(COMP_AUTH_USER_SESSION_KEY)
+    if not isinstance(session_payload, dict):
+        return None
+
+    discord_id = str(session_payload.get("discord_id") or "").strip()
+    if not discord_id:
+        return None
+
+    return discord_id
+
+
+def require_comp_auth_user(request: Request) -> str:
+    discord_id = read_authenticated_comp_discord_id(request)
+    if discord_id is None:
+        raise HTTPException(
+            status_code=401,
+            detail="Competition authentication is required",
+        )
+
+    return discord_id
+
+
+def require_comp_admin(request: Request) -> str:
+    discord_id = require_comp_auth_user(request)
+
+    if not is_comp_admin_discord_id(discord_id):
+        raise HTTPException(
+            status_code=403,
+            detail="Competition admin access is required",
+        )
+
+    return discord_id
 
 
 def ensure_comp_auth_request_origin_allowed(request: Request) -> None:

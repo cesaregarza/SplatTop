@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import logging
 from html import escape
 from io import BytesIO
 import time
@@ -7,11 +8,27 @@ from typing import Any, Dict, Optional
 from urllib.parse import quote
 
 import orjson
-from fastapi import APIRouter, HTTPException, Request
+from fastapi.concurrency import run_in_threadpool
+from fastapi import APIRouter, Depends, HTTPException, Request
 from fastapi.responses import HTMLResponse, Response
 from PIL import Image, ImageDraw, ImageFont
+from sqlalchemy import text
 
-from fast_api_app.connections import redis_conn
+from celery_app.tasks.ripple_snapshot import (
+    MAX_PLAYER_HISTORY_ENTRIES,
+    MAX_PLAYER_MATCH_LOO_ENTRIES,
+    MIN_REQUIRED_TOURNAMENTS,
+    _fetch_player_match_loo_impacts,
+    _fetch_player_ranked_history,
+    refresh_ripple_snapshots,
+)
+from fast_api_app.comp_auth import (
+    is_comp_admin_discord_id,
+    is_comp_player_owner,
+    read_authenticated_comp_discord_id,
+    require_comp_admin,
+)
+from fast_api_app.connections import celery, rankings_async_session, redis_conn
 from fast_api_app.feature_flags import is_comp_leaderboard_enabled
 from shared_lib.constants import (
     RIPPLE_DANGER_LATEST_KEY,
@@ -23,9 +40,13 @@ from shared_lib.constants import (
     RIPPLE_STABLE_META_KEY,
     RIPPLE_STABLE_PERCENTILES_KEY,
 )
+from shared_lib.queries import ripple_queries
 
 router = APIRouter(prefix="/api/ripple/public", tags=["ripple-public"])
+admin_router = APIRouter(prefix="/api/ripple/admin", tags=["ripple-admin"])
 share_router = APIRouter(tags=["ripple-public-share"])
+
+logger = logging.getLogger(__name__)
 
 
 _STALENESS_THRESHOLD_MS = 24 * 60 * 60 * 1000  # 24 hours
@@ -33,12 +54,9 @@ _SHARE_CARD_WIDTH = 1200
 _SHARE_CARD_HEIGHT = 630
 _SHARE_SCORE_OFFSET = 150.0
 _SHARE_SCORE_TARGET = 250.0
-_SHARE_FONT_REGULAR_PATH = (
-    "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf"
-)
-_SHARE_FONT_BOLD_PATH = (
-    "/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf"
-)
+_SHARE_FONT_REGULAR_PATH = "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf"
+_SHARE_FONT_BOLD_PATH = "/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf"
+_DEFAULT_PLAYER_WINDOW_DAYS = 120
 
 
 def _ensure_enabled() -> None:
@@ -133,7 +151,9 @@ def _load_public_player_payload(player_id: str) -> Optional[Dict[str, Any]]:
     if not isinstance(player, dict):
         latest_payload = _load_payload(RIPPLE_PLAYER_INDEX_LATEST_KEY)
         if isinstance(latest_payload, dict):
-            player = _extract_player_from_legacy_index(latest_payload, player_id)
+            player = _extract_player_from_legacy_index(
+                latest_payload, player_id
+            )
             if meta_payload is None:
                 meta_payload = latest_payload
 
@@ -164,6 +184,455 @@ def _load_public_player_payload(player_id: str) -> Optional[Dict[str, Any]]:
             "retrieved_at_ms": enriched["retrieved_at_ms"],
         }
     )
+    return response
+
+
+def _to_int(value: Any) -> int | None:
+    if value is None:
+        return None
+    try:
+        return int(value)
+    except (TypeError, ValueError):
+        return None
+
+
+def _to_float(value: Any) -> float | None:
+    if value is None:
+        return None
+    try:
+        return float(value)
+    except (TypeError, ValueError):
+        return None
+
+
+def _danger_days_left_for_player(player_id: str) -> float | None:
+    payload = _load_payload(RIPPLE_DANGER_LATEST_KEY)
+    rows = payload.get("data") if isinstance(payload, dict) else None
+    if not isinstance(rows, list):
+        return None
+
+    for row in rows:
+        if not isinstance(row, dict):
+            continue
+        if str(row.get("player_id") or "") != player_id:
+            continue
+        return _to_float(row.get("days_left"))
+    return None
+
+
+async def _load_admin_player_base_from_db(
+    session,
+    player_id: str,
+) -> Dict[str, Any] | None:
+    schema = ripple_queries._schema()
+    schema_sql = f'"{schema}"'
+    window_ms = _DEFAULT_PLAYER_WINDOW_DAYS * 86_400_000
+
+    query = text(
+        f"""
+        WITH latest_ts AS (
+            SELECT MAX(calculated_at_ms) AS ts
+            FROM {schema_sql}.player_rankings
+        ),
+        latest_build AS (
+            SELECT MAX(r.build_version)::text AS build_version
+            FROM {schema_sql}.player_rankings r
+            JOIN latest_ts l ON r.calculated_at_ms = l.ts
+        ),
+        ranked_events AS (
+            SELECT DISTINCT
+                pat.tournament_id,
+                CASE
+                    WHEN tet.event_ms IS NULL THEN NULL
+                    WHEN tet.event_ms < 1000000000000
+                        THEN tet.event_ms * 1000
+                    ELSE tet.event_ms
+                END::bigint AS event_ms
+            FROM {schema_sql}.player_appearance_teams pat
+            JOIN {schema_sql}.tournament_event_times tet
+              ON tet.tournament_id = pat.tournament_id
+            WHERE pat.player_id::text = :player_id
+              AND tet.is_ranked IS TRUE
+        ),
+        counts AS (
+            SELECT
+                COUNT(*)::int AS lifetime_ranked_tournaments,
+                COALESCE(
+                    SUM(
+                        CASE
+                            WHEN re.event_ms IS NOT NULL
+                             AND latest_ts.ts IS NOT NULL
+                             AND re.event_ms BETWEEN
+                               (latest_ts.ts - :window_ms) AND latest_ts.ts
+                                THEN 1
+                            ELSE 0
+                        END
+                    ),
+                    0
+                )::int AS window_tournament_count,
+                MAX(re.event_ms)::bigint AS last_active_ms
+            FROM ranked_events re
+            CROSS JOIN latest_ts
+        ),
+        current_rank AS (
+            SELECT ranked.player_id::text AS player_id,
+                   ranked.stable_rank::int AS stable_rank,
+                   ranked.score::double precision AS stable_score,
+                   (ranked.score * 25.0)::double precision AS display_score
+            FROM (
+                SELECT
+                    r.player_id,
+                    r.score,
+                    ROW_NUMBER() OVER (
+                        ORDER BY r.score DESC, r.player_id
+                    ) AS stable_rank
+                FROM {schema_sql}.player_rankings r
+                JOIN latest_ts l ON r.calculated_at_ms = l.ts
+            ) ranked
+            WHERE ranked.player_id::text = :player_id
+        ),
+        current_stats AS (
+            SELECT
+                s.tournament_count::int AS ranking_tournament_count,
+                CASE
+                    WHEN s.last_active_ms IS NULL THEN NULL
+                    WHEN s.last_active_ms < 1000000000000
+                        THEN s.last_active_ms * 1000
+                    ELSE s.last_active_ms
+                END::bigint AS ranking_last_active_ms
+            FROM {schema_sql}.player_ranking_stats s
+            JOIN latest_ts l ON s.calculated_at_ms = l.ts
+            WHERE s.player_id::text = :player_id
+        )
+        SELECT
+            COALESCE(p.player_id::text, current_rank.player_id, :player_id)
+              AS player_id,
+            p.display_name::text AS display_name,
+            COALESCE(
+                counts.lifetime_ranked_tournaments,
+                current_stats.ranking_tournament_count,
+                0
+            )::int AS lifetime_ranked_tournaments,
+            COALESCE(counts.window_tournament_count, 0)::int
+              AS window_tournament_count,
+            COALESCE(
+                counts.last_active_ms,
+                current_stats.ranking_last_active_ms
+            )::bigint AS last_active_ms,
+            current_rank.stable_rank,
+            current_rank.stable_score,
+            current_rank.display_score,
+            latest_ts.ts::bigint AS calculated_at_ms,
+            latest_build.build_version
+        FROM latest_ts
+        LEFT JOIN latest_build ON TRUE
+        LEFT JOIN {schema_sql}.players p
+          ON p.player_id::text = :player_id
+        LEFT JOIN counts ON TRUE
+        LEFT JOIN current_rank ON TRUE
+        LEFT JOIN current_stats ON TRUE
+        """
+    )
+
+    result = await session.execute(
+        query,
+        {
+            "player_id": player_id,
+            "window_ms": window_ms,
+        },
+    )
+    row = result.mappings().first()
+    if not row:
+        return None
+
+    base = dict(row)
+    has_any_data = any(
+        [
+            str(base.get("display_name") or "").strip(),
+            _to_int(base.get("lifetime_ranked_tournaments")),
+            _to_int(base.get("window_tournament_count")),
+            _to_int(base.get("last_active_ms")),
+            _to_int(base.get("stable_rank")),
+            _to_float(base.get("stable_score")),
+        ]
+    )
+    if not has_any_data:
+        return None
+    return base
+
+
+async def _enrich_admin_player_payload_with_db_history(
+    player_id: str,
+    payload: Dict[str, Any],
+) -> Dict[str, Any]:
+    response = dict(payload)
+    history_generated_at_ms = _to_int(
+        response.get("history_generated_at_ms")
+    ) or _to_int(response.get("generated_at_ms"))
+    if history_generated_at_ms is None:
+        history_generated_at_ms = int(time.time() * 1000)
+
+    calculated_at_ms = _to_int(response.get("calculated_at_ms"))
+    build_version = response.get("build_version")
+
+    try:
+        async with rankings_async_session() as session:
+            history_by_player = await _fetch_player_ranked_history(
+                session,
+                [player_id],
+                max_per_player=None,
+            )
+            match_loo_by_player = (
+                await _fetch_player_match_loo_impacts(
+                    session,
+                    [player_id],
+                    calculated_at_ms=calculated_at_ms,
+                    build_version=build_version,
+                    max_per_player=MAX_PLAYER_MATCH_LOO_ENTRIES,
+                )
+                if calculated_at_ms is not None
+                else {}
+            )
+    except Exception:
+        logger.exception(
+            "Failed to enrich cached admin competition player payload from DB",
+            extra={"player_id": player_id},
+        )
+        return response
+
+    history_rows = history_by_player.get(player_id)
+    if isinstance(history_rows, list):
+        response["history_generated_at_ms"] = history_generated_at_ms
+        response["history_record_count"] = len(history_rows)
+        response["history_max_records"] = None
+        response["tournament_history_ranked"] = history_rows
+
+    match_loo_rows = match_loo_by_player.get(player_id)
+    if isinstance(match_loo_rows, list):
+        response["match_loo_generated_at_ms"] = history_generated_at_ms
+        response["match_loo_record_count"] = len(match_loo_rows)
+        response["match_loo_max_records"] = MAX_PLAYER_MATCH_LOO_ENTRIES
+        response["match_loo_impacts"] = match_loo_rows
+
+    return response
+
+
+async def _load_admin_player_payload_from_db_only(
+    player_id: str,
+) -> Dict[str, Any] | None:
+    player_id = str(player_id or "").strip()
+    if not player_id:
+        return None
+
+    meta_payload = _load_payload(RIPPLE_PLAYER_INDEX_META_KEY)
+    if not isinstance(meta_payload, dict):
+        meta_payload = _load_payload(RIPPLE_STABLE_META_KEY) or {}
+
+    async with rankings_async_session() as session:
+        base = await _load_admin_player_base_from_db(session, player_id)
+        if not isinstance(base, dict):
+            return None
+
+        history_by_player = await _fetch_player_ranked_history(
+            session,
+            [player_id],
+            max_per_player=None,
+        )
+        match_loo_by_player = await _fetch_player_match_loo_impacts(
+            session,
+            [player_id],
+            calculated_at_ms=_to_int(base.get("calculated_at_ms")),
+            build_version=base.get("build_version"),
+            max_per_player=MAX_PLAYER_MATCH_LOO_ENTRIES,
+        )
+
+    history_rows = history_by_player.get(player_id) or []
+    match_loo_rows = match_loo_by_player.get(player_id) or []
+    lifetime_ranked_tournaments = max(
+        0, _to_int(base.get("lifetime_ranked_tournaments")) or 0
+    )
+    window_tournament_count = max(
+        0, _to_int(base.get("window_tournament_count")) or 0
+    )
+    stable_rank = _to_int(base.get("stable_rank"))
+    stable_score = _to_float(base.get("stable_score"))
+    display_score = _to_float(base.get("display_score"))
+    eligible = stable_rank is not None and stable_score is not None
+
+    generated_at_ms = _to_int(meta_payload.get("generated_at_ms"))
+    if generated_at_ms is None:
+        generated_at_ms = int(time.time() * 1000)
+
+    last_active_ms = _to_int(base.get("last_active_ms"))
+    last_tournament_ms = last_active_ms
+    if last_tournament_ms is None and history_rows:
+        last_tournament_ms = _to_int(history_rows[0].get("event_ms"))
+
+    progress_current = min(
+        lifetime_ranked_tournaments, MIN_REQUIRED_TOURNAMENTS
+    )
+    progress_remaining = max(
+        0, MIN_REQUIRED_TOURNAMENTS - progress_current
+    )
+
+    delta_payload = _load_payload(RIPPLE_STABLE_DELTAS_KEY) or {}
+    delta_players = (
+        delta_payload.get("players")
+        if isinstance(delta_payload.get("players"), dict)
+        else {}
+    )
+    delta_entry = delta_players.get(player_id, {})
+    has_baseline = _to_int(delta_payload.get("baseline_generated_at_ms")) is not None
+
+    return {
+        "player_id": player_id,
+        "display_name": str(base.get("display_name") or player_id),
+        "eligible": eligible,
+        "ineligible_reason": None
+        if eligible
+        else "insufficient_lifetime_tournaments"
+        if lifetime_ranked_tournaments < MIN_REQUIRED_TOURNAMENTS
+        else "not_currently_eligible",
+        "minimum_required_tournaments": MIN_REQUIRED_TOURNAMENTS,
+        "lifetime_ranked_tournaments": lifetime_ranked_tournaments,
+        "window_tournament_count": window_tournament_count,
+        "progress_to_minimum": {
+            "current": progress_current,
+            "required": MIN_REQUIRED_TOURNAMENTS,
+            "remaining": progress_remaining,
+        },
+        "stable_rank": stable_rank,
+        "stable_score": stable_score,
+        "display_score": display_score,
+        "danger_days_left": _danger_days_left_for_player(player_id),
+        "last_active_ms": last_active_ms,
+        "last_tournament_ms": last_tournament_ms,
+        "rank_delta": _to_int(delta_entry.get("rank_delta"))
+        if has_baseline
+        else None,
+        "display_score_delta": _to_float(
+            delta_entry.get("display_score_delta")
+        )
+        if has_baseline
+        else None,
+        "delta_is_new": bool(delta_entry.get("is_new"))
+        if has_baseline
+        else False,
+        "delta_has_baseline": has_baseline,
+        "previous_rank": _to_int(delta_entry.get("previous_rank"))
+        if has_baseline
+        else None,
+        "previous_display_score": _to_float(
+            delta_entry.get("previous_display_score")
+        )
+        if has_baseline
+        else None,
+        "history_generated_at_ms": generated_at_ms,
+        "history_record_count": len(history_rows),
+        "history_max_records": None,
+        "tournament_history_ranked": history_rows,
+        "match_loo_generated_at_ms": generated_at_ms,
+        "match_loo_record_count": len(match_loo_rows),
+        "match_loo_max_records": MAX_PLAYER_MATCH_LOO_ENTRIES,
+        "match_loo_impacts": match_loo_rows,
+        "generated_at_ms": generated_at_ms,
+        "calculated_at_ms": _to_int(base.get("calculated_at_ms"))
+        or _to_int(meta_payload.get("calculated_at_ms")),
+        "build_version": base.get("build_version")
+        or meta_payload.get("build_version"),
+        "stale": _decorate({"generated_at_ms": generated_at_ms})["stale"],
+        "retrieved_at_ms": int(time.time() * 1000),
+    }
+
+
+async def _load_admin_player_payload_from_db(
+    player_id: str,
+) -> Dict[str, Any] | None:
+    player_id = str(player_id or "").strip()
+    if not player_id:
+        return None
+
+    cached_player = _apply_admin_player_overrides(
+        _load_public_player_payload(player_id)
+    )
+    if isinstance(cached_player, dict):
+        return await _enrich_admin_player_payload_with_db_history(
+            player_id,
+            cached_player,
+        )
+
+    return await _load_admin_player_payload_from_db_only(player_id)
+
+
+def _strip_private_player_fields(
+    payload: Dict[str, Any] | None,
+) -> Dict[str, Any] | None:
+    if not isinstance(payload, dict):
+        return None
+
+    return {
+        key: value
+        for key, value in payload.items()
+        if not str(key).startswith("private_")
+    }
+
+
+def _strip_player_results_fields(
+    payload: Dict[str, Any] | None,
+) -> Dict[str, Any] | None:
+    if not isinstance(payload, dict):
+        return None
+
+    hidden_fields = {
+        "match_loo_generated_at_ms",
+        "match_loo_record_count",
+        "match_loo_max_records",
+        "match_loo_impacts",
+    }
+    return {
+        key: value for key, value in payload.items() if key not in hidden_fields
+    }
+
+
+def _apply_admin_player_overrides(
+    payload: Dict[str, Any] | None,
+) -> Dict[str, Any] | None:
+    if not isinstance(payload, dict):
+        return None
+
+    response = dict(payload)
+    response["stable_rank"] = response.get(
+        "private_stable_rank", response.get("stable_rank")
+    )
+    response["stable_score"] = response.get(
+        "private_stable_score", response.get("stable_score")
+    )
+    response["display_score"] = response.get(
+        "private_display_score", response.get("display_score")
+    )
+    return _strip_private_player_fields(response)
+
+
+def _apply_public_player_visibility(
+    payload: Dict[str, Any] | None,
+    request: Request,
+    player_id: str,
+) -> Dict[str, Any] | None:
+    public_payload = _strip_private_player_fields(payload)
+    if not isinstance(public_payload, dict):
+        return None
+
+    discord_id = read_authenticated_comp_discord_id(request)
+    can_view_results = is_comp_admin_discord_id(
+        discord_id
+    ) or is_comp_player_owner(player_id, discord_id)
+
+    response = (
+        dict(public_payload)
+        if can_view_results
+        else _strip_player_results_fields(public_payload)
+    )
+    response["viewer_can_view_results"] = can_view_results
     return response
 
 
@@ -231,15 +700,83 @@ async def get_public_ripple_danger() -> Dict[str, Any]:
     name="public-ripple-player",
     summary="Get public competition player profile",
 )
-async def get_public_ripple_player(player_id: str) -> Dict[str, Any]:
+async def get_public_ripple_player(
+    player_id: str, request: Request
+) -> Dict[str, Any]:
     _ensure_enabled()
-    player = _load_public_player_payload(player_id)
+    player = _apply_public_player_visibility(
+        _load_public_player_payload(player_id),
+        request,
+        player_id,
+    )
     if not isinstance(player, dict):
         raise HTTPException(
             status_code=404,
             detail="Player not found in competition index",
         )
     return player
+
+
+@admin_router.get(
+    "/player/{player_id}",
+    name="admin-ripple-player",
+    summary="Get admin competition player profile",
+)
+async def get_admin_ripple_player(
+    player_id: str, _discord_id: str = Depends(require_comp_admin)
+) -> Dict[str, Any]:
+    _ensure_enabled()
+    player = None
+    try:
+        player = await _load_admin_player_payload_from_db(player_id)
+    except Exception:
+        logger.exception(
+            "Failed to load admin competition player payload from DB",
+            extra={"player_id": player_id},
+        )
+    if not isinstance(player, dict):
+        player = _apply_admin_player_overrides(
+            _load_public_player_payload(player_id)
+        )
+    if not isinstance(player, dict):
+        raise HTTPException(
+            status_code=404,
+            detail="Player not found in competition index",
+        )
+    player["viewer_can_view_results"] = True
+    return player
+
+
+@admin_router.post(
+    "/refresh",
+    name="admin-ripple-refresh",
+    summary="Queue competition snapshot refresh",
+)
+async def queue_admin_ripple_refresh(
+    wait: bool = False,
+    _discord_id: str = Depends(require_comp_admin),
+) -> Dict[str, Any]:
+    requested_at_ms = int(time.time() * 1000)
+    if wait:
+        result = await run_in_threadpool(refresh_ripple_snapshots)
+        return {
+            "queued": False,
+            "completed": True,
+            "task_name": "tasks.refresh_ripple_snapshots",
+            "task_id": None,
+            "requested_at_ms": requested_at_ms,
+            "result": result,
+        }
+
+    task = celery.send_task("tasks.refresh_ripple_snapshots")
+    task_id = getattr(task, "id", None)
+    return {
+        "queued": True,
+        "completed": False,
+        "task_name": "tasks.refresh_ripple_snapshots",
+        "task_id": task_id,
+        "requested_at_ms": requested_at_ms,
+    }
 
 
 @router.get(
@@ -381,8 +918,12 @@ def _share_description(player: Dict[str, Any]) -> str:
 
 
 def _share_title(player: Dict[str, Any]) -> str:
-    display_name = player.get("display_name") or player.get("player_id") or "Player"
-    return f"{display_name} · {_share_rank_label(player)} · splat.top Competitive"
+    display_name = (
+        player.get("display_name") or player.get("player_id") or "Player"
+    )
+    return (
+        f"{display_name} · {_share_rank_label(player)} · splat.top Competitive"
+    )
 
 
 def _truncate_text(value: str, limit: int) -> str:
@@ -491,7 +1032,9 @@ def _share_progress_label(player: Dict[str, Any]) -> str:
 
 def _share_card_png(player: Dict[str, Any]) -> bytes:
     display_name = str(
-        player.get("display_name") or player.get("player_id") or "Unknown player"
+        player.get("display_name")
+        or player.get("player_id")
+        or "Unknown player"
     )
     player_id = str(player.get("player_id") or "unknown")
     rank_label = _share_rank_label(player)
@@ -501,11 +1044,15 @@ def _share_card_png(player: Dict[str, Any]) -> bytes:
 
     score = _share_rank_score(player)
     score_label = (
-        f"{score:.2f} / {_SHARE_SCORE_TARGET:.0f}" if score is not None else "Hidden"
+        f"{score:.2f} / {_SHARE_SCORE_TARGET:.0f}"
+        if score is not None
+        else "Hidden"
     )
     progress_pct = 0.0
     if score is not None:
-        progress_pct = max(0.0, min((score / _SHARE_SCORE_TARGET) * 100.0, 100.0))
+        progress_pct = max(
+            0.0, min((score / _SHARE_SCORE_TARGET) * 100.0, 100.0)
+        )
     progress_width = round(520 * progress_pct / 100.0, 2)
 
     active_window = (
@@ -514,7 +1061,9 @@ def _share_card_png(player: Dict[str, Any]) -> bytes:
     )
     lifetime = str(int(player.get("lifetime_ranked_tournaments") or 0))
 
-    image = Image.new("RGBA", (_SHARE_CARD_WIDTH, _SHARE_CARD_HEIGHT), "#08111d")
+    image = Image.new(
+        "RGBA", (_SHARE_CARD_WIDTH, _SHARE_CARD_HEIGHT), "#08111d"
+    )
     draw = ImageDraw.Draw(image)
 
     for y in range(_SHARE_CARD_HEIGHT):
@@ -671,7 +1220,7 @@ def _share_preview_html(
         )
     else:
         redirect_body = (
-            f'<main><h1>{escape(title)}</h1>'
+            f"<main><h1>{escape(title)}</h1>"
             f"<p>{escape(description)}</p>"
             f'<p>Open <a href="{escape(profile_url)}">{escape(profile_url)}</a> '
             "to view the full competitive profile.</p></main>"

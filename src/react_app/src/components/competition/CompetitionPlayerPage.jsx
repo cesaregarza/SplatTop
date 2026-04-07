@@ -21,6 +21,7 @@ import {
   nf2,
 } from "./stableLeaderboardUtils";
 import CompetitionLayout from "./CompetitionLayout";
+import { useCompetitionAuth } from "./CompetitionAuth";
 import {
   AtGlanceItem,
   CompetitionPlayerHistoryTable,
@@ -106,10 +107,10 @@ export const CompetitionPlayerPageContent = ({
   const hasLifetimeUnlock = lifetimeRanked >= minimumRequired;
   const rankScore =
     profile?.display_score == null ? null : Number(profile.display_score) + 150;
-  const hasVisibleRank =
-    hasLifetimeUnlock && profile?.stable_rank != null;
-  const hasVisibleScore =
-    hasLifetimeUnlock && rankScore != null;
+  const hasVisibleRank = profile?.stable_rank != null;
+  const hasVisibleScore = rankScore != null;
+  const showsPrivateRankingData =
+    !hasLifetimeUnlock && (hasVisibleRank || hasVisibleScore);
   const grade = hasVisibleScore ? gradeFor(rankScore) : "—";
   const heroHasLightning = Boolean(
     hasVisibleScore && (grade === "XX+" || grade === "XX★")
@@ -231,6 +232,18 @@ export const CompetitionPlayerPageContent = ({
     expandedImpactRows: {},
   }));
   const [shareStatus, setShareStatus] = useState(null);
+
+  useEffect(() => {
+    if (!hasMatchImpactPanel && pageState.dataTab === "results") {
+      setPageState((current) => ({
+        ...current,
+        dataTab: "history",
+        resultsView: defaultMatchImpactViewId,
+        expandedImpactRows: {},
+      }));
+    }
+  }, [defaultMatchImpactViewId, hasMatchImpactPanel, pageState.dataTab]);
+
   const filteredHistory = useMemo(() => {
     const query = historyFilters.query.trim().toLowerCase();
     const filtered = tournamentHistory.filter((row) => {
@@ -275,15 +288,20 @@ export const CompetitionPlayerPageContent = ({
 
     return filtered;
   }, [tournamentHistory, historyFilters]);
-  const historyPageCount = Math.max(
-    1,
-    Math.ceil(filteredHistory.length / HISTORY_PAGE_SIZE)
-  );
-  const safeHistoryPage = Math.min(pageState.history, historyPageCount);
+  const showsFullHistoryArchive = profile?.history_max_records === null;
+  const historyPageCount = showsFullHistoryArchive
+    ? 1
+    : Math.max(1, Math.ceil(filteredHistory.length / HISTORY_PAGE_SIZE));
+  const safeHistoryPage = showsFullHistoryArchive
+    ? 1
+    : Math.min(pageState.history, historyPageCount);
   const historyRows = useMemo(() => {
+    if (showsFullHistoryArchive) {
+      return filteredHistory;
+    }
     const start = (safeHistoryPage - 1) * HISTORY_PAGE_SIZE;
     return filteredHistory.slice(start, start + HISTORY_PAGE_SIZE);
-  }, [filteredHistory, safeHistoryPage]);
+  }, [filteredHistory, safeHistoryPage, showsFullHistoryArchive]);
   const strongestHarmfulImpact = harmfulMatchImpacts[0] || null;
   const strongestHelpfulImpact = helpfulMatchImpacts[0] || null;
   const activeMatchImpactView =
@@ -464,6 +482,8 @@ export const CompetitionPlayerPageContent = ({
       : `${nf2.format(Math.abs(scoreDeltaToThreshold))} to ${trackTarget.label}`;
   const headerRankLabel = hasVisibleRank
     ? `#${nf0.format(Number(profile.stable_rank))}`
+    : profile.ineligible_reason === "insufficient_lifetime_tournaments"
+    ? "Locked"
     : hasLifetimeUnlock
     ? "Off board"
     : "Locked";
@@ -493,10 +513,15 @@ export const CompetitionPlayerPageContent = ({
       : `Results updated ${formatRelativeAge(resultsUpdatedMs)}`;
   const visibilityNote =
     profile.ineligible_reason === "insufficient_lifetime_tournaments"
-      ? `This player needs ${pluralize(
-          remainingToUnlock,
-          "more lifetime ranked tournament"
-        )} before rank and score unlock.`
+      ? showsPrivateRankingData
+        ? `Public profile keeps rank and score locked until ${pluralize(
+            remainingToUnlock,
+            "more lifetime ranked tournament"
+          )}.`
+        : `This player needs ${pluralize(
+            remainingToUnlock,
+            "more lifetime ranked tournament"
+          )} before rank and score unlock.`
       : profile.ineligible_reason === "not_currently_eligible"
       ? "This player has enough lifetime history, but they are currently outside the live stable leaderboard snapshot."
       : null;
@@ -532,7 +557,10 @@ export const CompetitionPlayerPageContent = ({
                   <GradeBadge label={grade} />
                 ) : (
                   <span className="comp-player-grade-fallback">
-                    {hasLifetimeUnlock ? "Off board" : "Locked"}
+                    {profile.ineligible_reason ===
+                    "insufficient_lifetime_tournaments"
+                      ? "Locked"
+                      : "Off board"}
                   </span>
                 )}
                 <span className="comp-player-rank-chip font-data">
@@ -907,43 +935,52 @@ export const CompetitionPlayerPageContent = ({
                     rows={historyRows}
                     referenceMs={historyReferenceMs}
                   />
-                  <div className="comp-player-data-footer comp-player-pagination">
-                    <p className="comp-player-panel-subtitle">
-                      Showing page {nf0.format(safeHistoryPage)} of{" "}
-                      {nf0.format(historyPageCount)}
-                    </p>
-                    <div className="comp-player-inline-actions">
-                      <button
-                        type="button"
-                        onClick={() =>
-                          setPageState((current) => ({
-                            ...current,
-                            history: Math.max(1, current.history - 1),
-                          }))
-                        }
-                        disabled={safeHistoryPage <= 1}
-                        className="comp-player-button comp-player-button--small"
-                      >
-                        Prev
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() =>
-                          setPageState((current) => ({
-                            ...current,
-                            history: Math.min(
-                              historyPageCount,
-                              current.history + 1
-                            ),
-                          }))
-                        }
-                        disabled={safeHistoryPage >= historyPageCount}
-                        className="comp-player-button comp-player-button--small"
-                      >
-                        Next
-                      </button>
+                  {showsFullHistoryArchive ? (
+                    <div className="comp-player-data-footer comp-player-pagination">
+                      <p className="comp-player-panel-subtitle">
+                        Showing all {nf0.format(filteredHistory.length)} matching
+                        tournaments
+                      </p>
                     </div>
-                  </div>
+                  ) : (
+                    <div className="comp-player-data-footer comp-player-pagination">
+                      <p className="comp-player-panel-subtitle">
+                        Showing page {nf0.format(safeHistoryPage)} of{" "}
+                        {nf0.format(historyPageCount)}
+                      </p>
+                      <div className="comp-player-inline-actions">
+                        <button
+                          type="button"
+                          onClick={() =>
+                            setPageState((current) => ({
+                              ...current,
+                              history: Math.max(1, current.history - 1),
+                            }))
+                          }
+                          disabled={safeHistoryPage <= 1}
+                          className="comp-player-button comp-player-button--small"
+                        >
+                          Prev
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() =>
+                            setPageState((current) => ({
+                              ...current,
+                              history: Math.min(
+                                historyPageCount,
+                                current.history + 1
+                              ),
+                            }))
+                          }
+                          disabled={safeHistoryPage >= historyPageCount}
+                          className="comp-player-button comp-player-button--small"
+                        >
+                          Next
+                        </button>
+                      </div>
+                    </div>
+                  )}
                 </>
               ) : (
                 <div className="comp-player-data-body">
@@ -974,14 +1011,46 @@ const CompetitionPlayerPage = ({ top500Href }) => {
   const { error, profile } = useLoaderData();
   const navigation = useNavigation();
   const revalidator = useRevalidator();
+  const {
+    authenticated,
+    isAdmin,
+    loading: authLoading,
+  } = useCompetitionAuth();
+  const authResyncRef = useRef(null);
+  const playerRouteRef = useRef(null);
   const loading =
     navigation.state !== "idle" || revalidator.state !== "idle";
+  const authResyncSignature = `${authenticated ? "auth" : "anon"}:${
+    isAdmin ? "admin" : "user"
+  }`;
 
   useLayoutEffect(() => {
     if (!playerId || typeof window === "undefined") return;
     if (typeof window.scrollTo !== "function") return;
     window.scrollTo(0, 0);
   }, [playerId]);
+
+  useEffect(() => {
+    if (!playerId || authLoading) return;
+
+    if (playerRouteRef.current !== playerId) {
+      playerRouteRef.current = playerId;
+      authResyncRef.current = authResyncSignature;
+      return;
+    }
+
+    if (authResyncRef.current === authResyncSignature) {
+      return;
+    }
+
+    authResyncRef.current = authResyncSignature;
+    revalidator.revalidate();
+  }, [
+    authResyncSignature,
+    authLoading,
+    playerId,
+    revalidator,
+  ]);
 
   return (
     <CompetitionPlayerPageContent

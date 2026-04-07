@@ -185,6 +185,149 @@ describe("CompetitionPlayerPage", () => {
     openSpy.mockRestore();
   });
 
+  it("shows the full archive without pagination when admin history is unbounded", () => {
+    const historyRows = Array.from({ length: 14 }, (_, idx) => ({
+      tournament_id: idx + 1,
+      tournament_name: `Cup ${idx + 1}`,
+      event_ms: 1_700_000_000_000 + idx,
+      ranked: true,
+      team_name: `Team ${idx + 1}`,
+      result_summary: `${idx % 4}W-${(idx + 1) % 3}L`,
+    }));
+
+    renderPage(
+      makeProfile({
+        history_record_count: historyRows.length,
+        history_max_records: null,
+        tournament_history_ranked: historyRows,
+      })
+    );
+
+    fireEvent.click(screen.getByRole("tab", { name: "History explorer" }));
+
+    const historyPanel = screen
+      .getByRole("tablist", { name: "Profile data views" })
+      .closest("section");
+
+    expect(within(historyPanel).getByText("Cup 14")).toBeInTheDocument();
+    expect(within(historyPanel).getByText("Cup 1")).toBeInTheDocument();
+    expect(
+      screen.getByText("Showing all 14 matching tournaments")
+    ).toBeInTheDocument();
+    expect(
+      screen.queryByText(/Showing page \d+ of \d+/)
+    ).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole("button", { name: "Next" })
+    ).not.toBeInTheDocument();
+  });
+
+  it("shows only the history explorer when strongest results are not visible", () => {
+    renderPage(
+      makeProfile({
+        history_record_count: 2,
+        tournament_history_ranked: [
+          {
+            tournament_id: 44,
+            tournament_name: "Midnight Splat",
+            event_ms: 1_700_000_000_000,
+            ranked: true,
+            team_name: "Luma",
+            result_summary: "4W-1L",
+          },
+          {
+            tournament_id: 45,
+            tournament_name: "Dawn Cup",
+            event_ms: 1_699_000_000_000,
+            ranked: true,
+            team_name: "Luma",
+            result_summary: "2W-3L",
+          },
+        ],
+        match_loo_record_count: undefined,
+        match_loo_impacts: undefined,
+      })
+    );
+
+    expect(
+      screen.queryByRole("tab", { name: "Strongest results" })
+    ).not.toBeInTheDocument();
+    expect(
+      screen.getByRole("tab", { name: "History explorer" })
+    ).toHaveAttribute("aria-selected", "true");
+    expect(screen.getAllByText("Midnight Splat").length).toBeGreaterThan(0);
+  });
+
+  it("falls back to history when strongest results disappear after a refresh", () => {
+    const historyRows = [
+      {
+        tournament_id: 44,
+        tournament_name: "Midnight Splat",
+        event_ms: 1_700_000_000_000,
+        ranked: true,
+        team_name: "Luma",
+        result_summary: "4W-1L",
+      },
+    ];
+
+    const view = renderPage(
+      makeProfile({
+        history_record_count: historyRows.length,
+        tournament_history_ranked: historyRows,
+        match_loo_record_count: 1,
+        match_loo_impacts: [
+          {
+            match_id: 501,
+            tournament_id: 44,
+            tournament_name: "Midnight Splat",
+            event_ms: 1_700_000_000_000,
+            player_rank: 7,
+            player_score: 5.1,
+            is_win: false,
+            exact_score_delta: 0.42,
+            exact_abs_delta: 0.42,
+            player_team_name: "Luma",
+            opponent_team_name: "Nova",
+            player_team_score: 1,
+            opponent_team_score: 3,
+            player_team_players: ["Aster", "Beryl", "Cinder", "Drift"],
+            opponent_team_players: ["Ember", "Flint", "Glint", "Halo"],
+          },
+        ],
+      })
+    );
+
+    expect(
+      screen.getByRole("tab", { name: "Strongest results" })
+    ).toHaveAttribute("aria-selected", "true");
+
+    view.rerender(
+      <MemoryRouter>
+        <CompetitionPlayerPageContent
+          error={null}
+          loading={false}
+          playerId="p1"
+          profile={makeProfile({
+            history_record_count: historyRows.length,
+            tournament_history_ranked: historyRows,
+            match_loo_record_count: undefined,
+            match_loo_impacts: undefined,
+          })}
+          refresh={jest.fn()}
+          top500Href="/"
+        />
+      </MemoryRouter>
+    );
+
+    expect(
+      screen.queryByRole("tab", { name: "Strongest results" })
+    ).not.toBeInTheDocument();
+    expect(
+      screen.getByRole("tab", { name: "History explorer" })
+    ).toHaveAttribute("aria-selected", "true");
+    expect(screen.getAllByText("Midnight Splat").length).toBeGreaterThan(0);
+  });
+
   it("copies the profile link", async () => {
     const writeText = jest.fn().mockResolvedValue(undefined);
     Object.defineProperty(navigator, "clipboard", {
@@ -223,6 +366,32 @@ describe("CompetitionPlayerPage", () => {
 
     expect(path).toBeInTheDocument();
     expect(scoreStat).toHaveTextContent("240.00 / 250");
+  });
+
+  it("shows admin-visible rank and score before the public unlock threshold", () => {
+    renderPage(
+      makeProfile({
+        eligible: false,
+        ineligible_reason: "insufficient_lifetime_tournaments",
+        lifetime_ranked_tournaments: 1,
+        progress_to_minimum: { current: 1, required: 3, remaining: 2 },
+        stable_rank: 21,
+        display_score: 43.75,
+      })
+    );
+
+    const scoreStat = screen
+      .getByText("Score")
+      .closest(".comp-player-header-stat");
+
+    expect(screen.getByText("#21")).toBeInTheDocument();
+    expect(scoreStat).toHaveTextContent("193.75");
+    expect(screen.queryByText("Locked")).not.toBeInTheDocument();
+    expect(
+      screen.getByText(
+        "Public profile keeps rank and score locked until 2 more lifetime ranked tournaments."
+      )
+    ).toBeInTheDocument();
   });
 
   it("defaults to most harmful when helpful rows are empty", () => {
