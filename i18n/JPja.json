@@ -178,6 +178,7 @@
     "highlights.metrics.top10": "Top 10",
     "highlights.metrics.top500": "Top 500",
     "highlights.metrics.diamonds": "王冠",
+    "highlights.metrics.diamonds_hint": "1つのシーズンで全ルールTop 10入りした回数です。",
     "highlights.metrics.best_finish": "最高順位",
     "highlights.metrics.best_mode": "得意ルール",
     "highlights.notable_title": "注目シーズン",

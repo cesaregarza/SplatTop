@@ -41,6 +41,7 @@ const Achievements = ({ data }) => {
     {
       label: t("highlights.metrics.diamonds"),
       value: highlights.diamondSeasonCount,
+      hint: t("highlights.metrics.diamonds_hint"),
     },
     {
       label: t("highlights.metrics.best_finish"),
@@ -66,8 +67,17 @@ const Achievements = ({ data }) => {
       <div className="grid grid-cols-2 gap-2">
         {metrics.map((metric) => (
           <div key={metric.label} className={metricClassName}>
-            <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-gray-500">
-              {metric.label}
+            <p className="flex items-center gap-1 text-[11px] font-semibold uppercase tracking-[0.16em] text-gray-500">
+              <span>{metric.label}</span>
+              {metric.hint ? (
+                <abbr
+                  title={metric.hint}
+                  aria-label={metric.hint}
+                  className="inline-flex h-4 w-4 items-center justify-center rounded-full border border-gray-700 text-[10px] font-bold text-gray-400 no-underline"
+                >
+                  ?
+                </abbr>
+              ) : null}
             </p>
             <p className="mt-1 text-sm font-medium text-white tabular-nums">
               {metric.value}

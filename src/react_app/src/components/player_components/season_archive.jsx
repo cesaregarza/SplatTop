@@ -83,12 +83,15 @@ const SeasonArchive = ({ data, mode, activeSeason, onSeasonChange }) => {
           </h2>
         </div>
         <p className="text-xs text-gray-500">
-          {currentDisplaySeason?.hasModeData
-            ? t("archive.selected_hint")
-                .replace(
-                  "%SEASON%",
-                  getSeasonName(currentDisplaySeason.raw_season_number, g)
-                )
+          {currentDisplaySeason
+            ? `${t("archive.selected_hint").replace(
+                "%SEASON%",
+                getSeasonName(currentDisplaySeason.raw_season_number, g)
+              )}${
+                currentDisplaySeason.hasModeData
+                  ? ""
+                  : ` \u00b7 ${t("archive.no_mode_data")}`
+              }`
             : t("archive.empty_hint")}
         </p>
       </div>
@@ -108,9 +111,8 @@ const SeasonArchive = ({ data, mode, activeSeason, onSeasonChange }) => {
               <button
                 key={row.season_number}
                 type="button"
-                disabled={!row.hasModeData}
                 onClick={() =>
-                  row.hasModeData && typeof onSeasonChange === "function"
+                  typeof onSeasonChange === "function"
                     ? onSeasonChange(row.season_number)
                     : null
                 }
@@ -118,7 +120,7 @@ const SeasonArchive = ({ data, mode, activeSeason, onSeasonChange }) => {
                   isActive
                     ? "border-purple-500/60 bg-purple-950/30"
                     : "border-gray-800/80 bg-black/10 hover:border-gray-700 hover:bg-gray-900/60"
-                } ${!row.hasModeData ? "cursor-not-allowed opacity-50" : ""}`}
+                } ${!row.hasModeData ? "opacity-70" : ""}`}
               >
                 <div className="min-w-0">
                   <div className="flex items-center gap-2">

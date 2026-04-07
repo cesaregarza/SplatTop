@@ -34,7 +34,7 @@ jest.mock("react-i18next", () => ({
 }));
 
 describe("SeasonArchive", () => {
-  it("renders archive rows and only allows selecting seasons with mode data", () => {
+  it("renders archive rows and allows selecting seasons even without mode data", () => {
     const onSeasonChange = jest.fn();
 
     render(
@@ -98,6 +98,7 @@ describe("SeasonArchive", () => {
     fireEvent.click(activeRow);
     expect(onSeasonChange).toHaveBeenCalledWith(6);
 
-    expect(disabledRow).toBeDisabled();
+    fireEvent.click(disabledRow);
+    expect(onSeasonChange).toHaveBeenCalledWith(5);
   });
 });

@@ -1,5 +1,5 @@
 import React from "react";
-import { render } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import ChartController from "./chart_controller";
 
 const mockXChartSpy = jest.fn();
@@ -41,7 +41,11 @@ jest.mock("./season_selector", () => () => <div>SEASON_SELECTOR</div>);
 
 jest.mock("./season_results", () => () => <div>SEASON_RESULTS</div>);
 
-jest.mock("./season_archive", () => () => <div>SEASON_ARCHIVE</div>);
+jest.mock("./season_archive", () => (props) => (
+  <button type="button" onClick={() => props.onSeasonChange(5)}>
+    SEASON_ARCHIVE
+  </button>
+));
 
 jest.mock("./xchart", () => (props) => {
   mockXChartSpy(props);
@@ -59,7 +63,7 @@ describe("ChartController", () => {
     mockWeaponsChartSpy.mockClear();
   });
 
-  it("defaults to the first available mode and season, and keeps archive ahead of charts", () => {
+  it("defaults to the first available mode and season, keeps archive ahead of charts, and preserves archive seasons without mode data", async () => {
     const { container } = render(
       <ChartController
         data={{
@@ -98,5 +102,13 @@ describe("ChartController", () => {
     expect(markup.indexOf("XCHART:Rainmaker")).toBeLessThan(
       markup.indexOf("WEAPONS_CHART:Rainmaker")
     );
+
+    fireEvent.click(screen.getByRole("button", { name: "SEASON_ARCHIVE" }));
+
+    await waitFor(() => {
+      expect(mockXChartSpy).toHaveBeenLastCalledWith(
+        expect.objectContaining({ mode: "Rainmaker", selectedSeason: 5 })
+      );
+    });
   });
 });

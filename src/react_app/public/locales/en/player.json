@@ -56,6 +56,7 @@
   "highlights.metrics.top10": "Top 10",
   "highlights.metrics.top500": "Top 500",
   "highlights.metrics.diamonds": "Diamonds",
+  "highlights.metrics.diamonds_hint": "Finish top 10 in every mode during a single season.",
   "highlights.metrics.best_finish": "Best Finish",
   "highlights.metrics.best_mode": "Best Mode",
   "highlights.notable_title": "Notable Seasons",

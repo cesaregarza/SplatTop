@@ -8,6 +8,7 @@ import TowerControlIcon from "../../assets/icons/tower_control.png";
 import RainmakerIcon from "../../assets/icons/rainmaker.png";
 import ClamBlitzIcon from "../../assets/icons/clam_blitz.png";
 import {
+  getAvailableDisplaySeasons,
   getCombinedSeasonResults,
   getDefaultSeasonResultTab,
 } from "./playerPageUtils";
@@ -61,11 +62,7 @@ const SeasonResults = ({
   const weaponData = aggregatedData.weapon_counts;
   const aggSeasonData = aggregatedData.aggregate_season_data;
   const combinedData = getCombinedSeasonResults(aggregatedData);
-  const seasons = Array.from(
-    new Set(
-      combinedData.map((item) => item.season_number).filter(Number.isFinite)
-    )
-  ).sort((left, right) => right - left);
+  const seasons = getAvailableDisplaySeasons(data);
   const currentSeason = calculateSeasonNow() + 1;
   const [internalActiveSeason, setInternalActiveSeason] = useState(() =>
     getDefaultSeasonResultTab(aggregatedData)
@@ -87,7 +84,7 @@ const SeasonResults = ({
 
   useEffect(() => {
     if (!seasons.includes(resolvedActiveSeason)) {
-      handleSeasonChange(getDefaultSeasonResultTab(aggregatedData));
+      handleSeasonChange(seasons[0] || getDefaultSeasonResultTab(aggregatedData));
     }
   }, [aggregatedData, resolvedActiveSeason, seasons]); // eslint-disable-line react-hooks/exhaustive-deps
 

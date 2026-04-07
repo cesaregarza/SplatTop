@@ -7,7 +7,7 @@ import SeasonSelector from "./season_selector";
 import SeasonResults from "./season_results";
 import SeasonArchive from "./season_archive";
 import {
-  getAvailableDisplaySeasonsForMode,
+  getAvailableDisplaySeasons,
   getDefaultPlayerMode,
   getDefaultSelectedDisplaySeason,
 } from "./playerPageUtils";
@@ -45,9 +45,9 @@ function ChartController({
   }, [allowedModes, data.player_data, mode, modes]);
 
   useEffect(() => {
-    const modeSeasons = getAvailableDisplaySeasonsForMode(data, mode);
-    if (modeSeasons.length > 0 && !modeSeasons.includes(selectedSeason)) {
-      setSelectedSeason(modeSeasons[0]);
+    const availableSeasons = getAvailableDisplaySeasons(data);
+    if (availableSeasons.length > 0 && !availableSeasons.includes(selectedSeason)) {
+      setSelectedSeason(getDefaultSelectedDisplaySeason(data, mode));
     }
   }, [data, mode, selectedSeason]);
 

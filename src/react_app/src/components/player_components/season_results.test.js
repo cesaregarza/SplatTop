@@ -83,4 +83,38 @@ describe("SeasonResults", () => {
     expect(screen.getByRole("combobox")).toBeInTheDocument();
     expect(screen.getByRole("option", { name: "Season 1" })).toBeInTheDocument();
   });
+
+  it("keeps an archive-selected season active even when the results table has no rows for it", () => {
+    const onSeasonChange = jest.fn();
+
+    render(
+      <SeasonResults
+        data={{
+          player_data: [
+            {
+              mode: "Rainmaker",
+              season_number: 6,
+              timestamp: "2026-01-01T00:00:00.000Z",
+              x_power: 2710,
+            },
+          ],
+          aggregated_data: {
+            weapon_counts: [],
+            aggregate_season_data: [],
+            latest_data: [],
+            season_results: [
+              { season_number: 6, mode: "Rainmaker", rank: 1, x_power: 3000 },
+            ],
+          },
+        }}
+        weaponReferenceData={null}
+        activeSeason={7}
+        onSeasonChange={onSeasonChange}
+      />
+    );
+
+    expect(onSeasonChange).not.toHaveBeenCalled();
+    expect(screen.getByRole("button", { name: /Season 6/i })).toBeInTheDocument();
+    expect(screen.getAllByText("--").length).toBeGreaterThan(0);
+  });
 });

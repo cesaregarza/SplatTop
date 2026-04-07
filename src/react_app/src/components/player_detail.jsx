@@ -67,9 +67,6 @@ const CompactPlayerHeader = ({ summary, t }) => {
 
   return (
     <header className="border-b border-gray-800/60 pb-4">
-      <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-gray-500">
-        {t("summary.dossier_label")}
-      </p>
       <h1 className="text-3xl font-black tracking-tight text-white sm:text-4xl">
         {summary.currentAlias || t("page_title")}
       </h1>
