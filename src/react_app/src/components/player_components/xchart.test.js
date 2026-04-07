@@ -127,4 +127,42 @@ describe("XChart", () => {
     expect(options.series[0].lineColor).toBe("rgba(226, 232, 240, 0.45)");
     expect(options.series[1].name).toBe("Season 9");
   });
+
+  it("does not crash when the selected season has no chart points for the current mode", async () => {
+    render(
+      <XChart
+        data={[
+          { mode: "Rainmaker", season_number: 7, timestamp: "season-7-start", x_power: 2400 },
+          { mode: "Rainmaker", season_number: 7, timestamp: "season-7-mid", x_power: 2600 },
+          { mode: "Rainmaker", season_number: 7, timestamp: "season-7-end", x_power: 2500 },
+          { mode: "Rainmaker", season_number: 8, timestamp: "season-8-start", x_power: 2500 },
+          { mode: "Rainmaker", season_number: 8, timestamp: "season-8-mid", x_power: 2700 },
+          { mode: "Rainmaker", season_number: 8, timestamp: "season-8-end", x_power: 2800 },
+        ]}
+        mode="Rainmaker"
+        colorMode="Seasonal"
+        selectedSeason={10}
+        analysisSummary={{
+          currentXp: null,
+          isCurrent: false,
+          isSparse: false,
+          peakXp: null,
+          rank: null,
+          seasonElapsed: 100,
+          trackedUpdates: 0,
+        }}
+      />
+    );
+
+    await waitFor(() =>
+      expect(screen.getByTestId("highcharts-react")).toBeInTheDocument()
+    );
+
+    const options = capturedOptions[capturedOptions.length - 1];
+
+    expect(options.xAxis.max).toBe(100);
+    expect(options.title.text).toBeNull();
+    expect(options.series).toHaveLength(1);
+    expect(options.series[0].type).toBe("arearange");
+  });
 });

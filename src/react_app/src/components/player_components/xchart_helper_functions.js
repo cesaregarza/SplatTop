@@ -96,10 +96,10 @@ function filterAndProcessData(
   };
 }
 
-const getFiniteSeasonPoints = (seasonData = {}) =>
-  (seasonData.dataPoints || []).filter(
+const getFiniteSeasonPoints = (seasonData) =>
+  ((seasonData?.dataPoints || []).filter(
     (point) => typeof point.y === "number" && Number.isFinite(point.y)
-  );
+  ));
 
 const interpolateSeasonValue = (points, percentage) => {
   if (!Array.isArray(points) || points.length === 0) {
