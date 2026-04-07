@@ -140,7 +140,7 @@ const SeasonResults = ({
 
   return (
     <section className="rounded-lg border border-gray-800/60 bg-gray-950/25">
-      <div className="flex flex-col gap-4 border-b border-gray-800/60 px-4 py-4 lg:flex-row lg:items-start lg:justify-between">
+      <div className="border-b border-gray-800/60 px-4 py-4">
         <div>
           <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-gray-500">
             {t("sections.season_snapshot")}
@@ -155,7 +155,7 @@ const SeasonResults = ({
           </div>
         </div>
         {headerControls ? (
-          <div className="lg:ml-auto lg:max-w-[42rem]">{headerControls}</div>
+          <div className="mt-3">{headerControls}</div>
         ) : null}
       </div>
 

@@ -232,11 +232,11 @@ const WeaponsChart = (props) => {
   }, [props, t, g]);
 
   return (
-    <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_16rem] lg:items-start">
+    <div className="grid gap-3 lg:grid-cols-[minmax(0,1fr)_16rem] lg:items-start">
       <div className="min-w-0">
         <HighchartsReact highcharts={Highcharts} options={options} />
       </div>
-      <aside className="border-t border-gray-800/60 pt-3 lg:border-t-0 lg:border-l lg:pl-4 lg:pt-0">
+      <aside className="border-t border-gray-800/60 pt-2 lg:border-t-0 lg:border-l lg:pl-4 lg:pt-0">
         <h3 className="text-xs font-medium uppercase tracking-[0.16em] text-gray-400">
           {t("weaponchart.outer.title")}
         </h3>

@@ -1,5 +1,8 @@
 import { modes as defaultModes } from "../constants";
-import { calculateSeasonNow } from "../utils/season_utils";
+import {
+  calculateSeasonNow,
+  getPercentageInSeason,
+} from "../utils/season_utils";
 
 const modeShortLabels = {
   "Splat Zones": "SZ",
@@ -385,6 +388,56 @@ const getSeasonPoints = (chartData = {}, displaySeasonNumber, mode) => {
     );
 };
 
+const getModeAnalysisSummary = (chartData = {}, mode, displaySeasonNumber) => {
+  const aggregatedData = chartData.aggregated_data || {};
+  const rawSeasonNumber = getRawSeasonNumber(displaySeasonNumber);
+  const seasonPoints = getSeasonPoints(chartData, displaySeasonNumber, mode);
+  const pointValues = seasonPoints
+    .map((entry) => entry.x_power)
+    .filter(isFiniteNumber);
+  const latestPointXp =
+    pointValues.length > 0 ? pointValues[pointValues.length - 1] : null;
+  const seasonResult = getCombinedSeasonResults(aggregatedData).find(
+    (entry) =>
+      entry.mode === mode && entry.season_number === displaySeasonNumber
+  );
+  const seasonAggregate = (aggregatedData.aggregate_season_data || []).find(
+    (entry) => entry.season_number === rawSeasonNumber && entry.mode === mode
+  );
+  const currentXp = isFiniteNumber(latestPointXp)
+    ? latestPointXp
+    : isFiniteNumber(seasonResult?.x_power)
+      ? seasonResult.x_power
+      : null;
+  const peakCandidates = [
+    seasonAggregate?.peak_x_power,
+    seasonResult?.x_power,
+    ...pointValues,
+  ].filter(isFiniteNumber);
+  const peakXp =
+    peakCandidates.length > 0 ? Math.max(...peakCandidates) : null;
+  const currentSeason = calculateSeasonNow();
+  const isCurrent = rawSeasonNumber === currentSeason;
+  const seasonElapsed = isCurrent
+    ? Math.max(
+        0,
+        Math.min(100, getPercentageInSeason(new Date(), rawSeasonNumber))
+      )
+    : 100;
+  const trackedUpdates = pointValues.length;
+
+  return {
+    currentXp,
+    isCurrent,
+    isSparse: isCurrent && trackedUpdates <= 3,
+    peakXp,
+    rank: isFiniteNumber(seasonResult?.rank) ? seasonResult.rank : null,
+    rawSeasonNumber,
+    seasonElapsed,
+    trackedUpdates,
+  };
+};
+
 const getSeasonArchiveRows = (chartData = {}, mode) => {
   const aggregatedData = chartData.aggregated_data || {};
   const combinedResults = getCombinedSeasonResults(aggregatedData);
@@ -443,6 +496,7 @@ export {
   getDefaultSeasonResultTab,
   getDefaultSelectedDisplaySeason,
   getDisplaySeasonNumber,
+  getModeAnalysisSummary,
   getPlayerSummary,
   getRawSeasonNumber,
   getSeasonArchiveRows,

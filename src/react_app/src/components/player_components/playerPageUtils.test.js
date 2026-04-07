@@ -4,6 +4,7 @@ import {
   getDefaultPlayerMode,
   getDefaultSeasonResultTab,
   getDefaultSelectedDisplaySeason,
+  getModeAnalysisSummary,
   getPlayerSummary,
   getSeasonArchiveRows,
 } from "./playerPageUtils";
@@ -175,6 +176,80 @@ describe("playerPageUtils", () => {
         hasModeData: true,
       }),
     ]);
+  });
+
+  it("derives a sparse live-season analysis summary for the selected mode", () => {
+    const RealDate = Date;
+    try {
+      global.Date = class extends RealDate {
+        constructor(...args) {
+          if (args.length === 0) {
+            return new RealDate("2025-01-20T00:00:00.000Z");
+          }
+          return new RealDate(...args);
+        }
+
+        static now() {
+          return new RealDate("2025-01-20T00:00:00.000Z").getTime();
+        }
+
+        static parse(value) {
+          return RealDate.parse(value);
+        }
+
+        static UTC(...args) {
+          return RealDate.UTC(...args);
+        }
+      };
+
+      const chartData = {
+        player_data: [
+          {
+            mode: "Rainmaker",
+            season_number: 9,
+            timestamp: "2024-12-01T00:00:00.000Z",
+            x_power: 2720.2,
+          },
+          {
+            mode: "Rainmaker",
+            season_number: 9,
+            timestamp: "2025-01-10T00:00:00.000Z",
+            x_power: 2765.5,
+          },
+        ],
+        aggregated_data: {
+          season_results: [],
+          latest_data: [
+            {
+              season_number: 9,
+              mode: "Rainmaker",
+              rank: 7,
+              x_power: 2765.5,
+            },
+          ],
+          aggregate_season_data: [
+            {
+              season_number: 9,
+              mode: "Rainmaker",
+              peak_x_power: 2780.1,
+            },
+          ],
+        },
+      };
+
+      expect(getModeAnalysisSummary(chartData, "Rainmaker", 10)).toEqual(
+        expect.objectContaining({
+          currentXp: 2765.5,
+          isCurrent: true,
+          isSparse: true,
+          peakXp: 2780.1,
+          rank: 7,
+          trackedUpdates: 2,
+        })
+      );
+    } finally {
+      global.Date = RealDate;
+    }
   });
 
   it("counts only all-top-10 seasons as diamond seasons", () => {

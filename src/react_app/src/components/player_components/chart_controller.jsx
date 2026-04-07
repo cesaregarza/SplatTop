@@ -9,10 +9,11 @@ import SeasonArchive from "./season_archive";
 import {
   getAvailableDisplaySeasons,
   getDefaultPlayerMode,
+  getModeAnalysisSummary,
   getDefaultSelectedDisplaySeason,
 } from "./playerPageUtils";
 import { modeKeyMap } from "../constants";
-import { getSeasonName } from "../utils/season_utils";
+import { calculateSeasonNow, getSeasonName } from "../utils/season_utils";
 
 function ChartController({
   data,
@@ -68,10 +69,12 @@ function ChartController({
   };
   const selectedModeLabel = g(modeKeyMap[mode]);
   const selectedSeasonLabel = getSeasonName(selectedSeason - 1, g);
+  const analysisSummary = getModeAnalysisSummary(data, mode, selectedSeason);
+  const isCurrentSeason = selectedSeason === calculateSeasonNow() + 1;
   const seasonToolbar = (
     <div className="flex flex-col gap-3">
-      <div className="flex flex-wrap items-start gap-3 lg:justify-end">
-        <div className="flex flex-col gap-1">
+      <div className="flex flex-wrap items-end gap-3">
+        <div className="min-w-[13rem] flex-1">
           <span className="text-[11px] font-semibold uppercase tracking-[0.16em] text-gray-500">
             {t("controller.mode")}
           </span>
@@ -88,7 +91,7 @@ function ChartController({
             buttonVariant="utility"
           />
         </div>
-        <div className="flex flex-col gap-1">
+        <div className="min-w-[10rem]">
           <span className="text-[11px] font-semibold uppercase tracking-[0.16em] text-gray-500">
             {t("controller.color")}
           </span>
@@ -115,7 +118,7 @@ function ChartController({
             ))}
           </div>
         </div>
-        <div className="flex min-w-[13rem] flex-col gap-1">
+        <div className="min-w-[13rem] flex-1">
           <span className="text-[11px] font-semibold uppercase tracking-[0.16em] text-gray-500">
             {t("controller.weapon_seasons")}
           </span>
@@ -127,7 +130,7 @@ function ChartController({
           />
         </div>
       </div>
-      <p className="text-xs text-gray-500 lg:text-right">
+      <p className="text-xs text-gray-500">
         {t("controller.color_hint")}
       </p>
     </div>
@@ -149,21 +152,24 @@ function ChartController({
         onSeasonChange={setSelectedSeason}
       />
       <section className="rounded-lg border border-gray-800/60 bg-gray-950/25">
-        <div className="flex flex-col gap-2 border-b border-gray-800/60 px-4 py-4 sm:flex-row sm:items-end sm:justify-between">
+        <div className="flex flex-col gap-3 border-b border-gray-800/60 px-4 py-4 sm:flex-row sm:items-start sm:justify-between">
           <div>
             <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-gray-500">
               {t("sections.mode_analysis")}
             </p>
             <div className="mt-1 flex flex-wrap items-center gap-2">
               <h2 className="text-lg font-semibold text-white">
-                {selectedModeLabel}
-              </h2>
-              <span className="rounded-full border border-gray-800 bg-black/20 px-2.5 py-1 text-xs font-semibold uppercase tracking-[0.14em] text-gray-300">
                 {selectedSeasonLabel}
-              </span>
+              </h2>
+              {isCurrentSeason ? (
+                <span className="rounded-full border border-purple-500/50 bg-purple-950/40 px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[0.14em] text-purple-100">
+                  {t("xchart.live_indicator")}
+                </span>
+              ) : null}
+              <span className="text-sm text-gray-400">{selectedModeLabel}</span>
             </div>
           </div>
-          <div className="flex flex-wrap items-center gap-2 text-xs font-semibold uppercase tracking-[0.16em] text-gray-500">
+          <div className="flex flex-wrap items-center gap-2 text-xs font-semibold uppercase tracking-[0.16em] text-gray-500 sm:justify-end">
             <span className="rounded-full border border-gray-800 bg-black/20 px-2.5 py-1">
               {t(
                 colorMode === "Seasonal"
@@ -176,15 +182,16 @@ function ChartController({
             </span>
           </div>
         </div>
-        <div className="px-4 py-4">
+        <div className="px-4 py-3">
           <XChart
             data={data.player_data}
             mode={mode}
             colorMode={colorMode}
             selectedSeason={selectedSeason}
+            analysisSummary={analysisSummary}
           />
         </div>
-        <div className="border-t border-gray-800/60 px-4 py-4">
+        <div className="border-t border-gray-800/60 px-4 py-3">
           <WeaponsChart
             data={filteredAggregatedData}
             mode={mode}
