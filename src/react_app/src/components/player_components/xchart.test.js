@@ -119,8 +119,12 @@ describe("XChart", () => {
     expect(options.title.text).toBeNull();
     expect(options.subtitle.text).toBeNull();
     expect(options.chart.height).toBe(260);
-    expect(options.xAxis.max).toBe(25);
+    expect(options.xAxis.max).toBe(100);
+    expect(options.xAxis.plotLines[0].value).toBe(25);
     expect(options.series[0].type).toBe("arearange");
+    expect(options.series[0].fillOpacity).toBe(0.3);
+    expect(options.series[0].lineWidth).toBe(1);
+    expect(options.series[0].lineColor).toBe("rgba(226, 232, 240, 0.45)");
     expect(options.series[1].name).toBe("Season 9");
   });
 });

@@ -86,6 +86,8 @@
   "archive.table.peak_xp": "最高XP",
   "archive.table.finish": "順位",
   "archive.table.progression": "推移",
+  "archive.show_more": "アーカイブを表示 (%COUNT%)",
+  "archive.hide_more": "アーカイブを隠す",
   "results.title": "シーズンごとの結果",
   "results.archive": "過去シーズン",
   "results.status.live": "今シーズンの速報",

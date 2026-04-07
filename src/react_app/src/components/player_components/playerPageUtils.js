@@ -481,6 +481,43 @@ const getSeasonArchiveRows = (chartData = {}, mode) => {
   });
 };
 
+const getSeasonArchiveSections = (chartData = {}, mode, activeSeason) => {
+  const allRows = getSeasonArchiveRows(chartData, mode);
+  const rowsBySeason = new Map(
+    allRows.map((row) => [row.season_number, row])
+  );
+  const visibleRows = [];
+  const seenSeasons = new Set();
+  const pushVisibleRow = (row) => {
+    if (!row || seenSeasons.has(row.season_number)) {
+      return;
+    }
+
+    seenSeasons.add(row.season_number);
+    visibleRows.push(row);
+  };
+
+  pushVisibleRow(rowsBySeason.get(activeSeason));
+  pushVisibleRow(rowsBySeason.get(getDisplaySeasonNumber(calculateSeasonNow())));
+
+  allRows.forEach((row) => {
+    if (visibleRows.length >= 4) {
+      return;
+    }
+
+    pushVisibleRow(row);
+  });
+
+  const hiddenRows = allRows.filter((row) => !seenSeasons.has(row.season_number));
+
+  return {
+    allRows,
+    visibleRows,
+    hiddenRows,
+    hasHiddenRows: hiddenRows.length > 0,
+  };
+};
+
 export {
   countDiamondSeasons,
   getAvailableDisplaySeasons,
@@ -499,6 +536,7 @@ export {
   getModeAnalysisSummary,
   getPlayerSummary,
   getRawSeasonNumber,
+  getSeasonArchiveSections,
   getSeasonArchiveRows,
   getSeasonPoints,
   modeShortLabels,

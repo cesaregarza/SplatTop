@@ -209,9 +209,10 @@ const XChart = (props) => {
               type: "arearange",
               name: t("analysis.legend.historical_range"),
               data: historicalBandData,
-              color: "rgba(148, 163, 184, 0.16)",
-              fillOpacity: 0.16,
-              lineWidth: 0,
+              color: "rgba(203, 213, 225, 0.3)",
+              fillOpacity: 0.3,
+              lineWidth: 1,
+              lineColor: "rgba(226, 232, 240, 0.45)",
               enableMouseTracking: false,
               zIndex: 1,
             },
@@ -287,7 +288,7 @@ const XChart = (props) => {
         </span>
         {historicalBandData.length > 0 ? (
           <span className="flex items-center gap-2">
-            <span className="h-3 w-6 rounded-sm bg-slate-400/30"></span>
+            <span className="h-3 w-6 rounded-sm border border-slate-200/40 bg-slate-200/30"></span>
             <span>{t("analysis.legend.historical_range")}</span>
           </span>
         ) : null}

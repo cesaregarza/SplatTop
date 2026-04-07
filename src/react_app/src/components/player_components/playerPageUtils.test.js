@@ -6,6 +6,7 @@ import {
   getDefaultSelectedDisplaySeason,
   getModeAnalysisSummary,
   getPlayerSummary,
+  getSeasonArchiveSections,
   getSeasonArchiveRows,
 } from "./playerPageUtils";
 
@@ -176,6 +177,89 @@ describe("playerPageUtils", () => {
         hasModeData: true,
       }),
     ]);
+  });
+
+  it("splits season archive rows into visible and hidden sections", () => {
+    const RealDate = Date;
+
+    try {
+      global.Date = class extends RealDate {
+        constructor(...args) {
+          if (args.length === 0) {
+            return new RealDate("2025-01-20T00:00:00.000Z");
+          }
+          return new RealDate(...args);
+        }
+
+        static now() {
+          return new RealDate("2025-01-20T00:00:00.000Z").getTime();
+        }
+
+        static parse(value) {
+          return RealDate.parse(value);
+        }
+
+        static UTC(...args) {
+          return RealDate.UTC(...args);
+        }
+      };
+
+      const chartData = {
+        player_data: [
+          {
+            mode: "Rainmaker",
+            season_number: 5,
+            timestamp: "2024-01-01T00:00:00.000Z",
+            x_power: 2400,
+          },
+          {
+            mode: "Rainmaker",
+            season_number: 6,
+            timestamp: "2024-04-01T00:00:00.000Z",
+            x_power: 2450,
+          },
+          {
+            mode: "Rainmaker",
+            season_number: 7,
+            timestamp: "2024-07-01T00:00:00.000Z",
+            x_power: 2500,
+          },
+          {
+            mode: "Rainmaker",
+            season_number: 8,
+            timestamp: "2024-10-01T00:00:00.000Z",
+            x_power: 2600,
+          },
+          {
+            mode: "Rainmaker",
+            season_number: 9,
+            timestamp: "2025-01-01T00:00:00.000Z",
+            x_power: 2700,
+          },
+        ],
+        aggregated_data: {
+          season_results: [],
+          latest_data: [],
+          aggregate_season_data: [],
+        },
+      };
+
+      const archiveSections = getSeasonArchiveSections(
+        chartData,
+        "Rainmaker",
+        6
+      );
+
+      expect(archiveSections.visibleRows.map((row) => row.season_number)).toEqual([
+        6, 10, 9, 8,
+      ]);
+      expect(archiveSections.hiddenRows.map((row) => row.season_number)).toEqual([
+        7,
+      ]);
+      expect(archiveSections.hasHiddenRows).toBe(true);
+    } finally {
+      global.Date = RealDate;
+    }
   });
 
   it("derives a sparse live-season analysis summary for the selected mode", () => {

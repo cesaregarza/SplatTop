@@ -140,13 +140,7 @@ const interpolateSeasonValue = (points, percentage) => {
   return null;
 };
 
-const getVisibleSeasonMax = (isCurrent, currentPercentage) => {
-  if (!isCurrent) {
-    return 100;
-  }
-
-  return Math.max(0, Math.min(100, currentPercentage));
-};
+const getVisibleSeasonMax = () => 100;
 
 const getHistoricalRangeBandData = (
   processedData = [],

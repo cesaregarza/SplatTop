@@ -208,6 +208,8 @@
     "archive.table.peak_xp": "Peak XP",
     "archive.table.finish": "Finish",
     "archive.table.progression": "Progression",
+    "archive.show_more": "Show archive (%COUNT%)",
+    "archive.hide_more": "Hide archive",
     "results.title": "Season Results",
     "results.archive": "Archive",
     "results.status.live": "Live season snapshot",

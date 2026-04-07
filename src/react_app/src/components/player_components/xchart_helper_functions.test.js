@@ -38,8 +38,8 @@ describe("xchart helper functions", () => {
     ]);
   });
 
-  it("uses now for live seasons and the full season for finished seasons", () => {
-    expect(getVisibleSeasonMax(true, 32.4)).toBe(32.4);
+  it("always uses the full season range for the main chart", () => {
+    expect(getVisibleSeasonMax(true, 32.4)).toBe(100);
     expect(getVisibleSeasonMax(false, 32.4)).toBe(100);
   });
 });
