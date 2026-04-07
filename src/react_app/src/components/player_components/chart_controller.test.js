@@ -6,16 +6,30 @@ const mockXChartSpy = jest.fn();
 const mockWeaponsChartSpy = jest.fn();
 
 jest.mock("react-i18next", () => ({
-  useTranslation: () => ({
+  useTranslation: (ns) => ({
     t: (key) =>
       ({
-        "controller.mode": "Mode",
-        "controller.color": "Color",
-        "controller.seasonal": "Seasonal",
-        "controller.accessible": "Accessible",
-        "controller.weapon_seasons": "Weapon Seasons",
-        "controller.color_hint": "Changes chart colors only.",
-      })[key] || key,
+        player: {
+          "controller.mode": "Mode",
+          "controller.color": "Color",
+          "controller.seasonal": "Seasonal",
+          "controller.accessible": "Accessible",
+          "controller.weapon_seasons": "Weapon Seasons",
+          "controller.color_hint": "Changes chart colors only.",
+          "sections.mode_analysis": "Mode Analysis",
+        },
+        game: {
+          spring: "Fresh",
+          summer: "Sizzle",
+          autumn: "Drizzle",
+          winter: "Chill",
+          format_short: "%SEASON% %YEAR%",
+          rm: "Rainmaker",
+          cb: "Clam Blitz",
+          sz: "Splat Zones",
+          tc: "Tower Control",
+        },
+      })[ns]?.[key] || key,
   }),
 }));
 
@@ -26,6 +40,8 @@ jest.mock("../top500_components/selectors/mode_selector", () => (props) => (
 jest.mock("./season_selector", () => () => <div>SEASON_SELECTOR</div>);
 
 jest.mock("./season_results", () => () => <div>SEASON_RESULTS</div>);
+
+jest.mock("./season_archive", () => () => <div>SEASON_ARCHIVE</div>);
 
 jest.mock("./xchart", () => (props) => {
   mockXChartSpy(props);
@@ -43,13 +59,13 @@ describe("ChartController", () => {
     mockWeaponsChartSpy.mockClear();
   });
 
-  it("defaults to the first available mode and keeps season results ahead of charts", () => {
+  it("defaults to the first available mode and season, and keeps archive ahead of charts", () => {
     const { container } = render(
       <ChartController
         data={{
           player_data: [
-            { mode: "Rainmaker" },
-            { mode: "Clam Blitz" },
+            { mode: "Rainmaker", season_number: 5 },
+            { mode: "Clam Blitz", season_number: 4 },
           ],
           aggregated_data: {
             weapon_counts: [],
@@ -66,7 +82,7 @@ describe("ChartController", () => {
     );
 
     expect(mockXChartSpy).toHaveBeenLastCalledWith(
-      expect.objectContaining({ mode: "Rainmaker" })
+      expect.objectContaining({ mode: "Rainmaker", selectedSeason: 6 })
     );
     expect(mockWeaponsChartSpy).toHaveBeenLastCalledWith(
       expect.objectContaining({ mode: "Rainmaker" })
@@ -74,6 +90,9 @@ describe("ChartController", () => {
 
     const markup = container.textContent;
     expect(markup.indexOf("SEASON_RESULTS")).toBeLessThan(
+      markup.indexOf("SEASON_ARCHIVE")
+    );
+    expect(markup.indexOf("SEASON_ARCHIVE")).toBeLessThan(
       markup.indexOf("XCHART:Rainmaker")
     );
     expect(markup.indexOf("XCHART:Rainmaker")).toBeLessThan(

@@ -6,12 +6,11 @@ import {
   filterAndProcessData,
   getSeasonColor,
   getAccessibleColor,
-  getDefaultWidth,
-  getAccessibleWidth,
 } from "./xchart_helper_functions";
 import fetchFestivalDates from "./splatfest_retriever";
 import { useTranslation } from "react-i18next";
 import { modeKeyMap } from "../constants";
+import { getRawSeasonNumber } from "./playerPageUtils";
 import "./xchart.css";
 
 const XChart = (props) => {
@@ -32,7 +31,7 @@ const XChart = (props) => {
     fetchDates();
   }, []);
 
-  const { data, mode, colorMode } = props;
+  const { data, mode, colorMode, selectedSeason } = props;
   const modeName = g(modeKeyMap[mode]);
   const { currentSeason, processedData } = filterAndProcessData(
     data,
@@ -40,11 +39,19 @@ const XChart = (props) => {
     true,
     festivalDates
   );
+  const selectedRawSeason = getRawSeasonNumber(selectedSeason);
+  const selectedSeasonData =
+    processedData.find((seasonData) => seasonData.season === selectedRawSeason) ||
+    null;
 
   const currentPercentage = getPercentageInSeason(new Date(), currentSeason);
 
-  const chartTitle = t("xchart.title").replace("%MODE%", modeName);
   const currSeasonIndicator = t("xchart.live_indicator");
+  const chartTitle = selectedSeasonData
+    ? getSeasonName(selectedSeasonData.season, g) +
+      (selectedSeasonData.isCurrent ? ` ${currSeasonIndicator}` : "")
+    : t("xchart.title").replace("%MODE%", modeName);
+  const chartSubtitle = selectedSeasonData ? modeName : t("no_data");
 
   const options = {
     chart: {
@@ -59,6 +66,12 @@ const XChart = (props) => {
       text: chartTitle,
       style: {
         color: "#ffffff",
+      },
+    },
+    subtitle: {
+      text: chartSubtitle,
+      style: {
+        color: "#9ca3af",
       },
     },
     xAxis: {
@@ -84,21 +97,24 @@ const XChart = (props) => {
         },
       },
       gridLineColor: "rgba(255, 255, 255, 0.1)",
-      plotLines: [
-        {
-          color: "rgba(255, 255, 255, 0.4)",
-          width: 2,
-          value: currentPercentage,
-          dashStyle: "Dash",
-          label: {
-            text: t("xchart.now"),
-            align: "left",
-            style: {
-              color: "rgba(255, 255, 255, 0.8)",
-            },
-          },
-        },
-      ],
+      plotLines:
+        selectedSeasonData?.isCurrent
+          ? [
+              {
+                color: "rgba(255, 255, 255, 0.4)",
+                width: 2,
+                value: currentPercentage,
+                dashStyle: "Dash",
+                label: {
+                  text: t("xchart.now"),
+                  align: "left",
+                  style: {
+                    color: "rgba(255, 255, 255, 0.8)",
+                  },
+                },
+              },
+            ]
+          : [],
       min: 0,
       max: 100,
     },
@@ -124,18 +140,12 @@ const XChart = (props) => {
       gridLineColor: "rgba(255, 255, 255, 0.1)",
     },
     tooltip: {
-      shared: true,
+      shared: false,
       formatter: function () {
-        if (
-          this.points.some((point) =>
-            point.series.name.includes(currSeasonIndicator)
-          )
-        ) {
-          return this.points
-            .map((point) => `<b>${point.series.name}</b>: ${point.y}`)
-            .join("<br/>");
+        if (selectedSeasonData?.isCurrent && this.y != null) {
+          return `<b>${chartTitle}</b>: ${this.y}`;
         }
-        return false;
+        return this.y != null ? `<b>${chartTitle}</b>: ${this.y}` : false;
       },
     },
     plotOptions: {
@@ -143,63 +153,35 @@ const XChart = (props) => {
         marker: {
           enabled: false,
         },
-        showInNavigator: true,
       },
     },
-    series: processedData.map((seasonData, index) => ({
-      name:
-        getSeasonName(seasonData.season, g) +
-        (seasonData.isCurrent ? " " + currSeasonIndicator : ""),
-      data: seasonData.dataPoints.map((point) => [point.x, point.y]),
-      pointStart: 0,
-      pointInterval: 20,
-      color:
-        colorMode === "Seasonal"
-          ? getSeasonColor(seasonData.season, seasonData.isCurrent)
-          : getAccessibleColor(seasonData.season),
-      zIndex: seasonData.isCurrent ? 10 : 0,
-      lineWidth:
-        colorMode === "Seasonal"
-          ? getDefaultWidth(seasonData.isCurrent)
-          : getAccessibleWidth(seasonData.season),
-      enableMouseTracking: seasonData.isCurrent,
-      marker: {
-        states: {
-          hover: {
-            enabled: seasonData.isCurrent,
+    series: selectedSeasonData
+      ? [
+          {
+            name: chartTitle,
+            data: selectedSeasonData.dataPoints.map((point) => [point.x, point.y]),
+            color:
+              colorMode === "Seasonal"
+                ? getSeasonColor(
+                    selectedSeasonData.season,
+                    selectedSeasonData.isCurrent
+                  )
+                : getAccessibleColor(selectedSeasonData.season),
+            zIndex: 10,
+            lineWidth: 4,
+            enableMouseTracking: true,
+            marker: {
+              states: {
+                hover: {
+                  enabled: true,
+                },
+              },
+            },
           },
-        },
-      },
-    })),
+        ]
+      : [],
     legend: {
-      itemStyle: {
-        color: "#ffffff",
-      },
-    },
-    navigator: {
-      enabled: true,
-      xAxis: {
-        min: -5,
-        max: 105,
-        labels: {
-          style: {
-            color: "#ffffff",
-          },
-          formatter: function () {
-            if (this.value === 0) {
-              return "Start";
-            } else if (this.value === 100) {
-              return "End";
-            } else {
-              return this.value;
-            }
-          },
-        },
-      },
-      scrollbar: {
-        enabled: true,
-      },
-      maskFill: "rgba(255, 255, 255, 0.1)",
+      enabled: false,
     },
   };
 

@@ -47,7 +47,13 @@ const WeaponCell = ({ weaponId, weaponReferenceData }) => {
   );
 };
 
-const SeasonResults = ({ data, weaponReferenceData, headerControls = null }) => {
+const SeasonResults = ({
+  data,
+  weaponReferenceData,
+  headerControls = null,
+  activeSeason = null,
+  onSeasonChange = null,
+}) => {
   const { t } = useTranslation("player");
   const { t: g } = useTranslation("game");
   const keyPrefix = "SeasonResults-";
@@ -61,18 +67,32 @@ const SeasonResults = ({ data, weaponReferenceData, headerControls = null }) => 
     )
   ).sort((left, right) => right - left);
   const currentSeason = calculateSeasonNow() + 1;
-  const [activeTab, setActiveTab] = useState(() =>
+  const [internalActiveSeason, setInternalActiveSeason] = useState(() =>
     getDefaultSeasonResultTab(aggregatedData)
   );
+  const resolvedActiveSeason =
+    typeof activeSeason === "number" && Number.isFinite(activeSeason)
+      ? activeSeason
+      : internalActiveSeason;
+
+  const handleSeasonChange = (nextSeason) => {
+    if (typeof onSeasonChange === "function") {
+      onSeasonChange(nextSeason);
+    }
+
+    if (!(typeof activeSeason === "number" && Number.isFinite(activeSeason))) {
+      setInternalActiveSeason(nextSeason);
+    }
+  };
 
   useEffect(() => {
-    if (!seasons.includes(activeTab)) {
-      setActiveTab(getDefaultSeasonResultTab(aggregatedData));
+    if (!seasons.includes(resolvedActiveSeason)) {
+      handleSeasonChange(getDefaultSeasonResultTab(aggregatedData));
     }
-  }, [activeTab, aggregatedData, seasons]);
+  }, [aggregatedData, resolvedActiveSeason, seasons]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const filteredData = combinedData
-    .filter((item) => item.season_number === activeTab)
+    .filter((item) => item.season_number === resolvedActiveSeason)
     .map((item) => {
       const { season_number, mode } = item;
 
@@ -100,7 +120,7 @@ const SeasonResults = ({ data, weaponReferenceData, headerControls = null }) => 
 
     return (
       modeEntry || {
-        season_number: activeTab,
+        season_number: resolvedActiveSeason,
         mode,
         rank: "--",
         x_power: null,
@@ -112,12 +132,14 @@ const SeasonResults = ({ data, weaponReferenceData, headerControls = null }) => 
   });
 
   const statusText =
-    activeTab === currentSeason
+    resolvedActiveSeason === currentSeason
       ? t("results.status.live")
       : t("results.status.final");
   const visibleSeasons = seasons.slice(0, 4);
   const overflowSeasons = seasons.slice(4);
-  const archiveValue = overflowSeasons.includes(activeTab) ? String(activeTab) : "";
+  const archiveValue = overflowSeasons.includes(resolvedActiveSeason)
+    ? String(resolvedActiveSeason)
+    : "";
 
   return (
     <section className="rounded-lg border border-gray-800/60 bg-gray-950/25">
@@ -145,11 +167,11 @@ const SeasonResults = ({ data, weaponReferenceData, headerControls = null }) => 
           <button
             key={`${keyPrefix}${season}`}
             className={`rounded-md border px-3 py-1.5 text-sm font-medium whitespace-nowrap transition ${
-              activeTab === season
+              resolvedActiveSeason === season
                 ? "border-purple-500/60 bg-purple-950/40 text-purple-100"
                 : "border-gray-800 bg-black/20 text-gray-300 hover:border-gray-700 hover:bg-gray-900/70 hover:text-white"
             } focus:outline-hidden focus:ring-2 focus:ring-purple-500`}
-            onClick={() => setActiveTab(season)}
+            onClick={() => handleSeasonChange(season)}
           >
             <span className="flex items-center gap-2">
               <span>{getSeasonName(season - 1, g)}</span>
@@ -168,14 +190,24 @@ const SeasonResults = ({ data, weaponReferenceData, headerControls = null }) => 
               value={archiveValue}
               onChange={(event) => {
                 if (event.target.value) {
-                  setActiveTab(Number(event.target.value));
+                  handleSeasonChange(Number(event.target.value));
                 }
               }}
               className="rounded-md border border-gray-800 bg-black/20 px-3 py-1.5 text-sm font-medium normal-case tracking-normal text-gray-200 focus:border-purple-500 focus:outline-hidden"
+              style={{ colorScheme: "dark" }}
             >
-              <option value="">{t("results.archive")}</option>
+              <option
+                value=""
+                style={{ backgroundColor: "#030712", color: "#e5e7eb" }}
+              >
+                {t("results.archive")}
+              </option>
               {overflowSeasons.map((season) => (
-                <option key={`${keyPrefix}archive-${season}`} value={season}>
+                <option
+                  key={`${keyPrefix}archive-${season}`}
+                  value={season}
+                  style={{ backgroundColor: "#030712", color: "#e5e7eb" }}
+                >
                   {getSeasonName(season - 1, g)}
                 </option>
               ))}
@@ -191,13 +223,13 @@ const SeasonResults = ({ data, weaponReferenceData, headerControls = null }) => 
               <th className="px-3 py-2">{t("results.table.mode")}</th>
               <th className="px-3 py-2">{t("results.table.rank")}</th>
               <th className="px-3 py-2">
-                {activeTab === currentSeason
+                {resolvedActiveSeason === currentSeason
                   ? t("results.table.current_xp")
                   : t("results.table.final_xp")}
               </th>
               <th className="px-3 py-2">{t("results.table.peak_xp")}</th>
               <th className="px-3 py-2">
-                {activeTab === currentSeason
+                {resolvedActiveSeason === currentSeason
                   ? t("results.table.current_weapon")
                   : t("results.table.final_weapon")}
               </th>

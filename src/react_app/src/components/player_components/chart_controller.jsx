@@ -5,8 +5,14 @@ import XChart from "./xchart";
 import WeaponsChart from "./weapons";
 import SeasonSelector from "./season_selector";
 import SeasonResults from "./season_results";
-import { getDefaultPlayerMode } from "./playerPageUtils";
+import SeasonArchive from "./season_archive";
+import {
+  getAvailableDisplaySeasonsForMode,
+  getDefaultPlayerMode,
+  getDefaultSelectedDisplaySeason,
+} from "./playerPageUtils";
 import { modeKeyMap } from "../constants";
+import { getSeasonName } from "../utils/season_utils";
 
 function ChartController({
   data,
@@ -18,6 +24,12 @@ function ChartController({
   const { t: g } = useTranslation("game");
   const [mode, setMode] = useState(() =>
     getDefaultPlayerMode(data.player_data, modes)
+  );
+  const [selectedSeason, setSelectedSeason] = useState(() =>
+    getDefaultSelectedDisplaySeason(
+      data,
+      getDefaultPlayerMode(data.player_data, modes)
+    )
   );
   const [colorMode, setColorMode] = useState("Seasonal");
   const [selectedSeasons, setSelectedSeasons] = useState([]);
@@ -31,6 +43,13 @@ function ChartController({
       setMode(getDefaultPlayerMode(data.player_data, modes));
     }
   }, [allowedModes, data.player_data, mode, modes]);
+
+  useEffect(() => {
+    const modeSeasons = getAvailableDisplaySeasonsForMode(data, mode);
+    if (modeSeasons.length > 0 && !modeSeasons.includes(selectedSeason)) {
+      setSelectedSeason(modeSeasons[0]);
+    }
+  }, [data, mode, selectedSeason]);
 
   const filterBySeasonAndMode = (rows) => {
     if (selectedSeasons.length === 0) {
@@ -48,6 +67,7 @@ function ChartController({
     weapon_winrate: filterBySeasonAndMode(data.aggregated_data.weapon_winrate),
   };
   const selectedModeLabel = g(modeKeyMap[mode]);
+  const selectedSeasonLabel = getSeasonName(selectedSeason - 1, g);
   const seasonToolbar = (
     <div className="flex flex-col gap-3">
       <div className="flex flex-wrap items-start gap-3 lg:justify-end">
@@ -119,6 +139,14 @@ function ChartController({
         data={data}
         weaponReferenceData={weaponReferenceData}
         headerControls={seasonToolbar}
+        activeSeason={selectedSeason}
+        onSeasonChange={setSelectedSeason}
+      />
+      <SeasonArchive
+        data={data}
+        mode={mode}
+        activeSeason={selectedSeason}
+        onSeasonChange={setSelectedSeason}
       />
       <section className="rounded-lg border border-gray-800/60 bg-gray-950/25">
         <div className="flex flex-col gap-2 border-b border-gray-800/60 px-4 py-4 sm:flex-row sm:items-end sm:justify-between">
@@ -126,9 +154,14 @@ function ChartController({
             <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-gray-500">
               {t("sections.mode_analysis")}
             </p>
-            <h2 className="mt-1 text-lg font-semibold text-white">
-              {selectedModeLabel}
-            </h2>
+            <div className="mt-1 flex flex-wrap items-center gap-2">
+              <h2 className="text-lg font-semibold text-white">
+                {selectedModeLabel}
+              </h2>
+              <span className="rounded-full border border-gray-800 bg-black/20 px-2.5 py-1 text-xs font-semibold uppercase tracking-[0.14em] text-gray-300">
+                {selectedSeasonLabel}
+              </span>
+            </div>
           </div>
           <div className="flex flex-wrap items-center gap-2 text-xs font-semibold uppercase tracking-[0.16em] text-gray-500">
             <span className="rounded-full border border-gray-800 bg-black/20 px-2.5 py-1">
@@ -144,7 +177,12 @@ function ChartController({
           </div>
         </div>
         <div className="px-4 py-4">
-          <XChart data={data.player_data} mode={mode} colorMode={colorMode} />
+          <XChart
+            data={data.player_data}
+            mode={mode}
+            colorMode={colorMode}
+            selectedSeason={selectedSeason}
+          />
         </div>
         <div className="border-t border-gray-800/60 px-4 py-4">
           <WeaponsChart
