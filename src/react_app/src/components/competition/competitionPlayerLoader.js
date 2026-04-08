@@ -1,4 +1,5 @@
 import { getBaseApiUrl } from "../utils";
+import { readCachedCompetitionAuthState } from "./competitionAuthApi";
 
 const normalizePlayerRouteError = (value) => {
   if (!value) return "Unknown error";
@@ -40,6 +41,11 @@ const fetchCompetitionPlayerProfile = (id, signal, path) => fetch(
   }
 );
 
+const shouldPreferAdminPlayerPayload = () => {
+  const authState = readCachedCompetitionAuthState();
+  return Boolean(authState?.authenticated && authState?.isAdmin);
+};
+
 export const loadCompetitionPlayer = async ({ params, request }) => {
   const id = String(params?.playerId || "").trim();
   if (!id) {
@@ -51,14 +57,17 @@ export const loadCompetitionPlayer = async ({ params, request }) => {
   }
 
   try {
-    let accessMode = "admin";
+    let accessMode = shouldPreferAdminPlayerPayload() ? "admin" : "public";
     let response = await fetchCompetitionPlayerProfile(
       id,
       request.signal,
-      "/api/ripple/admin/player/:id"
+      accessMode === "admin"
+        ? "/api/ripple/admin/player/:id"
+        : "/api/ripple/public/player/:id"
     );
 
     if (
+      accessMode === "admin" &&
       !response.ok &&
       (response.status === 401 || response.status === 403)
     ) {

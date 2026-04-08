@@ -8,6 +8,7 @@ import React, {
 import {
   fetchCompetitionAuthState,
   logoutCompetitionAuth,
+  writeCachedCompetitionAuthState,
 } from "./competitionAuthApi";
 
 const defaultCompetitionAuthState = {
@@ -72,6 +73,12 @@ export const CompetitionAuthProvider = ({ children }) => {
           return;
         }
 
+        writeCachedCompetitionAuthState({
+          available: defaultCompetitionAuthState.available,
+          authenticated: false,
+          isAdmin: false,
+          discordId: null,
+        });
         setAuthState((current) => ({
           ...current,
           authenticated: false,
@@ -112,6 +119,12 @@ export const CompetitionAuthProvider = ({ children }) => {
         }));
         return nextState;
       } catch (error) {
+        writeCachedCompetitionAuthState({
+          available: authState.available,
+          authenticated: false,
+          isAdmin: false,
+          discordId: null,
+        });
         setAuthState((current) => ({
           ...current,
           authenticated: false,
@@ -143,6 +156,12 @@ export const CompetitionAuthProvider = ({ children }) => {
         });
         return nextState;
       } catch (error) {
+        writeCachedCompetitionAuthState({
+          available: authState.available,
+          authenticated: false,
+          isAdmin: false,
+          discordId: null,
+        });
         setAuthState((current) => ({
           ...current,
           error: normalizeCompetitionAuthError(error),

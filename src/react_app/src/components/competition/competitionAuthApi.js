@@ -1,6 +1,7 @@
 import { getBaseApiUrl } from "../utils";
 
 const COMP_AUTH_BASE_PATH = "/api/comp-auth";
+let cachedCompetitionAuthState = null;
 
 const buildCompetitionAuthUrl = (path) => {
   const baseApiUrl = getBaseApiUrl();
@@ -13,15 +14,36 @@ const buildCompetitionAuthUrl = (path) => {
   return new URL(endpoint, baseApiUrl).href;
 };
 
+const cloneCompetitionAuthState = (state) => {
+  if (!state || typeof state !== "object") {
+    return null;
+  }
+  return { ...state };
+};
+
 const normalizeCompetitionAuthPayload = (payload) => ({
   available: payload?.available !== false,
   authenticated: Boolean(payload?.authenticated),
-  isAdmin: Boolean(payload?.is_admin),
+  isAdmin: Boolean(payload?.is_admin ?? payload?.isAdmin),
   discordId:
-    typeof payload?.discord_id === "string" && payload.discord_id.trim()
-      ? payload.discord_id
+    typeof (payload?.discord_id ?? payload?.discordId) === "string" &&
+    String(payload?.discord_id ?? payload?.discordId).trim()
+      ? String(payload?.discord_id ?? payload?.discordId)
       : null,
 });
+
+export const readCachedCompetitionAuthState = () => cloneCompetitionAuthState(
+  cachedCompetitionAuthState
+);
+
+export const writeCachedCompetitionAuthState = (payload) => {
+  cachedCompetitionAuthState = normalizeCompetitionAuthPayload(payload);
+  return readCachedCompetitionAuthState();
+};
+
+export const resetCachedCompetitionAuthState = () => {
+  cachedCompetitionAuthState = null;
+};
 
 const readCompetitionAuthError = async (response) => {
   try {
@@ -47,7 +69,7 @@ export const fetchCompetitionAuthState = async (signal) => {
     throw error;
   }
 
-  return normalizeCompetitionAuthPayload(await response.json());
+  return writeCachedCompetitionAuthState(await response.json());
 };
 
 export const logoutCompetitionAuth = async () => {
@@ -63,7 +85,7 @@ export const logoutCompetitionAuth = async () => {
     throw error;
   }
 
-  return normalizeCompetitionAuthPayload(await response.json());
+  return writeCachedCompetitionAuthState(await response.json());
 };
 
 export const resolveCompetitionDiscordLoginUrl = () => {

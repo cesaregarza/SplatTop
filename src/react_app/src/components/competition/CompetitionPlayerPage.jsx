@@ -1008,7 +1008,7 @@ export const CompetitionPlayerPageContent = ({
 
 const CompetitionPlayerPage = ({ top500Href }) => {
   const { playerId } = useParams();
-  const { error, profile } = useLoaderData();
+  const { accessMode, error, profile } = useLoaderData();
   const navigation = useNavigation();
   const revalidator = useRevalidator();
   const {
@@ -1036,6 +1036,9 @@ const CompetitionPlayerPage = ({ top500Href }) => {
     if (playerRouteRef.current !== playerId) {
       playerRouteRef.current = playerId;
       authResyncRef.current = authResyncSignature;
+      if (isAdmin && accessMode !== "admin") {
+        revalidator.revalidate();
+      }
       return;
     }
 
@@ -1046,8 +1049,10 @@ const CompetitionPlayerPage = ({ top500Href }) => {
     authResyncRef.current = authResyncSignature;
     revalidator.revalidate();
   }, [
+    accessMode,
     authResyncSignature,
     authLoading,
+    isAdmin,
     playerId,
     revalidator,
   ]);

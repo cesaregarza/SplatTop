@@ -9,6 +9,10 @@ import { CompetitionAuthProvider } from "./CompetitionAuth";
 import CompetitionPlayerPage, {
   loadCompetitionPlayer,
 } from "./CompetitionPlayerPage";
+import {
+  fetchCompetitionAuthState,
+  resetCachedCompetitionAuthState,
+} from "./competitionAuthApi";
 
 jest.mock("../../hooks/useCrackleEffect", () => jest.fn());
 
@@ -64,20 +68,16 @@ describe("CompetitionPlayerPage loader", () => {
   beforeEach(() => {
     jest.clearAllMocks();
     window.scrollTo = jest.fn();
+    resetCachedCompetitionAuthState();
   });
 
   afterEach(() => {
     delete global.fetch;
+    resetCachedCompetitionAuthState();
   });
 
   it("returns backend error details for failed loads", async () => {
     global.fetch = jest.fn()
-      .mockResolvedValueOnce(
-        makeJsonResponse(
-          { detail: "Competition admin authentication is required" },
-          401
-        )
-      )
       .mockResolvedValueOnce(
         makeJsonResponse(
           { detail: "Player not found in competition index" },
@@ -97,14 +97,8 @@ describe("CompetitionPlayerPage loader", () => {
     });
   });
 
-  it("falls back to the public player endpoint when admin auth is unavailable", async () => {
+  it("loads the public player endpoint first when auth state is unknown", async () => {
     global.fetch = jest.fn()
-      .mockResolvedValueOnce(
-        makeJsonResponse(
-          { detail: "Competition admin authentication is required" },
-          401
-        )
-      )
       .mockResolvedValueOnce(
         makeJsonResponse(
           makeProfile({
@@ -136,13 +130,9 @@ describe("CompetitionPlayerPage loader", () => {
       error: null,
     });
     expect(result.profile.display_name).toBe("Public Fallback Player");
+    expect(global.fetch).toHaveBeenCalledTimes(1);
     expect(global.fetch).toHaveBeenNthCalledWith(
       1,
-      expect.stringContaining("/api/ripple/admin/player/public-player"),
-      expect.objectContaining({ credentials: "include" })
-    );
-    expect(global.fetch).toHaveBeenNthCalledWith(
-      2,
       expect.stringContaining("/api/ripple/public/player/public-player"),
       expect.objectContaining({ credentials: "include" })
     );
@@ -152,22 +142,10 @@ describe("CompetitionPlayerPage loader", () => {
     global.fetch = jest.fn()
       .mockResolvedValueOnce(
         makeJsonResponse(
-          { detail: "Competition admin authentication is required" },
-          401
-        )
-      )
-      .mockResolvedValueOnce(
-        makeJsonResponse(
           makeProfile({
             player_id: "a",
             display_name: "Player A",
           })
-        )
-      )
-      .mockResolvedValueOnce(
-        makeJsonResponse(
-          { detail: "Competition admin authentication is required" },
-          401
         )
       )
       .mockResolvedValueOnce(
@@ -262,8 +240,18 @@ describe("CompetitionPlayerPage loader", () => {
     expect(screen.queryByText("Player A")).not.toBeInTheDocument();
   });
 
-  it("uses the admin player endpoint for admin sessions", async () => {
+  it("uses the admin player endpoint when an admin session is already cached", async () => {
     global.fetch = jest.fn()
+      .mockResolvedValueOnce(
+        makeJsonResponse(
+          {
+            available: true,
+            authenticated: true,
+            is_admin: true,
+            discord_id: "123456789",
+          }
+        )
+      )
       .mockResolvedValueOnce(
         makeJsonResponse(
           makeProfile({
@@ -275,6 +263,8 @@ describe("CompetitionPlayerPage loader", () => {
         )
       );
 
+    await fetchCompetitionAuthState();
+
     const result = await loadCompetitionPlayer({
       params: { playerId: "p1" },
       request: new Request("http://localhost/u/p1"),
@@ -283,21 +273,36 @@ describe("CompetitionPlayerPage loader", () => {
     expect(result.error).toBeNull();
     expect(result.profile.display_name).toBe("Admin Visible Player");
     expect(global.fetch).toHaveBeenNthCalledWith(
-      1,
+      2,
       expect.stringContaining("/api/ripple/admin/player/p1"),
       expect.objectContaining({ credentials: "include" })
     );
   });
 
-  it("keeps rendering the admin player payload even when comp auth state fails closed", async () => {
+  it("upgrades a direct player load to the admin payload after auth resolves", async () => {
     global.fetch = jest.fn((url) => {
       const path = String(url);
 
       if (path.includes("/api/comp-auth/me")) {
         return Promise.resolve(
+          makeJsonResponse({
+            available: true,
+            authenticated: true,
+            is_admin: true,
+            discord_id: "123456789",
+          })
+        );
+      }
+
+      if (path.includes("/api/ripple/public/player/p1")) {
+        return Promise.resolve(
           makeJsonResponse(
-            { detail: "Competition auth origin is not allowed" },
-            403
+            makeProfile({
+              player_id: "p1",
+              display_name: "Public Visible Player",
+              stable_rank: null,
+              display_score: null,
+            })
           )
         );
       }
@@ -337,6 +342,10 @@ describe("CompetitionPlayerPage loader", () => {
 
     await screen.findByText("Admin Visible Player");
 
+    expect(global.fetch).toHaveBeenCalledWith(
+      expect.stringContaining("/api/ripple/public/player/p1"),
+      expect.objectContaining({ credentials: "include" })
+    );
     expect(global.fetch).toHaveBeenCalledWith(
       expect.stringContaining("/api/ripple/admin/player/p1"),
       expect.objectContaining({ credentials: "include" })
