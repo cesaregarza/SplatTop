@@ -1,12 +1,16 @@
 import * as RankColumn from "./columns/rank_column";
 import * as WeaponColumn from "./columns/weapon_column";
 import * as SplashtagColumn from "./columns/splashtag_column";
+import * as BestColumn from "./columns/best_column";
+import * as CareerColumn from "./columns/career_column";
 import * as XPowerColumn from "./columns/xpower_column";
 
 const columnsConfig = [
   RankColumn,
   WeaponColumn,
   SplashtagColumn,
+  BestColumn,
+  CareerColumn,
   XPowerColumn,
 ];
 

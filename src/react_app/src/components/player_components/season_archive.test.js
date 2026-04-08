@@ -161,6 +161,9 @@ describe("SeasonArchive", () => {
     fireEvent.click(screen.getByRole("button", { name: "Show archive (2)" }));
 
     expect(screen.getByRole("button", { name: "Hide archive" })).toBeInTheDocument();
+    expect(
+      screen.getByTestId("season-archive-scroll-region")
+    ).toBeInTheDocument();
     expect(screen.getByText("Season 6")).toBeInTheDocument();
     expect(screen.getByText("Season 5")).toBeInTheDocument();
 

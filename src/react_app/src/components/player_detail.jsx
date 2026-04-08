@@ -190,7 +190,7 @@ const PlayerDetailContent = () => {
       <div className="space-y-6">
         <CompactPlayerHeader summary={summary} t={t} />
         <div className="grid gap-6 xl:grid-cols-[minmax(18rem,0.88fr)_minmax(0,1.55fr)]">
-          <aside className="order-2 space-y-4 xl:order-1">
+          <aside className="order-1 min-w-0 space-y-4">
             <Aliases data={summary.aliases} />
             {chartData ? (
               <Achievements data={chartData} />
@@ -198,7 +198,7 @@ const PlayerDetailContent = () => {
               <InlineLoadingPanel text={t("load_results")} />
             )}
           </aside>
-          <section className="order-1 xl:order-2">
+          <section className="order-2 min-w-0">
             {chartData ? (
               <ChartController
                 data={chartData}

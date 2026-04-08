@@ -138,7 +138,7 @@ function ChartController({
   );
 
   return (
-    <div className="space-y-4 pb-24">
+    <div className="min-w-0 space-y-4 pb-24">
       <SeasonResults
         data={data}
         weaponReferenceData={weaponReferenceData}
@@ -152,7 +152,7 @@ function ChartController({
         activeSeason={selectedSeason}
         onSeasonChange={setSelectedSeason}
       />
-      <section className="rounded-lg border border-gray-800/60 bg-gray-950/25">
+      <section className="min-w-0 rounded-lg border border-gray-800/60 bg-gray-950/25">
         <div className="flex flex-col gap-3 border-b border-gray-800/60 px-4 py-4 sm:flex-row sm:items-start sm:justify-between">
           <div>
             <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-gray-500">

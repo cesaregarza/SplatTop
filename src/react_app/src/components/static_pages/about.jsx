@@ -118,8 +118,8 @@ const About = () => {
               >
                 @cbcnznmxxcatpaw
               </a>{" "}
-              for the incredible "diamond" X badge used to represent a player
-              who achieved Top 10 in all modes during a single season.
+              for the incredible "diamond" X badge used to represent an
+              all-mode Top 10 season.
             </li>
           </ul>
         </p>

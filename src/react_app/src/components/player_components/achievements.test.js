@@ -11,12 +11,13 @@ jest.mock("react-i18next", () => ({
             "highlights.title": "Career Highlights",
             "highlights.subtitle": "Best finishes and notable seasons.",
             "highlights.metrics.top10": "Top 10",
-          "highlights.metrics.top500": "Top 500",
-          "highlights.metrics.diamonds": "Diamonds",
-          "highlights.metrics.diamonds_hint":
-            "Finish top 10 in every mode during a single season.",
-          "highlights.metrics.best_finish": "Best Finish",
-          "highlights.metrics.best_mode": "Best Mode",
+            "highlights.metrics.top500": "Top 500",
+            "highlights.metrics.all_mode_top10": "All-mode Top 10",
+            "highlights.metrics.all_mode_top10_hint":
+              "Diamond: finish Top 10 in all four modes during a single season.",
+            "highlights.metrics.all_mode_top10_flavor": "Diamond seasons",
+            "highlights.metrics.best_finish": "Best Finish",
+            "highlights.metrics.best_mode": "Best Mode",
             "highlights.notable_title": "Notable Seasons",
             "highlights.no_notable": "No Top 500 seasons yet.",
           },
@@ -93,13 +94,14 @@ describe("Achievements", () => {
     expect(screen.getByText("5")).toBeInTheDocument();
     expect(screen.getByText("Top 500")).toBeInTheDocument();
     expect(screen.getByText("6")).toBeInTheDocument();
-    expect(screen.getByText("Diamonds")).toBeInTheDocument();
+    expect(screen.getByText("All-mode Top 10")).toBeInTheDocument();
     expect(screen.getByText("1")).toBeInTheDocument();
     expect(
       screen.getByLabelText(
-        "Finish top 10 in every mode during a single season."
+        "Diamond: finish Top 10 in all four modes during a single season."
       )
     ).toBeInTheDocument();
+    expect(screen.getByText("Diamond seasons")).toBeInTheDocument();
     expect(screen.getByText("Best Finish")).toBeInTheDocument();
     expect(screen.getByText("#1")).toBeInTheDocument();
     expect(screen.getByText("Best Mode")).toBeInTheDocument();

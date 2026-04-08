@@ -29,7 +29,7 @@ class BackgroundRunner:
         for manager in self.table_managers:
             manager.initialize_table()
 
-    async def update_table(self, manager: TableManager):
+    async def update_table(self, manager: TableManager) -> int:
         logger.info("Updating table %s", manager.table_name)
         sleep_time = manager.cadence
         outcome = "success"
@@ -51,18 +51,24 @@ class BackgroundRunner:
                     float(sleep_time)
                 )
 
-        logger.info(
-            "Sleeping %s for %d seconds", manager.table_name, sleep_time
-        )
-        await asyncio.sleep(sleep_time)
+        return sleep_time
+
+    async def run_manager(self, manager: TableManager):
+        while True:
+            sleep_time = await self.update_table(manager)
+            logger.info(
+                "Sleeping %s for %d seconds",
+                manager.table_name,
+                sleep_time,
+            )
+            await asyncio.sleep(sleep_time)
 
     async def run(self):
         logger.info("Starting background task to update tables")
-        while True:
-            tasks = [
-                self.update_table(manager) for manager in self.table_managers
-            ]
-            await asyncio.gather(*tasks)
+        tasks = [
+            self.run_manager(manager) for manager in self.table_managers
+        ]
+        await asyncio.gather(*tasks)
 
 
 background_runner = BackgroundRunner(

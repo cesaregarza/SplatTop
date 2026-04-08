@@ -39,9 +39,10 @@ const Achievements = ({ data }) => {
       value: highlights.totalTop500,
     },
     {
-      label: t("highlights.metrics.diamonds"),
+      label: t("highlights.metrics.all_mode_top10"),
       value: highlights.diamondSeasonCount,
-      hint: t("highlights.metrics.diamonds_hint"),
+      hint: t("highlights.metrics.all_mode_top10_hint"),
+      flavor: t("highlights.metrics.all_mode_top10_flavor"),
     },
     {
       label: t("highlights.metrics.best_finish"),
@@ -82,6 +83,9 @@ const Achievements = ({ data }) => {
             <p className="mt-1 text-sm font-medium text-white tabular-nums">
               {metric.value}
             </p>
+            {metric.flavor ? (
+              <p className="mt-1 text-xs text-gray-500">{metric.flavor}</p>
+            ) : null}
           </div>
         ))}
       </div>

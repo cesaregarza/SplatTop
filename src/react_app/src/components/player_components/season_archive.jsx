@@ -187,7 +187,6 @@ const SeasonArchive = ({ data, mode, activeSeason, onSeasonChange }) => {
         </div>
         <div className="space-y-2 pt-2">
           {visibleRows.map(renderRow)}
-          {isArchiveOpen ? hiddenRows.map(renderRow) : null}
         </div>
         {hasHiddenRows ? (
           <div className="pt-3">
@@ -203,6 +202,16 @@ const SeasonArchive = ({ data, mode, activeSeason, onSeasonChange }) => {
                     hiddenRows.length.toString()
                   )}
             </button>
+          </div>
+        ) : null}
+        {isArchiveOpen && hiddenRows.length > 0 ? (
+          <div className="mt-3 rounded-md border border-gray-800/70 bg-black/15">
+            <div
+              data-testid="season-archive-scroll-region"
+              className="max-h-80 space-y-2 overflow-y-auto overscroll-contain p-2 pr-1"
+            >
+              {hiddenRows.map(renderRow)}
+            </div>
           </div>
         ) : null}
       </div>

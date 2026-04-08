@@ -1,8 +1,6 @@
 import React, { Suspense } from "react";
 import { useTranslation } from "react-i18next";
 import Loading from "../misc_components/loading";
-import { useWeaponAndTranslation } from "../utils/weaponAndTranslation";
-import { FaExchangeAlt } from "react-icons/fa";
 
 const RegionSelector = React.lazy(() =>
   import("../top500_components/selectors/region_selector")
@@ -13,6 +11,23 @@ const ModeSelector = React.lazy(() =>
 const WeaponSelector = React.lazy(() => import("./weapon_selector"));
 const ThresholdSelector = React.lazy(() => import("./threshold_selector"));
 const SeasonSelector = React.lazy(() => import("./season_selector"));
+
+const controlLabelClass =
+  "mb-2 block text-[0.68rem] font-semibold uppercase tracking-[0.22em] text-gray-400";
+
+const segmentedButtonClass = (isSelected) =>
+  `rounded-md border px-3 py-2 text-sm font-medium transition ${
+    isSelected
+      ? "border-purple-500/60 bg-purple-950/40 text-white"
+      : "border-gray-800 bg-gray-950/70 text-gray-200 hover:border-gray-700 hover:bg-gray-900"
+  }`;
+
+const ControlSection = ({ label, children, className = "" }) => (
+  <div className={className}>
+    <p className={controlLabelClass}>{label}</p>
+    {children}
+  </div>
+);
 
 const WeaponLeaderboardControls = ({
   selectedRegion,
@@ -27,23 +42,21 @@ const WeaponLeaderboardControls = ({
   setThreshold,
   finalResults,
   toggleFinalResults,
-  handleSwapWeapons,
   dedupePlayers,
   toggleDedupePlayers,
   selectedSeason,
   setSelectedSeason,
+  compareEnabled,
+  toggleCompare,
+  localizedWeaponTranslations,
+  weaponReferenceData,
 }) => {
   const { t } = useTranslation("weapon_leaderboard");
-  const { t: pl } = useTranslation("player");
-  const {
-    weaponTranslations,
-    weaponReferenceData,
-    isLoading: isWeaponDataLoading,
-    error: weaponDataError,
-  } = useWeaponAndTranslation();
-
   const weaponReferenceDataById = React.useMemo(() => {
-    if (!weaponReferenceData) return {};
+    if (!weaponReferenceData) {
+      return {};
+    }
+
     return Object.entries(weaponReferenceData).reduce((acc, [key, value]) => {
       if (key === value.reference_id.toString()) {
         acc[key] = value;
@@ -52,152 +65,158 @@ const WeaponLeaderboardControls = ({
     }, {});
   }, [weaponReferenceData]);
 
-  if (isWeaponDataLoading) {
+  if (
+    !weaponReferenceDataById ||
+    Object.keys(weaponReferenceDataById).length === 0 ||
+    !localizedWeaponTranslations
+  ) {
     return <Loading text={t("loading")} />;
-  }
-
-  if (weaponDataError) {
-    return <div className="text-red-500">{weaponDataError.message}</div>;
   }
 
   return (
     <Suspense fallback={<Loading text={t("loading")} />}>
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-4">
-        <div className="flex flex-col items-center">
-          <RegionSelector
-            selectedRegion={selectedRegion}
-            setSelectedRegion={setSelectedRegion}
-          />
+      <section className="rounded-lg border border-gray-800 bg-gray-950/70 p-3 sm:p-4">
+        <div className="grid gap-3 xl:grid-cols-[minmax(0,1.15fr)_minmax(0,1.7fr)_minmax(0,1.35fr)_minmax(0,1.35fr)]">
+          <ControlSection label={t("controls.region")}>
+            <RegionSelector
+              selectedRegion={selectedRegion}
+              setSelectedRegion={setSelectedRegion}
+              showTitle={false}
+              showLabels={true}
+              buttonVariant="utility"
+              buttonPadding="px-3 py-2"
+              imageWidth="w-7"
+              imageHeight="h-7"
+              baseClass="w-full"
+            />
+          </ControlSection>
+
+          <ControlSection label={t("controls.mode")}>
+            <ModeSelector
+              selectedMode={selectedMode}
+              setSelectedMode={setSelectedMode}
+              showTitle={false}
+              showLabels={true}
+              buttonVariant="utility"
+              buttonPadding="px-3 py-2"
+              imageWidth="w-7"
+              imageHeight="h-7"
+              baseClass="w-full"
+              equalWidthButtons={true}
+              autoFitEqualWidth={true}
+            />
+          </ControlSection>
+
+          <ControlSection label={t("controls.weapon")}>
+            <WeaponSelector
+              onWeaponSelect={setWeaponId}
+              weaponReferenceData={weaponReferenceDataById}
+              weaponTranslations={localizedWeaponTranslations}
+              initialWeaponId={weaponId}
+              className="w-full"
+            />
+          </ControlSection>
+
+          <ControlSection label={t("controls.compare")}>
+            {compareEnabled ? (
+              <div className="space-y-2">
+                <WeaponSelector
+                  onWeaponSelect={setAdditionalWeaponId}
+                  weaponReferenceData={weaponReferenceDataById}
+                  weaponTranslations={localizedWeaponTranslations}
+                  initialWeaponId={additionalWeaponId}
+                  allowNull={true}
+                  className="w-full"
+                />
+                <button
+                  onClick={toggleCompare}
+                  className="w-full rounded-md border border-gray-800 bg-gray-950/70 px-3 py-2 text-sm text-gray-300 hover:border-gray-700 hover:bg-gray-900 hover:text-white"
+                >
+                  {t("controls.compare_disable")}
+                </button>
+              </div>
+            ) : (
+              <button
+                onClick={toggleCompare}
+                className="w-full rounded-md border border-gray-800 bg-gray-950/70 px-3 py-3 text-sm font-medium text-gray-200 hover:border-gray-700 hover:bg-gray-900 hover:text-white"
+              >
+                {t("controls.compare_enable")}
+              </button>
+            )}
+          </ControlSection>
         </div>
-        <div className="flex flex-col items-center">
-          <ModeSelector
-            selectedMode={selectedMode}
-            setSelectedMode={setSelectedMode}
-          />
+
+        <div className="mt-3 grid gap-3 xl:grid-cols-[minmax(0,1.6fr)_minmax(0,1.05fr)_minmax(0,1.15fr)_minmax(0,1fr)]">
+          <ControlSection label={t("controls.usage_threshold")}>
+            <ThresholdSelector
+              threshold={threshold}
+              setThreshold={setThreshold}
+            />
+          </ControlSection>
+
+          <ControlSection label={t("controls.metric")}>
+            <div className="grid grid-cols-2 gap-2">
+              <button
+                onClick={() => {
+                  if (finalResults) {
+                    toggleFinalResults();
+                  }
+                }}
+                className={segmentedButtonClass(!finalResults)}
+                aria-pressed={!finalResults}
+              >
+                {t("peak_x_power")}
+              </button>
+              <button
+                onClick={() => {
+                  if (!finalResults) {
+                    toggleFinalResults();
+                  }
+                }}
+                className={segmentedButtonClass(finalResults)}
+                aria-pressed={finalResults}
+              >
+                {t("final_x_power")}
+              </button>
+            </div>
+          </ControlSection>
+
+          <ControlSection label={t("controls.entries")}>
+            <div className="grid grid-cols-2 gap-2">
+              <button
+                onClick={() => {
+                  if (dedupePlayers) {
+                    toggleDedupePlayers();
+                  }
+                }}
+                className={segmentedButtonClass(!dedupePlayers)}
+                aria-pressed={!dedupePlayers}
+              >
+                {t("show_all")}
+              </button>
+              <button
+                onClick={() => {
+                  if (!dedupePlayers) {
+                    toggleDedupePlayers();
+                  }
+                }}
+                className={segmentedButtonClass(dedupePlayers)}
+                aria-pressed={dedupePlayers}
+              >
+                {t("dedupe_data")}
+              </button>
+            </div>
+          </ControlSection>
+
+          <ControlSection label={t("controls.season")}>
+            <SeasonSelector
+              selectedSeason={selectedSeason}
+              setSelectedSeason={setSelectedSeason}
+              className="w-full"
+            />
+          </ControlSection>
         </div>
-      </div>
-      <div className="flex flex-col sm:flex-row items-center justify-center gap-4 mb-2 sm:mb-4">
-        {weaponReferenceDataById && weaponTranslations && (
-          <>
-            <div className="flex flex-col items-center">
-              <span className="mb-2 text-center text-lg font-semibold text-purple-400">
-                {t("weapon_select_main")}
-              </span>
-              <WeaponSelector
-                onWeaponSelect={setWeaponId}
-                weaponReferenceData={weaponReferenceDataById}
-                weaponTranslations={weaponTranslations[pl("data_lang_key")]}
-                initialWeaponId={weaponId}
-              />
-            </div>
-            <button
-              onClick={handleSwapWeapons}
-              className={`bg-purple-500 hover:bg-purple-700 text-white font-bold p-2 rounded my-2 sm:my-0 ${
-                additionalWeaponId === null
-                  ? "opacity-50 cursor-not-allowed"
-                  : ""
-              }`}
-              aria-label="Swap weapons"
-              disabled={additionalWeaponId === null}
-            >
-              <FaExchangeAlt />
-            </button>
-            <div className="flex flex-col items-center">
-              <span className="mb-2 text-center text-lg font-semibold text-purple-400">
-                {t("weapon_select_alt")}
-              </span>
-              <WeaponSelector
-                onWeaponSelect={setAdditionalWeaponId}
-                weaponReferenceData={weaponReferenceDataById}
-                weaponTranslations={weaponTranslations[pl("data_lang_key")]}
-                initialWeaponId={additionalWeaponId}
-                allowNull={true}
-              />
-            </div>
-          </>
-        )}
-      </div>
-      <div className="w-full max-w-[95%] mx-auto">
-        <ThresholdSelector threshold={threshold} setThreshold={setThreshold} />
-      </div>
-      <div className="flex flex-col justify-center items-center mb-4 sm:mb-6">
-        <label
-          htmlFor="toggleFinalResults"
-          className="inline-flex items-center cursor-pointer flex-col"
-        >
-          <div className="flex items-center justify-center">
-            <span
-              className={`text-sm font-medium w-40 text-right pr-4 ${
-                !finalResults ? "highlighted-option" : ""
-              }`}
-            >
-              {t("peak_x_power")}
-            </span>
-            <div className="relative mx-2" title="Change the scale type">
-              <input
-                type="checkbox"
-                id="toggleFinalResults"
-                className="sr-only peer"
-                checked={finalResults}
-                onChange={toggleFinalResults}
-              />
-              <div
-                className={`w-11 h-6 rounded-full peer peer-focus:ring-4 peer-focus:ring-purple-300 dark:peer-focus:ring-purple-800 after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:after:translate-x-5 ${
-                  finalResults ? "bg-purple" : "bg-gray-600"
-                }`}
-              ></div>
-            </div>
-            <span
-              className={`text-sm font-medium w-40 text-left pl-4 ${
-                finalResults ? "highlighted-option" : ""
-              }`}
-            >
-              {t("final_x_power")}
-            </span>
-          </div>
-        </label>
-        <label
-          htmlFor="toggleDedupePlayers"
-          className="inline-flex items-center cursor-pointer flex-col"
-        >
-          <div className="flex items-center justify-center">
-            <span
-              className={`text-sm font-medium w-40 text-right pr-4 ${
-                !dedupePlayers ? "highlighted-option" : ""
-              }`}
-            >
-              {t("show_all")}
-            </span>
-            <div className="relative mx-2" title="Toggle data deduplication">
-              <input
-                type="checkbox"
-                id="toggleDedupePlayers"
-                className="sr-only peer"
-                checked={dedupePlayers}
-                onChange={toggleDedupePlayers}
-              />
-              <div
-                className={`w-11 h-6 rounded-full peer peer-focus:ring-4 peer-focus:ring-purple-300 dark:peer-focus:ring-purple-800 after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:after:translate-x-5 ${
-                  dedupePlayers ? "bg-purple" : "bg-gray-600"
-                }`}
-              ></div>
-            </div>
-            <span
-              className={`text-sm font-medium w-40 text-left pl-4 ${
-                dedupePlayers ? "highlighted-option" : ""
-              }`}
-            >
-              {t("dedupe_data")}
-            </span>
-          </div>
-        </label>
-      </div>
-      <div className="flex flex-col items-center mb-4">
-        <SeasonSelector
-          selectedSeason={selectedSeason}
-          setSelectedSeason={setSelectedSeason}
-        />
-      </div>
+      </section>
     </Suspense>
   );
 };

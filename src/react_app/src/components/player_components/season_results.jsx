@@ -214,7 +214,7 @@ const SeasonResults = ({
       </div>
 
       <div className="overflow-x-auto px-4 py-2">
-        <table className="min-w-[40rem] w-full text-white">
+        <table className="min-w-[31rem] sm:min-w-[40rem] w-full text-white">
           <thead className="border-b border-gray-800 text-left text-[11px] font-semibold uppercase tracking-[0.16em] text-gray-400">
             <tr>
               <th className="px-3 py-2">{t("results.table.mode")}</th>

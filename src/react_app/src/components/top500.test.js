@@ -12,7 +12,6 @@ jest.mock("./utils", () => ({
 jest.mock("./utils/cache_utils", () => ({
   getCache: jest.fn(() => null),
   setCache: jest.fn(),
-  deleteCache: jest.fn(),
 }));
 
 jest.mock("react-i18next", () => ({
@@ -28,7 +27,6 @@ jest.mock("react-i18next", () => ({
         "controls.region": "Region",
         "controls.mode": "Mode",
         "controls.search": "Search",
-        "controls.columns": "Columns",
         "controls.page": "Page",
         "results.title": "Top 500 Rankings",
         "results.summary": "Showing %start%-%end% of %total% players",
@@ -56,11 +54,6 @@ jest.mock("./top500_components/player_table", () => ({
 jest.mock("./top500_components/all_modes_table", () => ({
   __esModule: true,
   default: ({ players }) => <div>AllModesTable {players.length}</div>,
-}));
-
-jest.mock("./top500_components/selectors/column_selector", () => ({
-  __esModule: true,
-  default: () => <div>ColumnSelector</div>,
 }));
 
 jest.mock("./top500_components/selectors/region_selector", () => ({

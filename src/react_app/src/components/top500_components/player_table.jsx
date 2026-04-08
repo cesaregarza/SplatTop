@@ -4,7 +4,7 @@ import { useTranslation } from "react-i18next";
 
 import { columnsConfig } from "./columns_config";
 
-const PlayerTable = ({ players, columnVisibility, tableContext = {} }) => {
+const PlayerTable = ({ players, columnVisibility }) => {
   const { t } = useTranslation();
   const navigate = useNavigate();
   const visibleColumns = columnsConfig.filter(
@@ -12,8 +12,8 @@ const PlayerTable = ({ players, columnVisibility, tableContext = {} }) => {
   );
 
   const defaultHeaderClasses =
-    "w-20 px-4 py-3 text-center text-[0.68rem] font-semibold uppercase tracking-[0.16em] text-gray-300";
-  const defaultCellClasses = "w-20 px-4 py-3 text-center align-middle";
+    "w-20 px-4 py-2.5 text-center text-[0.68rem] font-semibold uppercase tracking-[0.16em] text-gray-300";
+  const defaultCellClasses = "w-20 px-4 py-2.5 text-center align-middle";
 
   const handleRowClick = (playerId) => {
     navigate(`/player/${playerId}`);
@@ -21,12 +21,12 @@ const PlayerTable = ({ players, columnVisibility, tableContext = {} }) => {
   };
 
   return (
-    <table className="w-full table-auto border-collapse bg-transparent">
+    <table className="w-full table-fixed border-collapse bg-transparent">
       <thead>
         <tr className="border-b border-gray-800 bg-gray-950/95">
-          {visibleColumns.map((column, index) => (
+          {visibleColumns.map((column) => (
             <th
-              key={index}
+              key={column.id}
               className={column.headerClasses || defaultHeaderClasses}
             >
               {t(column.title_key)}
@@ -41,12 +41,12 @@ const PlayerTable = ({ players, columnVisibility, tableContext = {} }) => {
             className="cursor-pointer border-b border-gray-800/90 hover:bg-purple-950/30"
             onClick={() => handleRowClick(player.player_id)}
           >
-            {visibleColumns.map((column, index) => (
+            {visibleColumns.map((column) => (
               <td
-                key={index}
+                key={column.id}
                 className={column.cellClasses || defaultCellClasses}
               >
-                {column.render(player, t, tableContext)}
+                {column.render(player, t)}
               </td>
             ))}
           </tr>

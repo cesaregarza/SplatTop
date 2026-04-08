@@ -1,13 +1,10 @@
 import React, { useEffect, useRef, useState, Suspense } from "react";
 import useFetchWithCache from "./top500_components/fetch_with_cache";
 import Loading from "./misc_components/loading";
-import {
-  columnsConfig,
-  allModesColumnsConfig,
-} from "./top500_components/columns_config";
+import { columnsConfig } from "./top500_components/columns_config";
 import { getBaseApiUrl } from "./utils";
 import { useTranslation } from "react-i18next";
-import { setCache, getCache, deleteCache } from "./utils/cache_utils";
+import { setCache, getCache } from "./utils/cache_utils";
 import { modeKeyMap } from "./constants";
 
 const PlayerTable = React.lazy(() =>
@@ -15,9 +12,6 @@ const PlayerTable = React.lazy(() =>
 );
 const AllModesTable = React.lazy(() =>
   import("./top500_components/all_modes_table")
-);
-const ColumnSelector = React.lazy(() =>
-  import("./top500_components/selectors/column_selector")
 );
 const RegionSelector = React.lazy(() =>
   import("./top500_components/selectors/region_selector")
@@ -35,7 +29,7 @@ const modeNameMap = {
   "All Modes": "AM",
 };
 
-const defaultColumns = columnsConfig.reduce((acc, column) => {
+const defaultColumnVisibility = columnsConfig.reduce((acc, column) => {
   acc[column.id] = column.isVisible;
   return acc;
 }, {});
@@ -62,9 +56,6 @@ const Top500 = () => {
     getCache("selectedMode") || "Splat Zones"
   );
 
-  const [columnVisibility, setColumnVisibility] = useState(
-    getCache("columnVisibility", 60 * 60 * 24 * 365) || defaultColumns
-  );
   const hasInitializedFilters = useRef(false);
 
   useEffect(() => {
@@ -81,19 +72,7 @@ const Top500 = () => {
     setCache("currentPage", currentPage.toString(), 300);
     setCache("selectedRegion", selectedRegion);
     setCache("selectedMode", selectedMode, 60 * 60 * 24);
-    if (Object.keys(columnVisibility).length === columnsConfig.length) {
-      setCache("columnVisibility", columnVisibility);
-    } else {
-      deleteCache("columnVisibility");
-      setCache("columnVisibility", defaultColumns, 60 * 60 * 24 * 365);
-    }
-  }, [
-    searchQuery,
-    currentPage,
-    selectedRegion,
-    selectedMode,
-    columnVisibility,
-  ]);
+  }, [searchQuery, currentPage, selectedRegion, selectedMode]);
 
   const apiUrl = getBaseApiUrl();
   const endpoint = `${apiUrl}/api/leaderboard?mode=${selectedMode}&region=${selectedRegion}`;
@@ -196,7 +175,7 @@ const Top500 = () => {
             </div>
           </div>
 
-          <div className="grid gap-3 sm:grid-cols-[minmax(0,1fr)_auto] xl:grid-cols-[minmax(14rem,1fr)_auto_auto] xl:items-end">
+          <div className="grid gap-3 sm:grid-cols-[minmax(0,1fr)_auto] xl:grid-cols-[minmax(14rem,1fr)_auto] xl:items-end">
             <label className="block">
               <span className="mb-2 block text-[0.68rem] font-semibold uppercase tracking-[0.22em] text-gray-400">
                 {t("controls.search")}
@@ -209,26 +188,6 @@ const Top500 = () => {
                 className="w-full rounded-md border border-gray-800 bg-gray-950/70 px-3 py-2.5 text-sm text-white placeholder:text-gray-500 focus:outline-hidden focus:ring-2 focus:ring-purple"
               />
             </label>
-
-            <div>
-              <p className="mb-2 text-[0.68rem] font-semibold uppercase tracking-[0.22em] text-gray-400">
-                {t("controls.columns")}
-              </p>
-              <Suspense fallback={<div>{t("loading")}</div>}>
-                <ColumnSelector
-                  columnVisibility={columnVisibility}
-                  setColumnVisibility={setColumnVisibility}
-                  columnsConfig={
-                    selectedMode === "All Modes"
-                      ? allModesColumnsConfig
-                      : columnsConfig
-                  }
-                  disabled={isAllModes}
-                  baseClass="w-full"
-                  buttonClassName="min-w-[10rem]"
-                />
-              </Suspense>
-            </div>
 
             <div>
               <p className="mb-2 text-[0.68rem] font-semibold uppercase tracking-[0.22em] text-gray-400">
@@ -273,11 +232,7 @@ const Top500 = () => {
               ) : (
                 <PlayerTable
                   players={currentItems}
-                  columnVisibility={columnVisibility}
-                  tableContext={{
-                    selectedRegion,
-                    selectedMode,
-                  }}
+                  columnVisibility={defaultColumnVisibility}
                 />
               )}
             </Suspense>
