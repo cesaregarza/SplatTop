@@ -2,7 +2,7 @@ import React, { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import TakorokaIcon from "../../assets/icons/takoroka.png";
 import TentatekIcon from "../../assets/icons/tentatek.png";
-import { getSeasonName } from "../utils/season_utils";
+import { calculateSeasonNow, getSeasonName } from "../utils/season_utils";
 import { getSeasonArchiveSections } from "./playerPageUtils";
 
 const RegionBadge = ({ region }) => (
@@ -71,6 +71,7 @@ const SeasonArchive = ({ data, mode, activeSeason, onSeasonChange }) => {
   const [isArchiveOpen, setIsArchiveOpen] = useState(false);
   const { visibleRows, hiddenRows, hasHiddenRows } =
     getSeasonArchiveSections(data, mode, activeSeason);
+  const liveDisplaySeason = calculateSeasonNow() + 1;
   const currentDisplaySeason = [...visibleRows, ...hiddenRows].find(
     (row) => row.season_number === activeSeason
   );
@@ -107,6 +108,11 @@ const SeasonArchive = ({ data, mode, activeSeason, onSeasonChange }) => {
                 <span className="font-medium text-white">
                   {getSeasonName(row.raw_season_number, g)}
                 </span>
+                {row.season_number === liveDisplaySeason ? (
+                  <span className="rounded-full border border-purple-500/50 bg-purple-950/40 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.14em] text-purple-100">
+                    {t("xchart.live_indicator")}
+                  </span>
+                ) : null}
                 {row.season_number === activeSeason ? (
                   <span className="rounded-full border border-purple-500/50 bg-purple-950/40 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.14em] text-purple-100">
                     {t("archive.selected")}

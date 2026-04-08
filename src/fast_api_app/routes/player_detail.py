@@ -35,7 +35,16 @@ async def player_detail(player_id: str):
 @router.websocket("/ws/player/{player_id}")
 async def websocket_endpoint(websocket: WebSocket, player_id: str):
     connection_id = str(uuid.uuid4())
-    await connection_manager.connect(websocket, player_id, connection_id)
+    progressive = (
+        websocket.query_params.get("progressive") == "1"
+        and websocket.query_params.get("version") == "2"
+    )
+    await connection_manager.connect(
+        websocket,
+        player_id,
+        connection_id,
+        progressive=progressive,
+    )
 
     try:
         while True:

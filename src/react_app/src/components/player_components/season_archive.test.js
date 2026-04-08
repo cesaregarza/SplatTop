@@ -19,6 +19,7 @@ jest.mock("react-i18next", () => ({
             "archive.empty_hint":
               "Choose a season with data to inspect the full run.",
             "archive.selected": "Selected",
+            "xchart.live_indicator": "Live",
             "archive.row_hint": "Click to inspect this season.",
             "archive.no_mode_data": "No data for this mode in this season.",
             "archive.table.season": "Season",
@@ -147,6 +148,7 @@ describe("SeasonArchive", () => {
 
     expect(screen.getByText("Progression by season")).toBeInTheDocument();
     expect(screen.getByText("Selected")).toBeInTheDocument();
+    expect(screen.getByText("Live")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Show archive (2)" })).toBeInTheDocument();
 
     const seasonButtons = screen
@@ -154,6 +156,10 @@ describe("SeasonArchive", () => {
       .filter((button) => button.textContent.includes("Season"));
 
     expect(seasonButtons).toHaveLength(4);
+    expect(seasonButtons[0]).toHaveTextContent("Season 9");
+    expect(seasonButtons[1]).toHaveTextContent("Season 8");
+    expect(seasonButtons[2]).toHaveTextContent("Season 7");
+    expect(seasonButtons[3]).toHaveTextContent("Season 4");
     expect(screen.getByText("Season 4")).toBeInTheDocument();
     expect(screen.queryByText("Season 6")).not.toBeInTheDocument();
     expect(screen.queryByText("Season 5")).not.toBeInTheDocument();

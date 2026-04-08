@@ -73,4 +73,39 @@ describe("SeasonSelector", () => {
     expect(screen.getByText("All available seasons")).toBeInTheDocument();
     expect(onSeasonChange).toHaveBeenLastCalledWith([1, 2]);
   });
+
+  it("hydrates available seasons when weapon data arrives after the initial render", async () => {
+    const onSeasonChange = jest.fn();
+    const { rerender } = render(
+      <SeasonSelector
+        data={{ weapon_counts: [] }}
+        mode="Rainmaker"
+        onSeasonChange={onSeasonChange}
+        compact={true}
+        disabled={true}
+        loadingLabel="Loading chart"
+      />
+    );
+
+    expect(screen.getByText("Loading chart")).toBeInTheDocument();
+
+    rerender(
+      <SeasonSelector
+        data={{
+          weapon_counts: [
+            { mode: "Rainmaker", season_number: 1 },
+            { mode: "Rainmaker", season_number: 2 },
+          ],
+        }}
+        mode="Rainmaker"
+        onSeasonChange={onSeasonChange}
+        compact={true}
+      />
+    );
+
+    await waitFor(() => {
+      expect(onSeasonChange).toHaveBeenLastCalledWith([1, 2]);
+    });
+    expect(screen.getByText("All available seasons")).toBeInTheDocument();
+  });
 });

@@ -2,7 +2,14 @@ import React, { useEffect, useRef, useState } from "react";
 import { calculateSeasonNow, getSeasonName } from "../utils/season_utils";
 import { useTranslation } from "react-i18next";
 
-function SeasonSelector({ data, mode, onSeasonChange, compact = false }) {
+function SeasonSelector({
+  data,
+  mode,
+  onSeasonChange,
+  compact = false,
+  disabled = false,
+  loadingLabel = null,
+}) {
   const { t } = useTranslation("player");
   const { t: g } = useTranslation("game");
   const [selectedSeasons, setSelectedSeasons] = useState([]);
@@ -20,6 +27,7 @@ function SeasonSelector({ data, mode, onSeasonChange, compact = false }) {
   const availableSeasons = seasonNumbers.filter((season) =>
     isSeasonAvailable(season)
   );
+  const availableSeasonKey = availableSeasons.join(",");
 
   const updateSelectedSeasons = (seasons) => {
     setSelectedSeasons(seasons);
@@ -27,8 +35,14 @@ function SeasonSelector({ data, mode, onSeasonChange, compact = false }) {
   };
 
   useEffect(() => {
-    updateSelectedSeasons(availableSeasons);
-  }, [mode]); // eslint-disable-line react-hooks/exhaustive-deps
+    const hasInvalidSelection = selectedSeasons.some(
+      (season) => !availableSeasons.includes(season)
+    );
+
+    if (selectedSeasons.length === 0 || hasInvalidSelection) {
+      updateSelectedSeasons(availableSeasons);
+    }
+  }, [availableSeasonKey, mode]); // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
     const handleOutsideClick = (event) => {
@@ -59,6 +73,10 @@ function SeasonSelector({ data, mode, onSeasonChange, compact = false }) {
   };
 
   const selectionLabel = (() => {
+    if (disabled && loadingLabel) {
+      return loadingLabel;
+    }
+
     if (availableSeasons.length === 0) {
       return t("controller.no_seasons_available");
     }
@@ -86,16 +104,21 @@ function SeasonSelector({ data, mode, onSeasonChange, compact = false }) {
       <div className="relative inline-block w-full text-left" ref={menuRef}>
         <button
           type="button"
+          disabled={disabled}
           className={`flex w-full items-center justify-between border border-gray-800 bg-black/20 text-left text-white transition hover:border-gray-700 hover:bg-gray-900 focus:outline-hidden focus:ring-2 focus:ring-purple-500 ${
             compact
               ? "rounded-md px-3 py-2 text-sm"
               : "rounded-lg px-4 py-3"
-          }`}
+          } ${disabled ? "cursor-not-allowed opacity-60 hover:border-gray-800 hover:bg-black/20" : ""}`}
           id="options-menu"
           aria-haspopup="true"
           aria-expanded={isMenuOpen}
           aria-label={`${t("controller.select_season")}: ${selectionLabel}`}
-          onClick={() => setIsMenuOpen(!isMenuOpen)}
+          onClick={() => {
+            if (!disabled) {
+              setIsMenuOpen(!isMenuOpen);
+            }
+          }}
         >
           {compact ? (
             <span className="min-w-0 text-sm leading-tight text-gray-200">

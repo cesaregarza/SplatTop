@@ -8,7 +8,8 @@ import SeasonResults from "./season_results";
 import SeasonArchive from "./season_archive";
 import {
   getAvailableDisplaySeasons,
-  getDefaultPlayerMode,
+  getAvailableModesFromChartData,
+  getDefaultChartMode,
   getModeAnalysisSummary,
   getDefaultSelectedDisplaySeason,
 } from "./playerPageUtils";
@@ -20,30 +21,29 @@ function ChartController({
   modes,
   weaponTranslations,
   weaponReferenceData,
+  analysisReady = false,
+  analysisLoading = false,
+  analysisError = null,
 }) {
   const { t } = useTranslation("player");
   const { t: g } = useTranslation("game");
-  const [mode, setMode] = useState(() =>
-    getDefaultPlayerMode(data.player_data, modes)
-  );
+  const [mode, setMode] = useState(() => getDefaultChartMode(data, modes));
   const [selectedSeason, setSelectedSeason] = useState(() =>
-    getDefaultSelectedDisplaySeason(
-      data,
-      getDefaultPlayerMode(data.player_data, modes)
-    )
+    getDefaultSelectedDisplaySeason(data, getDefaultChartMode(data, modes))
   );
   const [colorMode, setColorMode] = useState("Seasonal");
   const [selectedSeasons, setSelectedSeasons] = useState([]);
 
+  const availableModes = getAvailableModesFromChartData(data, modes);
   const allowedModes = modes.map((currentMode) =>
-    data.player_data.some((entry) => entry.mode === currentMode)
+    availableModes.includes(currentMode)
   );
 
   useEffect(() => {
     if (!allowedModes[modes.indexOf(mode)]) {
-      setMode(getDefaultPlayerMode(data.player_data, modes));
+      setMode(getDefaultChartMode(data, modes));
     }
-  }, [allowedModes, data.player_data, mode, modes]);
+  }, [allowedModes, data, mode, modes]);
 
   useEffect(() => {
     const availableSeasons = getAvailableDisplaySeasons(data);
@@ -128,6 +128,8 @@ function ChartController({
             data={data.aggregated_data}
             mode={mode}
             onSeasonChange={setSelectedSeasons}
+            disabled={!analysisReady}
+            loadingLabel={t("load_chart")}
           />
         </div>
       </div>
@@ -184,22 +186,42 @@ function ChartController({
           </div>
         </div>
         <div className="px-4 py-3">
-          <XChart
-            data={data.player_data}
-            mode={mode}
-            colorMode={colorMode}
-            selectedSeason={selectedSeason}
-            analysisSummary={analysisSummary}
-          />
+          {analysisReady ? (
+            <XChart
+              data={data.player_data}
+              mode={mode}
+              colorMode={colorMode}
+              selectedSeason={selectedSeason}
+              analysisSummary={analysisSummary}
+            />
+          ) : analysisError ? (
+            <div className="rounded-md border border-red-900/60 bg-red-950/20 px-4 py-6 text-sm text-red-300">
+              {analysisError}
+            </div>
+          ) : (
+            <div className="rounded-md border border-gray-800/70 bg-black/10 px-4 py-8 text-sm text-gray-400">
+              {analysisLoading ? t("load_chart") : t("no_data")}
+            </div>
+          )}
         </div>
         <div className="border-t border-gray-800/60 px-4 py-3">
-          <WeaponsChart
-            data={filteredAggregatedData}
-            mode={mode}
-            colorMode={colorMode}
-            weaponTranslations={weaponTranslations}
-            weaponReferenceData={weaponReferenceData}
-          />
+          {analysisReady ? (
+            <WeaponsChart
+              data={filteredAggregatedData}
+              mode={mode}
+              colorMode={colorMode}
+              weaponTranslations={weaponTranslations}
+              weaponReferenceData={weaponReferenceData}
+            />
+          ) : analysisError ? (
+            <div className="rounded-md border border-red-900/60 bg-red-950/20 px-4 py-6 text-sm text-red-300">
+              {analysisError}
+            </div>
+          ) : (
+            <div className="rounded-md border border-gray-800/70 bg-black/10 px-4 py-8 text-sm text-gray-400">
+              {analysisLoading ? t("load_results") : t("no_data")}
+            </div>
+          )}
         </div>
       </section>
     </div>

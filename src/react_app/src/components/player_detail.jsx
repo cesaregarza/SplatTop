@@ -11,6 +11,12 @@ import {
 } from "./utils/weaponAndTranslation";
 import { fetchJson } from "./utils/fetchJson";
 import { getPlayerSummary } from "./player_components/playerPageUtils";
+import {
+  createEmptyPlayerDetailData,
+  isLegacyPlayerDetailPayload,
+  isPlayerChunkEnvelope,
+  mergePlayerDetailPayload,
+} from "./player_components/playerDataUtils";
 
 const ChartController = React.lazy(() =>
   import("./player_components/chart_controller")
@@ -87,26 +93,80 @@ const PlayerDetailContent = () => {
   const location = useLocation();
   const player_id = location.pathname.split("/")[2];
   const [data, setData] = useState(null);
-  const [chartData, setChartData] = useState(null);
+  const [chartData, setChartData] = useState(() =>
+    createEmptyPlayerDetailData()
+  );
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [isSnapshotReady, setIsSnapshotReady] = useState(false);
+  const [isAnalysisReady, setIsAnalysisReady] = useState(false);
+  const [analysisError, setAnalysisError] = useState(null);
   const socketRef = useRef(null);
 
   const {
     weaponTranslations,
     weaponReferenceData,
-    isLoading: isWeaponDataLoading,
     error: weaponDataError,
   } = useWeaponAndTranslation();
 
   useEffect(() => {
+    const handlePlayerMessage = (message) => {
+      if (isPlayerChunkEnvelope(message)) {
+        if (message.phase === "snapshot") {
+          setChartData((currentValue) =>
+            mergePlayerDetailPayload(currentValue, message.payload)
+          );
+          setIsSnapshotReady(true);
+          return;
+        }
+
+        if (message.phase === "analysis") {
+          setChartData((currentValue) =>
+            mergePlayerDetailPayload(currentValue, message.payload)
+          );
+          setIsAnalysisReady(true);
+          return;
+        }
+
+        if (message.phase === "complete") {
+          if (message.payload && Object.keys(message.payload).length > 0) {
+            setChartData((currentValue) =>
+              mergePlayerDetailPayload(currentValue, message.payload)
+            );
+          }
+          return;
+        }
+
+        if (message.phase === "error") {
+          setAnalysisError(
+            message.payload?.message || t("no_data")
+          );
+        }
+
+        return;
+      }
+
+      if (isLegacyPlayerDetailPayload(message)) {
+        setChartData((currentValue) =>
+          mergePlayerDetailPayload(currentValue, message)
+        );
+        setIsSnapshotReady(true);
+        setIsAnalysisReady(true);
+      }
+    };
+
     const fetchData = async () => {
       setIsLoading(true);
+      setError(null);
+      setAnalysisError(null);
+      setIsSnapshotReady(false);
+      setIsAnalysisReady(false);
+      setChartData(createEmptyPlayerDetailData());
       document.title = t("document_title_loading");
       const apiUrl = getBaseApiUrl();
       const endpoint = `${apiUrl}/api/players/${player_id}`;
       const baseWebsocketUrl = getBaseWebsocketUrl();
-      const websocketEndpoint = `${baseWebsocketUrl}/ws/player/${player_id}`;
+      const websocketEndpoint = `${baseWebsocketUrl}/ws/player/${player_id}?progressive=1&version=2`;
 
       try {
         const playerData = await fetchJson(endpoint);
@@ -133,11 +193,11 @@ const PlayerDetailContent = () => {
               const decompressedData = pako.inflate(reader.result, {
                 to: "string",
               });
-              setChartData(JSON.parse(decompressedData));
+              handlePlayerMessage(JSON.parse(decompressedData));
             };
             reader.readAsArrayBuffer(event.data);
           } else {
-            setChartData(JSON.parse(event.data));
+            handlePlayerMessage(JSON.parse(event.data));
           }
         };
 
@@ -163,7 +223,7 @@ const PlayerDetailContent = () => {
     };
   }, [player_id, t]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  if (isLoading || isWeaponDataLoading) {
+  if (isLoading) {
     return (
       <div className="flex h-full items-center justify-center">
         <Loading text={t("load_page")} />
@@ -171,10 +231,10 @@ const PlayerDetailContent = () => {
     );
   }
 
-  if (error || weaponDataError) {
+  if (error) {
     return (
       <div className="rounded-xl border border-red-900/60 bg-red-950/20 px-4 py-6 text-center text-red-300">
-        {(error || weaponDataError).message}
+        {error.message}
       </div>
     );
   }
@@ -183,28 +243,42 @@ const PlayerDetailContent = () => {
     return <div className="text-center">{t("no_data")}</div>;
   }
 
-  const summary = getPlayerSummary(data, chartData, modes);
+  const summary = getPlayerSummary(
+    data,
+    isSnapshotReady || isAnalysisReady ? chartData : null,
+    modes
+  );
+  const weaponTranslationMap =
+    weaponTranslations?.[t("data_lang_key")] || {};
 
   return (
     <Suspense fallback={<InlineLoadingPanel text={t("load_component")} />}>
       <div className="space-y-6">
         <CompactPlayerHeader summary={summary} t={t} />
+        {weaponDataError ? (
+          <div className="rounded-lg border border-yellow-900/50 bg-yellow-950/20 px-4 py-3 text-sm text-yellow-200">
+            {weaponDataError.message}
+          </div>
+        ) : null}
         <div className="grid gap-6 xl:grid-cols-[minmax(18rem,0.88fr)_minmax(0,1.55fr)]">
           <aside className="order-1 min-w-0 space-y-4">
             <Aliases data={summary.aliases} />
-            {chartData ? (
+            {isSnapshotReady ? (
               <Achievements data={chartData} />
             ) : (
               <InlineLoadingPanel text={t("load_results")} />
             )}
           </aside>
           <section className="order-2 min-w-0">
-            {chartData ? (
+            {isSnapshotReady ? (
               <ChartController
                 data={chartData}
                 modes={modes}
-                weaponTranslations={weaponTranslations[t("data_lang_key")]}
+                weaponTranslations={weaponTranslationMap}
                 weaponReferenceData={weaponReferenceData}
+                analysisReady={isAnalysisReady}
+                analysisLoading={!isAnalysisReady && !analysisError}
+                analysisError={analysisError}
               />
             ) : (
               <InlineLoadingPanel text={t("load_chart")} />

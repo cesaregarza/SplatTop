@@ -81,6 +81,33 @@ const getAvailableModes = (playerData = [], supportedModes = defaultModes) =>
     playerData.some((entry) => entry.mode === mode)
   );
 
+const getAvailableModesFromChartData = (
+  chartData = {},
+  supportedModes = defaultModes
+) => {
+  const activeModes = new Set();
+
+  (chartData.player_data || []).forEach((entry) => {
+    if (entry.mode) {
+      activeModes.add(entry.mode);
+    }
+  });
+
+  getCombinedSeasonResults(chartData.aggregated_data || {}).forEach((entry) => {
+    if (entry.mode) {
+      activeModes.add(entry.mode);
+    }
+  });
+
+  (chartData.aggregated_data?.aggregate_season_data || []).forEach((entry) => {
+    if (entry.mode) {
+      activeModes.add(entry.mode);
+    }
+  });
+
+  return supportedModes.filter((mode) => activeModes.has(mode));
+};
+
 const getAvailableDisplaySeasons = (chartData = {}) => {
   const aggregatedData = chartData.aggregated_data || {};
   const displaySeasons = new Set(getAvailableSeasonResultTabs(aggregatedData));
@@ -151,6 +178,17 @@ const getDefaultPlayerMode = (
   supportedModes = defaultModes
 ) => {
   const availableModes = getAvailableModes(playerData, supportedModes);
+  return availableModes[0] || supportedModes[0];
+};
+
+const getDefaultChartMode = (
+  chartData = {},
+  supportedModes = defaultModes
+) => {
+  const availableModes = getAvailableModesFromChartData(
+    chartData,
+    supportedModes
+  );
   return availableModes[0] || supportedModes[0];
 };
 
@@ -486,26 +524,33 @@ const getSeasonArchiveSections = (chartData = {}, mode, activeSeason) => {
   const rowsBySeason = new Map(
     allRows.map((row) => [row.season_number, row])
   );
-  const visibleRows = [];
   const seenSeasons = new Set();
+  const visibleSet = new Set();
+  const visibleRows = [];
   const pushVisibleRow = (row) => {
     if (!row || seenSeasons.has(row.season_number)) {
       return;
     }
 
     seenSeasons.add(row.season_number);
-    visibleRows.push(row);
+    visibleSet.add(row.season_number);
   };
 
   pushVisibleRow(rowsBySeason.get(activeSeason));
   pushVisibleRow(rowsBySeason.get(getDisplaySeasonNumber(calculateSeasonNow())));
 
   allRows.forEach((row) => {
-    if (visibleRows.length >= 4) {
+    if (visibleSet.size >= 4) {
       return;
     }
 
     pushVisibleRow(row);
+  });
+
+  allRows.forEach((row) => {
+    if (visibleSet.has(row.season_number)) {
+      visibleRows.push(row);
+    }
   });
 
   const hiddenRows = allRows.filter((row) => !seenSeasons.has(row.season_number));
@@ -523,7 +568,9 @@ export {
   getAvailableDisplaySeasons,
   getAvailableDisplaySeasonsForMode,
   getAvailableModes,
+  getAvailableModesFromChartData,
   getAvailableSeasonResultTabs,
+  getDefaultChartMode,
   getBestMode,
   getBestRank,
   getBestXp,

@@ -17,6 +17,9 @@ jest.mock("react-i18next", () => ({
           "controller.weapon_seasons": "Weapon Seasons",
           "controller.color_hint": "Changes chart colors only.",
           "sections.mode_analysis": "Mode Analysis",
+          load_chart: "Loading chart",
+          load_results: "Loading results",
+          no_data: "No data",
         },
         game: {
           spring: "Fresh",
@@ -82,6 +85,7 @@ describe("ChartController", () => {
         modes={["Splat Zones", "Tower Control", "Rainmaker", "Clam Blitz"]}
         weaponTranslations={{}}
         weaponReferenceData={{}}
+        analysisReady={true}
       />
     );
 
@@ -110,5 +114,33 @@ describe("ChartController", () => {
         expect.objectContaining({ mode: "Rainmaker", selectedSeason: 5 })
       );
     });
+  });
+
+  it("keeps season snapshot available while analysis is still loading", () => {
+    render(
+      <ChartController
+        data={{
+          player_data: [],
+          aggregated_data: {
+            weapon_counts: [],
+            weapon_winrate: [],
+            season_results: [{ season_number: 6, mode: "Rainmaker", rank: 3 }],
+            aggregate_season_data: [],
+            latest_data: [],
+          },
+        }}
+        modes={["Splat Zones", "Tower Control", "Rainmaker", "Clam Blitz"]}
+        weaponTranslations={{}}
+        weaponReferenceData={{}}
+        analysisReady={false}
+        analysisLoading={true}
+      />
+    );
+
+    expect(screen.getByText("SEASON_RESULTS")).toBeInTheDocument();
+    expect(screen.getByText("SEASON_ARCHIVE")).toBeInTheDocument();
+    expect(screen.getByText("Loading chart")).toBeInTheDocument();
+    expect(screen.getByText("Loading results")).toBeInTheDocument();
+    expect(mockXChartSpy).not.toHaveBeenCalled();
   });
 });
