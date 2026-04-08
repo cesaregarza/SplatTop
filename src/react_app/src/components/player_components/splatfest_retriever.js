@@ -1,4 +1,4 @@
-import axios from "axios";
+import { fetchJson } from "../utils/fetchJson";
 
 export const fetchFestivalDates = async () => {
   try {
@@ -21,10 +21,7 @@ export const fetchFestivalDates = async () => {
       }
     }
 
-    const response = await axios.get(
-      "https://splatoon3.ink/data/festivals.json"
-    );
-    const data = response.data;
+    const data = await fetchJson("https://splatoon3.ink/data/festivals.json");
 
     const festRecords = data.US.data.festRecords.nodes;
     const dates = festRecords.map((fest) => [
