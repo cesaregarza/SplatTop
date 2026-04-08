@@ -7,6 +7,7 @@ def test_openapi_contains_canonical_kebab_case_paths(client):
     assert "/api/game-translation" in paths
     assert "/api/skill-offset" in paths
     assert "/api/weapon-leaderboard/{weapon_id}" in paths
+    assert "/api/race-to-5000" in paths
     assert "/api/players/{player_id}" in paths
     assert "/api/ripple/leaderboard" in paths
     assert "/api/ripple/leaderboard/raw" in paths
@@ -28,6 +29,7 @@ def test_openapi_excludes_legacy_underscore_paths(client):
     assert "/api/game_translation" not in paths
     assert "/api/skill_offset" not in paths
     assert "/api/weapon_leaderboard/{weapon_id}" not in paths
+    assert "/api/race_to_5000" not in paths
     assert "/api/player/{player_id}" not in paths
     assert "/api/ripple" not in paths
     assert "/api/ripple/raw" not in paths

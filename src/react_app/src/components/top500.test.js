@@ -1,5 +1,5 @@
 import React from "react";
-import { render, screen } from "@testing-library/react";
+import { fireEvent, render, screen } from "@testing-library/react";
 import Top500 from "./top500";
 import useFetchWithCache from "./top500_components/fetch_with_cache";
 
@@ -30,6 +30,10 @@ jest.mock("react-i18next", () => ({
         "controls.page": "Page",
         "results.title": "Top 500 Rankings",
         "results.summary": "Showing %start%-%end% of %total% players",
+        "tabs.leaderboard": "Top 500",
+        "tabs.race_to_5000": "Race to 5000",
+        "race.kicker": "Race to 5000",
+        "race.title": "Race to 5000",
         no_results: "No results!",
         all_modes: "All Modes",
       };
@@ -71,6 +75,11 @@ jest.mock("./top500_components/pagination", () => ({
   default: ({ currentPage }) => <div>Pagination {currentPage}</div>,
 }));
 
+jest.mock("./race_to_5000", () => ({
+  __esModule: true,
+  default: () => <div>RaceTo5000</div>,
+}));
+
 describe("Top500", () => {
   it("renders a compact leaderboard header and results summary", async () => {
     useFetchWithCache.mockReturnValue({
@@ -99,5 +108,32 @@ describe("Top500", () => {
     expect(screen.getByText("Showing 1-2 of 2 players")).toBeInTheDocument();
     expect(screen.getByPlaceholderText("Search...")).toBeInTheDocument();
     expect(await screen.findByText("PlayerTable 2")).toBeInTheDocument();
+  });
+
+  it("switches to the race tab", async () => {
+    useFetchWithCache.mockReturnValue({
+      data: {
+        players: {
+          player_id: ["1"],
+          rank: [1],
+          splashtag: ["Alpha"],
+          weapon_image: ["a.png"],
+          prev_season_region: [false],
+          diamond_x_count: [0],
+          gold_x_count: [1],
+          silver_x_count: [2],
+          x_power: [3012.3],
+        },
+      },
+      error: null,
+      isLoading: false,
+    });
+
+    render(<Top500 />);
+
+    fireEvent.click(screen.getByRole("button", { name: "Race to 5000" }));
+
+    expect(await screen.findByText("RaceTo5000")).toBeInTheDocument();
+    expect(screen.queryByText("Top 500 Rankings")).not.toBeInTheDocument();
   });
 });

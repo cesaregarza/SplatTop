@@ -14,6 +14,10 @@ celery.conf.beat_schedule = {
         "task": "tasks.pull_data",
         "schedule": crontab(minute="*/10"),
     },
+    "fetch-race-to-5000-weekly": {
+        "task": "tasks.fetch_race_to_5000",
+        "schedule": crontab(minute=20, hour=0, day_of_week="monday"),
+    },
     "update-weapon-info-every-hour": {
         "task": "tasks.update_weapon_info",
         "schedule": crontab(minute=0, hour="*"),

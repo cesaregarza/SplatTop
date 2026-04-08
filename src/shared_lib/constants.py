@@ -44,6 +44,7 @@ GINI_COEFF_REDIS_KEY = "gini_coeff"
 LORENZ_CURVE_REDIS_KEY = "gini_coeff_data"
 WEAPON_LEADERBOARD_PEAK_REDIS_KEY = "weapon_leaderboard_peak"
 SEASON_RESULTS_REDIS_KEY = "season_results"
+RACE_TO_5000_REDIS_KEY = "race_to_5000"
 
 # Competition ripple leaderboard cache keys
 RIPPLE_STABLE_STATE_KEY = "ripple:stable:state"

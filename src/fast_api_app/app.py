@@ -52,6 +52,7 @@ logging.basicConfig(
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     celery.send_task("tasks.pull_data")
+    celery.send_task("tasks.fetch_race_to_5000")
     celery.send_task("tasks.update_weapon_info")
     celery.send_task("tasks.pull_aliases")
     celery.send_task("tasks.update_skill_offset")

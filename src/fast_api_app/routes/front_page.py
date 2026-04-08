@@ -2,6 +2,7 @@ import orjson
 from fastapi import APIRouter, HTTPException, Query
 
 from fast_api_app.connections import redis_conn
+from shared_lib.constants import RACE_TO_5000_REDIS_KEY
 
 router = APIRouter()
 
@@ -30,3 +31,16 @@ async def leaderboard(
                     out[key] = []
                 out[key].append(value)
         return {"players": out}
+
+
+@router.get("/api/race-to-5000")
+async def race_to_5000():
+    race_data = redis_conn.get(RACE_TO_5000_REDIS_KEY)
+
+    if race_data is None:
+        raise HTTPException(
+            status_code=503,
+            detail="Data is not available yet, please wait.",
+        )
+
+    return orjson.loads(race_data)
