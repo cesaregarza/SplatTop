@@ -151,8 +151,15 @@ Sensitive settings (database credentials, ML storage endpoints) should be provid
    - To inspect or edit the encrypted file directly, run `SOPS_AGE_KEY_FILE=keys/age-private.txt sops k8s/secrets.dev.enc.yaml`.
 
 3. **Competition admin workflow**:
-   - Admin Discord IDs are stored only in the encrypted source file `secrets/competition-admins/comp-auth-secrets.enc.yaml`.
-   - Update that file locally with `uv run python scripts/competition_admins.py write-source-secret --entries 'discord_id|note;discord_id|note'`.
+   - Competition auth secrets are stored in the encrypted source file `secrets/competition-admins/comp-auth-secrets.enc.yaml`.
+   - That source secret currently carries:
+     - `COMP_AUTH_ADMIN_DISCORD_IDS`
+     - `COMP_DISCORD_CLIENT_ID`
+     - `COMP_DISCORD_CLIENT_SECRET`
+     - `COMP_DISCORD_REDIRECT_URI`
+     - `COMP_AUTH_SESSION_SECRET`
+   - Update the admin allowlist locally with `uv run python scripts/competition_admins.py write-source-secret --entries 'discord_id|note;discord_id|note'`. Existing OAuth/session values in the encrypted secret are preserved.
+   - To seed or refresh the OAuth/session values from the local encrypted dev secret, run `uv run python scripts/competition_admins.py merge-local-secrets --redirect-uri 'https://comp.splat.top/api/comp-auth/discord/callback' --generate-session-secret`.
    - Merge the encrypted-file change to `main`, then `.github/workflows/sync_competition_admins_to_config.yml` opens the `SplatTopConfig` PR that copies the encrypted secret and ensures the Helm/Argo wiring exists.
    - The app-repo workflow expects `CONFIG_REPO_TOKEN`. Plaintext admin IDs are not passed through GitHub Actions inputs.
 

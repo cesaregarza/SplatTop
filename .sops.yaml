@@ -1,0 +1,8 @@
+# SOPS configuration for encrypted secrets tracked in this repo.
+creation_rules:
+  - path_regex: ^k8s/.*\.enc\.yaml$
+    encrypted_regex: "^(data|stringData)$"
+    age: age16yxsawhpecdrhas2q3z246q3tjq8889m552lqhjcgf8jnt7naszqqgz8vt
+  - path_regex: ^secrets/competition-admins/.*\.enc\.yaml$
+    encrypted_regex: "^(data|stringData)$"
+    age: age16yxsawhpecdrhas2q3z246q3tjq8889m552lqhjcgf8jnt7naszqqgz8vt

@@ -1,0 +1,90 @@
+name: Sync Competition Admins To Config Repo
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - main
+    paths:
+      - "secrets/competition-admins/comp-auth-secrets.enc.yaml"
+      - "scripts/competition_admins.py"
+
+permissions:
+  contents: read
+
+jobs:
+  sync-config:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout app repo
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install script dependencies
+        run: python -m pip install --upgrade pip ruamel.yaml
+
+      - name: Checkout config repo
+        uses: actions/checkout@v4
+        with:
+          repository: cesaregarza/SplatTopConfig
+          token: ${{ secrets.CONFIG_REPO_TOKEN }}
+          path: config-repo
+
+      - name: Sync config repo files
+        run: |
+          set -euo pipefail
+          python scripts/competition_admins.py sync-config \
+            --source-secret-file secrets/competition-admins/comp-auth-secrets.enc.yaml \
+            --config-repo-dir config-repo
+
+      - name: Detect config repo changes
+        id: detect
+        run: |
+          set -euo pipefail
+          cd config-repo
+          if git diff --quiet; then
+            echo "changed=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "changed=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Commit and push config repo branch
+        if: steps.detect.outputs.changed == 'true'
+        env:
+          BRANCH: bot/competition-admins-${{ github.run_id }}
+        run: |
+          set -euo pipefail
+          cd config-repo
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git checkout -b "$BRANCH"
+          git add \
+            .sops.yaml \
+            argocd/applications/splattop-prod-comp-auth-secrets.yaml \
+            helm/splattop/templates/fastapi-deployment.yaml \
+            helm/splattop/values.yaml \
+            secrets/splattop-prod-comp-auth/README.md \
+            secrets/splattop-prod-comp-auth/comp-auth-secrets.enc.yaml \
+            secrets/splattop-prod-comp-auth/ksops.yaml \
+            secrets/splattop-prod-comp-auth/kustomization.yaml
+          git commit -m "chore: sync competition auth secrets"
+          git push --set-upstream origin "$BRANCH"
+
+      - name: Open config repo PR
+        if: steps.detect.outputs.changed == 'true'
+        env:
+          GH_TOKEN: ${{ secrets.CONFIG_REPO_TOKEN }}
+          BRANCH: bot/competition-admins-${{ github.run_id }}
+        run: |
+          set -euo pipefail
+          cd config-repo
+          gh pr create \
+            --base main \
+            --head "$BRANCH" \
+            --title "chore: sync competition auth secrets" \
+            --body "Source: ${GITHUB_REPOSITORY}@${GITHUB_SHA}" \
+            || echo "Pull request already exists; continuing."
