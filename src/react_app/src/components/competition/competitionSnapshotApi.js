@@ -2,6 +2,7 @@ const STABLE_ENDPOINT = "/api/ripple/public/leaderboard";
 const DANGER_ENDPOINT = "/api/ripple/public/leaderboard/danger";
 const META_ENDPOINT = "/api/ripple/public/metadata";
 const PERCENTILES_ENDPOINT = "/api/ripple/public/leaderboard/percentiles";
+const ADMIN_REFRESH_ENDPOINT = "/api/ripple/admin/refresh";
 
 export const normalizeCompetitionLoaderError = (error) => {
   if (!error) {
@@ -17,6 +18,33 @@ export const fetchCompetitionJson = async (url, signal) => {
   const response = await fetch(url, { signal });
   let data = null;
 
+  try {
+    data = await response.json();
+  } catch {}
+
+  if (!response.ok) {
+    const error = new Error(
+      typeof data?.detail === "string" && data.detail
+        ? data.detail
+        : `Request failed with status ${response.status}`
+    );
+    error.status = response.status;
+    error.detail = data?.detail ?? null;
+    throw error;
+  }
+
+  return data;
+};
+
+export const queueCompetitionSnapshotRefresh = async ({ wait = false } = {}) => {
+  const url = wait ? `${ADMIN_REFRESH_ENDPOINT}?wait=true` : ADMIN_REFRESH_ENDPOINT;
+  const response = await fetch(url, {
+    method: "POST",
+    credentials: "include",
+    headers: { Accept: "application/json" },
+  });
+
+  let data = null;
   try {
     data = await response.json();
   } catch {}

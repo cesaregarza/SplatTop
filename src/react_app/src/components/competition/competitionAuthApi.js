@@ -16,6 +16,7 @@ const buildCompetitionAuthUrl = (path) => {
 const normalizeCompetitionAuthPayload = (payload) => ({
   available: payload?.available !== false,
   authenticated: Boolean(payload?.authenticated),
+  isAdmin: Boolean(payload?.is_admin),
   discordId:
     typeof payload?.discord_id === "string" && payload.discord_id.trim()
       ? payload.discord_id

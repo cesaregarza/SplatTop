@@ -3,9 +3,11 @@ from __future__ import annotations
 import asyncio
 import os
 from contextlib import asynccontextmanager
+from unittest.mock import AsyncMock
 
 import orjson
 import pytest
+from sqlalchemy import BigInteger
 
 # Ensure DB env vars exist before importing modules that build SQLAlchemy engines
 os.environ.setdefault("DB_HOST", "localhost")
@@ -82,6 +84,10 @@ def test_fetch_player_ranked_history_limits_and_sorts():
         async def execute(self, _query, params=None):
             assert params is not None
             assert params["max_per_player"] == 25
+            assert isinstance(
+                _query._bindparams["max_per_player"].type,
+                BigInteger,
+            )
             return FakeResult()
 
     history = asyncio.run(
@@ -103,6 +109,110 @@ def test_fetch_player_ranked_history_limits_and_sorts():
     assert history["p2"][0]["team_name"] == "Weekend Warriors"
     assert history["p2"][0]["team_id"] == 77
     assert history["p2"][0]["result_summary"] == "3W-1L"
+
+
+def test_fetch_player_ranked_history_allows_unbounded_fetch():
+    rows = []
+    for idx in range(30):
+        rows.append(
+            {
+                "player_id": "p1",
+                "tournament_id": 1_000 + idx,
+                "event_ms": 1_000 + idx,
+                "tournament_name": None,
+                "is_ranked": True,
+                "team_id": 2_000 + idx,
+                "team_name": None,
+                "wins": 1,
+                "losses": 2,
+            }
+        )
+
+    class FakeMappings:
+        def all(self):
+            return rows
+
+    class FakeResult:
+        def mappings(self):
+            return FakeMappings()
+
+    class FakeSession:
+        async def execute(self, _query, params=None):
+            assert params is not None
+            assert params["max_per_player"] is None
+            assert isinstance(
+                _query._bindparams["max_per_player"].type,
+                BigInteger,
+            )
+            return FakeResult()
+
+        async def rollback(self):
+            raise AssertionError("rollback should not be called")
+
+    history = asyncio.run(
+        snapshot_mod._fetch_player_ranked_history(
+            FakeSession(),
+            ["p1"],
+            max_per_player=None,
+        )
+    )
+
+    assert len(history["p1"]) == 30
+    assert history["p1"][0]["event_ms"] == 1_029
+    assert history["p1"][-1]["event_ms"] == 1_000
+    assert history["p1"][0]["tournament_name"] == "Tournament 1029"
+
+
+def test_fetch_player_ranked_history_rolls_back_after_query_error():
+    class FakeSession:
+        def __init__(self):
+            self.rollback_calls = 0
+
+        async def execute(self, _query, params=None):
+            raise RuntimeError("boom")
+
+        async def rollback(self):
+            self.rollback_calls += 1
+
+    session = FakeSession()
+
+    history = asyncio.run(
+        snapshot_mod._fetch_player_ranked_history(
+            session,
+            ["p1"],
+            max_per_player=25,
+        )
+    )
+
+    assert history == {}
+    assert session.rollback_calls == 1
+
+
+def test_fetch_player_match_loo_impacts_rolls_back_after_query_error():
+    class FakeSession:
+        def __init__(self):
+            self.rollback_calls = 0
+
+        async def execute(self, _query, params=None):
+            raise RuntimeError("boom")
+
+        async def rollback(self):
+            self.rollback_calls += 1
+
+    session = FakeSession()
+
+    impacts = asyncio.run(
+        snapshot_mod._fetch_player_match_loo_impacts(
+            session,
+            ["p1"],
+            calculated_at_ms=1234,
+            build_version="2024.09.01",
+            max_per_player=20,
+        )
+    )
+
+    assert impacts == {}
+    assert session.rollback_calls == 1
 
 
 def test_fetch_player_match_loo_impacts_formats_rows():
@@ -172,6 +282,7 @@ def test_fetch_player_match_loo_impacts_formats_rows():
             assert params is not None
             assert params["calculated_at_ms"] == 1234
             assert params["build_version"] == "2024.09.01"
+            assert params["match_any_build_version"] is False
             return FakeResult()
 
     impacts = asyncio.run(
@@ -205,6 +316,115 @@ def test_fetch_player_match_loo_impacts_formats_rows():
     assert impacts["p2"][0]["player_team_players"] == ["9001", "9002"]
 
 
+def test_fetch_player_match_loo_impacts_falls_back_to_latest_snapshot():
+    strict_rows = [
+        {
+            "player_id": "p1",
+            "match_id": 501,
+            "tournament_id": 42,
+            "tournament_name": "Weekend Cup",
+            "event_ms": 2_000,
+            "player_rank": 7,
+            "player_score": 1.75,
+            "is_win": False,
+            "exact_score_delta": 0.36,
+            "exact_abs_delta": 0.36,
+            "player_team_id": 101,
+            "player_team_name": "Weekend Warriors",
+            "opponent_team_id": 202,
+            "opponent_team_name": "Night Shift",
+            "player_team_score": 1,
+            "opponent_team_score": 3,
+            "player_team_players": ["Alpha"],
+            "opponent_team_players": ["Echo"],
+        }
+    ]
+    fallback_rows = [
+        {
+            "player_id": "p2",
+            "match_id": 777,
+            "tournament_id": 88,
+            "tournament_name": "Fallback Finals",
+            "event_ms": 1_000,
+            "player_rank": 12,
+            "player_score": 0.8,
+            "is_win": True,
+            "exact_score_delta": -0.41,
+            "exact_abs_delta": 0.41,
+            "player_team_id": 404,
+            "player_team_name": "Fallback Force",
+            "opponent_team_id": 505,
+            "opponent_team_name": "Patch Notes",
+            "player_team_score": 3,
+            "opponent_team_score": 0,
+            "player_team_players": ["9001", "9002"],
+            "opponent_team_players": ["9101", "9102"],
+        }
+    ]
+
+    class FakeMappings:
+        def __init__(self, rows):
+            self._rows = rows
+
+        def all(self):
+            return self._rows
+
+    class FakeResult:
+        def __init__(self, rows):
+            self._rows = rows
+
+        def mappings(self):
+            return FakeMappings(self._rows)
+
+    class FakeSession:
+        def __init__(self):
+            self.calls = []
+
+        async def execute(self, _query, params=None):
+            assert params is not None
+            self.calls.append(dict(params))
+            if "calculated_at_ms" not in params:
+                assert params["player_ids"] == ["p2"]
+                return FakeResult(
+                    [
+                        {
+                            "player_id": "p2",
+                            "calculated_at_ms": 999,
+                            "build_version": "2024.08.20",
+                        }
+                    ]
+                )
+
+            if params["player_ids"] == ["p1", "p2"]:
+                assert params["calculated_at_ms"] == 1234
+                assert params["build_version"] == "2024.09.01"
+                assert params["match_any_build_version"] is False
+                return FakeResult(strict_rows)
+
+            assert params["player_ids"] == ["p2"]
+            assert params["calculated_at_ms"] == 999
+            assert params["build_version"] == "2024.08.20"
+            assert params["match_any_build_version"] is False
+            return FakeResult(fallback_rows)
+
+    session = FakeSession()
+
+    impacts = asyncio.run(
+        snapshot_mod._fetch_player_match_loo_impacts(
+            session,
+            ["p1", "p2"],
+            calculated_at_ms=1234,
+            build_version="2024.09.01",
+            max_per_player=20,
+        )
+    )
+
+    assert impacts["p1"][0]["match_id"] == 501
+    assert impacts["p2"][0]["match_id"] == 777
+    assert impacts["p2"][0]["player_team_name"] == "Fallback Force"
+    assert len(session.calls) == 3
+
+
 def test_select_player_match_loo_rows_keeps_helpful_and_harmful_sides():
     rows = []
     for idx in range(14):
@@ -233,8 +453,20 @@ def test_select_player_match_loo_rows_keeps_helpful_and_harmful_sides():
     helpful = [row for row in selected if row["exact_score_delta"] < 0]
     assert len(harmful) == 5
     assert len(helpful) == 5
-    assert [row["match_id"] for row in harmful] == [2000, 2001, 2002, 2003, 2004]
-    assert [row["match_id"] for row in helpful] == [3000, 3001, 3002, 3003, 3004]
+    assert [row["match_id"] for row in harmful] == [
+        2000,
+        2001,
+        2002,
+        2003,
+        2004,
+    ]
+    assert [row["match_id"] for row in helpful] == [
+        3000,
+        3001,
+        3002,
+        3003,
+        3004,
+    ]
     assert [row["exact_abs_delta"] for row in selected] == sorted(
         [row["exact_abs_delta"] for row in selected],
         reverse=True,
@@ -385,9 +617,7 @@ def test_refresh_ripple_snapshots_persists_payloads(monkeypatch):
             "p2": {"latest_event_ms": 800, "tournament_count": 4},
         }
 
-    async def fake_fetch_history(
-        session, player_ids, *, max_per_player=25
-    ):
+    async def fake_fetch_history(session, player_ids, *, max_per_player=25):
         assert set(player_ids) == {"p1", "p2"}
         assert max_per_player == 25
         return {
@@ -565,9 +795,7 @@ def test_refresh_ripple_snapshots_persists_payloads(monkeypatch):
 
     player_one_payload = orjson.loads(fake_redis.get(_player_index_key("p1")))
     assert player_one_payload["eligible"] is True
-    assert (
-        player_one_payload["minimum_required_tournaments"] == 3
-    )
+    assert player_one_payload["minimum_required_tournaments"] == 3
     assert player_one_payload["history_record_count"] == 1
     assert (
         player_one_payload["tournament_history_ranked"][0]["tournament_name"]
@@ -655,6 +883,18 @@ def test_bootstrap_rebuilds_stable_state(monkeypatch):
         fake_fetch_events,
         raising=False,
     )
+    monkeypatch.setattr(
+        snapshot_mod,
+        "_fetch_player_ranked_history",
+        AsyncMock(return_value={}),
+        raising=False,
+    )
+    monkeypatch.setattr(
+        snapshot_mod,
+        "_fetch_player_match_loo_impacts",
+        AsyncMock(return_value={}),
+        raising=False,
+    )
 
     async def fake_first_scores(session, player_events, *, cutoff_ms=None):
         # Validate input: player_events should be Dict[str, int]
@@ -713,3 +953,42 @@ def test_bootstrap_rebuilds_stable_state(monkeypatch):
     state = orjson.loads(fake_redis.get(RIPPLE_STABLE_STATE_KEY))
     assert state["p1"]["stable_score"] == pytest.approx(0.9)
     assert state["p1"]["updated_at_ms"] == 4_000
+
+
+def test_build_player_index_payload_preserves_private_scores_for_admins():
+    payload, _meta, players = snapshot_mod._build_player_index_payload(
+        all_rows=[
+            {
+                "player_id": "p1",
+                "display_name": "Player 1",
+                "tournament_count": 2,
+                "window_count": 2,
+            }
+        ],
+        stable_rows=[
+            {
+                "player_id": "p1",
+                "display_name": "Player 1",
+                "stable_rank": 21,
+                "stable_score": 1.75,
+                "display_score": 193.75,
+                "tournament_count": 2,
+            }
+        ],
+        danger_rows=[],
+        tournament_history_by_player={},
+        match_loo_impacts_by_player={},
+        delta_payload={},
+        generated_at_ms=1_700_000_000_000,
+        calculated_at_ms=1_700_000_000_000,
+        build_version="2024.09.01",
+    )
+
+    player_payload = players["p1"]
+    assert payload["record_count"] == 1
+    assert player_payload["stable_rank"] is None
+    assert player_payload["stable_score"] is None
+    assert player_payload["display_score"] is None
+    assert player_payload["private_stable_rank"] == 21
+    assert player_payload["private_stable_score"] == pytest.approx(1.75)
+    assert player_payload["private_display_score"] == pytest.approx(193.75)

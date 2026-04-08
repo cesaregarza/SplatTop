@@ -681,12 +681,16 @@ async def _fetch_player_ranked_history(
     session,
     player_ids: List[str],
     *,
-    max_per_player: int = MAX_PLAYER_HISTORY_ENTRIES,
+    max_per_player: int | None = MAX_PLAYER_HISTORY_ENTRIES,
 ) -> Dict[str, List[Dict[str, Any]]]:
     if not player_ids:
         return {}
 
-    max_rows = max(1, int(max_per_player))
+    max_rows = (
+        None
+        if max_per_player is None
+        else max(1, int(max_per_player))
+    )
     schema = ripple_queries._schema()
     schema_sql = f'"{schema}"'
 
@@ -789,10 +793,10 @@ async def _fetch_player_ranked_history(
                wins,
                losses
         FROM ranked_rows
-        WHERE row_num <= :max_per_player
+        WHERE :max_per_player IS NULL OR row_num <= :max_per_player
         ORDER BY player_id, row_num
         """
-    )
+    ).bindparams(bindparam("max_per_player", type_=BigInteger))
 
     history_by_player: Dict[str, List[Dict[str, Any]]] = {}
 
@@ -812,6 +816,7 @@ async def _fetch_player_ranked_history(
                 len(batch),
                 exc,
             )
+            await session.rollback()
             return {}
 
         for row in rows:
@@ -841,9 +846,7 @@ async def _fetch_player_ranked_history(
             wins = _to_int(row.get("wins")) or 0
             losses = _to_int(row.get("losses")) or 0
             result_summary = (
-                f"{wins}W-{losses}L"
-                if wins > 0 or losses > 0
-                else None
+                f"{wins}W-{losses}L" if wins > 0 or losses > 0 else None
             )
 
             team_name = row.get("team_name")
@@ -871,7 +874,9 @@ async def _fetch_player_ranked_history(
             ),
             reverse=True,
         )
-        history_by_player[player_id] = rows[:max_rows]
+        history_by_player[player_id] = (
+            rows if max_rows is None else rows[:max_rows]
+        )
 
     return history_by_player
 
@@ -951,7 +956,11 @@ async def _fetch_player_match_loo_impacts(
             WHERE impacts.player_id::text = ANY(:player_ids)
               AND impacts.calculated_at_ms = :calculated_at_ms
               AND (
-                CAST(:build_version AS TEXT) IS NULL
+                CAST(:match_any_build_version AS BOOLEAN) IS TRUE
+                OR (
+                    CAST(:build_version AS TEXT) IS NULL
+                    AND impacts.build_version IS NULL
+                )
                 OR impacts.build_version = CAST(:build_version AS TEXT)
               )
         ),
@@ -1086,26 +1095,102 @@ async def _fetch_player_match_loo_impacts(
             match_id DESC NULLS LAST
         """
     )
+    latest_snapshot_query = text(
+        f"""
+        SELECT DISTINCT ON (impacts.player_id::text)
+            impacts.player_id::text AS player_id,
+            impacts.calculated_at_ms::bigint AS calculated_at_ms,
+            impacts.build_version::text AS build_version
+        FROM {schema_sql}.player_match_loo_impacts impacts
+        WHERE impacts.player_id::text = ANY(:player_ids)
+        ORDER BY
+            impacts.player_id::text,
+            impacts.calculated_at_ms DESC NULLS LAST,
+            impacts.build_version DESC NULLS LAST
+        """
+    )
 
     impacts_by_player: Dict[str, List[Dict[str, Any]]] = {}
 
     for batch in _batched(player_ids, size=PLAYER_MATCH_LOO_CHUNK_SIZE):
         try:
+            rows = []
             result = await session.execute(
                 query,
                 {
                     "player_ids": batch,
                     "calculated_at_ms": int(calculated_at_ms),
                     "build_version": build_version,
+                    "match_any_build_version": build_version is None,
                 },
             )
-            rows = result.mappings().all()
+            rows.extend(result.mappings().all())
+
+            matched_player_ids = {
+                str(row.get("player_id") or "")
+                for row in rows
+                if row.get("player_id") is not None
+            }
+            missing_player_ids = [
+                player_id
+                for player_id in batch
+                if player_id not in matched_player_ids
+            ]
+
+            if missing_player_ids:
+                # Stable snapshot ids can drift from available LOO snapshots.
+                # When that happens, pull the newest per-player LOO slice
+                # instead of dropping the data entirely.
+                snapshot_result = await session.execute(
+                    latest_snapshot_query,
+                    {"player_ids": missing_player_ids},
+                )
+                fallback_snapshots = snapshot_result.mappings().all()
+                fallback_groups: Dict[
+                    tuple[int, str | None], List[str]
+                ] = {}
+                for snapshot_row in fallback_snapshots:
+                    fallback_player_id = str(
+                        snapshot_row.get("player_id") or ""
+                    )
+                    fallback_calculated_at_ms = _to_int(
+                        snapshot_row.get("calculated_at_ms")
+                    )
+                    if (
+                        not fallback_player_id
+                        or fallback_calculated_at_ms is None
+                    ):
+                        continue
+
+                    fallback_key = (
+                        int(fallback_calculated_at_ms),
+                        snapshot_row.get("build_version"),
+                    )
+                    fallback_groups.setdefault(fallback_key, []).append(
+                        fallback_player_id
+                    )
+
+                for (
+                    fallback_calculated_at_ms,
+                    fallback_build_version,
+                ), fallback_player_ids in fallback_groups.items():
+                    fallback_result = await session.execute(
+                        query,
+                        {
+                            "player_ids": fallback_player_ids,
+                            "calculated_at_ms": fallback_calculated_at_ms,
+                            "build_version": fallback_build_version,
+                            "match_any_build_version": False,
+                        },
+                    )
+                    rows.extend(fallback_result.mappings().all())
         except Exception as exc:
             logger.warning(
                 "Failed to fetch player match LOO impacts for %s players: %s",
                 len(batch),
                 exc,
             )
+            await session.rollback()
             return {}
 
         for row in rows:
@@ -1157,9 +1242,7 @@ async def _fetch_player_match_loo_impacts(
                     "player_team_name": player_team_name,
                     "opponent_team_id": opponent_team_id,
                     "opponent_team_name": opponent_team_name,
-                    "player_team_score": _to_int(
-                        row.get("player_team_score")
-                    ),
+                    "player_team_score": _to_int(row.get("player_team_score")),
                     "opponent_team_score": _to_int(
                         row.get("opponent_team_score")
                     ),
@@ -1405,6 +1488,9 @@ def _build_player_index_payload(
         stable_rank = _to_int(stable_row.get("stable_rank"))
         stable_score = _to_float(stable_row.get("stable_score"))
         display_score = _to_float(stable_row.get("display_score"))
+        private_stable_rank = stable_rank
+        private_stable_score = stable_score
+        private_display_score = display_score
 
         # Players with fewer than the minimum required lifetime tournaments
         # should not show rank/score on the public profile.
@@ -1423,9 +1509,7 @@ def _build_player_index_payload(
         progress_current = min(
             lifetime_tournament_count, MIN_REQUIRED_TOURNAMENTS
         )
-        progress_remaining = max(
-            0, MIN_REQUIRED_TOURNAMENTS - progress_current
-        )
+        progress_remaining = max(0, MIN_REQUIRED_TOURNAMENTS - progress_current)
         player_history = tournament_history_by_player.get(player_id)
         if not isinstance(player_history, list):
             player_history = []
@@ -1458,6 +1542,9 @@ def _build_player_index_payload(
             "stable_rank": stable_rank,
             "stable_score": stable_score,
             "display_score": display_score,
+            "private_stable_rank": private_stable_rank,
+            "private_stable_score": private_stable_score,
+            "private_display_score": private_display_score,
             "danger_days_left": _to_float(danger_row.get("days_left")),
             "last_active_ms": last_active_ms,
             "last_tournament_ms": last_tournament_ms,
@@ -1577,21 +1664,17 @@ async def _refresh_snapshots_async_once() -> Dict[str, Any]:
             )
             calc_ts_int = _to_int(calc_ts)
             events = await _fetch_player_events(session, player_ids)
-            tournament_history_by_player = (
-                await _fetch_player_ranked_history(
-                    session,
-                    all_player_ids,
-                    max_per_player=MAX_PLAYER_HISTORY_ENTRIES,
-                )
+            tournament_history_by_player = await _fetch_player_ranked_history(
+                session,
+                all_player_ids,
+                max_per_player=MAX_PLAYER_HISTORY_ENTRIES,
             )
-            match_loo_impacts_by_player = (
-                await _fetch_player_match_loo_impacts(
-                    session,
-                    all_player_ids,
-                    calculated_at_ms=calc_ts_int,
-                    build_version=build_version,
-                    max_per_player=MAX_PLAYER_MATCH_LOO_ENTRIES,
-                )
+            match_loo_impacts_by_player = await _fetch_player_match_loo_impacts(
+                session,
+                all_player_ids,
+                calculated_at_ms=calc_ts_int,
+                build_version=build_version,
+                max_per_player=MAX_PLAYER_MATCH_LOO_ENTRIES,
             )
             state, stable_rows = await _bootstrap_state(
                 session, rows, events, generated_at_ms
@@ -1699,18 +1782,16 @@ async def _refresh_snapshots_async_once() -> Dict[str, Any]:
         player_index_payload,
         player_index_meta_payload,
         player_index_players,
-    ) = (
-        _build_player_index_payload(
-            all_rows=all_rows,
-            stable_rows=stable_rows,
-            danger_rows=danger_payload,
-            tournament_history_by_player=tournament_history_by_player,
-            match_loo_impacts_by_player=match_loo_impacts_by_player,
-            delta_payload=delta_payload,
-            generated_at_ms=generated_at_ms,
-            calculated_at_ms=calc_ts_int,
-            build_version=build_version,
-        )
+    ) = _build_player_index_payload(
+        all_rows=all_rows,
+        stable_rows=stable_rows,
+        danger_rows=danger_payload,
+        tournament_history_by_player=tournament_history_by_player,
+        match_loo_impacts_by_player=match_loo_impacts_by_player,
+        delta_payload=delta_payload,
+        generated_at_ms=generated_at_ms,
+        calculated_at_ms=calc_ts_int,
+        build_version=build_version,
     )
     previous_player_index_payload = _load_cached_payload(
         RIPPLE_PLAYER_INDEX_LATEST_KEY

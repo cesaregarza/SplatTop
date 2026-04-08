@@ -1,7 +1,11 @@
-import React from "react";
+import React, { useState } from "react";
 import { Link } from "react-router-dom";
 import { useCompetitionAuth } from "./CompetitionAuth";
 import { resolveCompetitionDiscordLoginUrl } from "./competitionAuthApi";
+import {
+  normalizeCompetitionLoaderError,
+  queueCompetitionSnapshotRefresh,
+} from "./competitionSnapshotApi";
 
 const UTC_TIME_FORMATTER = new Intl.DateTimeFormat("en-GB", {
   hour: "2-digit",
@@ -70,10 +74,13 @@ const CompetitionLayout = ({
   vizLinkLabel = "Interactive explainer",
   top500Href = "/top500",
 }) => {
+  const [refreshPending, setRefreshPending] = useState(false);
+  const [refreshStatus, setRefreshStatus] = useState(null);
   const timestampParts = formatTimestampParts(generatedAtMs);
   const {
     available: authAvailable,
     authenticated,
+    isAdmin,
     discordId,
     error: authError,
     loading: authLoading,
@@ -81,6 +88,31 @@ const CompetitionLayout = ({
     logoutPending,
   } = useCompetitionAuth();
   const loginHref = resolveCompetitionDiscordLoginUrl();
+
+  const handleRefresh = async () => {
+    if (!onRefresh || refreshPending || loading) return;
+
+    setRefreshStatus(null);
+    setRefreshPending(true);
+
+    try {
+      if (isAdmin) {
+        const response = await queueCompetitionSnapshotRefresh({ wait: true });
+        await Promise.resolve(onRefresh());
+        setRefreshStatus(
+          response?.result?.reason === "locked"
+            ? "Refresh already in progress."
+            : "Snapshot refreshed."
+        );
+        return;
+      }
+      await Promise.resolve(onRefresh());
+    } catch (error) {
+      setRefreshStatus(normalizeCompetitionLoaderError(error));
+    } finally {
+      setRefreshPending(false);
+    }
+  };
 
   return (
     <div
@@ -110,6 +142,11 @@ const CompetitionLayout = ({
                     Discord ID{" "}
                     <span className="font-mono text-white">{discordId}</span>
                   </span>
+                  {isAdmin && (
+                    <span className="rounded-md bg-emerald-500/15 px-3 py-1.5 text-xs font-semibold text-emerald-200 ring-1 ring-emerald-300/20">
+                      Admin
+                    </span>
+                  )}
                   <button
                     type="button"
                     className="rounded-md bg-white/10 px-3 py-1.5 text-xs font-medium text-white ring-1 ring-white/15 transition hover:bg-white/15 disabled:opacity-60"
@@ -185,6 +222,9 @@ const CompetitionLayout = ({
             </div>
           </div>
           <div className="flex items-center gap-3">
+            {refreshStatus && (
+              <span className="text-sm text-slate-400">{refreshStatus}</span>
+            )}
             {faqLinkHref && (
               <Link
                 to={faqLinkHref}
@@ -203,16 +243,20 @@ const CompetitionLayout = ({
             )}
             {onRefresh && (
               <>
-                {loading && (
-                  <span className="text-sm text-slate-400">Refreshing…</span>
+                {(loading || refreshPending) && (
+                  <span className="text-sm text-slate-400">
+                    {isAdmin ? "Refreshing snapshot…" : "Refreshing…"}
+                  </span>
                 )}
                 <button
                   type="button"
                   className="rounded-md bg-fuchsia-600 px-4 py-2 text-sm font-medium text-white ring-1 ring-white/10 hover:bg-fuchsia-500 transition disabled:opacity-60"
-                  onClick={onRefresh}
-                  disabled={loading}
+                  onClick={() => {
+                    void handleRefresh();
+                  }}
+                  disabled={loading || refreshPending}
                 >
-                  Refresh snapshot
+                  {isAdmin ? "Refresh now" : "Refresh snapshot"}
                 </button>
               </>
             )}

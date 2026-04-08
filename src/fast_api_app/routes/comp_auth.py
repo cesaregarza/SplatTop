@@ -19,8 +19,10 @@ from fast_api_app.comp_auth import (
     build_competition_frontend_redirect_url,
     ensure_comp_auth_request_origin_allowed,
     get_discord_auth_config,
+    is_comp_admin_discord_id,
     is_discord_auth_configured,
     normalize_comp_auth_return_to,
+    read_authenticated_comp_discord_id,
 )
 
 logger = logging.getLogger(__name__)
@@ -95,18 +97,6 @@ async def exchange_discord_code_for_user_id(code: str) -> str:
     return discord_id
 
 
-def _read_authenticated_discord_id(request: Request) -> str | None:
-    session_payload = request.session.get(COMP_AUTH_USER_SESSION_KEY)
-    if not isinstance(session_payload, dict):
-        return None
-
-    discord_id = str(session_payload.get("discord_id") or "").strip()
-    if not discord_id:
-        return None
-
-    return discord_id
-
-
 @router.get("/discord/login")
 async def start_discord_login(
     request: Request,
@@ -174,18 +164,20 @@ async def get_comp_auth_me(request: Request, response: Response):
     response.headers["Cache-Control"] = "no-store"
     available = is_discord_auth_configured()
 
-    discord_id = _read_authenticated_discord_id(request)
+    discord_id = read_authenticated_comp_discord_id(request)
     if discord_id is None:
         request.session.pop(COMP_AUTH_USER_SESSION_KEY, None)
         return {
             "authenticated": False,
             "discord_id": None,
+            "is_admin": False,
             "available": available,
         }
 
     return {
         "authenticated": True,
         "discord_id": discord_id,
+        "is_admin": is_comp_admin_discord_id(discord_id),
         "available": available,
     }
 
@@ -198,5 +190,6 @@ async def logout_comp_auth(request: Request, response: Response):
     return {
         "authenticated": False,
         "discord_id": None,
+        "is_admin": False,
         "available": is_discord_auth_configured(),
     }

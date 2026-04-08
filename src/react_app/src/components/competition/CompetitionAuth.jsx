@@ -13,16 +13,19 @@ import {
 const defaultCompetitionAuthState = {
   available: true,
   authenticated: false,
+  isAdmin: false,
   discordId: null,
   error: null,
   loading: false,
   logoutPending: false,
   logout: async () => ({
     authenticated: false,
+    isAdmin: false,
     discordId: null,
   }),
   refresh: async () => ({
     authenticated: false,
+    isAdmin: false,
     discordId: null,
   }),
 };
@@ -41,6 +44,7 @@ export const CompetitionAuthProvider = ({ children }) => {
   const [authState, setAuthState] = useState({
     available: true,
     authenticated: false,
+    isAdmin: false,
     discordId: null,
     error: null,
     loading: true,
@@ -71,6 +75,7 @@ export const CompetitionAuthProvider = ({ children }) => {
         setAuthState((current) => ({
           ...current,
           authenticated: false,
+          isAdmin: false,
           available: current.available,
           discordId: null,
           error: normalizeCompetitionAuthError(error),
@@ -110,6 +115,7 @@ export const CompetitionAuthProvider = ({ children }) => {
         setAuthState((current) => ({
           ...current,
           authenticated: false,
+          isAdmin: false,
           available: current.available,
           discordId: null,
           error: normalizeCompetitionAuthError(error),

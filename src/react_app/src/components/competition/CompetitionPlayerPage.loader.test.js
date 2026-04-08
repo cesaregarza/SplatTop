@@ -5,6 +5,7 @@ import {
   createMemoryRouter,
 } from "react-router-dom";
 
+import { CompetitionAuthProvider } from "./CompetitionAuth";
 import CompetitionPlayerPage, {
   loadCompetitionPlayer,
 } from "./CompetitionPlayerPage";
@@ -70,12 +71,19 @@ describe("CompetitionPlayerPage loader", () => {
   });
 
   it("returns backend error details for failed loads", async () => {
-    global.fetch = jest.fn().mockResolvedValue(
-      makeJsonResponse(
-        { detail: "Player not found in competition index" },
-        404
+    global.fetch = jest.fn()
+      .mockResolvedValueOnce(
+        makeJsonResponse(
+          { detail: "Competition admin authentication is required" },
+          401
+        )
       )
-    );
+      .mockResolvedValueOnce(
+        makeJsonResponse(
+          { detail: "Player not found in competition index" },
+          404
+        )
+      );
 
     const result = await loadCompetitionPlayer({
       params: { playerId: "missing" },
@@ -83,19 +91,83 @@ describe("CompetitionPlayerPage loader", () => {
     });
 
     expect(result).toEqual({
+      accessMode: "public",
       error: "Player not found in competition index",
       profile: null,
     });
+  });
+
+  it("falls back to the public player endpoint when admin auth is unavailable", async () => {
+    global.fetch = jest.fn()
+      .mockResolvedValueOnce(
+        makeJsonResponse(
+          { detail: "Competition admin authentication is required" },
+          401
+        )
+      )
+      .mockResolvedValueOnce(
+        makeJsonResponse(
+          makeProfile({
+            player_id: "public-player",
+            display_name: "Public Fallback Player",
+            history_record_count: 1,
+            tournament_history_ranked: [
+              {
+                tournament_id: 3288,
+                tournament_name: "Champions Cup #9",
+                event_ms: 1_774_206_180_000,
+                ranked: true,
+                result_summary: "0W-1L",
+                team_name: "Example Team",
+                team_id: 61392,
+              },
+            ],
+          })
+        )
+      );
+
+    const result = await loadCompetitionPlayer({
+      params: { playerId: "public-player" },
+      request: new Request("http://localhost/u/public-player"),
+    });
+
+    expect(result).toMatchObject({
+      accessMode: "public",
+      error: null,
+    });
+    expect(result.profile.display_name).toBe("Public Fallback Player");
+    expect(global.fetch).toHaveBeenNthCalledWith(
+      1,
+      expect.stringContaining("/api/ripple/admin/player/public-player"),
+      expect.objectContaining({ credentials: "include" })
+    );
+    expect(global.fetch).toHaveBeenNthCalledWith(
+      2,
+      expect.stringContaining("/api/ripple/public/player/public-player"),
+      expect.objectContaining({ credentials: "include" })
+    );
   });
 
   it("scrolls to the top when a player page opens and when the route changes", async () => {
     global.fetch = jest.fn()
       .mockResolvedValueOnce(
         makeJsonResponse(
+          { detail: "Competition admin authentication is required" },
+          401
+        )
+      )
+      .mockResolvedValueOnce(
+        makeJsonResponse(
           makeProfile({
             player_id: "a",
             display_name: "Player A",
           })
+        )
+      )
+      .mockResolvedValueOnce(
+        makeJsonResponse(
+          { detail: "Competition admin authentication is required" },
+          401
         )
       )
       .mockResolvedValueOnce(
@@ -189,4 +261,86 @@ describe("CompetitionPlayerPage loader", () => {
     await screen.findByText("Player B");
     expect(screen.queryByText("Player A")).not.toBeInTheDocument();
   });
+
+  it("uses the admin player endpoint for admin sessions", async () => {
+    global.fetch = jest.fn()
+      .mockResolvedValueOnce(
+        makeJsonResponse(
+          makeProfile({
+            player_id: "p1",
+            display_name: "Admin Visible Player",
+            stable_rank: 21,
+            display_score: 193.75,
+          })
+        )
+      );
+
+    const result = await loadCompetitionPlayer({
+      params: { playerId: "p1" },
+      request: new Request("http://localhost/u/p1"),
+    });
+
+    expect(result.error).toBeNull();
+    expect(result.profile.display_name).toBe("Admin Visible Player");
+    expect(global.fetch).toHaveBeenNthCalledWith(
+      1,
+      expect.stringContaining("/api/ripple/admin/player/p1"),
+      expect.objectContaining({ credentials: "include" })
+    );
+  });
+
+  it("keeps rendering the admin player payload even when comp auth state fails closed", async () => {
+    global.fetch = jest.fn((url) => {
+      const path = String(url);
+
+      if (path.includes("/api/comp-auth/me")) {
+        return Promise.resolve(
+          makeJsonResponse(
+            { detail: "Competition auth origin is not allowed" },
+            403
+          )
+        );
+      }
+
+      if (path.includes("/api/ripple/admin/player/p1")) {
+        return Promise.resolve(
+          makeJsonResponse(
+            makeProfile({
+              player_id: "p1",
+              display_name: "Admin Visible Player",
+              stable_rank: 21,
+              display_score: 193.75,
+            })
+          )
+        );
+      }
+
+      throw new Error(`Unexpected fetch url: ${path}`);
+    });
+
+    const router = createMemoryRouter(
+      [
+        {
+          path: "/u/:playerId",
+          loader: loadCompetitionPlayer,
+          element: <CompetitionPlayerPage top500Href="/" />,
+        },
+      ],
+      { initialEntries: ["/u/p1"] }
+    );
+
+    render(
+      <CompetitionAuthProvider>
+        <RouterProvider router={router} />
+      </CompetitionAuthProvider>
+    );
+
+    await screen.findByText("Admin Visible Player");
+
+    expect(global.fetch).toHaveBeenCalledWith(
+      expect.stringContaining("/api/ripple/admin/player/p1"),
+      expect.objectContaining({ credentials: "include" })
+    );
+  });
+
 });

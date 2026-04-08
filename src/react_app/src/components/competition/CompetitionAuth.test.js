@@ -10,7 +10,7 @@ const makeJsonResponse = (data, status = 200) => ({
   json: jest.fn().mockResolvedValue(data),
 });
 
-const renderWithAuth = () => render(
+const renderWithAuth = (layoutProps = {}) => render(
   <MemoryRouter>
     <CompetitionAuthProvider>
       <CompetitionLayout
@@ -20,6 +20,7 @@ const renderWithAuth = () => render(
         faqLinkHref="/faq"
         vizLinkHref="/learn"
         top500Href="/top500"
+        {...layoutProps}
       >
         <div>competition content</div>
       </CompetitionLayout>
@@ -41,6 +42,7 @@ describe("Competition auth UI", () => {
       makeJsonResponse({
         available: true,
         authenticated: false,
+        is_admin: false,
         discord_id: null,
       })
     );
@@ -69,6 +71,7 @@ describe("Competition auth UI", () => {
         makeJsonResponse({
           available: true,
           authenticated: true,
+          is_admin: true,
           discord_id: "123456789",
         })
       )
@@ -76,6 +79,7 @@ describe("Competition auth UI", () => {
         makeJsonResponse({
           available: true,
           authenticated: false,
+          is_admin: false,
           discord_id: null,
         })
       );
@@ -83,6 +87,7 @@ describe("Competition auth UI", () => {
     renderWithAuth();
 
     await screen.findByText("123456789");
+    expect(screen.getByText("Admin")).toBeInTheDocument();
 
     fireEvent.click(screen.getByRole("button", { name: /log out/i }));
 
@@ -107,6 +112,7 @@ describe("Competition auth UI", () => {
       makeJsonResponse({
         available: false,
         authenticated: false,
+        is_admin: false,
         discord_id: null,
       })
     );
@@ -117,5 +123,46 @@ describe("Competition auth UI", () => {
     expect(
       screen.queryByRole("link", { name: /log in with discord/i })
     ).not.toBeInTheDocument();
+  });
+
+  it("runs a blocking backend snapshot refresh for admins before revalidating", async () => {
+    const onRefresh = jest.fn();
+    global.fetch = jest.fn()
+      .mockResolvedValueOnce(
+        makeJsonResponse({
+          available: true,
+          authenticated: true,
+          is_admin: true,
+          discord_id: "123456789",
+        })
+      )
+      .mockResolvedValueOnce(
+        makeJsonResponse({
+          queued: false,
+          completed: true,
+          task_name: "tasks.refresh_ripple_snapshots",
+          result: { refreshed: true },
+        })
+      );
+
+    renderWithAuth({ onRefresh });
+
+    await screen.findByText("123456789");
+
+    fireEvent.click(screen.getByRole("button", { name: /refresh now/i }));
+
+    await waitFor(() => {
+      expect(global.fetch).toHaveBeenNthCalledWith(
+        2,
+        "/api/ripple/admin/refresh?wait=true",
+        expect.objectContaining({
+          method: "POST",
+          credentials: "include",
+        })
+      );
+      expect(onRefresh).toHaveBeenCalledTimes(1);
+    });
+
+    expect(screen.getByText("Snapshot refreshed.")).toBeInTheDocument();
   });
 });
