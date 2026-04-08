@@ -1,5 +1,6 @@
 from urllib.parse import parse_qs, urlparse
 
+import pytest
 from fastapi import HTTPException
 
 
@@ -289,3 +290,62 @@ def test_comp_auth_allowed_origins_merge_configured_and_default_local_hosts(
     assert "http://comp.localhost:8080" in origins
     assert "http://localhost" in origins
     assert "http://localhost:8080" in origins
+
+
+def test_comp_auth_me_sets_cors_headers_for_allowed_origin(client_factory):
+    with client_factory(
+        env={"COMP_AUTH_SESSION_SECRET": "test-comp-session-secret"}
+    ) as client:
+        response = client.get(
+            "/api/comp-auth/me",
+            headers={"Origin": "http://comp.localhost"},
+        )
+
+    assert response.status_code == 200
+    assert response.headers["access-control-allow-origin"] == (
+        "http://comp.localhost"
+    )
+    assert response.headers["access-control-allow-credentials"] == "true"
+
+
+def test_comp_auth_me_rejects_untrusted_origin_without_cors_headers(
+    client_factory,
+):
+    with client_factory(
+        env={"COMP_AUTH_SESSION_SECRET": "test-comp-session-secret"}
+    ) as client:
+        response = client.get(
+            "/api/comp-auth/me",
+            headers={"Origin": "https://evil.example"},
+        )
+
+    assert response.status_code == 403
+    assert response.json()["detail"] == "Competition auth origin is not allowed"
+    assert "access-control-allow-origin" not in response.headers
+
+
+def test_comp_auth_session_secret_falls_back_in_development(monkeypatch):
+    from fast_api_app.comp_auth import (
+        DEFAULT_DEV_SESSION_SECRET,
+        get_comp_auth_session_secret,
+    )
+
+    monkeypatch.setenv("ENV", "development")
+    monkeypatch.delenv("COMP_AUTH_SESSION_SECRET", raising=False)
+
+    assert get_comp_auth_session_secret() == DEFAULT_DEV_SESSION_SECRET
+
+
+def test_comp_auth_session_secret_is_required_outside_development(
+    monkeypatch,
+):
+    from fast_api_app.comp_auth import get_comp_auth_session_middleware_kwargs
+
+    monkeypatch.setenv("ENV", "production")
+    monkeypatch.delenv("COMP_AUTH_SESSION_SECRET", raising=False)
+
+    with pytest.raises(
+        RuntimeError,
+        match="COMP_AUTH_SESSION_SECRET must be configured outside development/test",
+    ):
+        get_comp_auth_session_middleware_kwargs()

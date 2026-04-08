@@ -19,7 +19,6 @@ DISCORD_USER_URL = "https://discord.com/api/users/@me"
 DEFAULT_COMP_FRONTEND_URL = "https://comp.splat.top"
 DEFAULT_LOCAL_COMP_FRONTEND_URL = "http://comp.localhost:3000"
 DEFAULT_DEV_SESSION_SECRET = "development-comp-auth-session-secret"
-PUBLIC_CORS_ORIGIN_REGEX = r"https?://.*"
 _ENV_LIST_SPLIT_RE = re.compile(r"[\n,]+")
 _DEFAULT_LOCAL_COMP_AUTH_ORIGINS = frozenset(
     {
@@ -50,15 +49,25 @@ def _environment_name() -> str:
     return os.getenv("ENV", "").strip().lower()
 
 
+def is_development_like_environment() -> bool:
+    return _environment_name() in {"", "development", "dev", "test"}
+
+
 def is_secure_cookie_environment() -> bool:
-    return _environment_name() not in {"", "development", "dev", "test"}
+    return not is_development_like_environment()
 
 
 def get_comp_auth_session_secret() -> str:
     secret = os.getenv("COMP_AUTH_SESSION_SECRET", "").strip()
     if secret:
         return secret
-    return DEFAULT_DEV_SESSION_SECRET
+
+    if is_development_like_environment():
+        return DEFAULT_DEV_SESSION_SECRET
+
+    raise RuntimeError(
+        "COMP_AUTH_SESSION_SECRET must be configured outside development/test"
+    )
 
 
 def get_comp_auth_session_middleware_kwargs() -> dict:
@@ -69,10 +78,6 @@ def get_comp_auth_session_middleware_kwargs() -> dict:
         "https_only": is_secure_cookie_environment(),
         "max_age": 60 * 60 * 24 * 30,
     }
-
-
-def get_public_cors_origin_regex() -> str:
-    return PUBLIC_CORS_ORIGIN_REGEX
 
 
 def _parse_env_list(name: str) -> list[str]:
@@ -113,6 +118,10 @@ def get_comp_auth_allowed_origins() -> list[str]:
     origins = _default_comp_auth_allowed_origins()
     origins.update(configured)
     return sorted(origins)
+
+
+def get_comp_auth_cors_allowed_origins() -> list[str]:
+    return get_comp_auth_allowed_origins()
 
 
 def get_comp_auth_admin_discord_ids() -> frozenset[str]:

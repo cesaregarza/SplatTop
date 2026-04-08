@@ -82,7 +82,7 @@ const RaceTo5000 = () => {
 
     const historicalSeries = historicalRuns.map((run) => ({
       type: "line",
-      name: `${run.splashtag} · ${getSeasonName(run.season_number - 1, g)}`,
+      name: `${run.splashtag} · ${getSeasonName(run.season_number, g)}`,
       data: (run.points || [])
         .map((point) => [
           clampPercent(getPercentageInSeason(point.timestamp, run.season_number)),
@@ -127,7 +127,7 @@ const RaceTo5000 = () => {
   const currentRuns = data?.current_runs || [];
   const historicalRuns = data?.historical_runs || [];
   const currentSeasonLabel = data?.current_season
-    ? getSeasonName(data.current_season - 1, g)
+    ? getSeasonName(data.current_season, g)
     : t("race.current_season_fallback", { defaultValue: "Current season" });
 
   const chartOptions = {

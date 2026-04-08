@@ -12,8 +12,8 @@ from starlette.middleware.sessions import SessionMiddleware
 
 from fast_api_app.background_tasks import background_runner
 from fast_api_app.comp_auth import (
+    get_comp_auth_cors_allowed_origins,
     get_comp_auth_session_middleware_kwargs,
-    get_public_cors_origin_regex,
 )
 from fast_api_app.connections import celery, limiter
 from fast_api_app.feature_flags import is_comp_leaderboard_enabled
@@ -79,12 +79,11 @@ app.add_middleware(
 )
 
 # Setup CORS:
-# - Keep the public API browser-readable from arbitrary origins.
-# - Echo a concrete origin so credentialed competition auth requests can work.
+# - Restrict credentialed browser access to trusted competition frontend origins.
 # - Sensitive auth endpoints still validate their allowed frontend origins.
 app.add_middleware(
     CORSMiddleware,
-    allow_origin_regex=get_public_cors_origin_regex(),
+    allow_origins=get_comp_auth_cors_allowed_origins(),
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],

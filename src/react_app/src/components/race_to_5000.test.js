@@ -18,7 +18,12 @@ jest.mock("./misc_components/loading", () => ({
 jest.mock("highcharts-react-official", () => ({
   __esModule: true,
   default: ({ options }) => (
-    <div data-testid="race-chart">{options.series.length} series</div>
+    <div>
+      <div data-testid="race-chart">{options.series.length} series</div>
+      {options.series.map((series) => (
+        <div key={series.name}>{series.name}</div>
+      ))}
+    </div>
   ),
 }));
 
@@ -117,11 +122,14 @@ describe("RaceTo5000", () => {
     expect(screen.getByText("Race to 5000")).toBeInTheDocument();
     expect(screen.getByTestId("race-chart")).toHaveTextContent("2 series");
     expect(
-      screen.getByText(/1 contenders over 4000 XP · 1 historical 5000\+ runs/)
+      screen.getByText(
+        /Fresh 2025 · 1 contenders over 4000 XP · 1 historical 5000\+ runs/
+      )
     ).toBeInTheDocument();
     expect(await screen.findByText("Alpha#1111")).toBeInTheDocument();
     expect(screen.getByText("Rainmaker")).toBeInTheDocument();
     expect(screen.getByText("Tentatek")).toBeInTheDocument();
+    expect(screen.getByText("Beta#2222 · Chill 2024")).toBeInTheDocument();
     expect(screen.getByText("4310.4")).toBeInTheDocument();
     expect(screen.getByText("4331.8")).toBeInTheDocument();
   });
