@@ -4,15 +4,16 @@ import { useTranslation } from "react-i18next";
 
 import { columnsConfig } from "./columns_config";
 
-const PlayerTable = ({ players, columnVisibility }) => {
+const PlayerTable = ({ players, columnVisibility, tableContext = {} }) => {
   const { t } = useTranslation();
   const navigate = useNavigate();
   const visibleColumns = columnsConfig.filter(
     (column) => columnVisibility[column.id]
   );
 
-  const defaultHeaderClasses = "w-20 px-4 py-2 text-center";
-  const defaultCellClasses = "w-20 px-4 py-2 text-center";
+  const defaultHeaderClasses =
+    "w-20 px-4 py-3 text-center text-[0.68rem] font-semibold uppercase tracking-[0.16em] text-gray-300";
+  const defaultCellClasses = "w-20 px-4 py-3 text-center align-middle";
 
   const handleRowClick = (playerId) => {
     navigate(`/player/${playerId}`);
@@ -20,9 +21,9 @@ const PlayerTable = ({ players, columnVisibility }) => {
   };
 
   return (
-    <table className="table-auto w-full bg-gray-800">
+    <table className="w-full table-auto border-collapse bg-transparent">
       <thead>
-        <tr className="bg-gray-700">
+        <tr className="border-b border-gray-800 bg-gray-950/95">
           {visibleColumns.map((column, index) => (
             <th
               key={index}
@@ -37,7 +38,7 @@ const PlayerTable = ({ players, columnVisibility }) => {
         {players.map((player) => (
           <tr
             key={player.player_id}
-            className="border-b border-gray-700 hover:bg-purpledark cursor-pointer"
+            className="cursor-pointer border-b border-gray-800/90 hover:bg-purple-950/30"
             onClick={() => handleRowClick(player.player_id)}
           >
             {visibleColumns.map((column, index) => (
@@ -45,7 +46,7 @@ const PlayerTable = ({ players, columnVisibility }) => {
                 key={index}
                 className={column.cellClasses || defaultCellClasses}
               >
-                {column.render(player, t)}
+                {column.render(player, t, tableContext)}
               </td>
             ))}
           </tr>

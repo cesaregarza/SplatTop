@@ -35,9 +35,8 @@ const ModeSelector = ({
   const getModeLabel = (mode) =>
     t(modeKeyMap[mode], { ns: "game", defaultValue: mode });
 
-  const getButtonClasses = (mode) => {
+  const getButtonClasses = (mode, isAllowed = true) => {
     const isSelected = selectedMode === mode;
-    const isAllowed = allowedModes[modes.indexOf(mode)];
 
     if (buttonVariant === "utility") {
       return `rounded-md border ${buttonPadding} ${modeButtonSize} ${
@@ -112,11 +111,7 @@ const ModeSelector = ({
           <div className={equalWidthButtons ? "min-w-0" : "flex justify-center"}>
             <button
               onClick={() => setSelectedMode("All Modes")}
-              className={`rounded-md ${buttonPadding} ${modeButtonSize} ${
-                selectedMode === "All Modes"
-                  ? "bg-purpledark text-white hover:bg-purple"
-                  : "bg-gray-700 hover:bg-purple"
-              } flex justify-center items-center ${
+              className={`${getButtonClasses("All Modes")} ${
                 equalWidthButtons ? "w-full min-w-0" : ""
               }`}
               aria-label="All Modes"
