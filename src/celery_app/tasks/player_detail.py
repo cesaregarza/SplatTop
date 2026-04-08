@@ -25,6 +25,7 @@ from shared_lib.queries.player_queries import (
 logger = logging.getLogger(__name__)
 
 PLAYER_CHUNK_VERSION = 2
+PLAYER_FETCH_LOCK_TTL_SECONDS = 300
 PLAYER_AGGREGATED_KEYS = (
     "weapon_counts",
     "weapon_winrate",
@@ -138,57 +139,63 @@ def fetch_player_data(player_id: str) -> None:
     """
     logger.info("Running task: fetch_player_data for player_id: %s", player_id)
     task_signature = f"fetch_player_data:{player_id}"
-    already_running = redis_conn.get(task_signature)
+    lock_acquired = redis_conn.set(
+        task_signature,
+        "true",
+        nx=True,
+        ex=PLAYER_FETCH_LOCK_TTL_SECONDS,
+    )
 
-    if already_running:
+    if not lock_acquired:
         logger.info("Task already running. Skipping.")
         return
-    else:
-        redis_conn.set(task_signature, "true", ex=60)
 
-    cache_key = f"{PLAYER_LATEST_REDIS_KEY}:{player_id}"
+    try:
+        cache_key = f"{PLAYER_LATEST_REDIS_KEY}:{player_id}"
 
-    if redis_conn.exists(cache_key):
-        logger.info("Data already exists in cache. Skipping fetch.")
-        publish_cached_player_chunks(player_id, cache_key)
-    else:
-        season_result = _fetch_season_data(player_id)
-        latest_data = pull_all_latest_data(player_id)
-        merged_payload = merge_player_payload(
-            build_empty_player_payload(),
-            build_snapshot_payload(season_result, latest_data),
-        )
-        publish_player_chunk(
-            player_id,
-            "snapshot",
-            build_snapshot_payload(season_result, latest_data),
-        )
-
-        try:
-            player_result = _fetch_player_data(player_id)
-            analysis_payload = build_analysis_payload(player_result)
-            merge_player_payload(merged_payload, analysis_payload)
-            publish_player_chunk(player_id, "analysis", analysis_payload)
-        except Exception as e:
-            logger.exception(
-                "Error building player analysis payload for player_id=%s",
-                player_id,
+        if redis_conn.exists(cache_key):
+            logger.info("Data already exists in cache. Skipping fetch.")
+            publish_cached_player_chunks(player_id, cache_key)
+        else:
+            season_result = _fetch_season_data(player_id)
+            latest_data = pull_all_latest_data(player_id)
+            merged_payload = merge_player_payload(
+                build_empty_player_payload(),
+                build_snapshot_payload(season_result, latest_data),
             )
             publish_player_chunk(
                 player_id,
-                "error",
-                {"message": str(e), "stage": "analysis"},
+                "snapshot",
+                build_snapshot_payload(season_result, latest_data),
             )
-        finally:
-            redis_conn.set(cache_key, orjson.dumps(merged_payload), ex=60)
 
-        publish_player_chunk(player_id, "complete", cache_key=cache_key)
+            try:
+                player_result = _fetch_player_data(player_id)
+                analysis_payload = build_analysis_payload(player_result)
+                merge_player_payload(merged_payload, analysis_payload)
+                publish_player_chunk(
+                    player_id, "analysis", analysis_payload
+                )
+            except Exception as e:
+                logger.exception(
+                    "Error building player analysis payload for player_id=%s",
+                    player_id,
+                )
+                publish_player_chunk(
+                    player_id,
+                    "error",
+                    {"message": str(e), "stage": "analysis"},
+                )
+            finally:
+                redis_conn.set(cache_key, orjson.dumps(merged_payload), ex=60)
 
-    try:
-        redis_conn.delete(task_signature)
-    except Exception as e:
-        logging.error(f"Error deleting task signature: {e}")
-        logging.error("Probably expired before deletion. Proceeding.")
+            publish_player_chunk(player_id, "complete", cache_key=cache_key)
+    finally:
+        try:
+            redis_conn.delete(task_signature)
+        except Exception as e:
+            logger.error("Error deleting task signature: %s", e)
+            logger.error("Probably expired before deletion. Proceeding.")
 
 
 def _fetch_player_data(player_id: str) -> list[dict]:

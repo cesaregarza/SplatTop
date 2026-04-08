@@ -5,6 +5,10 @@ import {
   createMemoryRouter,
 } from "react-router-dom";
 
+jest.mock("../utils", () => ({
+  getBaseApiUrl: jest.fn(() => ""),
+}));
+
 jest.mock("./StableLeaderboardView", () => ({
   __esModule: true,
   default: ({ rows, loading, error }) => (
@@ -45,6 +49,7 @@ import {
   CompetitionRouteShell,
   loadCompetitionSnapshot,
 } from "./CompetitionApp";
+import { getBaseApiUrl } from "../utils";
 
 const makeJsonResponse = (data, status = 200) => ({
   ok: status >= 200 && status < 300,
@@ -104,6 +109,7 @@ const makeSnapshotRouter = (entry) => createMemoryRouter(
 describe("CompetitionApp snapshot loader", () => {
   beforeEach(() => {
     jest.clearAllMocks();
+    getBaseApiUrl.mockReturnValue("");
   });
 
   afterEach(() => {
@@ -224,5 +230,34 @@ describe("CompetitionApp snapshot loader", () => {
 
     await screen.findByText(/^Snapshot fetch failed$/);
     expect(screen.getByText("rows:0")).toBeInTheDocument();
+  });
+
+  it("uses the configured API base URL for snapshot fetches", async () => {
+    getBaseApiUrl.mockReturnValue("http://localhost:5000");
+    global.fetch = jest.fn()
+      .mockResolvedValueOnce(makeJsonResponse(makeStablePayload()))
+      .mockResolvedValueOnce(makeJsonResponse(makeDangerPayload()))
+      .mockResolvedValueOnce(makeJsonResponse({ build_version: "v1" }))
+      .mockResolvedValueOnce(makeJsonResponse(makePercentilesPayload()));
+
+    const request = new Request("http://localhost/");
+    await loadCompetitionSnapshot({ request });
+
+    expect(global.fetch).toHaveBeenNthCalledWith(
+      1,
+      "http://localhost:5000/api/ripple/public/leaderboard",
+      expect.objectContaining({
+        headers: { Accept: "application/json" },
+        signal: request.signal,
+      })
+    );
+    expect(global.fetch).toHaveBeenNthCalledWith(
+      2,
+      "http://localhost:5000/api/ripple/public/leaderboard/danger",
+      expect.objectContaining({
+        headers: { Accept: "application/json" },
+        signal: request.signal,
+      })
+    );
   });
 });

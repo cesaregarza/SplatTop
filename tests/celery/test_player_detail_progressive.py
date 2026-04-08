@@ -17,11 +17,15 @@ class RedisSpy:
     def __init__(self):
         self.kv = {}
         self.published = []
+        self.set_calls = []
 
     def get(self, key):
         return self.kv.get(key)
 
     def set(self, key, value, nx=False, ex=None, px=None):
+        self.set_calls.append(
+            {"key": key, "value": value, "nx": nx, "ex": ex, "px": px}
+        )
         if nx and key in self.kv:
             return False
         self.kv[key] = value
@@ -229,3 +233,50 @@ def test_fetch_player_data_preserves_snapshot_when_analysis_fails(
         {"season_number": 6, "mode": "Rainmaker", "rank": 7}
     ]
     assert cached_payload["player_data"] == []
+
+
+def test_fetch_player_data_uses_atomic_lock_and_skips_when_already_running(
+    monkeypatch,
+):
+    mod = importlib.import_module("celery_app.tasks.player_detail")
+    mod = importlib.reload(mod)
+    redis_spy = RedisSpy()
+    redis_spy.set("fetch_player_data:player-4", "true")
+    monkeypatch.setattr(mod, "redis_conn", redis_spy, raising=False)
+    monkeypatch.setattr(
+        mod,
+        "_fetch_season_data",
+        lambda player_id: (_ for _ in ()).throw(AssertionError("no refetch")),
+    )
+
+    mod.fetch_player_data("player-4")
+
+    assert redis_spy.published == []
+    assert redis_spy.set_calls[-1] == {
+        "key": "fetch_player_data:player-4",
+        "value": "true",
+        "nx": True,
+        "ex": mod.PLAYER_FETCH_LOCK_TTL_SECONDS,
+        "px": None,
+    }
+
+
+def test_fetch_player_data_releases_lock_when_snapshot_fetch_fails(
+    monkeypatch,
+):
+    mod = importlib.import_module("celery_app.tasks.player_detail")
+    mod = importlib.reload(mod)
+    redis_spy = RedisSpy()
+    monkeypatch.setattr(mod, "redis_conn", redis_spy, raising=False)
+    monkeypatch.setattr(
+        mod,
+        "_fetch_season_data",
+        lambda player_id: (_ for _ in ()).throw(RuntimeError("snapshot boom")),
+    )
+
+    import pytest
+
+    with pytest.raises(RuntimeError, match="snapshot boom"):
+        mod.fetch_player_data("player-5")
+
+    assert redis_spy.get("fetch_player_data:player-5") is None

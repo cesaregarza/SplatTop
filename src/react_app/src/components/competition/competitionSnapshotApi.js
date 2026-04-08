@@ -1,3 +1,5 @@
+import { getBaseApiUrl } from "../utils";
+
 const STABLE_ENDPOINT = "/api/ripple/public/leaderboard";
 const DANGER_ENDPOINT = "/api/ripple/public/leaderboard/danger";
 const META_ENDPOINT = "/api/ripple/public/metadata";
@@ -14,8 +16,19 @@ export const normalizeCompetitionLoaderError = (error) => {
   return error.message || "Unexpected error";
 };
 
+const buildCompetitionSnapshotUrl = (path) => {
+  const baseApiUrl = getBaseApiUrl();
+  if (!baseApiUrl) {
+    return path;
+  }
+  return new URL(path, baseApiUrl).href;
+};
+
 export const fetchCompetitionJson = async (url, signal) => {
-  const response = await fetch(url, { signal });
+  const response = await fetch(buildCompetitionSnapshotUrl(url), {
+    headers: { Accept: "application/json" },
+    signal,
+  });
   let data = null;
 
   try {
@@ -37,8 +50,10 @@ export const fetchCompetitionJson = async (url, signal) => {
 };
 
 export const queueCompetitionSnapshotRefresh = async ({ wait = false } = {}) => {
-  const url = wait ? `${ADMIN_REFRESH_ENDPOINT}?wait=true` : ADMIN_REFRESH_ENDPOINT;
-  const response = await fetch(url, {
+  const url = wait
+    ? `${ADMIN_REFRESH_ENDPOINT}?wait=true`
+    : ADMIN_REFRESH_ENDPOINT;
+  const response = await fetch(buildCompetitionSnapshotUrl(url), {
     method: "POST",
     credentials: "include",
     headers: { Accept: "application/json" },
