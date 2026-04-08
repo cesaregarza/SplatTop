@@ -15,9 +15,20 @@ permissions:
 jobs:
   sync-config:
     runs-on: ubuntu-latest
+    environment: SplatTop
     steps:
       - name: Checkout app repo
         uses: actions/checkout@v4
+
+      - name: Require config repo token
+        env:
+          CONFIG_REPO_TOKEN: ${{ secrets.CONFIG_REPO_TOKEN }}
+        run: |
+          set -euo pipefail
+          if [ -z "${CONFIG_REPO_TOKEN}" ]; then
+            echo "::error::Missing CONFIG_REPO_TOKEN secret. This workflow needs it to checkout, push to, and open PRs against cesaregarza/SplatTopConfig."
+            exit 1
+          fi
 
       - name: Set up Python
         uses: actions/setup-python@v5
