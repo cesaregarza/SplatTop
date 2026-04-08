@@ -11,6 +11,7 @@ from shared_lib.constants import (
     ALIASES_REDIS_KEY,
     MODES,
     MODES_SNAKE_CASE,
+    RACE_TO_5000_REDIS_KEY,
     REGIONS,
 )
 from shared_lib.monitoring import (
@@ -18,10 +19,122 @@ from shared_lib.monitoring import (
     DATA_PULL_ROWS,
     metrics_enabled,
 )
-from shared_lib.queries.front_page_queries import LEADERBOARD_MAIN_QUERY
+from shared_lib.queries.front_page_queries import (
+    LEADERBOARD_MAIN_QUERY,
+    RACE_TO_5000_CURRENT_QUERY,
+    RACE_TO_5000_HISTORICAL_QUERY,
+)
 from shared_lib.utils import get_badge_image, get_banner_image, get_weapon_image
 
 logger = logging.getLogger(__name__)
+
+RACE_CURRENT_THRESHOLD = 4000
+RACE_HISTORICAL_THRESHOLD = 5000
+RACE_RUN_INDEX = ["player_id", "season_number", "mode", "region"]
+
+
+def _format_region_label(region_value: bool) -> str:
+    return "Takoroka" if bool(region_value) else "Tentatek"
+
+
+def _serialize_race_run(group: pd.DataFrame) -> dict:
+    sorted_group = group.sort_values("timestamp")
+    latest_row = sorted_group.iloc[-1]
+    peak_row = sorted_group.loc[sorted_group["x_power"].idxmax()]
+    return {
+        "run_id": ":".join(
+            [
+                str(latest_row["player_id"]),
+                str(latest_row["season_number"]),
+                str(latest_row["mode"]),
+                "1" if bool(latest_row["region"]) else "0",
+            ]
+        ),
+        "player_id": latest_row["player_id"],
+        "splashtag": latest_row["splashtag"],
+        "season_number": int(latest_row["season_number"]),
+        "mode": latest_row["mode"],
+        "region": _format_region_label(latest_row["region"]),
+        "current_x_power": float(latest_row["x_power"]),
+        "current_rank": int(latest_row["rank"]),
+        "peak_x_power": float(peak_row["x_power"]),
+        "peak_rank": int(peak_row["rank"]),
+        "last_updated": latest_row["timestamp"].isoformat(),
+        "points": [
+            {
+                "timestamp": row.timestamp.isoformat(),
+                "x_power": float(row.x_power),
+            }
+            for row in sorted_group.itertuples()
+        ],
+    }
+
+
+def build_race_to_5000_payload(
+    current_runs_df: pd.DataFrame,
+    historical_runs_df: pd.DataFrame,
+) -> dict:
+    def serialize_runs(frame: pd.DataFrame) -> list[dict]:
+        if frame.empty:
+            return []
+
+        runs = [
+            _serialize_race_run(group)
+            for _, group in frame.groupby(RACE_RUN_INDEX, sort=False)
+        ]
+        return sorted(
+            runs,
+            key=lambda run: (run["peak_x_power"], run["last_updated"]),
+            reverse=True,
+        )
+
+    current_runs = [
+        run
+        for run in serialize_runs(current_runs_df)
+        if run["current_x_power"] >= RACE_CURRENT_THRESHOLD
+    ]
+    historical_runs = serialize_runs(historical_runs_df)
+    current_season = (
+        int(current_runs_df["season_number"].max())
+        if not current_runs_df.empty
+        else None
+    )
+
+    return {
+        "current_season": current_season,
+        "current_threshold": RACE_CURRENT_THRESHOLD,
+        "historical_threshold": RACE_HISTORICAL_THRESHOLD,
+        "current_runs": current_runs,
+        "historical_runs": historical_runs,
+        "updated_at": (
+            max(run["last_updated"] for run in current_runs)
+            if current_runs
+            else None
+        ),
+    }
+
+
+def fetch_race_to_5000_rows(query_text: str, threshold: int) -> pd.DataFrame:
+    query = text(query_text)
+    with Session() as session:
+        result = session.execute(query, {"threshold": threshold}).fetchall()
+
+    rows = [{**row._asdict()} for row in result]
+    if not rows:
+        return pd.DataFrame(
+            columns=[
+                "player_id",
+                "splashtag",
+                "rank",
+                "x_power",
+                "timestamp",
+                "mode",
+                "region",
+                "season_number",
+            ]
+        )
+
+    return pd.DataFrame(rows)
 
 
 def fetch_and_store_leaderboard_data(mode: str, region_bool: bool) -> list:
@@ -191,3 +304,26 @@ def pull_data() -> None:
         DATA_PULL_DURATION.labels(task="front_page.pull_data").observe(
             perf_counter() - pull_start
         )
+
+
+def fetch_race_to_5000() -> None:
+    logger.info("Fetching race-to-5000 data")
+    start = perf_counter()
+    current_runs_df = fetch_race_to_5000_rows(
+        RACE_TO_5000_CURRENT_QUERY, RACE_CURRENT_THRESHOLD
+    )
+    historical_runs_df = fetch_race_to_5000_rows(
+        RACE_TO_5000_HISTORICAL_QUERY, RACE_HISTORICAL_THRESHOLD
+    )
+    payload = build_race_to_5000_payload(current_runs_df, historical_runs_df)
+    redis_conn.set(RACE_TO_5000_REDIS_KEY, orjson.dumps(payload))
+    if metrics_enabled():
+        DATA_PULL_DURATION.labels(task="front_page.race_to_5000").observe(
+            perf_counter() - start
+        )
+        DATA_PULL_ROWS.labels(task="front_page.race_to_5000.current").set(
+            len(payload["current_runs"])
+        )
+        DATA_PULL_ROWS.labels(
+            task="front_page.race_to_5000.historical"
+        ).set(len(payload["historical_runs"]))

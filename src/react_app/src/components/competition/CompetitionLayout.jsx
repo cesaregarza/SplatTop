@@ -1,5 +1,11 @@
-import React from "react";
+import React, { useState } from "react";
 import { Link } from "react-router-dom";
+import { useCompetitionAuth } from "./CompetitionAuth";
+import { resolveCompetitionDiscordLoginUrl } from "./competitionAuthApi";
+import {
+  normalizeCompetitionLoaderError,
+  queueCompetitionSnapshotRefresh,
+} from "./competitionSnapshotApi";
 
 const UTC_TIME_FORMATTER = new Intl.DateTimeFormat("en-GB", {
   hour: "2-digit",
@@ -68,7 +74,45 @@ const CompetitionLayout = ({
   vizLinkLabel = "Interactive explainer",
   top500Href = "/top500",
 }) => {
+  const [refreshPending, setRefreshPending] = useState(false);
+  const [refreshStatus, setRefreshStatus] = useState(null);
   const timestampParts = formatTimestampParts(generatedAtMs);
+  const {
+    available: authAvailable,
+    authenticated,
+    isAdmin,
+    discordId,
+    error: authError,
+    loading: authLoading,
+    logout,
+    logoutPending,
+  } = useCompetitionAuth();
+  const loginHref = resolveCompetitionDiscordLoginUrl();
+
+  const handleRefresh = async () => {
+    if (!onRefresh || refreshPending || loading) return;
+
+    setRefreshStatus(null);
+    setRefreshPending(true);
+
+    try {
+      if (isAdmin) {
+        const response = await queueCompetitionSnapshotRefresh({ wait: true });
+        await Promise.resolve(onRefresh());
+        setRefreshStatus(
+          response?.result?.reason === "locked"
+            ? "Refresh already in progress."
+            : "Snapshot refreshed."
+        );
+        return;
+      }
+      await Promise.resolve(onRefresh());
+    } catch (error) {
+      setRefreshStatus(normalizeCompetitionLoaderError(error));
+    } finally {
+      setRefreshPending(false);
+    }
+  };
 
   return (
     <div
@@ -77,7 +121,7 @@ const CompetitionLayout = ({
     >
       <header className="border-b border-slate-800 bg-slate-900/90">
         <div className="max-w-6xl mx-auto px-6 pt-6 pb-4">
-          <div className="flex items-center justify-between">
+          <div className="flex items-start justify-between gap-4">
             <div className="flex items-center gap-3">
               <a
                 href={top500Href}
@@ -90,6 +134,49 @@ const CompetitionLayout = ({
               <span className="text-white/80 text-sm">Top 500</span>
               <span className="text-white/30">/</span>
               <span className="text-white text-sm font-medium">Competitive</span>
+            </div>
+            <div className="flex flex-col items-end gap-2 text-right">
+              {authenticated ? (
+                <div className="flex flex-wrap items-center justify-end gap-2">
+                  <span className="rounded-md bg-white/8 px-3 py-1.5 text-xs text-slate-200 ring-1 ring-white/10">
+                    Discord ID{" "}
+                    <span className="font-mono text-white">{discordId}</span>
+                  </span>
+                  {isAdmin && (
+                    <span className="rounded-md bg-emerald-500/15 px-3 py-1.5 text-xs font-semibold text-emerald-200 ring-1 ring-emerald-300/20">
+                      Admin
+                    </span>
+                  )}
+                  <button
+                    type="button"
+                    className="rounded-md bg-white/10 px-3 py-1.5 text-xs font-medium text-white ring-1 ring-white/15 transition hover:bg-white/15 disabled:opacity-60"
+                    onClick={() => {
+                      void logout();
+                    }}
+                    disabled={logoutPending}
+                  >
+                    {logoutPending ? "Logging out…" : "Log out"}
+                  </button>
+                </div>
+              ) : authLoading ? (
+                <span className="text-xs text-slate-400">
+                  Checking Discord session…
+                </span>
+              ) : !authAvailable ? (
+                <span className="text-xs text-slate-400">
+                  Discord login unavailable
+                </span>
+              ) : (
+                <a
+                  href={loginHref}
+                  className="rounded-md bg-indigo-500/20 px-3 py-1.5 text-xs font-semibold text-indigo-100 ring-1 ring-indigo-300/30 transition hover:bg-indigo-500/30"
+                >
+                  Log in with Discord
+                </a>
+              )}
+              {authError && (
+                <span className="text-xs text-amber-300">{authError}</span>
+              )}
             </div>
           </div>
 
@@ -135,6 +222,9 @@ const CompetitionLayout = ({
             </div>
           </div>
           <div className="flex items-center gap-3">
+            {refreshStatus && (
+              <span className="text-sm text-slate-400">{refreshStatus}</span>
+            )}
             {faqLinkHref && (
               <Link
                 to={faqLinkHref}
@@ -153,16 +243,20 @@ const CompetitionLayout = ({
             )}
             {onRefresh && (
               <>
-                {loading && (
-                  <span className="text-sm text-slate-400">Refreshing…</span>
+                {(loading || refreshPending) && (
+                  <span className="text-sm text-slate-400">
+                    {isAdmin ? "Refreshing snapshot…" : "Refreshing…"}
+                  </span>
                 )}
                 <button
                   type="button"
                   className="rounded-md bg-fuchsia-600 px-4 py-2 text-sm font-medium text-white ring-1 ring-white/10 hover:bg-fuchsia-500 transition disabled:opacity-60"
-                  onClick={onRefresh}
-                  disabled={loading}
+                  onClick={() => {
+                    void handleRefresh();
+                  }}
+                  disabled={loading || refreshPending}
                 >
-                  Refresh snapshot
+                  {isAdmin ? "Refresh now" : "Refresh snapshot"}
                 </button>
               </>
             )}

@@ -74,25 +74,34 @@ redis_conn = redis.Redis(connection_pool=pool)
 # WebSocket connection manager
 class ConnectionManager:
     def __init__(self):
-        self.active_connections: dict[str, dict[str, WebSocket]] = {}
+        self.active_connections: dict[str, dict[str, dict]] = {}
         self.heartbeat_interval = 30
 
     async def connect(
-        self, websocket: WebSocket, player_id: str, connection_id: str
+        self,
+        websocket: WebSocket,
+        player_id: str,
+        connection_id: str,
+        *,
+        progressive: bool = False,
     ):
         await websocket.accept()
         if player_id not in self.active_connections:
             self.active_connections[player_id] = {}
-        self.active_connections[player_id][connection_id] = websocket
+        self.active_connections[player_id][connection_id] = {
+            "websocket": websocket,
+            "progressive": progressive,
+        }
         if metrics_enabled():
             WEBSOCKET_EVENTS.labels(event="connected").inc()
             WEBSOCKET_CONNECTIONS.labels(player_id=player_id).set(
                 len(self.active_connections[player_id])
             )
         logger.info(
-            "Client connected and added to room: %s with connection id: %s",
+            "Client connected and added to room: %s with connection id: %s (progressive=%s)",
             player_id,
             connection_id,
+            progressive,
         )
         celery.send_task("tasks.fetch_player_data", args=[player_id])
         logger.info("Task sent to Celery")
@@ -129,37 +138,59 @@ class ConnectionManager:
             player_id in self.active_connections
             and connection_id in self.active_connections[player_id]
         ):
-            await self.active_connections[player_id][connection_id].send_text(
-                message
-            )
+            websocket = self.active_connections[player_id][connection_id][
+                "websocket"
+            ]
+            await websocket.send_text(message)
             if metrics_enabled():
                 WEBSOCKET_EVENTS.labels(event="personal_message").inc()
 
     async def broadcast(self, message: str):
         for player_id in self.active_connections:
             for connection_id in self.active_connections[player_id]:
-                await self.active_connections[player_id][
-                    connection_id
-                ].send_text(message)
+                websocket = self.active_connections[player_id][connection_id][
+                    "websocket"
+                ]
+                await websocket.send_text(message)
                 if metrics_enabled():
                     WEBSOCKET_EVENTS.labels(event="broadcast_message").inc()
 
-    async def broadcast_player_data(self, message: str, player_id: str):
+    async def broadcast_player_data(
+        self,
+        message: str | bytes,
+        player_id: str,
+        *,
+        progressive_only: bool = False,
+        legacy_only: bool = False,
+    ):
         logger.info("Broadcasting player data for: %s", player_id)
         if player_id in self.active_connections:
             start = perf_counter()
-            compressed_message = zlib.compress(message.encode())
+            message_bytes = (
+                message.encode() if isinstance(message, str) else message
+            )
+            compressed_message = zlib.compress(message_bytes)
             logger.info("Player is connected, sending compressed data")
             logger.info(
                 "Original message length: %s, Compressed message length: %s",
-                f"{len(message):,}",
+                f"{len(message_bytes):,}",
                 f"{len(compressed_message):,}",
             )
-            recipients = len(self.active_connections[player_id])
+            recipients = 0
             for connection_id in self.active_connections[player_id]:
-                await self.active_connections[player_id][
-                    connection_id
-                ].send_bytes(compressed_message)
+                connection = self.active_connections[player_id][connection_id]
+                if progressive_only and not connection["progressive"]:
+                    continue
+                if legacy_only and connection["progressive"]:
+                    continue
+                await connection["websocket"].send_bytes(compressed_message)
+                recipients += 1
+            if recipients == 0:
+                logger.info(
+                    "No matching websocket recipients for player %s",
+                    player_id,
+                )
+                return
             if metrics_enabled():
                 duration = perf_counter() - start
                 WEBSOCKET_EVENTS.labels(event="broadcast").inc(recipients)

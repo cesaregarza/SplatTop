@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from "react";
-import axios from "axios";
 import { getBaseApiUrl } from "../utils";
 import { useTranslation } from "react-i18next";
+import { fetchJson } from "../utils/fetchJson";
 
 const apiUrl = getBaseApiUrl();
 const endpoint = `${apiUrl}/api/search`;
@@ -24,8 +24,8 @@ const SearchBar = () => {
         setIsShortQuery(false);
         const encodedQuery = encodeURIComponent(searchQuery);
         try {
-          const response = await axios.get(`${endpoint}/${encodedQuery}`);
-          setSearchResults(response.data);
+          const data = await fetchJson(`${endpoint}/${encodedQuery}`);
+          setSearchResults(data);
         } catch (error) {
           console.error("Error searching:", error);
         }

@@ -1,9 +1,9 @@
 import React, { useState, useEffect, Suspense } from "react";
-import axios from "axios";
 import Loading from "../../misc_components/loading";
 import { getBaseApiUrl } from "../../utils";
 import { useTranslation } from "react-i18next";
 import LorenzGraph from "./graph";
+import { fetchJson } from "../../utils/fetchJson";
 
 const LorenzTab = () => {
   const { t } = useTranslation("analytics");
@@ -22,11 +22,11 @@ const LorenzTab = () => {
       const translationEndpoint = `${apiUrl}/api/game-translation`;
 
       try {
-        const response = await axios.get(endpoint);
-        setData(response.data);
+        const responseData = await fetchJson(endpoint);
+        setData(responseData);
 
-        const translationsResponse = await axios.get(translationEndpoint);
-        setWeaponTranslations(translationsResponse.data);
+        const translationsData = await fetchJson(translationEndpoint);
+        setWeaponTranslations(translationsData);
       } catch (error) {
         setError(error);
       } finally {

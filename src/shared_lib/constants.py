@@ -44,6 +44,7 @@ GINI_COEFF_REDIS_KEY = "gini_coeff"
 LORENZ_CURVE_REDIS_KEY = "gini_coeff_data"
 WEAPON_LEADERBOARD_PEAK_REDIS_KEY = "weapon_leaderboard_peak"
 SEASON_RESULTS_REDIS_KEY = "season_results"
+RACE_TO_5000_REDIS_KEY = "race_to_5000"
 
 # Competition ripple leaderboard cache keys
 RIPPLE_STABLE_STATE_KEY = "ripple:stable:state"
@@ -54,6 +55,9 @@ RIPPLE_STABLE_DELTAS_KEY = "ripple:stable:deltas"
 RIPPLE_STABLE_META_KEY = "ripple:stable:meta"
 RIPPLE_DANGER_LATEST_KEY = "ripple:danger:latest"
 RIPPLE_STABLE_PERCENTILES_KEY = "ripple:stable:percentiles"
+RIPPLE_PLAYER_INDEX_LATEST_KEY = "ripple:player_index:latest"
+RIPPLE_PLAYER_INDEX_META_KEY = "ripple:player_index:meta"
+RIPPLE_PLAYER_INDEX_PLAYER_PREFIX = "ripple:player_index:player:"
 RIPPLE_SNAPSHOT_LOCK_KEY = "ripple:snapshot:lock"
 COMP_LEADERBOARD_FLAG_KEY = "feature:comp_leaderboard"
 

@@ -14,7 +14,7 @@ from celery_app.tasks.api_tokens import (
     persist_api_token,
     revoke_api_token,
 )
-from celery_app.tasks.front_page import pull_data
+from celery_app.tasks.front_page import fetch_race_to_5000, pull_data
 from celery_app.tasks.leaderboard import (
     fetch_season_results,
     fetch_weapon_leaderboard,
@@ -33,6 +33,7 @@ logging.basicConfig(
 celery = Celery("tasks", broker=REDIS_URI, backend=REDIS_URI)
 
 celery.task(name="tasks.pull_data")(pull_data)
+celery.task(name="tasks.fetch_race_to_5000")(fetch_race_to_5000)
 celery.task(name="tasks.fetch_player_data")(fetch_player_data)
 celery.task(name="tasks.update_weapon_info")(update_weapon_info)
 celery.task(name="tasks.pull_aliases")(pull_aliases)

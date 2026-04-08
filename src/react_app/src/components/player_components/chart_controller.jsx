@@ -1,117 +1,229 @@
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import ModeSelector from "../top500_components/selectors/mode_selector";
 import XChart from "./xchart";
 import WeaponsChart from "./weapons";
 import SeasonSelector from "./season_selector";
+import SeasonResults from "./season_results";
+import SeasonArchive from "./season_archive";
+import {
+  getAvailableDisplaySeasons,
+  getAvailableModesFromChartData,
+  getDefaultChartMode,
+  getModeAnalysisSummary,
+  getDefaultSelectedDisplaySeason,
+} from "./playerPageUtils";
+import { modeKeyMap } from "../constants";
+import { calculateSeasonNow, getSeasonName } from "../utils/season_utils";
 
 function ChartController({
   data,
   modes,
   weaponTranslations,
   weaponReferenceData,
+  analysisReady = false,
+  analysisLoading = false,
+  analysisError = null,
 }) {
   const { t } = useTranslation("player");
-  const [mode, setMode] = useState(modes[0]);
+  const { t: g } = useTranslation("game");
+  const [mode, setMode] = useState(() => getDefaultChartMode(data, modes));
+  const [selectedSeason, setSelectedSeason] = useState(() =>
+    getDefaultSelectedDisplaySeason(data, getDefaultChartMode(data, modes))
+  );
   const [colorMode, setColorMode] = useState("Seasonal");
   const [selectedSeasons, setSelectedSeasons] = useState([]);
 
-  const handleModeChange = (newMode) => {
-    setMode(newMode);
-  };
+  const availableModes = getAvailableModesFromChartData(data, modes);
+  const allowedModes = modes.map((currentMode) =>
+    availableModes.includes(currentMode)
+  );
 
-  const toggleColorMode = () => {
-    setColorMode((prevColorMode) =>
-      prevColorMode === "Seasonal" ? "Accessible" : "Seasonal"
-    );
-  };
-
-  const handleSeasonChange = (seasons) => {
-    setSelectedSeasons(seasons);
-  };
-
-  const filterBySeasonAndMode = (data) => {
-    if (selectedSeasons.length === 0) {
-      return data.filter((d) => d.mode === mode);
-    } else {
-      return data.filter(
-        (d) => d.mode === mode && selectedSeasons.includes(d.season_number)
-      );
+  useEffect(() => {
+    if (!allowedModes[modes.indexOf(mode)]) {
+      setMode(getDefaultChartMode(data, modes));
     }
+  }, [allowedModes, data, mode, modes]);
+
+  useEffect(() => {
+    const availableSeasons = getAvailableDisplaySeasons(data);
+    if (availableSeasons.length > 0 && !availableSeasons.includes(selectedSeason)) {
+      setSelectedSeason(getDefaultSelectedDisplaySeason(data, mode));
+    }
+  }, [data, mode, selectedSeason]);
+
+  const filterBySeasonAndMode = (rows) => {
+    if (selectedSeasons.length === 0) {
+      return rows.filter((entry) => entry.mode === mode);
+    }
+
+    return rows.filter(
+      (entry) =>
+        entry.mode === mode && selectedSeasons.includes(entry.season_number)
+    );
   };
 
   const filteredAggregatedData = {
     weapon_counts: filterBySeasonAndMode(data.aggregated_data.weapon_counts),
     weapon_winrate: filterBySeasonAndMode(data.aggregated_data.weapon_winrate),
   };
-
-  return (
-    <div className="pb-24">
-      <XChart data={data.player_data} mode={mode} colorMode={colorMode} />
-      <WeaponsChart
-        data={filteredAggregatedData}
-        mode={mode}
-        colorMode={colorMode}
-        weaponTranslations={weaponTranslations}
-        weaponReferenceData={weaponReferenceData}
-      />
-      <div className="relative controls-box border-2 border-gray-200 rounded-lg py-4 px-1 mt-5">
-        <div className="absolute bg-gray-900">
-          <h2 className="text-lg font-semibold rounded-xs">Controls</h2>
-        </div>
-        <div className="flex flex-col justify-center items-center">
-          <div className="w-full flex justify-center items-center">
-            <label
-              htmlFor="toggleColorMode"
-              className="inline-flex items-center cursor-pointer"
-            >
-              <span
-                className={`text-sm font-medium mr-2 ${
-                  colorMode === "Seasonal" ? "highlighted-option" : ""
-                }`}
-              >
-                {t("controller.seasonal")}
-              </span>
-              <div className="relative" title="Change the color scheme">
-                <input
-                  type="checkbox"
-                  id="toggleColorMode"
-                  className="sr-only peer"
-                  checked={colorMode === "Accessible"}
-                  onChange={toggleColorMode}
-                />
-                <div
-                  className={`w-11 h-6 rounded-full peer peer-focus:ring-4 peer-focus:ring-purple-300 dark:peer-focus:ring-purple-800 after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:after:translate-x-5 ${
-                    colorMode === "Accessible" ? "accessible-bg" : "seasonal-bg"
-                  }`}
-                ></div>
-              </div>
-              <span
-                className={`text-sm font-medium ml-2 ${
-                  colorMode === "Accessible" ? "highlighted-option" : ""
-                }`}
-              >
-                {t("controller.accessible")}
-              </span>
-            </label>
-          </div>
+  const selectedModeLabel = g(modeKeyMap[mode]);
+  const selectedSeasonLabel = getSeasonName(selectedSeason - 1, g);
+  const analysisSummary = getModeAnalysisSummary(data, mode, selectedSeason);
+  const isCurrentSeason = selectedSeason === calculateSeasonNow() + 1;
+  const seasonToolbar = (
+    <div className="flex flex-col gap-3">
+      <div className="grid gap-3 [grid-template-columns:repeat(auto-fit,minmax(min(22rem,100%),1fr))]">
+        <div className="flex min-w-0 flex-col gap-1">
+          <span className="text-[11px] font-semibold uppercase tracking-[0.16em] text-gray-500">
+            {t("controller.mode")}
+          </span>
           <ModeSelector
             selectedMode={mode}
-            setSelectedMode={handleModeChange}
-            allowedModes={modes.map((mode) =>
-              data.player_data.some((d) => d.mode === mode)
-            )}
+            setSelectedMode={setMode}
+            allowedModes={allowedModes}
             showTitle={false}
-            modeButtonSize="mt-3"
-            baseClass="w-full sm:w-auto"
+            baseClass="w-full"
+            buttonPadding="px-2.5 py-1.5"
+            imageWidth="w-5"
+            imageHeight="h-5"
+            showLabels={true}
+            buttonVariant="utility"
+            equalWidthButtons={true}
           />
+        </div>
+        <div className="flex min-w-0 flex-col gap-1">
+          <span className="text-[11px] font-semibold uppercase tracking-[0.16em] text-gray-500">
+            {t("controller.color")}
+          </span>
+          <div
+            className="grid w-full grid-cols-2 rounded-md border border-gray-800 bg-black/20 p-1"
+            title={t("controller.color_hint")}
+          >
+            {["Seasonal", "Accessible"].map((option) => (
+              <button
+                key={option}
+                type="button"
+                onClick={() => setColorMode(option)}
+                className={`rounded px-3 py-1.5 text-sm font-medium leading-tight transition ${
+                  colorMode === option
+                    ? "bg-purple-950/50 text-purple-100"
+                    : "text-gray-300 hover:bg-gray-900 hover:text-white"
+                }`}
+                aria-pressed={colorMode === option}
+              >
+                {option === "Seasonal"
+                  ? t("controller.seasonal")
+                  : t("controller.accessible")}
+              </button>
+            ))}
+          </div>
+        </div>
+        <div className="flex min-w-0 flex-col gap-1">
+          <span className="text-[11px] font-semibold uppercase tracking-[0.16em] text-gray-500">
+            {t("controller.weapon_seasons")}
+          </span>
           <SeasonSelector
+            compact={true}
             data={data.aggregated_data}
             mode={mode}
-            onSeasonChange={handleSeasonChange}
+            onSeasonChange={setSelectedSeasons}
+            disabled={!analysisReady}
+            loadingLabel={t("load_chart")}
           />
         </div>
       </div>
+      <p className="text-xs text-gray-500">
+        {t("controller.color_hint")}
+      </p>
+    </div>
+  );
+
+  return (
+    <div className="min-w-0 space-y-4 pb-24">
+      <SeasonResults
+        data={data}
+        weaponReferenceData={weaponReferenceData}
+        headerControls={seasonToolbar}
+        activeSeason={selectedSeason}
+        onSeasonChange={setSelectedSeason}
+      />
+      <SeasonArchive
+        data={data}
+        mode={mode}
+        activeSeason={selectedSeason}
+        onSeasonChange={setSelectedSeason}
+      />
+      <section className="min-w-0 rounded-lg border border-gray-800/60 bg-gray-950/25">
+        <div className="flex flex-col gap-3 border-b border-gray-800/60 px-4 py-4 sm:flex-row sm:items-start sm:justify-between">
+          <div>
+            <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-gray-500">
+              {t("sections.mode_analysis")}
+            </p>
+            <div className="mt-1 flex flex-wrap items-center gap-2">
+              <h2 className="text-lg font-semibold text-white">
+                {selectedSeasonLabel}
+              </h2>
+              {isCurrentSeason ? (
+                <span className="rounded-full border border-purple-500/50 bg-purple-950/40 px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[0.14em] text-purple-100">
+                  {t("xchart.live_indicator")}
+                </span>
+              ) : null}
+              <span className="text-sm text-gray-400">{selectedModeLabel}</span>
+            </div>
+          </div>
+          <div className="flex flex-wrap items-center gap-2 text-xs font-semibold uppercase tracking-[0.16em] text-gray-500 sm:justify-end">
+            <span className="rounded-full border border-gray-800 bg-black/20 px-2.5 py-1">
+              {t(
+                colorMode === "Seasonal"
+                  ? "controller.seasonal"
+                  : "controller.accessible"
+              )}
+            </span>
+            <span className="rounded-full border border-gray-800 bg-black/20 px-2.5 py-1">
+              {selectedModeLabel}
+            </span>
+          </div>
+        </div>
+        <div className="px-4 py-3">
+          {analysisReady ? (
+            <XChart
+              data={data.player_data}
+              mode={mode}
+              colorMode={colorMode}
+              selectedSeason={selectedSeason}
+              analysisSummary={analysisSummary}
+            />
+          ) : analysisError ? (
+            <div className="rounded-md border border-red-900/60 bg-red-950/20 px-4 py-6 text-sm text-red-300">
+              {analysisError}
+            </div>
+          ) : (
+            <div className="rounded-md border border-gray-800/70 bg-black/10 px-4 py-8 text-sm text-gray-400">
+              {analysisLoading ? t("load_chart") : t("no_data")}
+            </div>
+          )}
+        </div>
+        <div className="border-t border-gray-800/60 px-4 py-3">
+          {analysisReady ? (
+            <WeaponsChart
+              data={filteredAggregatedData}
+              mode={mode}
+              colorMode={colorMode}
+              weaponTranslations={weaponTranslations}
+              weaponReferenceData={weaponReferenceData}
+            />
+          ) : analysisError ? (
+            <div className="rounded-md border border-red-900/60 bg-red-950/20 px-4 py-6 text-sm text-red-300">
+              {analysisError}
+            </div>
+          ) : (
+            <div className="rounded-md border border-gray-800/70 bg-black/10 px-4 py-8 text-sm text-gray-400">
+              {analysisLoading ? t("load_results") : t("no_data")}
+            </div>
+          )}
+        </div>
+      </section>
     </div>
   );
 }

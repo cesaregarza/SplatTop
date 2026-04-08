@@ -10,5 +10,20 @@
   "select_season": "シーズンの選択",
   "all_seasons": "全期間",
   "select_weapon": "ブキを選択",
-  "null_selection": "(選択なし)"
+  "null_selection": "(選択なし)",
+  "header.kicker": "WEAPON EXPLORER",
+  "header.meta": "トップ使い手 · %region% · %mode% · %metric% · 使用率 %threshold%% 以上",
+  "header.compare_separator": "vs",
+  "controls.region": "地域",
+  "controls.mode": "ルール",
+  "controls.weapon": "ブキ",
+  "controls.compare": "比較",
+  "controls.usage_threshold": "使用率しきい値",
+  "controls.metric": "指標",
+  "controls.entries": "集計方式",
+  "controls.season": "シーズン",
+  "controls.compare_enable": "比較ブキを追加",
+  "controls.compare_disable": "比較を隠す",
+  "results.title": "トップ使い手",
+  "results.summary": "%total% 件中 %start%–%end% 件を表示"
 }

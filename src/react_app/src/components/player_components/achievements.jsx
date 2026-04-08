@@ -1,220 +1,134 @@
 import React from "react";
 import { useTranslation } from "react-i18next";
-import SplatZonesIcon from "../../assets/icons/splat_zones.png";
-import TowerControlIcon from "../../assets/icons/tower_control.png";
-import RainmakerIcon from "../../assets/icons/rainmaker.png";
-import ClamBlitzIcon from "../../assets/icons/clam_blitz.png";
-import DiamondBadge from "../top500_components/badges/diamond_badge";
-import Top10Badge from "../top500_components/badges/top10_badge";
-import Top500Badge from "../top500_components/badges/top500_badge";
-import CombinedBadge from "../top500_components/badges/combined_badge";
 import TakorokaIcon from "../../assets/icons/takoroka.png";
 import TentatekIcon from "../../assets/icons/tentatek.png";
-import { getSeasonName } from "./xchart_helper_functions";
+import { modeKeyMap } from "../constants";
+import { getSeasonName } from "../utils/season_utils";
+import { getCareerHighlights } from "./playerPageUtils";
 
-const modeIcons = {
-  "Splat Zones": SplatZonesIcon,
-  "Tower Control": TowerControlIcon,
-  Rainmaker: RainmakerIcon,
-  "Clam Blitz": ClamBlitzIcon,
+const metricClassName =
+  "rounded-md border border-gray-800/80 bg-black/20 px-3 py-2";
+
+const formatBestFinish = (value) => {
+  if (typeof value !== "number" || !Number.isFinite(value)) {
+    return "--";
+  }
+
+  return `#${value}`;
 };
-
-const allModes = ["Splat Zones", "Tower Control", "Rainmaker", "Clam Blitz"];
-
-const disabledBadge = true;
-const badgeSize = "h-10 w-10";
-const regionBadgeSize = "h-10 w-10";
-const columnPaddingX = "px-2";
-const rowPaddingY = "py-1";
 
 const Achievements = ({ data }) => {
   const { t } = useTranslation("player");
   const { t: g } = useTranslation("game");
-  const activeData = data.aggregated_data.season_results;
-
-  const seasonCounts = {};
-  const modeCounts = {
-    "Splat Zones": { top10: 0, top500: 0 },
-    "Tower Control": { top10: 0, top500: 0 },
-    Rainmaker: { top10: 0, top500: 0 },
-    "Clam Blitz": { top10: 0, top500: 0 },
+  const highlights = getCareerHighlights(data) || {
+    totalTop10: 0,
+    totalTop500: 0,
+    diamondSeasonCount: 0,
+    bestFinish: null,
+    bestMode: null,
+    notableSeasons: [],
   };
 
-  activeData.forEach((result) => {
-    const { season_number, mode, rank } = result;
-    if (!seasonCounts[season_number]) {
-      seasonCounts[season_number] = {
-        top10: 0,
-        top500: 0,
-        hasDiamond: true,
-      };
-    }
-
-    if (rank >= 1 && rank <= 10) {
-      seasonCounts[season_number].top10++;
-      modeCounts[mode].top10++;
-    } else if (rank > 10 && rank <= 500) {
-      seasonCounts[season_number].top500++;
-      modeCounts[mode].top500++;
-    }
-
-    if (rank > 10) {
-      seasonCounts[season_number].hasDiamond = false;
-    }
-  });
-
-  const totalTop10 = Object.values(modeCounts).reduce(
-    (acc, curr) => acc + curr.top10,
-    0
-  );
-  const totalTop500 = Object.values(modeCounts).reduce(
-    (acc, curr) => acc + curr.top500,
-    0
-  );
+  const metrics = [
+    {
+      label: t("highlights.metrics.top10"),
+      value: highlights.totalTop10,
+    },
+    {
+      label: t("highlights.metrics.top500"),
+      value: highlights.totalTop500,
+    },
+    {
+      label: t("highlights.metrics.all_mode_top10"),
+      value: highlights.diamondSeasonCount,
+      hint: t("highlights.metrics.all_mode_top10_hint"),
+      flavor: t("highlights.metrics.all_mode_top10_flavor"),
+    },
+    {
+      label: t("highlights.metrics.best_finish"),
+      value: formatBestFinish(highlights.bestFinish),
+    },
+    {
+      label: t("highlights.metrics.best_mode"),
+      value: highlights.bestMode ? g(modeKeyMap[highlights.bestMode]) : "--",
+    },
+  ];
 
   return (
-    <div className="container mx-auto px-4 py-4 flex justify-center">
-      <div className="w-full max-w-6xl">
-        <h2 className="text-2xl font-semibold mb-4 text-white text-center">
-          {t("achievements.title")}
+    <section className="rounded-lg border border-gray-800/60 bg-gray-950/25 p-4">
+      <div className="mb-3 border-b border-gray-800/60 pb-3">
+        <h2 className="text-lg font-semibold text-white">
+          {t("highlights.title")}
         </h2>
-        <div className="relative max-h-96 overflow-x-auto">
-          <table className="min-w-max text-white mx-auto">
-            <thead>
-              <tr className="text-left">
-                <th className={columnPaddingX + " " + rowPaddingY}>
-                  {t("achievements.table.season")}
-                </th>
-                <th className={columnPaddingX + " " + rowPaddingY}>
-                  {t("achievements.table.region")}
-                </th>
-                {allModes.map((mode) => (
-                  <th key={mode} className={columnPaddingX + " " + rowPaddingY}>
-                    <img
-                      src={modeIcons[mode]}
-                      alt={mode}
-                      className="w-6 h-6 mx-auto"
-                    />
-                  </th>
-                ))}
-                <th className={columnPaddingX + " " + rowPaddingY}>
-                  {t("achievements.table.total")}
-                </th>
-              </tr>
-            </thead>
-            <tbody>
-              {Object.entries(seasonCounts).map(([season, counts]) => (
-                <tr key={season} className="bg-gray-800 shadow-lg">
-                  <td className={columnPaddingX + " " + rowPaddingY}>
-                    <span className="text-sm">
-                      {getSeasonName(Number(season) - 1, g)}
-                    </span>
-                  </td>
-                  <td className={columnPaddingX + " " + rowPaddingY}>
-                    <img
-                      src={
-                        activeData.find(
-                          (result) => result.season_number === Number(season)
-                        ).region
-                          ? TakorokaIcon
-                          : TentatekIcon
-                      }
-                      alt="Region Icon"
-                      className={regionBadgeSize + " mx-auto"}
-                    />
-                  </td>
-                  {allModes.map((mode) => {
-                    const modeResult = activeData.find(
-                      (result) =>
-                        result.season_number === Number(season) &&
-                        result.mode === mode
-                    );
-                    const top10 = modeResult && modeResult.rank <= 10 ? 1 : 0;
-                    const top500 =
-                      modeResult &&
-                      modeResult.rank > 10 &&
-                      modeResult.rank <= 500
-                        ? 1
-                        : 0;
-                    return (
-                      <td
-                        key={`${season}-${mode}`}
-                        className={
-                          columnPaddingX + " " + rowPaddingY + " text-center"
-                        }
-                      >
-                        {top10 > 0 && (
-                          <Top10Badge
-                            count={top10}
-                            disable={disabledBadge}
-                            size={badgeSize}
-                            className="mr-1"
-                          />
-                        )}
-                        {top500 > 0 && (
-                          <Top500Badge
-                            count={top500}
-                            disable={disabledBadge}
-                            size={badgeSize}
-                          />
-                        )}
-                        {top10 === 0 && top500 === 0 && "--"}
-                      </td>
-                    );
-                  })}
-                  <td className={columnPaddingX + " " + rowPaddingY}>
-                    {counts.hasDiamond ? (
-                      <DiamondBadge
-                        count={1}
-                        disable={false}
-                        size={badgeSize}
-                        className="mr-2"
-                      />
-                    ) : (
-                      <CombinedBadge
-                        top10Count={counts.top10}
-                        top500Count={counts.top500}
-                        disable={disabledBadge}
-                        size={badgeSize}
-                      />
-                    )}
-                  </td>
-                </tr>
-              ))}
-              <tr className="bg-gray-800 shadow-lg">
-                <td className={columnPaddingX + " " + rowPaddingY}>
-                  {t("achievements.table.total")}
-                </td>
-                <td className={columnPaddingX + " " + rowPaddingY}></td>
-                {allModes.map((mode) => (
-                  <td
-                    key={`total-${mode}`}
-                    className={
-                      columnPaddingX + " " + rowPaddingY + " text-center"
-                    }
-                  >
-                    <CombinedBadge
-                      top10Count={modeCounts[mode].top10}
-                      top500Count={modeCounts[mode].top500}
-                      disable={false}
-                      size={badgeSize}
-                    />
-                  </td>
-                ))}
-                <td className={columnPaddingX + " " + rowPaddingY}>
-                  <CombinedBadge
-                    top10Count={totalTop10}
-                    top500Count={totalTop500}
-                    disable={disabledBadge}
-                    size={badgeSize}
-                  />
-                </td>
-              </tr>
-            </tbody>
-          </table>
-        </div>
+        <p className="mt-1 text-sm text-gray-400">
+          {t("highlights.subtitle")}
+        </p>
       </div>
-    </div>
+
+      <div className="grid grid-cols-2 gap-2">
+        {metrics.map((metric) => (
+          <div key={metric.label} className={metricClassName}>
+            <p className="flex items-center gap-1 text-[11px] font-semibold uppercase tracking-[0.16em] text-gray-500">
+              <span>{metric.label}</span>
+              {metric.hint ? (
+                <abbr
+                  title={metric.hint}
+                  aria-label={metric.hint}
+                  className="inline-flex h-4 w-4 items-center justify-center rounded-full border border-gray-700 text-[10px] font-bold text-gray-400 no-underline"
+                >
+                  ?
+                </abbr>
+              ) : null}
+            </p>
+            <p className="mt-1 text-sm font-medium text-white tabular-nums">
+              {metric.value}
+            </p>
+            {metric.flavor ? (
+              <p className="mt-1 text-xs text-gray-500">{metric.flavor}</p>
+            ) : null}
+          </div>
+        ))}
+      </div>
+
+      <div className="mt-4 border-t border-gray-800/60 pt-4">
+        <div className="mb-2 flex items-center justify-between gap-2">
+          <h3 className="text-[11px] font-semibold uppercase tracking-[0.18em] text-gray-500">
+            {t("highlights.notable_title")}
+          </h3>
+          <span className="text-xs text-gray-600 tabular-nums">
+            {highlights.notableSeasons.length}
+          </span>
+        </div>
+        {highlights.notableSeasons.length === 0 ? (
+          <p className="text-sm text-gray-500">{t("highlights.no_notable")}</p>
+        ) : (
+          <div className="max-h-80 space-y-2 overflow-y-auto pr-1">
+            {highlights.notableSeasons.map((season) => (
+              <div
+                key={season.season_number}
+                className="rounded-md border border-gray-800/70 bg-black/10 px-3 py-3"
+              >
+                <div className="flex items-center gap-2">
+                  <img
+                    src={season.region ? TakorokaIcon : TentatekIcon}
+                    alt={season.region ? "Takoroka" : "Tentatek"}
+                    className="h-6 w-6 shrink-0"
+                  />
+                  <span className="font-medium text-white">
+                    {getSeasonName(season.season_number - 1, g)}
+                  </span>
+                </div>
+                <p className="mt-2 text-sm text-gray-300">
+                  {season.finishes
+                    .map((finish) => `${finish.shortLabel} #${finish.rank}`)
+                    .join(" · ")}
+                </p>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+    </section>
   );
 };
 

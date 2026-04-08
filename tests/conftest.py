@@ -386,6 +386,7 @@ def app(fake_redis, monkeypatch):
     """FastAPI app with patched Redis and disabled background startup side effects."""
     # Ensure token hashing pepper configured for tests
     monkeypatch.setenv("API_TOKEN_PEPPER", "testpepper")
+    monkeypatch.setenv("ENV", "test")
     # Provide dummy DB env to avoid create_engine URL parsing errors on import
     monkeypatch.setenv("DB_HOST", "localhost")
     monkeypatch.setenv("DB_PORT", "5432")
@@ -474,6 +475,9 @@ def client_factory(fake_redis, monkeypatch):
                     else:
                         monkeypatch.setenv(k, str(v))
 
+            if not env or "ENV" not in env:
+                monkeypatch.setenv("ENV", "test")
+
             # Ensure DB env present
             monkeypatch.setenv("DB_HOST", "localhost")
             monkeypatch.setenv("DB_PORT", "5432")
@@ -484,8 +488,10 @@ def client_factory(fake_redis, monkeypatch):
 
             # Reload app-related modules to pick up new env
             for mod in [
+                "fast_api_app.comp_auth",
                 "fast_api_app.middleware",
                 "fast_api_app.auth",
+                "fast_api_app.routes.comp_auth",
                 "fast_api_app.routes.ripple",
                 "fast_api_app.routes.ripple_public",
                 "fast_api_app.routes.admin_tokens",

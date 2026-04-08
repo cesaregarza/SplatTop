@@ -1,7 +1,7 @@
 import React, { createContext, useContext, useState, useEffect } from "react";
-import axios from "axios";
 import { getBaseApiUrl } from "../utils";
 import { setCache, getCache, deleteCache } from "./cache_utils";
+import { fetchJson } from "./fetchJson";
 
 const WeaponAndTranslationContext = createContext();
 
@@ -25,8 +25,7 @@ export const WeaponAndTranslationProvider = ({ children }) => {
         // Fetch translations
         let translationsData = getCache("weaponTranslations");
         if (!translationsData) {
-          const translationsResponse = await axios.get(translationEndpoint);
-          translationsData = translationsResponse.data;
+          translationsData = await fetchJson(translationEndpoint);
           setCache("weaponTranslations", translationsData);
         }
         setWeaponTranslations(translationsData);
@@ -34,8 +33,7 @@ export const WeaponAndTranslationProvider = ({ children }) => {
         // Fetch weapon reference data
         let referenceData = getCache("weaponReferenceData");
         if (!referenceData) {
-          const referenceResponse = await axios.get(weaponInfoEndpoint);
-          referenceData = referenceResponse.data;
+          referenceData = await fetchJson(weaponInfoEndpoint);
           setCache("weaponReferenceData", referenceData);
         }
         setWeaponReferenceData(referenceData);

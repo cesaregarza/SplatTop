@@ -12,6 +12,7 @@ const WeaponSelector = ({
   weaponTranslations,
   initialWeaponId,
   allowNull = false,
+  className = "w-full",
 }) => {
   const { t } = useTranslation("weapon_leaderboard");
   const [selectedWeapon, setSelectedWeapon] = useState(
@@ -131,7 +132,7 @@ const WeaponSelector = ({
   };
 
   return (
-    <div className="relative inline-block w-64" ref={dropdownRef}>
+    <div className={`relative ${className}`} ref={dropdownRef}>
       <div
         className="flex items-center justify-between w-full bg-gray-800 border border-gray-700 text-white py-2 px-3 rounded-sm leading-tight cursor-pointer"
         onClick={toggleDropdown}

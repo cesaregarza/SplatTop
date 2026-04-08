@@ -2,15 +2,16 @@ import React from "react";
 import { useNavigate } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 
-import { columnsConfig } from "./columns_config";
+import { getColumnsConfig } from "./columns_config";
 
-const WeaponLeaderboardTable = ({ players, isFinal }) => {
+const WeaponLeaderboardTable = ({ players, isFinal, showWeaponColumn }) => {
   const { t } = useTranslation();
   const { t: g } = useTranslation("game");
   const navigate = useNavigate();
-
-  const defaultHeaderClasses = "w-20 px-4 py-2 text-center";
-  const defaultCellClasses = "w-20 px-4 py-2 text-center";
+  const columnsConfig = React.useMemo(
+    () => getColumnsConfig({ showWeaponColumn }),
+    [showWeaponColumn]
+  );
 
   const handleRowClick = (playerId) => {
     navigate(`/player/${playerId}`);
@@ -21,11 +22,11 @@ const WeaponLeaderboardTable = ({ players, isFinal }) => {
 
   if (players.length === 0) {
     return (
-      <table className="table-auto w-full bg-gray-800">
+      <table className="min-w-full table-auto">
         <tbody>
           <tr>
             <td
-              className="px-4 py-2 text-center text-lg"
+              className="px-4 py-8 text-center text-lg text-gray-300"
               colSpan={columnsConfig.length}
             >
               No results
@@ -37,21 +38,18 @@ const WeaponLeaderboardTable = ({ players, isFinal }) => {
   }
 
   return (
-    <table className="table-auto w-full bg-gray-800">
+    <table className="min-w-full table-auto bg-transparent text-sm">
       <thead>
-        <tr className="bg-gray-700">
-          {columnsConfig.map((column, index) => (
-            <th
-              key={index}
-              className={column.headerClasses || defaultHeaderClasses}
-            >
+        <tr className="border-b border-gray-800 bg-gray-950/80">
+          {columnsConfig.map((column) => (
+            <th key={column.id} className={column.headerClasses}>
               {t(column.title_key)}
             </th>
           ))}
         </tr>
       </thead>
       <tbody>
-        {players.map((player, playerIndex) => {
+        {players.map((player) => {
           const key = `${player.player_id}_${player.season_number}_${
             player.weapon_id
           }_${isFinal ? "final" : "peak"}`;
@@ -65,14 +63,11 @@ const WeaponLeaderboardTable = ({ players, isFinal }) => {
           return (
             <tr
               key={key}
-              className="border-b border-gray-700 hover:bg-purpledark cursor-pointer"
+              className="border-b border-gray-900/80 hover:bg-purpledark cursor-pointer"
               onClick={() => handleRowClick(player.player_id)}
             >
-              {columnsConfig.map((column, index) => (
-                <td
-                  key={index}
-                  className={column.cellClasses || defaultCellClasses}
-                >
+              {columnsConfig.map((column) => (
+                <td key={column.id} className={column.cellClasses}>
                   {column.id === "season_number"
                     ? column.render(player, g)
                     : column.render(player, t)}

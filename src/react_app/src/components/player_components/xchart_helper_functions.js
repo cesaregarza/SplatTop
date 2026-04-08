@@ -96,6 +96,99 @@ function filterAndProcessData(
   };
 }
 
+const getFiniteSeasonPoints = (seasonData) =>
+  ((seasonData?.dataPoints || []).filter(
+    (point) => typeof point.y === "number" && Number.isFinite(point.y)
+  ));
+
+const interpolateSeasonValue = (points, percentage) => {
+  if (!Array.isArray(points) || points.length === 0) {
+    return null;
+  }
+
+  if (points.length === 1) {
+    return points[0].x <= percentage ? points[0].y : null;
+  }
+
+  const exactPoint = points.find((point) => point.x === percentage);
+  if (exactPoint) {
+    return exactPoint.y;
+  }
+
+  const firstPoint = points[0];
+  const lastPoint = points[points.length - 1];
+  if (percentage < firstPoint.x || percentage > lastPoint.x) {
+    return null;
+  }
+
+  for (let index = 0; index < points.length - 1; index += 1) {
+    const leftPoint = points[index];
+    const rightPoint = points[index + 1];
+
+    if (percentage < leftPoint.x || percentage > rightPoint.x) {
+      continue;
+    }
+
+    if (rightPoint.x === leftPoint.x) {
+      return rightPoint.y;
+    }
+
+    const ratio = (percentage - leftPoint.x) / (rightPoint.x - leftPoint.x);
+    return leftPoint.y + (rightPoint.y - leftPoint.y) * ratio;
+  }
+
+  return null;
+};
+
+const getVisibleSeasonMax = () => 100;
+
+const getHistoricalRangeBandData = (
+  processedData = [],
+  selectedSeason,
+  maxPercent,
+  bucketSize = 5
+) => {
+  const historicalSeasons = processedData
+    .filter((seasonData) => seasonData.season !== selectedSeason)
+    .map((seasonData) => ({
+      ...seasonData,
+      finitePoints: getFiniteSeasonPoints(seasonData),
+    }))
+    .filter((seasonData) => seasonData.finitePoints.length >= 2);
+
+  if (historicalSeasons.length < 2 || maxPercent <= 0) {
+    return [];
+  }
+
+  const samplePoints = [0];
+  for (let value = bucketSize; value < maxPercent; value += bucketSize) {
+    samplePoints.push(value);
+  }
+  if (!samplePoints.includes(maxPercent)) {
+    samplePoints.push(maxPercent);
+  }
+
+  return samplePoints
+    .map((percentage) => {
+      const historicalValues = historicalSeasons
+        .map((seasonData) =>
+          interpolateSeasonValue(seasonData.finitePoints, percentage)
+        )
+        .filter((value) => typeof value === "number" && Number.isFinite(value));
+
+      if (historicalValues.length < 2) {
+        return null;
+      }
+
+      return [
+        Number(percentage.toFixed(2)),
+        Math.min(...historicalValues),
+        Math.max(...historicalValues),
+      ];
+    })
+    .filter(Boolean);
+};
+
 const getSeasonColor = (season_number, isCurrent) => {
   const saturation = 100;
   const baseLightness = 25;
@@ -156,4 +249,7 @@ export {
   getDefaultWidth,
   getAccessibleWidth,
   getAvailableModes,
+  getFiniteSeasonPoints,
+  getHistoricalRangeBandData,
+  getVisibleSeasonMax,
 };

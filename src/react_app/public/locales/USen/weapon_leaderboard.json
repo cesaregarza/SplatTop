@@ -10,5 +10,20 @@
   "select_season": "Select Season",
   "all_seasons": "All Seasons",
   "select_weapon": "Select Weapon",
-  "null_selection": "No Alt Weapon"
+  "null_selection": "No Alt Weapon",
+  "header.kicker": "WEAPON EXPLORER",
+  "header.meta": "Top wielders · %region% · %mode% · %metric% · ≥%threshold%% usage",
+  "header.compare_separator": "vs",
+  "controls.region": "Region",
+  "controls.mode": "Mode",
+  "controls.weapon": "Weapon",
+  "controls.compare": "Compare",
+  "controls.usage_threshold": "Usage threshold",
+  "controls.metric": "Metric",
+  "controls.entries": "Entry policy",
+  "controls.season": "Season",
+  "controls.compare_enable": "Compare weapon",
+  "controls.compare_disable": "Hide compare",
+  "results.title": "Top wielders",
+  "results.summary": "Showing %start%–%end% of %total% qualifying entries"
 }

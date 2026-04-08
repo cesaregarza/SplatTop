@@ -61,7 +61,8 @@ def test_refresh_snapshots_async_retries_on_interface_error(monkeypatch):
 
     assert result == {"ok": True}
     assert calls["count"] == 2
-    assert fake_engine.disposed == 1
+    # One dispose on retry, one in final cleanup.
+    assert fake_engine.disposed == 2
     assert sleep_calls["count"] == 1
 
 
@@ -107,6 +108,7 @@ def test_refresh_snapshots_async_gives_up_after_max_retries(monkeypatch):
         asyncio.run(snapshot_mod._refresh_snapshots_async())
 
     assert attempts["count"] == snapshot_mod.MAX_REFRESH_RETRIES
-    assert fake_engine.disposed == snapshot_mod.MAX_REFRESH_RETRIES - 1
+    # Dispose is called on each retry plus one final cleanup.
+    assert fake_engine.disposed == snapshot_mod.MAX_REFRESH_RETRIES
     assert len(sleep_delays) == snapshot_mod.MAX_REFRESH_RETRIES - 1
     assert all(delay >= 0.5 for delay in sleep_delays)

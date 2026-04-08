@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
-import axios from "axios";
 import LZString from "lz-string";
 import { setCache, getCache } from "../utils/cache_utils";
+import { fetchJson } from "../utils/fetchJson";
 
 const MAX_CACHE_ITEMS = 100;
 const MAX_BACKOFF_TIME = 60000; // 1 minute in milliseconds
@@ -16,6 +16,13 @@ const useFetchWithCache = (endpoint, cacheAge = 10, cacheOffset = 6) => {
   };
 
   useEffect(() => {
+    if (!endpoint) {
+      setData(null);
+      setError(null);
+      setIsLoading(false);
+      return;
+    }
+
     const deleteHttpCacheKeys = () => {
       Object.keys(localStorage).forEach((key) => {
         if (key.startsWith("http")) {
@@ -57,12 +64,12 @@ const useFetchWithCache = (endpoint, cacheAge = 10, cacheOffset = 6) => {
       }
 
       try {
-        const response = await axios.get(endpoint);
-        setData(response.data);
+        const responseData = await fetchJson(endpoint);
+        setData(responseData);
         setError(null);
 
         const compressedData = LZString.compressToUTF16(
-          JSON.stringify({ data: response.data, timestamp: Date.now() })
+          JSON.stringify({ data: responseData, timestamp: Date.now() })
         );
         endpointsCache[endpoint] = compressedData;
         setCache("endpoints", endpointsCache);

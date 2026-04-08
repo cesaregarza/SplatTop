@@ -3,7 +3,11 @@ import { useTranslation } from "react-i18next";
 import { calculateSeasonNow, getSeasonName } from "../utils/season_utils";
 import { FaTimes } from "react-icons/fa";
 
-const SeasonSelector = ({ selectedSeason, setSelectedSeason }) => {
+const SeasonSelector = ({
+  selectedSeason,
+  setSelectedSeason,
+  className = "w-full",
+}) => {
   const { t } = useTranslation("weapon_leaderboard");
   const { t: gameT } = useTranslation("game");
   const [isOpen, setIsOpen] = useState(false);
@@ -42,7 +46,7 @@ const SeasonSelector = ({ selectedSeason, setSelectedSeason }) => {
   };
 
   return (
-    <div className="relative inline-block w-64" ref={dropdownRef}>
+    <div className={`relative ${className}`} ref={dropdownRef}>
       <div
         className="flex items-center justify-between w-full bg-gray-800 border border-gray-700 text-white py-2 px-3 rounded-sm leading-tight cursor-pointer"
         onClick={toggleDropdown}

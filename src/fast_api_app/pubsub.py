@@ -21,16 +21,44 @@ async def process_pubsub_message(pubsub: PubSub):
     while True:
         message = pubsub.get_message()
         if message and message["type"] == "message":
+            raw_message = message["data"]
             try:
-                data = json.loads(message["data"])
+                data = json.loads(raw_message)
             except json.JSONDecodeError:
                 if metrics_enabled():
                     PUBSUB_EVENTS.labels(event="decode_error").inc()
                 continue
             logger.info(f"Received player data for: {data['player_id']}")
-            player_data = redis_conn.get(data["key"])
             if metrics_enabled():
                 PUBSUB_EVENTS.labels(event="message").inc()
+            if data.get("type") == "player_chunk":
+                if metrics_enabled():
+                    PUBSUB_BYTES_BROADCAST.labels(
+                        player_id=data.get("player_id", "unknown")
+                    ).inc(len(raw_message))
+                await connection_manager.broadcast_player_data(
+                    raw_message,
+                    data["player_id"],
+                    progressive_only=True,
+                )
+                if data.get("phase") == "complete" and data.get("key"):
+                    player_data = redis_conn.get(data["key"])
+                    if player_data is None:
+                        if metrics_enabled():
+                            PUBSUB_EVENTS.labels(event="cache_miss").inc()
+                        continue
+                    if metrics_enabled():
+                        PUBSUB_BYTES_BROADCAST.labels(
+                            player_id=data.get("player_id", "unknown")
+                        ).inc(len(player_data))
+                    await connection_manager.broadcast_player_data(
+                        player_data,
+                        data["player_id"],
+                        legacy_only=True,
+                    )
+                continue
+
+            player_data = redis_conn.get(data["key"])
             if player_data is None:
                 if metrics_enabled():
                     PUBSUB_EVENTS.labels(event="cache_miss").inc()

@@ -10,5 +10,20 @@
   "select_season": "选择赛季",
   "all_seasons": "全部赛季",
   "select_weapon": "选择武器",
-  "null_selection": "取消选择"
+  "null_selection": "取消选择",
+  "header.kicker": "武器浏览器",
+  "header.meta": "顶级使用者 · %region% · %mode% · %metric% · ≥%threshold%% 使用率",
+  "header.compare_separator": "vs",
+  "controls.region": "地区",
+  "controls.mode": "模式",
+  "controls.weapon": "武器",
+  "controls.compare": "对比",
+  "controls.usage_threshold": "使用率门槛",
+  "controls.metric": "指标",
+  "controls.entries": "条目策略",
+  "controls.season": "赛季",
+  "controls.compare_enable": "对比武器",
+  "controls.compare_disable": "隐藏对比",
+  "results.title": "顶级使用者",
+  "results.summary": "显示 %start%–%end% / 共 %total% 条合格记录"
 }

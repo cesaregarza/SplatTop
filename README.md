@@ -60,7 +60,11 @@ You can run SplatTop locally without Kubernetes by starting each component manua
 2. **Environment Variables**: Copy the example and set credentials:
    ```sh
    cp .env.example .env
-   # Edit .env to set DB_HOST, DB_PORT, DB_USER, DB_PASSWORD, DB_NAME, DEV_MODE=1
+   # Edit .env to set DB_HOST, DB_PORT, DB_USER, DB_PASSWORD, DB_NAME, ENV=development
+   # Optional for competition Discord login:
+   # COMP_DISCORD_CLIENT_ID, COMP_DISCORD_CLIENT_SECRET,
+   # COMP_DISCORD_REDIRECT_URI, COMP_AUTH_SESSION_SECRET,
+   # COMP_AUTH_ADMIN_DISCORD_IDS, COMP_AUTH_PLAYER_OWNERS
    ```
 
 3. **Install Dependencies**:
@@ -128,10 +132,29 @@ Sensitive settings (database credentials, ML storage endpoints) should be provid
 
 1. **Local `.env`**:
    - Copy `.env.example` to `.env` and fill in DB and other service credentials.
+   - Competition Discord login also uses:
+     - `COMP_DISCORD_CLIENT_ID`
+     - `COMP_DISCORD_CLIENT_SECRET`
+     - `COMP_DISCORD_REDIRECT_URI`
+     - `COMP_AUTH_SESSION_SECRET`
+   - Optional competition auth overrides:
+     - `COMP_AUTH_FRONTEND_URL`
+     - `COMP_AUTH_ADMIN_DISCORD_IDS`
+     - `COMP_AUTH_PLAYER_OWNERS` (`player_id=discord_id`, comma/newline separated)
+     - `COMP_AUTH_ALLOWED_ORIGINS`
+   - This applies to manual local runs. The local kind/Kubernetes path now prefers `k8s/secrets.dev.enc.yaml` and falls back to `k8s/secrets.yaml`.
 
 2. **Kubernetes `secrets.yaml`**:
-   - For production or K8s deployments, create a `k8s/secrets.yaml` containing the same keys as your `.env` (DB_* vars and ML settings).
-   - Apply with: `kubectl apply -f k8s/secrets.yaml`.
+   - For local kind development, keep a local `k8s/secrets.yaml` from `k8s/secrets.template`, then run `make encrypt-secrets-dev` to generate the tracked encrypted file `k8s/secrets.dev.enc.yaml`.
+   - `make create-secrets-dev` and `make create-secrets-dev-helm` decrypt and apply `k8s/secrets.dev.enc.yaml` when it exists. They still fall back to plaintext `k8s/secrets.yaml` for compatibility.
+   - Local make targets automatically use `keys/age-private.txt` when that file exists. You can still override the key location with `SOPS_AGE_KEY_FILE=/path/to/key.txt`.
+   - To inspect or edit the encrypted file directly, run `SOPS_AGE_KEY_FILE=keys/age-private.txt sops k8s/secrets.dev.enc.yaml`.
+
+3. **Competition admin workflow**:
+   - Admin Discord IDs are stored only in the encrypted source file `secrets/competition-admins/comp-auth-secrets.enc.yaml`.
+   - Update that file locally with `uv run python scripts/competition_admins.py write-source-secret --entries 'discord_id|note;discord_id|note'`.
+   - Merge the encrypted-file change to `main`, then `.github/workflows/sync_competition_admins_to_config.yml` opens the `SplatTopConfig` PR that copies the encrypted secret and ensures the Helm/Argo wiring exists.
+   - The app-repo workflow expects `CONFIG_REPO_TOKEN`. Plaintext admin IDs are not passed through GitHub Actions inputs.
 
 ## Architecture
 

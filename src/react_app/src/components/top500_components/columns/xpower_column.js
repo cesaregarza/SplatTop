@@ -1,11 +1,13 @@
 export const id = "xpower";
 export const title_key = "column_xpower_title";
 export const isVisible = true;
-export const headerClasses = "w-20 px-4 py-2 text-right";
-export const cellClasses = "w-20 px-4 py-2 text-right xpower-text font-bolt";
+export const headerClasses =
+  "w-28 px-4 py-2.5 text-right text-[0.68rem] font-semibold uppercase tracking-[0.16em] text-gray-300";
+export const cellClasses =
+  "w-28 px-4 py-2.5 text-right align-middle xpower-text tabular-nums";
 export const render = (player, t) => (
   <>
-    <span className="text-purplelight text-lg">
+    <span className="text-lg text-purplelight">
       {player.x_power.toFixed(1).toString().slice(0, 2)}
     </span>
     <span className="text-sm">

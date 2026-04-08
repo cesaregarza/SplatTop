@@ -11,6 +11,22 @@ const ROW_OPTIONS = [25, 50, 100];
 
 const noop = () => {};
 
+const GradeChipPreview = ({ label, active }) => {
+  const crackle = isXX(label);
+  const chipClassName = `${gradeChipClass(label, active)} ${
+    crackle ? "crackle" : ""
+  }`.trim();
+  const dataProps = crackle
+    ? { "data-color": CRACKLE_PURPLE, "data-rate": rateFor(label) }
+    : {};
+
+  return (
+    <span className={chipClassName} {...dataProps}>
+      {label}
+    </span>
+  );
+};
+
 const useDismissibleMenu = (initialOpen = false) => {
   const [open, setOpen] = useState(initialOpen);
   const containerRef = useRef(null);
@@ -52,19 +68,6 @@ const GradeDropdown = ({ grades, selectedGrade, onSelectGrade }) => {
     setOpen(false);
   };
 
-  const renderChip = (label, isActive) => {
-    const crackle = isXX(label);
-    const chipClassName = `${gradeChipClass(label, isActive)} ${crackle ? "crackle" : ""}`.trim();
-    const dataProps = crackle
-      ? { "data-color": CRACKLE_PURPLE, "data-rate": rateFor(label) }
-      : {};
-    return (
-      <span className={chipClassName} {...dataProps}>
-        {label}
-      </span>
-    );
-  };
-
   return (
     <div className="relative" ref={containerRef}>
       <button
@@ -76,7 +79,7 @@ const GradeDropdown = ({ grades, selectedGrade, onSelectGrade }) => {
       >
         <span className="text-xs uppercase tracking-wide text-slate-400">Grade filter</span>
         {hasSelection ? (
-          renderChip(selectedGrade, true)
+          <GradeChipPreview label={selectedGrade} active />
         ) : (
           <span className="rounded-full border border-slate-700 bg-slate-900/80 px-2 py-0.5 text-xs font-semibold text-slate-300">
             All
@@ -116,7 +119,7 @@ const GradeDropdown = ({ grades, selectedGrade, onSelectGrade }) => {
                   aria-checked={active}
                 >
                   <span className="font-medium">{label}</span>
-                  {renderChip(label, active)}
+                  <GradeChipPreview label={label} active={active} />
                 </button>
               );
             })}
@@ -181,6 +184,7 @@ const RowsDropdown = ({ pageSize, rowOptions, onSelect }) => {
 const StableLeaderboardControls = ({
   query,
   onQueryChange,
+  onSearchSubmit,
   grades,
   selectedGrade,
   onSelectGrade,
@@ -196,6 +200,13 @@ const StableLeaderboardControls = ({
 
   const handleQueryChange = (event) => {
     onQueryChange(event.target.value);
+  };
+
+  const handleSearchSubmit = (event) => {
+    event.preventDefault();
+    if (typeof onSearchSubmit === "function") {
+      onSearchSubmit(query);
+    }
   };
 
   const handleGradeChange = (value) => {
@@ -214,7 +225,10 @@ const StableLeaderboardControls = ({
       aria-label="Leaderboard controls"
     >
       <div className="flex flex-wrap items-center gap-2">
-        <div className="relative flex-1 min-w-[220px]">
+        <form
+          className="relative flex-1 min-w-[220px]"
+          onSubmit={handleSearchSubmit}
+        >
           <label className="sr-only" htmlFor="stable-leaderboard-search">
             Search players
           </label>
@@ -226,10 +240,13 @@ const StableLeaderboardControls = ({
             onChange={handleQueryChange}
             className="w-full rounded-md bg-slate-950/70 pl-9 pr-3 py-2 text-sm text-slate-100 placeholder:text-slate-500 ring-1 ring-white/10 focus:ring-2 focus:ring-fuchsia-500/60 outline-none"
           />
-          <span className="pointer-events-none absolute left-3 top-2.5 text-slate-500" aria-hidden>
+          <span
+            className="pointer-events-none absolute left-3 top-2.5 text-slate-500"
+            aria-hidden
+          >
             🔎
           </span>
-        </div>
+        </form>
 
         {hasGrades && (
           <GradeDropdown

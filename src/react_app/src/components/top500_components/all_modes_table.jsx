@@ -21,8 +21,9 @@ const AllModesTable = ({ players }) => {
   const { t } = useTranslation();
   const navigate = useNavigate();
 
-  const headerClasses = "w-20 px-4 py-2 text-center border border-gray-600";
-  const defaultCellClasses = "w-20 px-4 py-2 text-center";
+  const headerClasses =
+    "w-20 border border-gray-800 px-4 py-3 text-center text-[0.68rem] font-semibold uppercase tracking-[0.16em] text-gray-300";
+  const defaultCellClasses = "w-20 px-4 py-3 text-center align-middle";
 
   const handleRowClick = (playerId) => {
     navigate(`/player/${playerId}`);
@@ -30,9 +31,9 @@ const AllModesTable = ({ players }) => {
   };
 
   return (
-    <table className="table-auto w-full bg-gray-800">
+    <table className="w-full table-auto border-collapse bg-transparent">
       <thead>
-        <tr className="bg-gray-700">
+        <tr className="bg-gray-950/95">
           <th className={headerClasses} rowSpan={2}>
             {t("Rank")}
           </th>
@@ -75,7 +76,7 @@ const AllModesTable = ({ players }) => {
             />
           </th>
         </tr>
-        <tr className="bg-gray-700">
+        <tr className="border-b border-gray-800 bg-gray-950/95">
           {allModesColumnsConfig.slice(2).map((column, index) => (
             <th key={index} className={headerClasses}>
               {t(column.title_key)}
@@ -87,7 +88,7 @@ const AllModesTable = ({ players }) => {
         {players.map((player) => (
           <tr
             key={player.player_id}
-            className="border-b border-gray-700 hover:bg-purpledark cursor-pointer"
+            className="cursor-pointer border-b border-gray-800/90 hover:bg-purple-950/30"
             onClick={() => handleRowClick(player.player_id)}
           >
             {allModesColumnsConfig.map((column, index) => (
