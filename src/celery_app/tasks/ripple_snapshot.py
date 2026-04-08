@@ -23,6 +23,7 @@ from shared_lib.constants import (
     RIPPLE_PLAYER_INDEX_LATEST_KEY,
     RIPPLE_PLAYER_INDEX_META_KEY,
     RIPPLE_PLAYER_INDEX_PLAYER_PREFIX,
+    RIPPLE_PLAYER_OWNER_DISCORD_HASH_KEY,
     RIPPLE_SNAPSHOT_LOCK_KEY,
     RIPPLE_STABLE_DELTAS_KEY,
     RIPPLE_STABLE_LATEST_KEY,
@@ -109,6 +110,58 @@ def _to_text_list(value: Any) -> List[str]:
         if text:
             items.append(text)
     return items
+
+
+async def _fetch_player_owner_discord_ids(
+    session,
+    player_ids: List[str],
+) -> Dict[str, str] | None:
+    if not player_ids:
+        return {}
+
+    schema = ripple_queries._schema()
+    schema_sql = f'"{schema}"'
+    query = text(
+        f"""
+        SELECT
+            player_id::text AS player_id,
+            NULLIF(BTRIM(discord_id::text), '') AS discord_id
+        FROM {schema_sql}.players
+        WHERE player_id::text = ANY(:player_ids)
+        """
+    )
+
+    owner_ids: Dict[str, str] = {}
+    for batch in _batched(player_ids, size=PLAYER_HISTORY_CHUNK_SIZE):
+        try:
+            result = await session.execute(
+                query,
+                {
+                    "player_ids": batch,
+                },
+            )
+            rows = result.mappings().all()
+        except Exception as exc:
+            logger.warning(
+                "Failed to fetch competition player owner ids for %s players: %s",
+                len(batch),
+                exc,
+            )
+            rollback = getattr(session, "rollback", None)
+            if callable(rollback):
+                maybe_awaitable = rollback()
+                if asyncio.iscoroutine(maybe_awaitable):
+                    await maybe_awaitable
+            return None
+
+        for row in rows:
+            player_id = str(row.get("player_id") or "").strip()
+            discord_id = str(row.get("discord_id") or "").strip()
+            if not player_id or not discord_id:
+                continue
+            owner_ids[player_id] = discord_id
+
+    return owner_ids
 
 
 def _grade_threshold_percentiles(
@@ -1611,6 +1664,7 @@ async def _refresh_snapshots_async_once() -> Dict[str, Any]:
     events: Dict[str, Dict[str, Any]] = {}
     tournament_history_by_player: Dict[str, List[Dict[str, Any]]] = {}
     match_loo_impacts_by_player: Dict[str, List[Dict[str, Any]]] = {}
+    player_owner_discord_ids: Dict[str, str] | None = {}
     state: Dict[str, Any] = {}
     stable_rows: List[Dict[str, Any]] = []
     previous_stable_payload, preserved_source = _load_previous_stable_payload()
@@ -1664,6 +1718,12 @@ async def _refresh_snapshots_async_once() -> Dict[str, Any]:
             )
             calc_ts_int = _to_int(calc_ts)
             events = await _fetch_player_events(session, player_ids)
+            player_owner_discord_ids = (
+                await _fetch_player_owner_discord_ids(
+                    session,
+                    all_player_ids,
+                )
+            )
             tournament_history_by_player = await _fetch_player_ranked_history(
                 session,
                 all_player_ids,
@@ -1816,6 +1876,13 @@ async def _refresh_snapshots_async_once() -> Dict[str, Any]:
         _persist_payload(_player_index_key(player_id), player_payload)
     for stale_player_id in previous_player_ids - current_player_ids:
         redis_conn.delete(_player_index_key(stale_player_id))
+    if player_owner_discord_ids is not None:
+        redis_conn.delete(RIPPLE_PLAYER_OWNER_DISCORD_HASH_KEY)
+        if player_owner_discord_ids:
+            redis_conn.hset(
+                RIPPLE_PLAYER_OWNER_DISCORD_HASH_KEY,
+                mapping=player_owner_discord_ids,
+            )
     _persist_payload(RIPPLE_PLAYER_INDEX_LATEST_KEY, player_index_payload)
     _persist_payload(RIPPLE_PLAYER_INDEX_META_KEY, player_index_meta_payload)
 

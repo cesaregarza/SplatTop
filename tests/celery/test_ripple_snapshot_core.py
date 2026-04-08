@@ -25,6 +25,7 @@ from shared_lib.constants import (
     RIPPLE_PLAYER_INDEX_LATEST_KEY,
     RIPPLE_PLAYER_INDEX_META_KEY,
     RIPPLE_PLAYER_INDEX_PLAYER_PREFIX,
+    RIPPLE_PLAYER_OWNER_DISCORD_HASH_KEY,
     RIPPLE_STABLE_DELTAS_KEY,
     RIPPLE_STABLE_LATEST_KEY,
     RIPPLE_STABLE_META_KEY,
@@ -713,6 +714,12 @@ def test_refresh_ripple_snapshots_persists_payloads(monkeypatch):
         fake_fetch_match_loo_impacts,
         raising=False,
     )
+    monkeypatch.setattr(
+        snapshot_mod,
+        "_fetch_player_owner_discord_ids",
+        AsyncMock(return_value={"p1": "11111", "p2": "22222"}),
+        raising=False,
+    )
 
     async def fake_first_scores(session, player_events, *, cutoff_ms=None):
         # Validate input: player_events should be Dict[str, int]
@@ -792,6 +799,8 @@ def test_refresh_ripple_snapshots_persists_payloads(monkeypatch):
     )
     assert player_index_payload["record_count"] == 2
     assert set(player_index_payload["player_ids"]) == {"p1", "p2"}
+    assert fake_redis.hget(RIPPLE_PLAYER_OWNER_DISCORD_HASH_KEY, "p1") == "11111"
+    assert fake_redis.hget(RIPPLE_PLAYER_OWNER_DISCORD_HASH_KEY, "p2") == "22222"
 
     player_one_payload = orjson.loads(fake_redis.get(_player_index_key("p1")))
     assert player_one_payload["eligible"] is True

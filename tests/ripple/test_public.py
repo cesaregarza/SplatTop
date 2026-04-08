@@ -9,6 +9,7 @@ from shared_lib.constants import (
     RIPPLE_PLAYER_INDEX_LATEST_KEY,
     RIPPLE_PLAYER_INDEX_META_KEY,
     RIPPLE_PLAYER_INDEX_PLAYER_PREFIX,
+    RIPPLE_PLAYER_OWNER_DISCORD_HASH_KEY,
     RIPPLE_STABLE_DELTAS_KEY,
     RIPPLE_STABLE_LATEST_KEY,
     RIPPLE_STABLE_META_KEY,
@@ -469,6 +470,69 @@ def test_public_player_profile_returns_results_for_signed_in_owner(
         assert data["match_loo_record_count"] == 1
         assert data["match_loo_impacts"][0]["match_id"] == 501
         assert data["match_loo_impacts"][0]["player_team_name"] == "Luma"
+
+
+def test_public_player_profile_returns_results_for_cached_db_owner(
+    client_factory, fake_redis, monkeypatch
+):
+    generated_at = _now_ms()
+    fake_redis.set(
+        RIPPLE_PLAYER_INDEX_META_KEY,
+        orjson.dumps(
+            {
+                "generated_at_ms": generated_at,
+                "calculated_at_ms": generated_at,
+                "build_version": "2024.09.01",
+                "minimum_required_tournaments": 3,
+                "record_count": 1,
+            }
+        ),
+    )
+    fake_redis.set(
+        _player_index_key("p1"),
+        orjson.dumps(
+            {
+                "player_id": "p1",
+                "display_name": "Player 1",
+                "eligible": True,
+                "match_loo_generated_at_ms": generated_at,
+                "match_loo_record_count": 1,
+                "match_loo_max_records": 20,
+                "match_loo_impacts": [
+                    {
+                        "match_id": 501,
+                        "tournament_id": 44,
+                        "tournament_name": "Midnight Splat",
+                    }
+                ],
+            }
+        ),
+    )
+    fake_redis.hset(
+        RIPPLE_PLAYER_OWNER_DISCORD_HASH_KEY,
+        mapping={"p1": "11111"},
+    )
+
+    with client_factory(
+        env={
+            "COMP_LEADERBOARD_ENABLED": "true",
+            "COMP_AUTH_SESSION_SECRET": "test-comp-session-secret",
+            "COMP_DISCORD_CLIENT_ID": "discord-client-id",
+            "COMP_DISCORD_CLIENT_SECRET": "discord-client-secret",
+            "COMP_DISCORD_REDIRECT_URI": (
+                "http://localhost:5000/api/comp-auth/discord/callback"
+            ),
+            "COMP_AUTH_FRONTEND_URL": "http://comp.localhost:3000",
+        },
+        redis=fake_redis,
+    ) as client:
+        _login_comp_user(client, monkeypatch, "11111")
+        res = client.get("/api/ripple/public/player/p1")
+        assert res.status_code == 200
+        data = res.json()
+        assert data["viewer_can_view_results"] is True
+        assert data["match_loo_record_count"] == 1
+        assert data["match_loo_impacts"][0]["match_id"] == 501
 
 
 def test_admin_player_profile_returns_unredacted_values_for_admin(

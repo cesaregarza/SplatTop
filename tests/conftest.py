@@ -397,6 +397,7 @@ def app(fake_redis, monkeypatch):
     # Import modules
     import fast_api_app.app as app_mod
     import fast_api_app.auth as auth_mod
+    import fast_api_app.comp_auth as comp_auth_mod
     import fast_api_app.connections as conn_mod
     import fast_api_app.middleware as mw_mod
     import fast_api_app.routes.admin_tokens as admin_mod
@@ -405,6 +406,9 @@ def app(fake_redis, monkeypatch):
     # Patch Redis in all modules that captured it at import time
     monkeypatch.setattr(app_mod, "redis_conn", fake_redis, raising=False)
     monkeypatch.setattr(auth_mod, "redis_conn", fake_redis, raising=False)
+    monkeypatch.setattr(
+        comp_auth_mod, "redis_conn", fake_redis, raising=False
+    )
     monkeypatch.setattr(mw_mod, "redis_conn", fake_redis, raising=False)
     monkeypatch.setattr(admin_mod, "redis_conn", fake_redis, raising=False)
     monkeypatch.setattr(
@@ -504,6 +508,7 @@ def client_factory(fake_redis, monkeypatch):
 
             app_mod = sys.modules["fast_api_app.app"]
             auth_mod = sys.modules["fast_api_app.auth"]
+            comp_auth_mod = sys.modules["fast_api_app.comp_auth"]
             mw_mod = sys.modules["fast_api_app.middleware"]
             admin_mod = sys.modules["fast_api_app.routes.admin_tokens"]
             ripple_mod = sys.modules["fast_api_app.routes.ripple"]
@@ -513,6 +518,9 @@ def client_factory(fake_redis, monkeypatch):
             # Patch Redis connections in reloaded modules
             monkeypatch.setattr(app_mod, "redis_conn", r, raising=False)
             monkeypatch.setattr(auth_mod, "redis_conn", r, raising=False)
+            monkeypatch.setattr(
+                comp_auth_mod, "redis_conn", r, raising=False
+            )
             monkeypatch.setattr(mw_mod, "redis_conn", r, raising=False)
             monkeypatch.setattr(admin_mod, "redis_conn", r, raising=False)
             monkeypatch.setattr(ripple_mod, "redis_conn", r, raising=False)

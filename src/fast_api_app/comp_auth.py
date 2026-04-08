@@ -1,11 +1,14 @@
 from __future__ import annotations
 
+import logging
 import os
 import re
 from dataclasses import dataclass
 from urllib.parse import urlsplit
 
 from fastapi import HTTPException, Request
+from fast_api_app.connections import redis_conn
+from shared_lib.constants import RIPPLE_PLAYER_OWNER_DISCORD_HASH_KEY
 
 COMP_AUTH_SESSION_COOKIE = "comp_auth_session"
 COMP_AUTH_PENDING_SESSION_KEY = "comp_auth_pending"
@@ -36,6 +39,8 @@ _DEFAULT_LOCAL_COMP_AUTH_ORIGINS = frozenset(
         "http://127.0.0.1:8080",
     }
 )
+
+logger = logging.getLogger(__name__)
 
 
 @dataclass(frozen=True)
@@ -165,9 +170,26 @@ def is_comp_player_owner(
     if not player_key or not discord_key:
         return False
 
-    return discord_key in get_comp_auth_player_owner_map().get(
+    if discord_key in get_comp_auth_player_owner_map().get(
         player_key, frozenset()
-    )
+    ):
+        return True
+
+    try:
+        cached_discord_id = redis_conn.hget(
+            RIPPLE_PLAYER_OWNER_DISCORD_HASH_KEY, player_key
+        )
+    except Exception as exc:
+        logger.warning(
+            "Failed to read cached competition player owner map: %s", exc
+        )
+        return False
+
+    cached_discord_key = str(cached_discord_id or "").strip()
+    if not cached_discord_key:
+        return False
+
+    return cached_discord_key == discord_key
 
 
 def read_authenticated_comp_discord_id(request: Request) -> str | None:
