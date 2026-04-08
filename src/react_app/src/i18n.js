@@ -11,7 +11,7 @@ i18n
   .init({
     supportedLngs: ["USen","JPja","USes","EUen","CNzh"],
     backend: {
-      loadPath: "../locales/{{lng}}/{{ns}}.json",
+      loadPath: "/locales/{{lng}}/{{ns}}.json",
     },
     fallbackLng: "USen",
     defaultNS: "main_page",
