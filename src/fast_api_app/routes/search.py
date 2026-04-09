@@ -25,7 +25,7 @@ async def search(query: str, request: Request):
             detail="Data is not available yet, please wait.",
         )
 
-    logger.info(f"Searching for: {query}")
+    logger.info("Searching for: %s", query)
     formatted_key = f"%{query}%"
     start = perf_counter()
     result = lookup_fetchall(
@@ -37,5 +37,5 @@ async def search(query: str, request: Request):
     if metrics_enabled():
         SEARCH_LATENCY.labels(outcome=outcome).observe(duration)
         SEARCH_RESULTS.labels(outcome=outcome).inc()
-    logger.info(f"Search complete for: {query}")
+    logger.info("Search complete for: %s", query)
     return result

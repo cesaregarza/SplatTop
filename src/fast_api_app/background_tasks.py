@@ -36,8 +36,10 @@ class BackgroundRunner:
         start = perf_counter()
         try:
             manager.update_database()
-        except Exception as e:
-            logger.error(f"Error updating table {manager.table_name}: {e}")
+        except Exception:
+            logger.exception(
+                "Error updating table %s", manager.table_name
+            )
             sleep_time = manager.retry_cadence
             outcome = "error"
         finally:

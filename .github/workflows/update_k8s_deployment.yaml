@@ -54,7 +54,7 @@ jobs:
       exit_pipeline: ${{ steps.finalize.outputs.exit_pipeline }}
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
         with:
           fetch-depth: 0
 
@@ -148,7 +148,7 @@ jobs:
       react_digest: ${{ steps.build_react.outputs.digest }}
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
 
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
@@ -256,10 +256,10 @@ jobs:
     environment: SplatTop
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
 
       - name: Checkout config repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
         with:
           repository: cesaregarza/SplatTopConfig
           path: config-repo
@@ -363,7 +363,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
 
       - name: Create GitHub release if missing
         env:
@@ -474,7 +474,7 @@ jobs:
           path: metadata
 
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
         with:
           path: app-repo
 
@@ -482,7 +482,7 @@ jobs:
         run: python3 -m pip install --user "ruamel.yaml>=0.18.6,<0.19"
 
       - name: Checkout config repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
         with:
           repository: cesaregarza/SplatTopConfig
           token: ${{ secrets.CONFIG_REPO_TOKEN }}
