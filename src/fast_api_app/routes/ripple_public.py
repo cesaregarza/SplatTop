@@ -35,6 +35,9 @@ from shared_lib.constants import (
     RIPPLE_PLAYER_INDEX_LATEST_KEY,
     RIPPLE_PLAYER_INDEX_META_KEY,
     RIPPLE_PLAYER_INDEX_PLAYER_PREFIX,
+    RIPPLE_PLAYER_INDEX_PLAYER_HISTORY_PREFIX,
+    RIPPLE_PLAYER_INDEX_PLAYER_RESULTS_PREFIX,
+    RIPPLE_PLAYER_INDEX_PLAYER_SUMMARY_PREFIX,
     RIPPLE_STABLE_DELTAS_KEY,
     RIPPLE_STABLE_LATEST_KEY,
     RIPPLE_STABLE_META_KEY,
@@ -130,6 +133,18 @@ def _player_index_key(player_id: str) -> str:
     return f"{RIPPLE_PLAYER_INDEX_PLAYER_PREFIX}{player_id}"
 
 
+def _player_index_summary_key(player_id: str) -> str:
+    return f"{RIPPLE_PLAYER_INDEX_PLAYER_SUMMARY_PREFIX}{player_id}"
+
+
+def _player_index_history_key(player_id: str) -> str:
+    return f"{RIPPLE_PLAYER_INDEX_PLAYER_HISTORY_PREFIX}{player_id}"
+
+
+def _player_index_results_key(player_id: str) -> str:
+    return f"{RIPPLE_PLAYER_INDEX_PLAYER_RESULTS_PREFIX}{player_id}"
+
+
 def _extract_player_from_legacy_index(
     payload: Dict[str, Any], player_id: str
 ) -> Optional[Dict[str, Any]]:
@@ -141,34 +156,20 @@ def _extract_player_from_legacy_index(
     return player if isinstance(player, dict) else None
 
 
-def _load_public_player_payload(player_id: str) -> Optional[Dict[str, Any]]:
+def _load_player_index_meta_payload() -> Dict[str, Any]:
     meta_payload = _load_payload(RIPPLE_PLAYER_INDEX_META_KEY)
     if not isinstance(meta_payload, dict):
-        meta_payload = None
-
-    player = _load_payload(_player_index_key(player_id))
-    latest_payload: Dict[str, Any] | None = None
-    if not isinstance(player, dict):
         latest_payload = _load_payload(RIPPLE_PLAYER_INDEX_LATEST_KEY)
         if isinstance(latest_payload, dict):
-            player = _extract_player_from_legacy_index(
-                latest_payload, player_id
-            )
-            if meta_payload is None:
-                meta_payload = latest_payload
+            meta_payload = latest_payload
+        else:
+            meta_payload = _empty_player_index_payload()
+    return meta_payload
 
-    if not isinstance(player, dict):
-        return None
 
-    if meta_payload is None:
-        meta_payload = (
-            latest_payload
-            if isinstance(latest_payload, dict)
-            else _load_payload(RIPPLE_PLAYER_INDEX_LATEST_KEY)
-        )
-    if not isinstance(meta_payload, dict):
-        meta_payload = _empty_player_index_payload()
-
+def _merge_player_payload_with_meta(
+    player: Dict[str, Any], meta_payload: Dict[str, Any]
+) -> Dict[str, Any]:
     enriched = _decorate(
         {
             "generated_at_ms": meta_payload.get("generated_at_ms"),
@@ -185,6 +186,34 @@ def _load_public_player_payload(player_id: str) -> Optional[Dict[str, Any]]:
         }
     )
     return response
+
+
+def _load_public_player_payload(player_id: str) -> Optional[Dict[str, Any]]:
+    meta_payload = _load_player_index_meta_payload()
+    player = _load_payload(_player_index_key(player_id))
+    if not isinstance(player, dict):
+        latest_payload = _load_payload(RIPPLE_PLAYER_INDEX_LATEST_KEY)
+        if isinstance(latest_payload, dict):
+            player = _extract_player_from_legacy_index(
+                latest_payload, player_id
+            )
+
+    if not isinstance(player, dict):
+        return None
+
+    return _merge_player_payload_with_meta(player, meta_payload)
+
+
+def _load_public_player_section_payload(
+    player_id: str,
+    section_key: str,
+) -> Optional[Dict[str, Any]]:
+    meta_payload = _load_player_index_meta_payload()
+    player = _load_payload(section_key)
+    if isinstance(player, dict):
+        return _merge_player_payload_with_meta(player, meta_payload)
+
+    return _load_public_player_payload(player_id)
 
 
 def _to_int(value: Any) -> int | None:
@@ -636,6 +665,74 @@ def _apply_public_player_visibility(
     return response
 
 
+def _player_not_found() -> HTTPException:
+    return HTTPException(
+        status_code=404,
+        detail="Player not found in competition index",
+    )
+
+
+def _build_player_summary_payload(
+    payload: Dict[str, Any] | None,
+) -> Dict[str, Any] | None:
+    if not isinstance(payload, dict):
+        return None
+
+    excluded_fields = {
+        "tournament_history_ranked",
+        "match_loo_impacts",
+    }
+    return {
+        key: value
+        for key, value in payload.items()
+        if key not in excluded_fields
+    }
+
+
+def _build_player_history_payload(
+    payload: Dict[str, Any] | None,
+) -> Dict[str, Any] | None:
+    if not isinstance(payload, dict):
+        return None
+
+    return {
+        "player_id": payload.get("player_id"),
+        "generated_at_ms": payload.get("generated_at_ms"),
+        "history_generated_at_ms": payload.get("history_generated_at_ms"),
+        "history_record_count": payload.get("history_record_count", 0),
+        "history_max_records": payload.get("history_max_records"),
+        "tournament_history_ranked": payload.get("tournament_history_ranked")
+        if isinstance(payload.get("tournament_history_ranked"), list)
+        else [],
+    }
+
+
+def _build_player_results_payload(
+    payload: Dict[str, Any] | None,
+) -> Dict[str, Any] | None:
+    if not isinstance(payload, dict):
+        return None
+
+    viewer_can_view_results = bool(payload.get("viewer_can_view_results"))
+    return {
+        "player_id": payload.get("player_id"),
+        "generated_at_ms": payload.get("generated_at_ms"),
+        "viewer_can_view_results": viewer_can_view_results,
+        "match_loo_generated_at_ms": payload.get("match_loo_generated_at_ms")
+        if viewer_can_view_results
+        else None,
+        "match_loo_record_count": payload.get("match_loo_record_count", 0)
+        if viewer_can_view_results
+        else 0,
+        "match_loo_max_records": payload.get("match_loo_max_records")
+        if viewer_can_view_results
+        else None,
+        "match_loo_impacts": payload.get("match_loo_impacts")
+        if viewer_can_view_results and isinstance(payload.get("match_loo_impacts"), list)
+        else [],
+    }
+
+
 def _decorate(payload: Dict[str, Any]) -> Dict[str, Any]:
     generated_at_ms = payload.get("generated_at_ms")
     now_ms = int(time.time() * 1000)
@@ -696,6 +793,78 @@ async def get_public_ripple_danger() -> Dict[str, Any]:
 
 
 @router.get(
+    "/player/{player_id}/summary",
+    name="public-ripple-player-summary",
+    summary="Get public competition player summary",
+)
+async def get_public_ripple_player_summary(
+    player_id: str, request: Request
+) -> Dict[str, Any]:
+    _ensure_enabled()
+    player = _build_player_summary_payload(
+        _apply_public_player_visibility(
+            _load_public_player_section_payload(
+                player_id,
+                _player_index_summary_key(player_id),
+            ),
+            request,
+            player_id,
+        )
+    )
+    if not isinstance(player, dict):
+        raise _player_not_found()
+    return player
+
+
+@router.get(
+    "/player/{player_id}/history",
+    name="public-ripple-player-history",
+    summary="Get public competition player history payload",
+)
+async def get_public_ripple_player_history(
+    player_id: str, request: Request
+) -> Dict[str, Any]:
+    _ensure_enabled()
+    player = _build_player_history_payload(
+        _apply_public_player_visibility(
+            _load_public_player_section_payload(
+                player_id,
+                _player_index_history_key(player_id),
+            ),
+            request,
+            player_id,
+        )
+    )
+    if not isinstance(player, dict):
+        raise _player_not_found()
+    return player
+
+
+@router.get(
+    "/player/{player_id}/results",
+    name="public-ripple-player-results",
+    summary="Get public competition player results payload",
+)
+async def get_public_ripple_player_results(
+    player_id: str, request: Request
+) -> Dict[str, Any]:
+    _ensure_enabled()
+    player = _build_player_results_payload(
+        _apply_public_player_visibility(
+            _load_public_player_section_payload(
+                player_id,
+                _player_index_results_key(player_id),
+            ),
+            request,
+            player_id,
+        )
+    )
+    if not isinstance(player, dict):
+        raise _player_not_found()
+    return player
+
+
+@router.get(
     "/player/{player_id}",
     name="public-ripple-player",
     summary="Get public competition player profile",
@@ -710,10 +879,92 @@ async def get_public_ripple_player(
         player_id,
     )
     if not isinstance(player, dict):
-        raise HTTPException(
-            status_code=404,
-            detail="Player not found in competition index",
+        raise _player_not_found()
+    return player
+
+
+@admin_router.get(
+    "/player/{player_id}/summary",
+    name="admin-ripple-player-summary",
+    summary="Get admin competition player summary",
+)
+async def get_admin_ripple_player_summary(
+    player_id: str, _discord_id: str = Depends(require_comp_admin)
+) -> Dict[str, Any]:
+    _ensure_enabled()
+    player = _build_player_summary_payload(
+        _apply_admin_player_overrides(
+            _load_public_player_section_payload(
+                player_id,
+                _player_index_summary_key(player_id),
+            )
         )
+    )
+    if not isinstance(player, dict):
+        raise _player_not_found()
+    player["viewer_can_view_results"] = True
+    return player
+
+
+@admin_router.get(
+    "/player/{player_id}/history",
+    name="admin-ripple-player-history",
+    summary="Get admin competition player history payload",
+)
+async def get_admin_ripple_player_history(
+    player_id: str, _discord_id: str = Depends(require_comp_admin)
+) -> Dict[str, Any]:
+    _ensure_enabled()
+    player = None
+    try:
+        player = await _load_admin_player_payload_from_db(player_id)
+    except Exception:
+        logger.exception(
+            "Failed to load admin competition player history payload from DB",
+            extra={"player_id": player_id},
+        )
+    if not isinstance(player, dict):
+        player = _apply_admin_player_overrides(
+            _load_public_player_section_payload(
+                player_id,
+                _player_index_history_key(player_id),
+            )
+        )
+    player = _build_player_history_payload(player)
+    if not isinstance(player, dict):
+        raise _player_not_found()
+    return player
+
+
+@admin_router.get(
+    "/player/{player_id}/results",
+    name="admin-ripple-player-results",
+    summary="Get admin competition player results payload",
+)
+async def get_admin_ripple_player_results(
+    player_id: str, _discord_id: str = Depends(require_comp_admin)
+) -> Dict[str, Any]:
+    _ensure_enabled()
+    player = None
+    try:
+        player = await _load_admin_player_payload_from_db(player_id)
+    except Exception:
+        logger.exception(
+            "Failed to load admin competition player results payload from DB",
+            extra={"player_id": player_id},
+        )
+    if not isinstance(player, dict):
+        player = _apply_admin_player_overrides(
+            _load_public_player_section_payload(
+                player_id,
+                _player_index_results_key(player_id),
+            )
+        )
+    if isinstance(player, dict):
+        player["viewer_can_view_results"] = True
+    player = _build_player_results_payload(player)
+    if not isinstance(player, dict):
+        raise _player_not_found()
     return player
 
 
@@ -739,10 +990,7 @@ async def get_admin_ripple_player(
             _load_public_player_payload(player_id)
         )
     if not isinstance(player, dict):
-        raise HTTPException(
-            status_code=404,
-            detail="Player not found in competition index",
-        )
+        raise _player_not_found()
     player["viewer_can_view_results"] = True
     return player
 

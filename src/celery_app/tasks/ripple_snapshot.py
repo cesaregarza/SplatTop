@@ -23,6 +23,9 @@ from shared_lib.constants import (
     RIPPLE_PLAYER_INDEX_LATEST_KEY,
     RIPPLE_PLAYER_INDEX_META_KEY,
     RIPPLE_PLAYER_INDEX_PLAYER_PREFIX,
+    RIPPLE_PLAYER_INDEX_PLAYER_HISTORY_PREFIX,
+    RIPPLE_PLAYER_INDEX_PLAYER_RESULTS_PREFIX,
+    RIPPLE_PLAYER_INDEX_PLAYER_SUMMARY_PREFIX,
     RIPPLE_PLAYER_OWNER_DISCORD_HASH_KEY,
     RIPPLE_SNAPSHOT_LOCK_KEY,
     RIPPLE_STABLE_DELTAS_KEY,
@@ -272,6 +275,50 @@ def _load_cached_payload(key: str) -> Dict[str, Any] | None:
 
 def _player_index_key(player_id: str) -> str:
     return f"{RIPPLE_PLAYER_INDEX_PLAYER_PREFIX}{player_id}"
+
+
+def _player_index_summary_key(player_id: str) -> str:
+    return f"{RIPPLE_PLAYER_INDEX_PLAYER_SUMMARY_PREFIX}{player_id}"
+
+
+def _player_index_history_key(player_id: str) -> str:
+    return f"{RIPPLE_PLAYER_INDEX_PLAYER_HISTORY_PREFIX}{player_id}"
+
+
+def _player_index_results_key(player_id: str) -> str:
+    return f"{RIPPLE_PLAYER_INDEX_PLAYER_RESULTS_PREFIX}{player_id}"
+
+
+def _build_player_summary_section(payload: Mapping[str, Any]) -> Dict[str, Any]:
+    return {
+        key: value
+        for key, value in payload.items()
+        if key not in {"tournament_history_ranked", "match_loo_impacts"}
+    }
+
+
+def _build_player_history_section(payload: Mapping[str, Any]) -> Dict[str, Any]:
+    return {
+        "player_id": payload.get("player_id"),
+        "history_generated_at_ms": payload.get("history_generated_at_ms"),
+        "history_record_count": payload.get("history_record_count", 0),
+        "history_max_records": payload.get("history_max_records"),
+        "tournament_history_ranked": payload.get("tournament_history_ranked")
+        if isinstance(payload.get("tournament_history_ranked"), list)
+        else [],
+    }
+
+
+def _build_player_results_section(payload: Mapping[str, Any]) -> Dict[str, Any]:
+    return {
+        "player_id": payload.get("player_id"),
+        "match_loo_generated_at_ms": payload.get("match_loo_generated_at_ms"),
+        "match_loo_record_count": payload.get("match_loo_record_count", 0),
+        "match_loo_max_records": payload.get("match_loo_max_records"),
+        "match_loo_impacts": payload.get("match_loo_impacts")
+        if isinstance(payload.get("match_loo_impacts"), list)
+        else [],
+    }
 
 
 def _extract_player_index_ids(payload: Mapping[str, Any] | None) -> set[str]:
@@ -1874,8 +1921,23 @@ async def _refresh_snapshots_async_once() -> Dict[str, Any]:
     _persist_payload(RIPPLE_STABLE_DELTAS_KEY, delta_payload)
     for player_id, player_payload in player_index_players.items():
         _persist_payload(_player_index_key(player_id), player_payload)
+        _persist_payload(
+            _player_index_summary_key(player_id),
+            _build_player_summary_section(player_payload),
+        )
+        _persist_payload(
+            _player_index_history_key(player_id),
+            _build_player_history_section(player_payload),
+        )
+        _persist_payload(
+            _player_index_results_key(player_id),
+            _build_player_results_section(player_payload),
+        )
     for stale_player_id in previous_player_ids - current_player_ids:
         redis_conn.delete(_player_index_key(stale_player_id))
+        redis_conn.delete(_player_index_summary_key(stale_player_id))
+        redis_conn.delete(_player_index_history_key(stale_player_id))
+        redis_conn.delete(_player_index_results_key(stale_player_id))
     if player_owner_discord_ids is not None:
         redis_conn.delete(RIPPLE_PLAYER_OWNER_DISCORD_HASH_KEY)
         if player_owner_discord_ids:

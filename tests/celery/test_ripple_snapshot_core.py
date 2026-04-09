@@ -24,7 +24,10 @@ from shared_lib.constants import (
     RIPPLE_DANGER_LATEST_KEY,
     RIPPLE_PLAYER_INDEX_LATEST_KEY,
     RIPPLE_PLAYER_INDEX_META_KEY,
+    RIPPLE_PLAYER_INDEX_PLAYER_HISTORY_PREFIX,
     RIPPLE_PLAYER_INDEX_PLAYER_PREFIX,
+    RIPPLE_PLAYER_INDEX_PLAYER_RESULTS_PREFIX,
+    RIPPLE_PLAYER_INDEX_PLAYER_SUMMARY_PREFIX,
     RIPPLE_PLAYER_OWNER_DISCORD_HASH_KEY,
     RIPPLE_STABLE_DELTAS_KEY,
     RIPPLE_STABLE_LATEST_KEY,
@@ -35,6 +38,18 @@ from shared_lib.constants import (
 
 def _player_index_key(player_id: str) -> str:
     return f"{RIPPLE_PLAYER_INDEX_PLAYER_PREFIX}{player_id}"
+
+
+def _player_index_summary_key(player_id: str) -> str:
+    return f"{RIPPLE_PLAYER_INDEX_PLAYER_SUMMARY_PREFIX}{player_id}"
+
+
+def _player_index_history_key(player_id: str) -> str:
+    return f"{RIPPLE_PLAYER_INDEX_PLAYER_HISTORY_PREFIX}{player_id}"
+
+
+def _player_index_results_key(player_id: str) -> str:
+    return f"{RIPPLE_PLAYER_INDEX_PLAYER_RESULTS_PREFIX}{player_id}"
 
 
 def test_fetch_player_ranked_history_limits_and_sorts():
@@ -824,7 +839,27 @@ def test_refresh_ripple_snapshots_persists_payloads(monkeypatch):
     player_two_payload = orjson.loads(fake_redis.get(_player_index_key("p2")))
     assert player_two_payload["history_record_count"] == 0
     assert player_two_payload["match_loo_record_count"] == 0
+    player_one_summary = orjson.loads(
+        fake_redis.get(_player_index_summary_key("p1"))
+    )
+    assert "tournament_history_ranked" not in player_one_summary
+    assert "match_loo_impacts" not in player_one_summary
+    player_one_history = orjson.loads(
+        fake_redis.get(_player_index_history_key("p1"))
+    )
+    assert player_one_history["history_record_count"] == 1
+    assert player_one_history["tournament_history_ranked"][0][
+        "tournament_name"
+    ] == "Winter Open"
+    player_one_results = orjson.loads(
+        fake_redis.get(_player_index_results_key("p1"))
+    )
+    assert player_one_results["match_loo_record_count"] == 1
+    assert player_one_results["match_loo_impacts"][0]["match_id"] == 501
     assert fake_redis.get(_player_index_key("stale-player")) is None
+    assert fake_redis.get(_player_index_summary_key("stale-player")) is None
+    assert fake_redis.get(_player_index_history_key("stale-player")) is None
+    assert fake_redis.get(_player_index_results_key("stale-player")) is None
 
     player_index_meta = orjson.loads(
         fake_redis.get(RIPPLE_PLAYER_INDEX_META_KEY)

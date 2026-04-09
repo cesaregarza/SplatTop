@@ -8,7 +8,10 @@ from shared_lib.constants import (
     RIPPLE_DANGER_LATEST_KEY,
     RIPPLE_PLAYER_INDEX_LATEST_KEY,
     RIPPLE_PLAYER_INDEX_META_KEY,
+    RIPPLE_PLAYER_INDEX_PLAYER_HISTORY_PREFIX,
     RIPPLE_PLAYER_INDEX_PLAYER_PREFIX,
+    RIPPLE_PLAYER_INDEX_PLAYER_RESULTS_PREFIX,
+    RIPPLE_PLAYER_INDEX_PLAYER_SUMMARY_PREFIX,
     RIPPLE_PLAYER_OWNER_DISCORD_HASH_KEY,
     RIPPLE_STABLE_DELTAS_KEY,
     RIPPLE_STABLE_LATEST_KEY,
@@ -22,6 +25,18 @@ def _now_ms() -> int:
 
 def _player_index_key(player_id: str) -> str:
     return f"{RIPPLE_PLAYER_INDEX_PLAYER_PREFIX}{player_id}"
+
+
+def _player_index_summary_key(player_id: str) -> str:
+    return f"{RIPPLE_PLAYER_INDEX_PLAYER_SUMMARY_PREFIX}{player_id}"
+
+
+def _player_index_history_key(player_id: str) -> str:
+    return f"{RIPPLE_PLAYER_INDEX_PLAYER_HISTORY_PREFIX}{player_id}"
+
+
+def _player_index_results_key(player_id: str) -> str:
+    return f"{RIPPLE_PLAYER_INDEX_PLAYER_RESULTS_PREFIX}{player_id}"
 
 
 def _login_comp_user(client, monkeypatch, discord_id):
@@ -911,6 +926,157 @@ def test_admin_player_profile_prefers_db_payload_over_cached_profile(
         assert data["tournament_history_ranked"][0]["tournament_name"] == "DB Cup 0"
 
 
+def test_admin_player_summary_uses_cached_snapshot_without_db_lookup(
+    client_factory, fake_redis, monkeypatch
+):
+    generated_at = _now_ms()
+    fake_redis.set(
+        RIPPLE_PLAYER_INDEX_META_KEY,
+        orjson.dumps(
+            {
+                "generated_at_ms": generated_at,
+                "calculated_at_ms": generated_at,
+                "build_version": "2024.09.01",
+                "minimum_required_tournaments": 3,
+                "record_count": 1,
+            }
+        ),
+    )
+    fake_redis.set(
+        _player_index_key("p1"),
+        orjson.dumps(
+            {
+                "player_id": "p1",
+                "display_name": "Cached Player",
+                "eligible": True,
+                "minimum_required_tournaments": 3,
+                "lifetime_ranked_tournaments": 25,
+                "window_tournament_count": 4,
+                "stable_rank": 11,
+                "display_score": 200.0,
+                "private_stable_rank": 9,
+                "private_display_score": 205.0,
+                "history_record_count": 25,
+                "history_max_records": 25,
+                "tournament_history_ranked": [
+                    {
+                        "tournament_id": 1,
+                        "tournament_name": "Cached Cup",
+                        "event_ms": generated_at - 86_400_000,
+                        "ranked": True,
+                        "result_summary": "2W-1L",
+                        "team_name": "Cached Team",
+                        "team_id": 7,
+                    }
+                ],
+                "match_loo_record_count": 1,
+                "match_loo_max_records": 20,
+                "match_loo_impacts": [
+                    {
+                        "match_id": 501,
+                        "tournament_id": 44,
+                        "tournament_name": "Midnight Splat",
+                    }
+                ],
+            }
+        ),
+    )
+
+    with client_factory(
+        env={
+            "COMP_LEADERBOARD_ENABLED": "true",
+            "COMP_AUTH_SESSION_SECRET": "test-comp-session-secret",
+            "COMP_DISCORD_CLIENT_ID": "discord-client-id",
+            "COMP_DISCORD_CLIENT_SECRET": "discord-client-secret",
+            "COMP_DISCORD_REDIRECT_URI": (
+                "http://localhost:5000/api/comp-auth/discord/callback"
+            ),
+            "COMP_AUTH_FRONTEND_URL": "http://comp.localhost:3000",
+            "COMP_AUTH_ADMIN_DISCORD_IDS": "24680,99999",
+        },
+        redis=fake_redis,
+    ) as client:
+        import fast_api_app.routes.ripple_public as ripple_public_mod
+
+        async def _unexpected_db_lookup(_player_id):
+            raise AssertionError("summary route should not hit DB")
+
+        monkeypatch.setattr(
+            ripple_public_mod,
+            "_load_admin_player_payload_from_db",
+            _unexpected_db_lookup,
+        )
+        _login_comp_user(client, monkeypatch, "24680")
+        res = client.get("/api/ripple/admin/player/p1/summary")
+        assert res.status_code == 200
+        data = res.json()
+        assert data["display_name"] == "Cached Player"
+        assert data["stable_rank"] == 9
+        assert data["display_score"] == 205.0
+        assert data["history_record_count"] == 25
+        assert data["viewer_can_view_results"] is True
+        assert "tournament_history_ranked" not in data
+        assert "match_loo_impacts" not in data
+
+
+def test_admin_player_history_endpoint_uses_db_payload(
+    client_factory, fake_redis, monkeypatch
+):
+    generated_at = _now_ms()
+
+    async def _fake_db_profile(player_id):
+        assert player_id == "p1"
+        return {
+            "player_id": "p1",
+            "display_name": "DB Player",
+            "history_generated_at_ms": generated_at,
+            "history_record_count": 40,
+            "history_max_records": None,
+            "tournament_history_ranked": [
+                {
+                    "tournament_id": 1_000 + idx,
+                    "tournament_name": f"DB Cup {idx}",
+                    "event_ms": generated_at - idx,
+                    "ranked": True,
+                    "result_summary": "1W-0L",
+                    "team_name": "DB Team",
+                    "team_id": 900 + idx,
+                }
+                for idx in range(3)
+            ],
+        }
+
+    with client_factory(
+        env={
+            "COMP_LEADERBOARD_ENABLED": "true",
+            "COMP_AUTH_SESSION_SECRET": "test-comp-session-secret",
+            "COMP_DISCORD_CLIENT_ID": "discord-client-id",
+            "COMP_DISCORD_CLIENT_SECRET": "discord-client-secret",
+            "COMP_DISCORD_REDIRECT_URI": (
+                "http://localhost:5000/api/comp-auth/discord/callback"
+            ),
+            "COMP_AUTH_FRONTEND_URL": "http://comp.localhost:3000",
+            "COMP_AUTH_ADMIN_DISCORD_IDS": "24680,99999",
+        },
+        redis=fake_redis,
+    ) as client:
+        import fast_api_app.routes.ripple_public as ripple_public_mod
+
+        monkeypatch.setattr(
+            ripple_public_mod,
+            "_load_admin_player_payload_from_db",
+            _fake_db_profile,
+        )
+        _login_comp_user(client, monkeypatch, "24680")
+        res = client.get("/api/ripple/admin/player/p1/history")
+        assert res.status_code == 200
+        data = res.json()
+        assert data["history_record_count"] == 40
+        assert data["history_max_records"] is None
+        assert len(data["tournament_history_ranked"]) == 3
+        assert data["tournament_history_ranked"][0]["tournament_name"] == "DB Cup 0"
+
+
 def test_admin_refresh_endpoint_queues_snapshot_refresh(
     client_factory, fake_redis, monkeypatch
 ):
@@ -1194,6 +1360,224 @@ def test_public_player_profile_falls_back_to_legacy_index_blob(
         assert data["generated_at_ms"] == generated_at
         assert data["stale"] is False
         assert isinstance(data["retrieved_at_ms"], int)
+
+
+def test_public_player_summary_omits_heavy_arrays(
+    client_factory, fake_redis
+):
+    generated_at = _now_ms()
+    meta_payload = {
+        "generated_at_ms": generated_at,
+        "calculated_at_ms": generated_at - 1_000,
+        "build_version": "2024.09.01",
+        "minimum_required_tournaments": 3,
+        "record_count": 1,
+    }
+    player_payload = {
+        "player_id": "p1",
+        "display_name": "Player 1",
+        "eligible": True,
+        "minimum_required_tournaments": 3,
+        "lifetime_ranked_tournaments": 12,
+        "window_tournament_count": 4,
+        "stable_rank": 7,
+        "display_score": 80,
+        "history_generated_at_ms": generated_at,
+        "history_record_count": 2,
+        "history_max_records": 25,
+        "tournament_history_ranked": [
+            {
+                "tournament_id": 44,
+                "tournament_name": "Midnight Splat",
+                "event_ms": generated_at - 86_400_000,
+                "ranked": True,
+                "result_summary": "4W-1L",
+                "team_name": "Luma",
+                "team_id": 17,
+            }
+        ],
+        "match_loo_generated_at_ms": generated_at,
+        "match_loo_record_count": 1,
+        "match_loo_max_records": 20,
+        "match_loo_impacts": [
+            {
+                "match_id": 501,
+                "tournament_id": 44,
+                "tournament_name": "Midnight Splat",
+            }
+        ],
+    }
+    fake_redis.set(RIPPLE_PLAYER_INDEX_META_KEY, orjson.dumps(meta_payload))
+    fake_redis.set(
+        _player_index_summary_key("p1"), orjson.dumps(player_payload)
+    )
+
+    with client_factory(
+        env={"COMP_LEADERBOARD_ENABLED": "true"}, redis=fake_redis
+    ) as client:
+        res = client.get("/api/ripple/public/player/p1/summary")
+        assert res.status_code == 200
+        data = res.json()
+        assert data["player_id"] == "p1"
+        assert data["history_record_count"] == 2
+        assert data["history_max_records"] == 25
+        assert data["viewer_can_view_results"] is False
+        assert "tournament_history_ranked" not in data
+        assert "match_loo_impacts" not in data
+        assert "match_loo_record_count" not in data
+
+
+def test_public_player_results_endpoint_hides_rows_for_non_owner(
+    client_factory, fake_redis
+):
+    generated_at = _now_ms()
+    meta_payload = {
+        "generated_at_ms": generated_at,
+        "calculated_at_ms": generated_at - 1_000,
+        "build_version": "2024.09.01",
+        "minimum_required_tournaments": 3,
+        "record_count": 1,
+    }
+    player_payload = {
+        "player_id": "p1",
+        "display_name": "Player 1",
+        "match_loo_generated_at_ms": generated_at,
+        "match_loo_record_count": 1,
+        "match_loo_max_records": 20,
+        "match_loo_impacts": [
+            {
+                "match_id": 501,
+                "tournament_id": 44,
+                "tournament_name": "Midnight Splat",
+            }
+        ],
+    }
+    fake_redis.set(RIPPLE_PLAYER_INDEX_META_KEY, orjson.dumps(meta_payload))
+    fake_redis.set(
+        _player_index_results_key("p1"), orjson.dumps(player_payload)
+    )
+
+    with client_factory(
+        env={"COMP_LEADERBOARD_ENABLED": "true"}, redis=fake_redis
+    ) as client:
+        res = client.get("/api/ripple/public/player/p1/results")
+        assert res.status_code == 200
+        data = res.json()
+        assert data["player_id"] == "p1"
+        assert data["viewer_can_view_results"] is False
+        assert data["match_loo_record_count"] == 0
+        assert data["match_loo_impacts"] == []
+
+
+def test_public_player_results_endpoint_returns_rows_for_owner(
+    client_factory, fake_redis, monkeypatch
+):
+    generated_at = _now_ms()
+    meta_payload = {
+        "generated_at_ms": generated_at,
+        "calculated_at_ms": generated_at - 1_000,
+        "build_version": "2024.09.01",
+        "minimum_required_tournaments": 3,
+        "record_count": 1,
+    }
+    player_payload = {
+        "player_id": "p1",
+        "display_name": "Player 1",
+        "history_generated_at_ms": generated_at,
+        "history_record_count": 1,
+        "history_max_records": 25,
+        "tournament_history_ranked": [],
+        "match_loo_generated_at_ms": generated_at,
+        "match_loo_record_count": 1,
+        "match_loo_max_records": 20,
+        "match_loo_impacts": [
+            {
+                "match_id": 501,
+                "tournament_id": 44,
+                "tournament_name": "Midnight Splat",
+                "event_ms": generated_at - 86_400_000,
+                "player_team_name": "Luma",
+            }
+        ],
+    }
+    fake_redis.set(RIPPLE_PLAYER_INDEX_META_KEY, orjson.dumps(meta_payload))
+    fake_redis.set(_player_index_key("p1"), orjson.dumps(player_payload))
+
+    with client_factory(
+        env={
+            "COMP_LEADERBOARD_ENABLED": "true",
+            "COMP_AUTH_SESSION_SECRET": "test-comp-session-secret",
+            "COMP_DISCORD_CLIENT_ID": "discord-client-id",
+            "COMP_DISCORD_CLIENT_SECRET": "discord-client-secret",
+            "COMP_DISCORD_REDIRECT_URI": (
+                "http://localhost:5000/api/comp-auth/discord/callback"
+            ),
+            "COMP_AUTH_FRONTEND_URL": "http://comp.localhost:3000",
+            "COMP_AUTH_PLAYER_OWNERS": "p1=11111",
+        },
+        redis=fake_redis,
+    ) as client:
+        _login_comp_user(client, monkeypatch, "11111")
+        res = client.get("/api/ripple/public/player/p1/results")
+        assert res.status_code == 200
+        data = res.json()
+        assert data["viewer_can_view_results"] is True
+        assert data["match_loo_record_count"] == 1
+        assert data["match_loo_impacts"][0]["match_id"] == 501
+
+
+def test_public_player_results_endpoint_returns_rows_for_cached_db_owner(
+    client_factory, fake_redis, monkeypatch
+):
+    generated_at = _now_ms()
+    meta_payload = {
+        "generated_at_ms": generated_at,
+        "calculated_at_ms": generated_at - 1_000,
+        "build_version": "2024.09.01",
+        "minimum_required_tournaments": 3,
+        "record_count": 1,
+    }
+    player_payload = {
+        "player_id": "p1",
+        "display_name": "Player 1",
+        "match_loo_generated_at_ms": generated_at,
+        "match_loo_record_count": 1,
+        "match_loo_max_records": 20,
+        "match_loo_impacts": [
+            {
+                "match_id": 501,
+                "tournament_id": 44,
+                "tournament_name": "Midnight Splat",
+            }
+        ],
+    }
+    fake_redis.set(RIPPLE_PLAYER_INDEX_META_KEY, orjson.dumps(meta_payload))
+    fake_redis.set(_player_index_key("p1"), orjson.dumps(player_payload))
+    fake_redis.hset(
+        RIPPLE_PLAYER_OWNER_DISCORD_HASH_KEY,
+        mapping={"p1": "11111"},
+    )
+
+    with client_factory(
+        env={
+            "COMP_LEADERBOARD_ENABLED": "true",
+            "COMP_AUTH_SESSION_SECRET": "test-comp-session-secret",
+            "COMP_DISCORD_CLIENT_ID": "discord-client-id",
+            "COMP_DISCORD_CLIENT_SECRET": "discord-client-secret",
+            "COMP_DISCORD_REDIRECT_URI": (
+                "http://localhost:5000/api/comp-auth/discord/callback"
+            ),
+            "COMP_AUTH_FRONTEND_URL": "http://comp.localhost:3000",
+        },
+        redis=fake_redis,
+    ) as client:
+        _login_comp_user(client, monkeypatch, "11111")
+        res = client.get("/api/ripple/public/player/p1/results")
+        assert res.status_code == 200
+        data = res.json()
+        assert data["viewer_can_view_results"] is True
+        assert data["match_loo_record_count"] == 1
+        assert data["match_loo_impacts"][0]["match_id"] == 501
 
 
 def test_public_player_profile_returns_404_for_unknown_player(
