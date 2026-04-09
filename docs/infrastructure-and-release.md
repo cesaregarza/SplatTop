@@ -55,6 +55,62 @@ The Argo app name is:
 
 - `splattop-prod`
 
+## Diagrams
+
+### Production topology
+
+```mermaid
+flowchart LR
+    User[Users / Browsers]
+    Ingress[Nginx Ingress]
+
+    subgraph Cluster[DigitalOcean Kubernetes cluster]
+        React[React deployment]
+        FastAPI[FastAPI deployment]
+        Redis[(Redis)]
+        Worker[Celery worker]
+        Beat[Celery beat]
+        SplatNLP[SplatNLP]
+    end
+
+    PG[(PostgreSQL)]
+
+    User --> Ingress
+    Ingress --> React
+    Ingress --> FastAPI
+    React --> FastAPI
+    FastAPI --> Redis
+    FastAPI --> PG
+    FastAPI --> SplatNLP
+    Beat --> Redis
+    Redis --> Worker
+    Worker --> Redis
+    Worker --> PG
+    Worker --> SplatNLP
+    Worker -->|publish lookup snapshot| Redis
+    FastAPI -->|read lookup snapshot metadata/blob| Redis
+```
+
+### Release and deploy flow
+
+```mermaid
+flowchart LR
+    AppRepo[SplatTop main]
+    AppCI[GitHub Actions build workflow]
+    Registry[DigitalOcean Container Registry]
+    Release[GitHub release tag]
+    ConfigRepo[SplatTopConfig main]
+    Argo[Argo CD<br/>splattop-prod]
+    Prod[Production Kubernetes]
+
+    AppRepo --> AppCI
+    AppCI --> Registry
+    AppCI --> Release
+    AppCI -->|opens PR / updates tags| ConfigRepo
+    ConfigRepo --> Argo
+    Argo --> Prod
+```
+
 ## Release Flow
 
 ### Normal application release
