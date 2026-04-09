@@ -19,7 +19,7 @@ import { resolveCompetitionMainSiteUrl } from "./competitionHost";
 import { loadCompetitionSnapshot } from "./competitionSnapshotApi";
 import { mergeCompetitionSnapshotRows } from "./competitionSnapshotUtils";
 import CompetitionPlayerPage, {
-  loadCompetitionPlayer,
+  primeCompetitionPlayerRoute,
 } from "./CompetitionPlayerPage";
 
 const MAIN_SITE_URL = resolveCompetitionMainSiteUrl();
@@ -162,7 +162,7 @@ export const createCompetitionRouter = () => createBrowserRouter(
       />
       <Route
         path="/u/:playerId"
-        loader={loadCompetitionPlayer}
+        loader={primeCompetitionPlayerRoute}
         element={<CompetitionPlayerPage top500Href={MAIN_SITE_URL} />}
       />
       <Route

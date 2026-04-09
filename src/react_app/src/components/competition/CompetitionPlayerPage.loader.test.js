@@ -8,6 +8,7 @@ import {
 import { CompetitionAuthProvider } from "./CompetitionAuth";
 import CompetitionPlayerPage, {
   loadCompetitionPlayer,
+  primeCompetitionPlayerRoute,
 } from "./CompetitionPlayerPage";
 import {
   fetchCompetitionAuthState,
@@ -97,7 +98,7 @@ describe("CompetitionPlayerPage loader", () => {
     });
   });
 
-  it("loads the public player endpoint first when auth state is unknown", async () => {
+  it("loads the public player summary endpoint first when auth state is unknown", async () => {
     global.fetch = jest.fn()
       .mockResolvedValueOnce(
         makeJsonResponse(
@@ -105,17 +106,6 @@ describe("CompetitionPlayerPage loader", () => {
             player_id: "public-player",
             display_name: "Public Fallback Player",
             history_record_count: 1,
-            tournament_history_ranked: [
-              {
-                tournament_id: 3288,
-                tournament_name: "Champions Cup #9",
-                event_ms: 1_774_206_180_000,
-                ranked: true,
-                result_summary: "0W-1L",
-                team_name: "Example Team",
-                team_id: 61392,
-              },
-            ],
           })
         )
       );
@@ -133,7 +123,7 @@ describe("CompetitionPlayerPage loader", () => {
     expect(global.fetch).toHaveBeenCalledTimes(1);
     expect(global.fetch).toHaveBeenNthCalledWith(
       1,
-      expect.stringContaining("/api/ripple/public/player/public-player"),
+      expect.stringContaining("/api/ripple/public/player/public-player/summary"),
       expect.objectContaining({ credentials: "include" })
     );
   });
@@ -161,7 +151,7 @@ describe("CompetitionPlayerPage loader", () => {
       [
         {
           path: "/u/:playerId",
-          loader: loadCompetitionPlayer,
+          loader: primeCompetitionPlayerRoute,
           element: <CompetitionPlayerPage top500Href="/" />,
         },
       ],
@@ -188,19 +178,10 @@ describe("CompetitionPlayerPage loader", () => {
 
     global.fetch = jest.fn((url, options = {}) => {
       const path = String(url);
-      if (path.endsWith("/a")) {
-        options.signal?.addEventListener(
-          "abort",
-          () => {
-            const abortError = new Error("Aborted");
-            abortError.name = "AbortError";
-            firstRequest.reject(abortError);
-          },
-          { once: true }
-        );
+      if (path.endsWith("/a/summary")) {
         return firstRequest.promise;
       }
-      if (path.endsWith("/b")) {
+      if (path.endsWith("/b/summary")) {
         return secondRequest.promise;
       }
       throw new Error(`Unexpected loader url: ${path}`);
@@ -210,7 +191,7 @@ describe("CompetitionPlayerPage loader", () => {
       [
         {
           path: "/u/:playerId",
-          loader: loadCompetitionPlayer,
+          loader: primeCompetitionPlayerRoute,
           element: <CompetitionPlayerPage top500Href="/" />,
         },
       ],
@@ -274,11 +255,53 @@ describe("CompetitionPlayerPage loader", () => {
     expect(result.profile.display_name).toBe("Admin Visible Player");
     expect(global.fetch).toHaveBeenNthCalledWith(
       2,
-      expect.stringContaining("/api/ripple/admin/player/p1"),
+      expect.stringContaining("/api/ripple/admin/player/p1/summary"),
       expect.objectContaining({ credentials: "include" })
     );
   });
 
+  it("renders the loading shell immediately while the summary request is still pending", async () => {
+    const summaryRequest = deferred();
+
+    global.fetch = jest.fn((url) => {
+      const path = String(url);
+      if (path.endsWith("/api/ripple/public/player/p1/summary")) {
+        return summaryRequest.promise;
+      }
+      throw new Error(`Unexpected fetch url: ${path}`);
+    });
+
+    const router = createMemoryRouter(
+      [
+        {
+          path: "/",
+          element: <div>leaderboard</div>,
+        },
+        {
+          path: "/u/:playerId",
+          loader: primeCompetitionPlayerRoute,
+          element: <CompetitionPlayerPage top500Href="/" />,
+        },
+      ],
+      { initialEntries: ["/"] }
+    );
+
+    render(<RouterProvider router={router} />);
+    expect(screen.getByText("leaderboard")).toBeInTheDocument();
+
+    await act(async () => {
+      await router.navigate("/u/p1");
+    });
+
+    expect(screen.getByText("Loading player profile…")).toBeInTheDocument();
+
+    await act(async () => {
+      summaryRequest.resolve(makeJsonResponse(makeProfile()));
+      await Promise.resolve();
+    });
+
+    await screen.findByText("Player One");
+  });
   it("upgrades a direct player load to the admin payload after auth resolves", async () => {
     global.fetch = jest.fn((url) => {
       const path = String(url);
@@ -294,7 +317,7 @@ describe("CompetitionPlayerPage loader", () => {
         );
       }
 
-      if (path.includes("/api/ripple/public/player/p1")) {
+      if (path.includes("/api/ripple/public/player/p1/summary")) {
         return Promise.resolve(
           makeJsonResponse(
             makeProfile({
@@ -307,7 +330,7 @@ describe("CompetitionPlayerPage loader", () => {
         );
       }
 
-      if (path.includes("/api/ripple/admin/player/p1")) {
+      if (path.includes("/api/ripple/admin/player/p1/summary")) {
         return Promise.resolve(
           makeJsonResponse(
             makeProfile({
@@ -327,7 +350,7 @@ describe("CompetitionPlayerPage loader", () => {
       [
         {
           path: "/u/:playerId",
-          loader: loadCompetitionPlayer,
+          loader: primeCompetitionPlayerRoute,
           element: <CompetitionPlayerPage top500Href="/" />,
         },
       ],
@@ -343,11 +366,106 @@ describe("CompetitionPlayerPage loader", () => {
     await screen.findByText("Admin Visible Player");
 
     expect(global.fetch).toHaveBeenCalledWith(
-      expect.stringContaining("/api/ripple/public/player/p1"),
+      expect.stringContaining("/api/ripple/public/player/p1/summary"),
       expect.objectContaining({ credentials: "include" })
     );
     expect(global.fetch).toHaveBeenCalledWith(
-      expect.stringContaining("/api/ripple/admin/player/p1"),
+      expect.stringContaining("/api/ripple/admin/player/p1/summary"),
+      expect.objectContaining({ credentials: "include" })
+    );
+  });
+
+  it("lazy-loads history and results after the summary route resolves", async () => {
+    global.fetch = jest.fn((url) => {
+      const path = String(url);
+
+      if (path.includes("/api/ripple/public/player/p1/summary")) {
+        return Promise.resolve(
+          makeJsonResponse(
+            makeProfile({
+              history_record_count: 1,
+              match_loo_record_count: 1,
+              viewer_can_view_results: true,
+            })
+          )
+        );
+      }
+
+      if (path.includes("/api/ripple/public/player/p1/history")) {
+        return Promise.resolve(
+          makeJsonResponse({
+            history_generated_at_ms: 1_700_000_010_000,
+            history_record_count: 1,
+            history_max_records: 25,
+            tournament_history_ranked: [
+              {
+                tournament_id: 44,
+                tournament_name: "Midnight Splat",
+                event_ms: 1_700_000_000_000,
+                ranked: true,
+                team_name: "Luma",
+                result_summary: "4W-1L",
+              },
+            ],
+          })
+        );
+      }
+
+      if (path.includes("/api/ripple/public/player/p1/results")) {
+        return Promise.resolve(
+          makeJsonResponse({
+            viewer_can_view_results: true,
+            match_loo_generated_at_ms: 1_700_000_010_000,
+            match_loo_record_count: 1,
+            match_loo_max_records: 20,
+            match_loo_impacts: [
+              {
+                match_id: 501,
+                tournament_id: 44,
+                tournament_name: "Midnight Splat",
+                event_ms: 1_700_000_000_000,
+                player_rank: 7,
+                player_score: 5.1,
+                is_win: false,
+                exact_score_delta: 0.42,
+                exact_abs_delta: 0.42,
+                player_team_name: "Luma",
+                opponent_team_name: "Nova",
+                player_team_score: 1,
+                opponent_team_score: 3,
+                player_team_players: ["Aster", "Beryl", "Cinder", "Drift"],
+                opponent_team_players: ["Ember", "Flint", "Glint", "Halo"],
+              },
+            ],
+          })
+        );
+      }
+
+      throw new Error(`Unexpected fetch url: ${path}`);
+    });
+
+    const router = createMemoryRouter(
+      [
+        {
+          path: "/u/:playerId",
+          loader: primeCompetitionPlayerRoute,
+          element: <CompetitionPlayerPage top500Href="/" />,
+        },
+      ],
+      { initialEntries: ["/u/p1"] }
+    );
+
+    render(<RouterProvider router={router} />);
+
+    await screen.findByText("Player One");
+    expect(await screen.findAllByText("Midnight Splat")).not.toHaveLength(0);
+
+    expect(global.fetch).toHaveBeenCalledWith(
+      expect.stringContaining("/api/ripple/public/player/p1/history"),
+      expect.objectContaining({ credentials: "include" })
+    );
+    expect(global.fetch).toHaveBeenCalledWith(
+      expect.stringContaining("/api/ripple/public/player/p1/results"),
       expect.objectContaining({ credentials: "include" })
     );
   });

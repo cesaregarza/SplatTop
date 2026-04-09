@@ -32,8 +32,8 @@ const readPlayerRouteError = async (response) => {
   return `Unable to load player profile (${response.status})`;
 };
 
-const fetchCompetitionPlayerProfile = (id, signal, path) => fetch(
-  buildCompetitionApiUrl(path.replace(":id", encodeURIComponent(id))),
+const fetchCompetitionPlayerJson = (path, signal) => fetch(
+  buildCompetitionApiUrl(path),
   {
     credentials: "include",
     headers: { Accept: "application/json" },
@@ -46,6 +46,72 @@ const shouldPreferAdminPlayerPayload = () => {
   return Boolean(authState?.authenticated && authState?.isAdmin);
 };
 
+const buildCompetitionPlayerPath = (id, accessMode, suffix = "") => {
+  const encodedId = encodeURIComponent(id);
+  if (accessMode === "admin") {
+    return `/api/ripple/admin/player/${encodedId}${suffix}`;
+  }
+  return `/api/ripple/public/player/${encodedId}${suffix}`;
+};
+
+const fetchCompetitionPlayerPayload = async ({
+  accessMode: initialAccessMode,
+  id,
+  signal,
+  suffix = "",
+}) => {
+  let accessMode = initialAccessMode;
+  let response = await fetchCompetitionPlayerJson(
+    buildCompetitionPlayerPath(id, accessMode, suffix),
+    signal
+  );
+
+  if (
+    accessMode === "admin" &&
+    !response.ok &&
+    (response.status === 401 || response.status === 403)
+  ) {
+    accessMode = "public";
+    response = await fetchCompetitionPlayerJson(
+      buildCompetitionPlayerPath(id, accessMode, suffix),
+      signal
+    );
+  }
+
+  if (!response.ok) {
+    const error = new Error(await readPlayerRouteError(response));
+    error.status = response.status;
+    error.accessMode = accessMode;
+    throw error;
+  }
+
+  return {
+    accessMode,
+    payload: (await response.json()) || null,
+  };
+};
+
+export const fetchCompetitionPlayerHistoryPayload = ({
+  accessMode = "public",
+  playerId,
+  signal,
+}) => fetchCompetitionPlayerPayload({
+  accessMode,
+  id: playerId,
+  signal,
+  suffix: "/history",
+});
+
+export const fetchCompetitionPlayerResultsPayload = ({
+  accessMode = "public",
+  playerId,
+  signal,
+}) => fetchCompetitionPlayerPayload({
+  accessMode,
+  id: playerId,
+  signal,
+  suffix: "/results",
+});
 export const loadCompetitionPlayer = async ({ params, request }) => {
   const id = String(params?.playerId || "").trim();
   if (!id) {
@@ -57,49 +123,34 @@ export const loadCompetitionPlayer = async ({ params, request }) => {
   }
 
   try {
-    let accessMode = shouldPreferAdminPlayerPayload() ? "admin" : "public";
-    let response = await fetchCompetitionPlayerProfile(
+    const {
+      accessMode,
+      payload,
+    } = await fetchCompetitionPlayerPayload({
+      accessMode: shouldPreferAdminPlayerPayload() ? "admin" : "public",
       id,
-      request.signal,
-      accessMode === "admin"
-        ? "/api/ripple/admin/player/:id"
-        : "/api/ripple/public/player/:id"
-    );
-
-    if (
-      accessMode === "admin" &&
-      !response.ok &&
-      (response.status === 401 || response.status === 403)
-    ) {
-      accessMode = "public";
-      response = await fetchCompetitionPlayerProfile(
-        id,
-        request.signal,
-        "/api/ripple/public/player/:id"
-      );
-    }
-
-    if (!response.ok) {
-      return {
-        accessMode,
-        error: await readPlayerRouteError(response),
-        profile: null,
-      };
-    }
+      signal: request.signal,
+      suffix: "/summary",
+    });
 
     return {
       accessMode,
       error: null,
-      profile: (await response.json()) || null,
+      profile: payload,
     };
   } catch (error) {
     if (error?.name === "AbortError") {
       throw error;
     }
     return {
-      accessMode: "public",
+      accessMode: error?.accessMode || "public",
       error: normalizePlayerRouteError(error),
       profile: null,
     };
   }
 };
+
+export const primeCompetitionPlayerRoute = ({ params, request }) => ({
+  playerId: String(params?.playerId || "").trim(),
+  summaryRequest: loadCompetitionPlayer({ params, request }),
+});

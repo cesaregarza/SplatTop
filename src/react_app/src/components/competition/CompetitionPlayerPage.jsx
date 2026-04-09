@@ -30,7 +30,12 @@ import {
   MatchImpactTable,
   RecentEventRow,
 } from "./CompetitionPlayerPageSections";
-import { loadCompetitionPlayer } from "./competitionPlayerLoader";
+import {
+  fetchCompetitionPlayerHistoryPayload,
+  fetchCompetitionPlayerResultsPayload,
+  loadCompetitionPlayer,
+  primeCompetitionPlayerRoute,
+} from "./competitionPlayerLoader";
 import {
   HISTORY_PAGE_SIZE,
   MATCH_RESULT_VIEW_OPTIONS,
@@ -51,6 +56,18 @@ import {
 } from "./competitionPlayerPageUtils";
 import "./StableLeaderboardView.css";
 import "./CompetitionPlayerPage.css";
+
+const normalizeDeferredPlayerError = (
+  error,
+  fallback = "Unable to load player details"
+) => {
+  if (!error) return fallback;
+  if (typeof error === "string") return error;
+  if (typeof error.message === "string" && error.message.trim()) {
+    return error.message;
+  }
+  return fallback;
+};
 
 const copyTextToClipboard = async (text) => {
   if (!text) return false;
@@ -79,10 +96,16 @@ const copyTextToClipboard = async (text) => {
 
 export const CompetitionPlayerPageContent = ({
   error,
+  historyError = null,
+  historyLoading = false,
   loading,
   playerId,
   profile,
   refresh,
+  refreshHistory = () => {},
+  refreshResults = () => {},
+  resultsError = null,
+  resultsLoading = false,
   top500Href,
 }) => {
   const rootRef = useRef(null);
@@ -732,6 +755,18 @@ export const CompetitionPlayerPageContent = ({
               </div>
             </div>
           </section>
+        ) : historyLoading && Number(profile?.history_record_count || 0) > 0 ? (
+          <section className="comp-player-panel comp-player-recent-panel">
+            <div className="comp-player-panel-head">
+              <h3 className="comp-player-panel-title">Recent activity</h3>
+              <p className="comp-player-panel-meta">Loading archive…</p>
+            </div>
+            <div className="comp-player-data-body">
+              <p className="comp-player-empty-text">
+                Loading recent tournament history…
+              </p>
+            </div>
+          </section>
         ) : null}
 
         <section className="comp-player-panel comp-player-data-panel">
@@ -851,6 +886,25 @@ export const CompetitionPlayerPageContent = ({
                     />
                   </div>
                 </>
+              ) : resultsLoading ? (
+                <div className="comp-player-data-body">
+                  <p className="comp-player-empty-text">
+                    Loading shortlisted match impacts…
+                  </p>
+                </div>
+              ) : resultsError ? (
+                <div className="comp-player-data-body">
+                  <p className="comp-player-empty-text">{resultsError}</p>
+                  <div className="comp-player-inline-actions">
+                    <button
+                      type="button"
+                      onClick={refreshResults}
+                      className="comp-player-button comp-player-button--small"
+                    >
+                      Retry
+                    </button>
+                  </div>
+                </div>
               ) : (
                 <div className="comp-player-data-body">
                   <p className="comp-player-empty-text">
@@ -982,6 +1036,25 @@ export const CompetitionPlayerPageContent = ({
                     </div>
                   )}
                 </>
+              ) : historyLoading ? (
+                <div className="comp-player-data-body">
+                  <p className="comp-player-empty-text">
+                    Loading tournament history…
+                  </p>
+                </div>
+              ) : historyError ? (
+                <div className="comp-player-data-body">
+                  <p className="comp-player-empty-text">{historyError}</p>
+                  <div className="comp-player-inline-actions">
+                    <button
+                      type="button"
+                      onClick={refreshHistory}
+                      className="comp-player-button comp-player-button--small"
+                    >
+                      Retry
+                    </button>
+                  </div>
+                </div>
               ) : (
                 <div className="comp-player-data-body">
                   <p className="comp-player-empty-text">
@@ -1007,8 +1080,8 @@ export const CompetitionPlayerPageContent = ({
 };
 
 const CompetitionPlayerPage = ({ top500Href }) => {
-  const { playerId } = useParams();
-  const { accessMode, error, profile } = useLoaderData();
+  const { playerId: routePlayerId, summaryRequest } = useLoaderData();
+  const { playerId: paramPlayerId } = useParams();
   const navigation = useNavigation();
   const revalidator = useRevalidator();
   const {
@@ -1018,23 +1091,116 @@ const CompetitionPlayerPage = ({ top500Href }) => {
   } = useCompetitionAuth();
   const authResyncRef = useRef(null);
   const playerRouteRef = useRef(null);
+  const summaryRequestPlayerRef = useRef(null);
+  const [historyReloadToken, setHistoryReloadToken] = useState(0);
+  const [resultsReloadToken, setResultsReloadToken] = useState(0);
+  const [summaryState, setSummaryState] = useState({
+    playerId: "",
+    accessMode: "public",
+    error: null,
+    loading: true,
+    profile: null,
+  });
+  const [historyState, setHistoryState] = useState({
+    error: null,
+    loading: false,
+    payload: null,
+  });
+  const [resultsState, setResultsState] = useState({
+    error: null,
+    loading: false,
+    payload: null,
+  });
+  const activeRoutePlayerId = String(routePlayerId || paramPlayerId || "").trim();
+  const summaryMatchesRoute =
+    summaryState.playerId === activeRoutePlayerId;
+  const accessMode = summaryMatchesRoute ? summaryState.accessMode : "public";
+  const error = summaryMatchesRoute ? summaryState.error : null;
+  const profile = summaryMatchesRoute ? summaryState.profile : null;
+  const summaryLoading =
+    summaryState.loading || !summaryMatchesRoute;
   const loading =
-    navigation.state !== "idle" || revalidator.state !== "idle";
+    summaryLoading ||
+    navigation.state !== "idle" ||
+    revalidator.state !== "idle";
   const authResyncSignature = `${authenticated ? "auth" : "anon"}:${
     isAdmin ? "admin" : "user"
   }`;
+  const resolvedPlayerId = profile?.player_id || routePlayerId || paramPlayerId;
+  const refreshHistory = useCallback(() => {
+    setHistoryReloadToken((current) => current + 1);
+  }, []);
+  const refreshResults = useCallback(() => {
+    setResultsReloadToken((current) => current + 1);
+  }, []);
+  const effectiveProfile = useMemo(() => {
+    if (!profile) return null;
 
-  useLayoutEffect(() => {
-    if (!playerId || typeof window === "undefined") return;
-    if (typeof window.scrollTo !== "function") return;
-    window.scrollTo(0, 0);
-  }, [playerId]);
+    return {
+      ...profile,
+      ...(historyState.payload || {}),
+      ...(resultsState.payload || {}),
+    };
+  }, [historyState.payload, profile, resultsState.payload]);
 
   useEffect(() => {
-    if (!playerId || authLoading) return;
+    let active = true;
+    const normalizedPlayerId = activeRoutePlayerId;
+    const samePlayerRoute =
+      summaryRequestPlayerRef.current === normalizedPlayerId;
+    summaryRequestPlayerRef.current = normalizedPlayerId;
 
-    if (playerRouteRef.current !== playerId) {
-      playerRouteRef.current = playerId;
+    setSummaryState((current) => ({
+      playerId: normalizedPlayerId,
+      accessMode: samePlayerRoute ? current.accessMode : "public",
+      error: null,
+      loading: true,
+      profile: samePlayerRoute ? current.profile : null,
+    }));
+
+    Promise.resolve(summaryRequest)
+      .then((nextState) => {
+        if (!active) return;
+        setSummaryState({
+          playerId: normalizedPlayerId,
+          accessMode: nextState?.accessMode || "public",
+          error: nextState?.error || null,
+          loading: false,
+          profile: nextState?.profile || null,
+        });
+      })
+      .catch((fetchError) => {
+        if (fetchError?.name === "AbortError" || !active) {
+          return;
+        }
+        setSummaryState({
+          playerId: normalizedPlayerId,
+          accessMode: "public",
+          error: normalizeDeferredPlayerError(
+            fetchError,
+            "Unable to load player profile"
+          ),
+          loading: false,
+          profile: null,
+        });
+      });
+
+    return () => {
+      active = false;
+    };
+  }, [activeRoutePlayerId, summaryRequest]);
+
+  useLayoutEffect(() => {
+    if (!paramPlayerId || typeof window === "undefined") return;
+    if (typeof window.scrollTo !== "function") return;
+    window.scrollTo(0, 0);
+  }, [paramPlayerId]);
+
+  useEffect(() => {
+    if (!paramPlayerId || authLoading) return;
+
+    if (playerRouteRef.current !== paramPlayerId) {
+      playerRouteRef.current = paramPlayerId;
       authResyncRef.current = authResyncSignature;
       if (isAdmin && accessMode !== "admin") {
         revalidator.revalidate();
@@ -1053,22 +1219,156 @@ const CompetitionPlayerPage = ({ top500Href }) => {
     authResyncSignature,
     authLoading,
     isAdmin,
-    playerId,
+    paramPlayerId,
     revalidator,
+  ]);
+
+  useEffect(() => {
+    if (!resolvedPlayerId || !profile || error) {
+      setHistoryState({
+        error: null,
+        loading: false,
+        payload: null,
+      });
+      return;
+    }
+    if (Number(profile.history_record_count || 0) <= 0) {
+      setHistoryState({
+        error: null,
+        loading: false,
+        payload: null,
+      });
+      return;
+    }
+
+    const controller = new AbortController();
+    let active = true;
+    setHistoryState({
+      error: null,
+      loading: true,
+      payload: null,
+    });
+
+    fetchCompetitionPlayerHistoryPayload({
+      accessMode,
+      playerId: resolvedPlayerId,
+      signal: controller.signal,
+    })
+      .then(({ payload }) => {
+        if (!active) return;
+        setHistoryState({
+          error: null,
+          loading: false,
+          payload,
+        });
+      })
+      .catch((fetchError) => {
+        if (fetchError?.name === "AbortError" || !active) {
+          return;
+        }
+        setHistoryState({
+          error: normalizeDeferredPlayerError(
+            fetchError,
+            "Unable to load tournament history"
+          ),
+          loading: false,
+          payload: null,
+        });
+      });
+
+    return () => {
+      active = false;
+      controller.abort();
+    };
+  }, [
+    accessMode,
+    error,
+    historyReloadToken,
+    profile,
+    resolvedPlayerId,
+  ]);
+
+  useEffect(() => {
+    if (
+      !resolvedPlayerId ||
+      !profile ||
+      error ||
+      !profile.viewer_can_view_results ||
+      Number(profile.match_loo_record_count || 0) <= 0
+    ) {
+      setResultsState({
+        error: null,
+        loading: false,
+        payload: null,
+      });
+      return;
+    }
+
+    const controller = new AbortController();
+    let active = true;
+    setResultsState({
+      error: null,
+      loading: true,
+      payload: null,
+    });
+
+    fetchCompetitionPlayerResultsPayload({
+      accessMode,
+      playerId: resolvedPlayerId,
+      signal: controller.signal,
+    })
+      .then(({ payload }) => {
+        if (!active) return;
+        setResultsState({
+          error: null,
+          loading: false,
+          payload,
+        });
+      })
+      .catch((fetchError) => {
+        if (fetchError?.name === "AbortError" || !active) {
+          return;
+        }
+        setResultsState({
+          error: normalizeDeferredPlayerError(
+            fetchError,
+            "Unable to load strongest results"
+          ),
+          loading: false,
+          payload: null,
+        });
+      });
+
+    return () => {
+      active = false;
+      controller.abort();
+    };
+  }, [
+    accessMode,
+    error,
+    profile,
+    resolvedPlayerId,
+    resultsReloadToken,
   ]);
 
   return (
     <CompetitionPlayerPageContent
-      key={profile?.player_id || playerId || "missing-player"}
+      key={effectiveProfile?.player_id || paramPlayerId || "missing-player"}
       error={error}
+      historyError={historyState.error}
+      historyLoading={historyState.loading}
       loading={loading}
-      playerId={playerId}
-      profile={profile}
+      playerId={paramPlayerId}
+      profile={effectiveProfile}
       refresh={() => revalidator.revalidate()}
+      refreshHistory={refreshHistory}
+      refreshResults={refreshResults}
+      resultsError={resultsState.error}
+      resultsLoading={resultsState.loading}
       top500Href={top500Href}
     />
   );
 };
 
 export default CompetitionPlayerPage;
-export { loadCompetitionPlayer };
+export { loadCompetitionPlayer, primeCompetitionPlayerRoute };
