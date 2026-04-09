@@ -3,7 +3,6 @@ import "./App.css";
 import Navbar from "./components/navbar";
 import Footer from "./components/footer";
 import { BrowserRouter as Router, Route, Routes } from "react-router-dom";
-import CompetitionApp from "./components/competition/CompetitionApp";
 import {
   detectCompetitionHost,
   isCompetitionHostname,
@@ -12,6 +11,9 @@ import {
   setFaviconForMode,
 } from "./components/competition/competitionHost";
 
+const CompetitionApp = React.lazy(() =>
+  import("./components/competition/CompetitionApp")
+);
 const Top500 = React.lazy(() => import("./components/top500"));
 const FAQ = React.lazy(() => import("./components/static_pages/faq"));
 const About = React.lazy(() => import("./components/static_pages/about"));
@@ -54,7 +56,11 @@ const App = () => {
   }, []);
 
   if (isCompetition) {
-    return <CompetitionApp />;
+    return (
+      <Suspense fallback={<div>Loading...</div>}>
+        <CompetitionApp />
+      </Suspense>
+    );
   }
 
   return <MainSiteApp />;

@@ -1,5 +1,6 @@
 import importlib
 import os
+from collections import namedtuple
 
 import orjson
 
@@ -90,7 +91,6 @@ def test_fetch_player_data_publishes_snapshot_then_analysis_then_complete(
                 "season_number": 5,
                 "mode": "Rainmaker",
                 "timestamp": "2024-12-05T00:00:00.000Z",
-                "rotation_start": "2024-12-05T00:00:00.000Z",
                 "updated": True,
                 "weapon_id": 42,
                 "rank": 4,
@@ -133,7 +133,6 @@ def test_fetch_player_data_publishes_snapshot_then_analysis_then_complete(
             "season_number": 5,
             "mode": "Rainmaker",
             "timestamp": "2024-12-05T00:00:00.000Z",
-            "rotation_start": "2024-12-05T00:00:00.000Z",
             "updated": True,
             "weapon_id": 42,
             "rank": 4,
@@ -148,6 +147,13 @@ def test_fetch_player_data_publishes_snapshot_then_analysis_then_complete(
     cached_payload = orjson.loads(redis_spy.get(cache_key))
     assert cached_payload["aggregated_data"]["season_results"][0]["rank"] == 4
     assert cached_payload["player_data"][0]["weapon_id"] == 42
+    assert redis_spy.set_calls[-1] == {
+        "key": cache_key,
+        "value": redis_spy.get(cache_key),
+        "nx": False,
+        "ex": mod.PLAYER_CACHE_TTL_SECONDS,
+        "px": None,
+    }
 
 
 def test_fetch_player_data_replays_cached_chunks_without_refetching(
@@ -280,3 +286,227 @@ def test_fetch_player_data_releases_lock_when_snapshot_fetch_fails(
         mod.fetch_player_data("player-5")
 
     assert redis_spy.get("fetch_player_data:player-5") is None
+
+
+def test_aggregate_player_analysis_uses_minimal_rows_without_pandas():
+    mod = importlib.import_module("celery_app.tasks.player_detail")
+    mod = importlib.reload(mod)
+
+    payload = mod.aggregate_player_analysis(
+        [
+            {
+                "mode": "Rainmaker",
+                "season_number": 5,
+                "timestamp": "2024-12-01T00:00:00+00:00",
+                "x_power": 2700.0,
+                "weapon_id": 10,
+                "rank": 30,
+                "updated": True,
+            },
+            {
+                "mode": "Rainmaker",
+                "season_number": 5,
+                "timestamp": "2024-12-02T00:00:00+00:00",
+                "x_power": 2715.5,
+                "weapon_id": 10,
+                "rank": 24,
+                "updated": True,
+            },
+            {
+                "mode": "Rainmaker",
+                "season_number": 5,
+                "timestamp": "2024-12-03T00:00:00+00:00",
+                "x_power": 2680.5,
+                "weapon_id": 12,
+                "rank": 28,
+                "updated": True,
+            },
+            {
+                "mode": "Rainmaker",
+                "season_number": 5,
+                "timestamp": "2024-12-04T00:00:00+00:00",
+                "x_power": 2725.0,
+                "weapon_id": 12,
+                "rank": 20,
+                "updated": False,
+            },
+        ]
+    )
+
+    assert payload["weapon_counts"] == [
+        {
+            "mode": "Rainmaker",
+            "weapon_id": 10,
+            "season_number": 5,
+            "count": 2,
+        },
+        {
+            "mode": "Rainmaker",
+            "weapon_id": 12,
+            "season_number": 5,
+            "count": 1,
+        },
+    ]
+    assert payload["weapon_winrate"] == [
+        {
+            "mode": "Rainmaker",
+            "weapon_id": 10,
+            "season_number": 5,
+            "sum": 1,
+            "total_count": 1,
+        },
+        {
+            "mode": "Rainmaker",
+            "weapon_id": 12,
+            "season_number": 5,
+            "sum": 0,
+            "total_count": 1,
+        },
+    ]
+    assert payload["aggregate_season_data"] == [
+        {
+            "season_number": 5,
+            "mode": "Rainmaker",
+            "peak_x_power": 2725.0,
+        }
+    ]
+
+
+def test_reduce_player_history_rows_keeps_changes_updates_and_endpoints():
+    mod = importlib.import_module("celery_app.tasks.player_detail")
+    mod = importlib.reload(mod)
+
+    reduced = mod.reduce_player_history_rows(
+        [
+            {
+                "mode": "Rainmaker",
+                "season_number": 5,
+                "timestamp": "2024-12-01T00:00:00+00:00",
+                "x_power": 2700.0,
+                "weapon_id": 10,
+                "rank": 30,
+                "updated": False,
+            },
+            {
+                "mode": "Rainmaker",
+                "season_number": 5,
+                "timestamp": "2024-12-02T00:00:00+00:00",
+                "x_power": 2700.0,
+                "weapon_id": 10,
+                "rank": 30,
+                "updated": False,
+            },
+            {
+                "mode": "Rainmaker",
+                "season_number": 5,
+                "timestamp": "2024-12-03T00:00:00+00:00",
+                "x_power": 2715.5,
+                "weapon_id": 10,
+                "rank": 24,
+                "updated": False,
+            },
+            {
+                "mode": "Rainmaker",
+                "season_number": 5,
+                "timestamp": "2024-12-04T00:00:00+00:00",
+                "x_power": 2715.5,
+                "weapon_id": 12,
+                "rank": 24,
+                "updated": True,
+            },
+            {
+                "mode": "Rainmaker",
+                "season_number": 5,
+                "timestamp": "2024-12-05T00:00:00+00:00",
+                "x_power": 2715.5,
+                "weapon_id": 12,
+                "rank": 24,
+                "updated": False,
+            },
+            {
+                "mode": "Splat Zones",
+                "season_number": 5,
+                "timestamp": "2024-12-06T00:00:00+00:00",
+                "x_power": 2601.0,
+                "weapon_id": 20,
+                "rank": 50,
+                "updated": False,
+            },
+            {
+                "mode": "Splat Zones",
+                "season_number": 5,
+                "timestamp": "2024-12-07T00:00:00+00:00",
+                "x_power": 2601.0,
+                "weapon_id": 20,
+                "rank": 50,
+                "updated": False,
+            },
+        ]
+    )
+
+    assert [row["timestamp"] for row in reduced] == [
+        "2024-12-01T00:00:00+00:00",
+        "2024-12-02T00:00:00+00:00",
+        "2024-12-03T00:00:00+00:00",
+        "2024-12-04T00:00:00+00:00",
+        "2024-12-05T00:00:00+00:00",
+        "2024-12-06T00:00:00+00:00",
+        "2024-12-07T00:00:00+00:00",
+    ]
+
+
+def test_pull_all_latest_data_queries_player_latest_rows(monkeypatch):
+    mod = importlib.import_module("celery_app.tasks.player_detail")
+    mod = importlib.reload(mod)
+    captured = {}
+    latest_row = namedtuple(
+        "LatestRow",
+        [
+            "mode",
+            "region",
+            "season_number",
+            "rank",
+            "x_power",
+            "weapon_id",
+        ],
+    )
+
+    class FakeResult:
+        def fetchall(self):
+            return [
+                latest_row(
+                    "Rainmaker",
+                    False,
+                    5,
+                    4,
+                    2801.1,
+                    42,
+                )
+            ]
+
+    class FakeSession:
+        def __enter__(self):
+            return self
+
+        def __exit__(self, exc_type, exc, tb):
+            return False
+
+        def execute(self, query, params):
+            captured["sql"] = str(query)
+            captured["params"] = params
+            return FakeResult()
+
+    monkeypatch.setattr(mod, "Session", FakeSession)
+
+    assert mod.pull_all_latest_data("player-6") == [
+        {
+            "mode": "Rainmaker",
+            "region": False,
+            "season_number": 5,
+            "rank": 4,
+            "x_power": 2801.1,
+            "weapon_id": 42,
+        }
+    ]
+    assert "xscraper.player_latest" in captured["sql"]
+    assert captured["params"] == {"player_id": "player-6"}

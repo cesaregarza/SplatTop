@@ -62,12 +62,7 @@ const useFetchWeaponLeaderboardData = (
 
   const endpoint = buildEndpointWithQueryParams(apiUrl, pathUrl, queryParams);
 
-  const weaponSetKey = useMemo(() => {
-    const weaponSet = new Set([weaponId, additionalWeaponId]);
-    return Array.from(weaponSet).sort().join(",");
-  }, [weaponId, additionalWeaponId]);
-
-  return useFetchWithCache(endpoint, weaponSetKey);
+  return useFetchWithCache(endpoint);
 };
 
 const processWeaponLeaderboardData = (
@@ -145,11 +140,6 @@ const useWeaponLeaderboardData = (
   dedupePlayers = false,
   selectedSeason
 ) => {
-  const weaponSetKey = useMemo(() => {
-    const weaponSet = new Set([weaponId, additionalWeaponId]);
-    return Array.from(weaponSet).sort().join(",");
-  }, [weaponId, additionalWeaponId]);
-
   const { data, error, isLoading } = useFetchWeaponLeaderboardData(
     selectedRegion,
     selectedMode,
@@ -176,7 +166,6 @@ const useWeaponLeaderboardData = (
       weaponId,
       additionalWeaponId,
       weaponReferenceData,
-      weaponSetKey,
       finalResults,
       dedupePlayers,
       selectedSeason,

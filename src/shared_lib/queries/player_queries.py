@@ -4,6 +4,23 @@ FROM xscraper.player_latest
 WHERE player_id = :player_id;
 """
 
+PLAYER_LATEST_DATA_QUERY = """
+SELECT
+    p.mode,
+    p.region,
+    p.season_number,
+    p.rank,
+    p.x_power,
+    p.weapon_id
+FROM xscraper.player_latest pl
+JOIN xscraper.players p
+    ON p.player_id = pl.player_id
+    AND p.mode = pl.mode
+    AND p.timestamp = pl.timestamp
+WHERE pl.player_id = :player_id
+ORDER BY p.mode ASC;
+"""
+
 PLAYER_ALIAS_QUERY = """
 SELECT splashtag, last_seen AS latest_updated_timestamp
 FROM xscraper.aliases
@@ -32,13 +49,28 @@ FROM MostRecentRow;
 """
 
 PLAYER_DATA_QUERY = """
-SELECT *
+SELECT
+    mode,
+    season_number,
+    timestamp,
+    x_power,
+    weapon_id,
+    rank,
+    updated
 FROM xscraper.players
 WHERE player_id = :player_id
+ORDER BY timestamp ASC
 """
 
 SEASON_RESULTS_QUERY = """
-SELECT *
+SELECT
+    mode,
+    region,
+    season_number,
+    rank,
+    x_power,
+    weapon_id
 FROM xscraper.season_results
 WHERE player_id = :player_id
+ORDER BY season_number DESC, mode ASC
 """

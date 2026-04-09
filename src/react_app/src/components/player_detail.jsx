@@ -168,6 +168,34 @@ const PlayerDetailContent = () => {
       const baseWebsocketUrl = getBaseWebsocketUrl();
       const websocketEndpoint = `${baseWebsocketUrl}/ws/player/${player_id}?progressive=1&version=2`;
 
+      if (socketRef.current) {
+        socketRef.current.close();
+        socketRef.current = null;
+      }
+
+      const newSocket = new WebSocket(websocketEndpoint);
+
+      newSocket.onmessage = (event) => {
+        if (event.data instanceof Blob) {
+          const reader = new FileReader();
+          reader.onload = () => {
+            const decompressedData = pako.inflate(reader.result, {
+              to: "string",
+            });
+            handlePlayerMessage(JSON.parse(decompressedData));
+          };
+          reader.readAsArrayBuffer(event.data);
+        } else {
+          handlePlayerMessage(JSON.parse(event.data));
+        }
+      };
+
+      newSocket.onerror = (event) => {
+        console.error("Websocket error", event);
+      };
+
+      socketRef.current = newSocket;
+
       try {
         const playerData = await fetchJson(endpoint);
         setData(playerData);
@@ -178,35 +206,11 @@ const PlayerDetailContent = () => {
             playerData[0].splashtag
           );
         }
-
-        if (socketRef.current) {
-          socketRef.current.close();
+      } catch (currentError) {
+        if (socketRef.current === newSocket) {
+          newSocket.close();
           socketRef.current = null;
         }
-
-        const newSocket = new WebSocket(websocketEndpoint);
-
-        newSocket.onmessage = (event) => {
-          if (event.data instanceof Blob) {
-            const reader = new FileReader();
-            reader.onload = () => {
-              const decompressedData = pako.inflate(reader.result, {
-                to: "string",
-              });
-              handlePlayerMessage(JSON.parse(decompressedData));
-            };
-            reader.readAsArrayBuffer(event.data);
-          } else {
-            handlePlayerMessage(JSON.parse(event.data));
-          }
-        };
-
-        newSocket.onerror = (event) => {
-          console.error("Websocket error", event);
-        };
-
-        socketRef.current = newSocket;
-      } catch (currentError) {
         setError(currentError);
       } finally {
         setIsLoading(false);

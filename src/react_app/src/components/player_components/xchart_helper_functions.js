@@ -5,11 +5,42 @@ import {
   getSeasonName,
 } from "../utils/season_utils";
 
+const millisecondsPerDay = 24 * 60 * 60 * 1000;
+
+const getUtcDayIndex = (timestamp) => {
+  const parsed = new Date(timestamp);
+  if (Number.isNaN(parsed.getTime())) {
+    return null;
+  }
+
+  return Date.UTC(
+    parsed.getUTCFullYear(),
+    parsed.getUTCMonth(),
+    parsed.getUTCDate()
+  );
+};
+
+const hasObservedDayGap = (leftPoint, rightPoint) => {
+  const leftDayIndex = getUtcDayIndex(leftPoint?.timestamp);
+  const rightDayIndex = getUtcDayIndex(rightPoint?.timestamp);
+
+  if (leftDayIndex == null || rightDayIndex == null) {
+    return null;
+  }
+
+  return rightDayIndex - leftDayIndex > millisecondsPerDay;
+};
+
 const dataWithNulls = (data, threshold, festsForSeason) => {
   const result = [];
   for (let i = 0; i < data.length; i++) {
     result.push(data[i]);
-    if (i < data.length - 1 && data[i + 1].x - data[i].x >= threshold) {
+    if (i < data.length - 1) {
+      const hasDayGap = hasObservedDayGap(data[i], data[i + 1]);
+      const hasPercentGap = data[i + 1].x - data[i].x >= threshold;
+      if (!hasDayGap && (hasDayGap !== null || !hasPercentGap)) {
+        continue;
+      }
       const midPointX = (data[i + 1].x + data[i].x) / 2;
       let isWithinFestival = false;
       for (const fest of festsForSeason) {
@@ -63,6 +94,7 @@ function filterAndProcessData(
     acc[season].push({
       x: getPercentageInSeason(curr.timestamp, season),
       y: curr.x_power,
+      timestamp: curr.timestamp,
       updated: curr.updated,
     });
     return acc;
