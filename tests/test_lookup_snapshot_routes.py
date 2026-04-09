@@ -6,7 +6,6 @@ import orjson
 from starlette.requests import Request
 
 from shared_lib.constants import (
-    AUTOMATON_IS_VALID_REDIS_KEY,
     LOOKUP_SQLITE_SNAPSHOT_BLOB_KEY,
     LOOKUP_SQLITE_SNAPSHOT_META_KEY,
 )
@@ -79,7 +78,6 @@ def _publish_lookup_snapshot(fake_redis, tmp_path):
 def test_search_route_reads_from_lookup_snapshot(
     client_factory, fake_redis, monkeypatch, tmp_path
 ):
-    fake_redis.set(AUTOMATON_IS_VALID_REDIS_KEY, "1")
     _publish_lookup_snapshot(fake_redis, tmp_path)
 
     with client_factory(redis=fake_redis) as client:

@@ -5,7 +5,7 @@ from fastapi import APIRouter, HTTPException, Request
 
 from fast_api_app.connections import limiter, redis_conn
 from fast_api_app.sqlite_lookup_store import lookup_fetchall
-from shared_lib.constants import AUTOMATON_IS_VALID_REDIS_KEY
+from shared_lib.constants import LOOKUP_SQLITE_SNAPSHOT_META_KEY
 from shared_lib.monitoring import (
     SEARCH_LATENCY,
     SEARCH_RESULTS,
@@ -19,7 +19,7 @@ logger = logging.getLogger(__name__)
 @router.get("/api/search/{query}")
 @limiter.limit("10/second")
 async def search(query: str, request: Request):
-    if not redis_conn.get(AUTOMATON_IS_VALID_REDIS_KEY):
+    if not redis_conn.get(LOOKUP_SQLITE_SNAPSHOT_META_KEY):
         raise HTTPException(
             status_code=503,
             detail="Data is not available yet, please wait.",
