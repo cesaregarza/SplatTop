@@ -10,10 +10,10 @@ from slowapi import _rate_limit_exceeded_handler
 from slowapi.errors import RateLimitExceeded
 from starlette.middleware.sessions import SessionMiddleware
 
-from fast_api_app.background_tasks import background_runner
 from fast_api_app.comp_auth import (
     get_comp_auth_cors_allowed_origins,
     get_comp_auth_session_middleware_kwargs,
+    is_development_like_environment,
 )
 from fast_api_app.connections import celery, limiter
 from fast_api_app.feature_flags import is_comp_leaderboard_enabled
@@ -23,6 +23,7 @@ from fast_api_app.middleware import (
     APITokenUsageMiddleware,
 )
 from fast_api_app.pubsub import start_pubsub_listener
+from fast_api_app.sqlite_lookup_store import prime_lookup_sqlite_snapshot
 from fast_api_app.routes import (
     admin_tokens_router,
     comp_auth_router,
@@ -50,21 +51,51 @@ logging.basicConfig(
 )
 
 
+def _env_flag(name: str, default: bool = False) -> bool:
+    raw = os.getenv(name)
+    if raw is None:
+        return default
+    return raw.strip().lower() in {"1", "true", "yes", "on"}
+
+
+def _running_in_kubernetes() -> bool:
+    return bool(os.getenv("KUBERNETES_SERVICE_HOST", "").strip())
+
+
+def _startup_warm_tasks_enabled() -> bool:
+    return _env_flag(
+        "FASTAPI_ENABLE_STARTUP_WARM_TASKS",
+        default=(
+            is_development_like_environment() and _running_in_kubernetes()
+        ),
+    )
+
+
+def _local_table_refreshers_enabled() -> bool:
+    return _env_flag("FASTAPI_ENABLE_LOCAL_TABLE_REFRESHERS", default=False)
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    celery.send_task("tasks.pull_data")
-    celery.send_task("tasks.fetch_race_to_5000")
-    celery.send_task("tasks.update_weapon_info")
-    celery.send_task("tasks.pull_aliases")
-    celery.send_task("tasks.update_skill_offset")
-    celery.send_task("tasks.update_lorenz_and_gini")
-    celery.send_task("tasks.fetch_weapon_leaderboard")
-    celery.send_task("tasks.fetch_season_results")
-    if is_comp_leaderboard_enabled():
-        celery.send_task("tasks.refresh_ripple_snapshots")
+    if _startup_warm_tasks_enabled():
+        celery.send_task("tasks.pull_data")
+        celery.send_task("tasks.fetch_race_to_5000")
+        celery.send_task("tasks.update_weapon_info")
+        celery.send_task("tasks.pull_aliases")
+        celery.send_task("tasks.update_skill_offset")
+        celery.send_task("tasks.update_lorenz_and_gini")
+        celery.send_task("tasks.fetch_weapon_leaderboard")
+        celery.send_task("tasks.fetch_season_results")
+        celery.send_task("tasks.refresh_lookup_sqlite_snapshot")
+        if is_comp_leaderboard_enabled():
+            celery.send_task("tasks.refresh_ripple_snapshots")
 
+    prime_lookup_sqlite_snapshot()
     start_pubsub_listener()
-    asyncio.create_task(background_runner.run())
+    if _local_table_refreshers_enabled():
+        from fast_api_app.background_tasks import background_runner
+
+        asyncio.create_task(background_runner.run())
     yield
 
 

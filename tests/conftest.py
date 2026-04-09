@@ -382,7 +382,7 @@ def test_token(fake_redis, monkeypatch):
 
 
 @pytest.fixture()
-def app(fake_redis, monkeypatch):
+def app(fake_redis, monkeypatch, tmp_path):
     """FastAPI app with patched Redis and disabled background startup side effects."""
     # Ensure token hashing pepper configured for tests
     monkeypatch.setenv("API_TOKEN_PEPPER", "testpepper")
@@ -394,14 +394,36 @@ def app(fake_redis, monkeypatch):
     monkeypatch.setenv("DB_PASSWORD", "pass")
     monkeypatch.setenv("DB_NAME", "db")
     monkeypatch.setenv("RANKINGS_DB_NAME", "db")
+    monkeypatch.setenv(
+        "FASTAPI_SQLITE_SNAPSHOT_DIR",
+        str(tmp_path / "sqlite-lookups"),
+    )
     # Import modules
+    for mod in [
+        "fast_api_app.comp_auth",
+        "fast_api_app.sqlite_lookup_store",
+        "fast_api_app.app",
+        "fast_api_app.auth",
+        "fast_api_app.connections",
+        "fast_api_app.middleware",
+        "fast_api_app.routes.admin_tokens",
+        "fast_api_app.routes.ripple_public",
+        "fast_api_app.routes.search",
+    ]:
+        if mod in sys.modules:
+            importlib.reload(sys.modules[mod])
+        else:
+            importlib.import_module(mod)
+
     import fast_api_app.app as app_mod
     import fast_api_app.auth as auth_mod
     import fast_api_app.comp_auth as comp_auth_mod
     import fast_api_app.connections as conn_mod
     import fast_api_app.middleware as mw_mod
+    import fast_api_app.sqlite_lookup_store as lookup_store_mod
     import fast_api_app.routes.admin_tokens as admin_mod
     import fast_api_app.routes.ripple_public as ripple_public_mod
+    import fast_api_app.routes.search as search_mod
 
     # Patch Redis in all modules that captured it at import time
     monkeypatch.setattr(app_mod, "redis_conn", fake_redis, raising=False)
@@ -414,7 +436,14 @@ def app(fake_redis, monkeypatch):
     monkeypatch.setattr(
         ripple_public_mod, "redis_conn", fake_redis, raising=False
     )
+    monkeypatch.setattr(search_mod, "redis_conn", fake_redis, raising=False)
     monkeypatch.setattr(conn_mod, "redis_conn", fake_redis, raising=False)
+    monkeypatch.setattr(
+        lookup_store_mod.conn_mod, "redis_conn", fake_redis, raising=False
+    )
+    limiter_storage = getattr(conn_mod.limiter, "_storage", None)
+    if limiter_storage is not None and hasattr(limiter_storage, "reset"):
+        limiter_storage.reset()
 
     # Disable side effects in lifespan
     class _DummyCelery:
@@ -459,7 +488,7 @@ def client(app):
 
 
 @pytest.fixture()
-def client_factory(fake_redis, monkeypatch):
+def client_factory(fake_redis, monkeypatch, tmp_path_factory):
     """Factory to build a fresh TestClient with env overrides to exercise middleware config.
 
     Usage:
@@ -489,15 +518,22 @@ def client_factory(fake_redis, monkeypatch):
             monkeypatch.setenv("DB_PASSWORD", "pass")
             monkeypatch.setenv("DB_NAME", "db")
             monkeypatch.setenv("RANKINGS_DB_NAME", "db")
+            snapshot_dir = tmp_path_factory.mktemp("sqlite-lookups")
+            monkeypatch.setenv(
+                "FASTAPI_SQLITE_SNAPSHOT_DIR",
+                str(snapshot_dir),
+            )
 
             # Reload app-related modules to pick up new env
             for mod in [
                 "fast_api_app.comp_auth",
                 "fast_api_app.middleware",
                 "fast_api_app.auth",
+                "fast_api_app.sqlite_lookup_store",
                 "fast_api_app.routes.comp_auth",
                 "fast_api_app.routes.ripple",
                 "fast_api_app.routes.ripple_public",
+                "fast_api_app.routes.search",
                 "fast_api_app.routes.admin_tokens",
                 "fast_api_app.app",
             ]:
@@ -509,10 +545,13 @@ def client_factory(fake_redis, monkeypatch):
             app_mod = sys.modules["fast_api_app.app"]
             auth_mod = sys.modules["fast_api_app.auth"]
             comp_auth_mod = sys.modules["fast_api_app.comp_auth"]
+            conn_mod = sys.modules["fast_api_app.connections"]
             mw_mod = sys.modules["fast_api_app.middleware"]
+            lookup_store_mod = sys.modules["fast_api_app.sqlite_lookup_store"]
             admin_mod = sys.modules["fast_api_app.routes.admin_tokens"]
             ripple_mod = sys.modules["fast_api_app.routes.ripple"]
             ripple_public_mod = sys.modules["fast_api_app.routes.ripple_public"]
+            search_mod = sys.modules["fast_api_app.routes.search"]
 
             r = redis or fake_redis
             # Patch Redis connections in reloaded modules
@@ -527,6 +566,16 @@ def client_factory(fake_redis, monkeypatch):
             monkeypatch.setattr(
                 ripple_public_mod, "redis_conn", r, raising=False
             )
+            monkeypatch.setattr(search_mod, "redis_conn", r, raising=False)
+            monkeypatch.setattr(conn_mod, "redis_conn", r, raising=False)
+            monkeypatch.setattr(
+                lookup_store_mod.conn_mod, "redis_conn", r, raising=False
+            )
+            limiter_storage = getattr(conn_mod.limiter, "_storage", None)
+            if limiter_storage is not None and hasattr(
+                limiter_storage, "reset"
+            ):
+                limiter_storage.reset()
 
             # Disable side effects
             class _DummyCelery:

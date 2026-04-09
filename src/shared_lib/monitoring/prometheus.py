@@ -186,6 +186,27 @@ DATA_PULL_ROWS = Gauge(
     labelnames=["task"],
 )
 
+LOOKUP_SQLITE_SNAPSHOT_BUILD_DURATION = Histogram(
+    "lookup_sqlite_snapshot_build_seconds",
+    "Duration of SQLite lookup snapshot build tasks.",
+    labelnames=["outcome"],
+)
+LOOKUP_SQLITE_SNAPSHOT_RELOAD_DURATION = Histogram(
+    "lookup_sqlite_snapshot_reload_seconds",
+    "Duration of FastAPI SQLite lookup snapshot reloads.",
+    labelnames=["outcome"],
+)
+LOOKUP_SQLITE_SNAPSHOT_BYTES = Gauge(
+    "lookup_sqlite_snapshot_bytes",
+    "Current SQLite lookup snapshot sizes.",
+    labelnames=["kind"],
+)
+LOOKUP_SQLITE_SNAPSHOT_EVENTS = Counter(
+    "lookup_sqlite_snapshot_events_total",
+    "SQLite lookup snapshot lifecycle events.",
+    labelnames=["action", "outcome"],
+)
+
 METRICS_CONTENT_TYPE = CONTENT_TYPE_LATEST
 
 

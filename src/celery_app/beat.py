@@ -42,6 +42,10 @@ celery.conf.beat_schedule = {
         "task": "tasks.fetch_season_results",
         "schedule": crontab(minute=30, hour="*"),
     },
+    "refresh-lookup-sqlite-every-ten-minutes": {
+        "task": "tasks.refresh_lookup_sqlite_snapshot",
+        "schedule": crontab(minute="8-58/10"),
+    },
     "fetch-ripple-stable-daily": {
         "task": "tasks.refresh_ripple_snapshots",
         "schedule": crontab(minute=30, hour=0),

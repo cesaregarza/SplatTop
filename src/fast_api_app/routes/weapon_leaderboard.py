@@ -2,7 +2,10 @@ import logging
 
 from fastapi import APIRouter, HTTPException, Query
 
-from fast_api_app.connections import sqlite_cursor
+from fast_api_app.sqlite_lookup_store import (
+    lookup_fetchall_with_columns,
+    lookup_scalar,
+)
 from shared_lib.queries.leaderboard_queries import (
     SEASON_RESULTS_SQLITE_QUERY,
     WEAPON_LEADERBOARD_SQLITE_QUERY,
@@ -68,13 +71,12 @@ async def weapon_leaderboard(
             "additional_weapon_id": additional_weapon_id,
         }
 
-    results = sqlite_cursor.execute(query, params)
-    result = results.fetchall()
+    columns, result = lookup_fetchall_with_columns(query, params)
     if not result:
-        check_if_data_available = sqlite_cursor.execute(
+        available_rows = lookup_scalar(
             "SELECT COUNT(*) FROM weapon_leaderboard_peak"
         )
-        if not check_if_data_available.fetchone()[0]:
+        if not available_rows:
             logger.error(
                 "No data found for weapon_id: %d, mode: %s, region: %s, "
                 "additional_weapon_id: %s, min_threshold: %d, final_results: %s",
@@ -93,7 +95,6 @@ async def weapon_leaderboard(
             logger.info("No data found for weapon_id: %d", weapon_id)
             return {"players": {}, "mode": mode, "region": bool(region)}
 
-    columns = [desc[0] for desc in sqlite_cursor.description]
     out = {"players": {}}
     for column in columns:
         if column in ["mode", "region"]:

@@ -22,6 +22,9 @@ from celery_app.tasks.leaderboard import (
 from celery_app.tasks.misc import pull_aliases, update_weapon_info
 from celery_app.tasks.player_detail import fetch_player_data
 from celery_app.tasks.ripple_snapshot import refresh_ripple_snapshots
+from celery_app.tasks.sqlite_lookup_snapshot import (
+    refresh_lookup_sqlite_snapshot,
+)
 from shared_lib.constants import REDIS_URI
 
 logging.basicConfig(
@@ -41,6 +44,9 @@ celery.task(name="tasks.update_skill_offset")(compute_skill_offset)
 celery.task(name="tasks.update_lorenz_and_gini")(compute_lorenz_and_gini)
 celery.task(name="tasks.fetch_weapon_leaderboard")(fetch_weapon_leaderboard)
 celery.task(name="tasks.fetch_season_results")(fetch_season_results)
+celery.task(name="tasks.refresh_lookup_sqlite_snapshot")(
+    refresh_lookup_sqlite_snapshot
+)
 celery.task(name="tasks.persist_api_token")(persist_api_token)
 celery.task(name="tasks.revoke_api_token")(revoke_api_token)
 celery.task(name="tasks.flush_api_usage")(flush_api_usage)

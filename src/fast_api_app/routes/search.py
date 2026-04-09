@@ -3,7 +3,8 @@ from time import perf_counter
 
 from fastapi import APIRouter, HTTPException, Request
 
-from fast_api_app.connections import limiter, redis_conn, sqlite_cursor
+from fast_api_app.connections import limiter, redis_conn
+from fast_api_app.sqlite_lookup_store import lookup_fetchall
 from shared_lib.constants import AUTOMATON_IS_VALID_REDIS_KEY
 from shared_lib.monitoring import (
     SEARCH_LATENCY,
@@ -27,11 +28,10 @@ async def search(query: str, request: Request):
     logger.info(f"Searching for: {query}")
     formatted_key = f"%{query}%"
     start = perf_counter()
-    sqlite_cursor.execute(
+    result = lookup_fetchall(
         "SELECT alias, player_id FROM aliases WHERE alias LIKE ? LIMIT 10",
         (formatted_key,),
     )
-    result = sqlite_cursor.fetchall()
     duration = perf_counter() - start
     outcome = "hit" if result else "miss"
     if metrics_enabled():
