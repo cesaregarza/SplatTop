@@ -144,6 +144,47 @@ SEARCH_RESULTS = Counter(
     "Search endpoint requests grouped by outcome.",
     labelnames=["outcome"],
 )
+PLAYER_DETAIL_PIPELINE_DURATION = Histogram(
+    "player_detail_pipeline_duration_seconds",
+    "Duration of main-site player detail pipeline stages.",
+    labelnames=["stage", "outcome"],
+)
+PLAYER_DETAIL_ROWS = Histogram(
+    "player_detail_rows",
+    "Row counts observed across player detail pipeline stages.",
+    labelnames=["stage"],
+    buckets=(
+        1,
+        10,
+        50,
+        100,
+        250,
+        500,
+        1_000,
+        2_500,
+        5_000,
+        10_000,
+        25_000,
+        50_000,
+        100_000,
+    ),
+)
+PLAYER_DETAIL_PAYLOAD_BYTES = Histogram(
+    "player_detail_payload_bytes",
+    "Serialized payload sizes emitted by the player detail pipeline.",
+    labelnames=["kind"],
+    buckets=(
+        256,
+        1_024,
+        4_096,
+        16_384,
+        65_536,
+        262_144,
+        1_048_576,
+        4_194_304,
+        16_777_216,
+    ),
+)
 
 RIPPLE_CACHE_REQUESTS = Counter(
     "ripple_cache_requests_total",
@@ -159,6 +200,31 @@ RIPPLE_CACHE_PAYLOAD_BYTES = Gauge(
     "ripple_cache_payload_bytes",
     "Payload size stored in ripple cache per kind.",
     labelnames=["kind"],
+)
+RIPPLE_PLAYER_SECTION_CACHE_REQUESTS = Counter(
+    "ripple_player_section_cache_requests_total",
+    "Competition player section cache lookups grouped by section and outcome.",
+    labelnames=["section", "status"],
+)
+RIPPLE_PLAYER_SECTION_RESOLVE_DURATION = Histogram(
+    "ripple_player_section_resolve_seconds",
+    "Duration of competition player section cache resolution.",
+    labelnames=["section", "status"],
+)
+RIPPLE_PLAYER_SECTION_PAYLOAD_BYTES = Histogram(
+    "ripple_player_section_payload_bytes",
+    "Serialized payload sizes returned by competition player section endpoints.",
+    labelnames=["section"],
+    buckets=(
+        256,
+        1_024,
+        4_096,
+        16_384,
+        65_536,
+        262_144,
+        1_048_576,
+        4_194_304,
+    ),
 )
 
 API_USAGE_EVENTS = Counter(
@@ -199,6 +265,11 @@ LOOKUP_SQLITE_SNAPSHOT_RELOAD_DURATION = Histogram(
 LOOKUP_SQLITE_SNAPSHOT_BYTES = Gauge(
     "lookup_sqlite_snapshot_bytes",
     "Current SQLite lookup snapshot sizes.",
+    labelnames=["kind"],
+)
+LOOKUP_SQLITE_SNAPSHOT_LAST_SUCCESS_TIMESTAMP = Gauge(
+    "lookup_sqlite_snapshot_last_success_timestamp_seconds",
+    "Unix timestamp of the latest successful lookup snapshot step.",
     labelnames=["kind"],
 )
 LOOKUP_SQLITE_SNAPSHOT_EVENTS = Counter(

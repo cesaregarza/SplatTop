@@ -21,6 +21,7 @@ from shared_lib.constants import (
 )
 from shared_lib.monitoring import (
     LOOKUP_SQLITE_SNAPSHOT_EVENTS,
+    LOOKUP_SQLITE_SNAPSHOT_LAST_SUCCESS_TIMESTAMP,
     LOOKUP_SQLITE_SNAPSHOT_RELOAD_DURATION,
     metrics_enabled,
 )
@@ -162,6 +163,14 @@ class SQLiteLookupSnapshotStore:
             os.replace(temp_path, self._snapshot_path)
             self._version = version
             if metrics_enabled():
+                built_at_ms = meta.get("built_at_ms")
+                if isinstance(built_at_ms, (int, float)):
+                    LOOKUP_SQLITE_SNAPSHOT_LAST_SUCCESS_TIMESTAMP.labels(
+                        kind="build"
+                    ).set(float(built_at_ms) / 1000.0)
+                LOOKUP_SQLITE_SNAPSHOT_LAST_SUCCESS_TIMESTAMP.labels(
+                    kind="reload"
+                ).set(time.time())
                 LOOKUP_SQLITE_SNAPSHOT_EVENTS.labels(
                     action="reload",
                     outcome="reloaded",

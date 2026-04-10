@@ -12,6 +12,7 @@ from shared_lib.constants import (
     SEASON_RESULTS_REDIS_KEY,
     WEAPON_LEADERBOARD_PEAK_REDIS_KEY,
 )
+from shared_lib.monitoring import render_latest
 
 
 def test_refresh_lookup_sqlite_snapshot_builds_and_reuses_artifact(
@@ -108,6 +109,10 @@ def test_refresh_lookup_sqlite_snapshot_builds_and_reuses_artifact(
         "version": meta["version"],
     }
     assert fake_redis.get(LOOKUP_SQLITE_SNAPSHOT_LOCK_KEY) is None
+    assert (
+        'lookup_sqlite_snapshot_last_success_timestamp_seconds{kind="build"}'
+        in render_latest().decode("utf-8")
+    )
 
 
 def test_refresh_lookup_sqlite_snapshot_skips_when_sources_missing(

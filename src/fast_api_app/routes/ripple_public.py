@@ -4,6 +4,7 @@ import logging
 from html import escape
 from io import BytesIO
 import time
+from time import perf_counter
 from typing import Any, Dict, Optional
 from urllib.parse import quote
 
@@ -44,6 +45,12 @@ from shared_lib.constants import (
     RIPPLE_STABLE_PERCENTILES_KEY,
 )
 from shared_lib.queries import ripple_queries
+from shared_lib.monitoring import (
+    RIPPLE_PLAYER_SECTION_CACHE_REQUESTS,
+    RIPPLE_PLAYER_SECTION_PAYLOAD_BYTES,
+    RIPPLE_PLAYER_SECTION_RESOLVE_DURATION,
+    metrics_enabled,
+)
 
 router = APIRouter(prefix="/api/ripple/public", tags=["ripple-public"])
 admin_router = APIRouter(prefix="/api/ripple/admin", tags=["ripple-admin"])
@@ -77,6 +84,17 @@ def _load_payload(key: str) -> Optional[Dict[str, Any]]:
         return orjson.loads(raw)
     except orjson.JSONDecodeError:
         return None
+
+
+def _observe_ripple_player_section_payload(
+    section: str, payload: Dict[str, Any] | None
+) -> None:
+    if not metrics_enabled() or not isinstance(payload, dict):
+        return
+
+    RIPPLE_PLAYER_SECTION_PAYLOAD_BYTES.labels(section=section).observe(
+        len(orjson.dumps(payload))
+    )
 
 
 def _empty_payload() -> Dict[str, Any]:
@@ -206,14 +224,30 @@ def _load_public_player_payload(player_id: str) -> Optional[Dict[str, Any]]:
 
 def _load_public_player_section_payload(
     player_id: str,
+    section: str,
     section_key: str,
 ) -> Optional[Dict[str, Any]]:
+    started = perf_counter()
     meta_payload = _load_player_index_meta_payload()
     player = _load_payload(section_key)
     if isinstance(player, dict):
-        return _merge_player_payload_with_meta(player, meta_payload)
+        resolved = _merge_player_payload_with_meta(player, meta_payload)
+        status = "section_hit"
+    else:
+        resolved = _load_public_player_payload(player_id)
+        status = "legacy_hit" if isinstance(resolved, dict) else "miss"
 
-    return _load_public_player_payload(player_id)
+    if metrics_enabled():
+        RIPPLE_PLAYER_SECTION_CACHE_REQUESTS.labels(
+            section=section,
+            status=status,
+        ).inc()
+        RIPPLE_PLAYER_SECTION_RESOLVE_DURATION.labels(
+            section=section,
+            status=status,
+        ).observe(perf_counter() - started)
+
+    return resolved
 
 
 def _to_int(value: Any) -> int | None:
@@ -805,6 +839,7 @@ async def get_public_ripple_player_summary(
         _apply_public_player_visibility(
             _load_public_player_section_payload(
                 player_id,
+                "summary",
                 _player_index_summary_key(player_id),
             ),
             request,
@@ -813,6 +848,7 @@ async def get_public_ripple_player_summary(
     )
     if not isinstance(player, dict):
         raise _player_not_found()
+    _observe_ripple_player_section_payload("summary", player)
     return player
 
 
@@ -829,6 +865,7 @@ async def get_public_ripple_player_history(
         _apply_public_player_visibility(
             _load_public_player_section_payload(
                 player_id,
+                "history",
                 _player_index_history_key(player_id),
             ),
             request,
@@ -837,6 +874,7 @@ async def get_public_ripple_player_history(
     )
     if not isinstance(player, dict):
         raise _player_not_found()
+    _observe_ripple_player_section_payload("history", player)
     return player
 
 
@@ -853,6 +891,7 @@ async def get_public_ripple_player_results(
         _apply_public_player_visibility(
             _load_public_player_section_payload(
                 player_id,
+                "results",
                 _player_index_results_key(player_id),
             ),
             request,
@@ -861,6 +900,7 @@ async def get_public_ripple_player_results(
     )
     if not isinstance(player, dict):
         raise _player_not_found()
+    _observe_ripple_player_section_payload("results", player)
     return player
 
 
@@ -896,6 +936,7 @@ async def get_admin_ripple_player_summary(
         _apply_admin_player_overrides(
             _load_public_player_section_payload(
                 player_id,
+                "summary",
                 _player_index_summary_key(player_id),
             )
         )
@@ -903,6 +944,7 @@ async def get_admin_ripple_player_summary(
     if not isinstance(player, dict):
         raise _player_not_found()
     player["viewer_can_view_results"] = True
+    _observe_ripple_player_section_payload("summary", player)
     return player
 
 
@@ -927,12 +969,14 @@ async def get_admin_ripple_player_history(
         player = _apply_admin_player_overrides(
             _load_public_player_section_payload(
                 player_id,
+                "history",
                 _player_index_history_key(player_id),
             )
         )
     player = _build_player_history_payload(player)
     if not isinstance(player, dict):
         raise _player_not_found()
+    _observe_ripple_player_section_payload("history", player)
     return player
 
 
@@ -957,6 +1001,7 @@ async def get_admin_ripple_player_results(
         player = _apply_admin_player_overrides(
             _load_public_player_section_payload(
                 player_id,
+                "results",
                 _player_index_results_key(player_id),
             )
         )
@@ -965,6 +1010,7 @@ async def get_admin_ripple_player_results(
     player = _build_player_results_payload(player)
     if not isinstance(player, dict):
         raise _player_not_found()
+    _observe_ripple_player_section_payload("results", player)
     return player
 
 
