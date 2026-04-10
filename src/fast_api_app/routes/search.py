@@ -20,6 +20,8 @@ logger = logging.getLogger(__name__)
 @limiter.limit("10/second")
 async def search(query: str, request: Request):
     if not redis_conn.get(LOOKUP_SQLITE_SNAPSHOT_META_KEY):
+        if metrics_enabled():
+            SEARCH_RESULTS.labels(outcome="unavailable").inc()
         raise HTTPException(
             status_code=503,
             detail="Data is not available yet, please wait.",

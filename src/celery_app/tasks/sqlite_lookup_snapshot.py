@@ -28,6 +28,7 @@ from shared_lib.monitoring import (
     LOOKUP_SQLITE_SNAPSHOT_BUILD_DURATION,
     LOOKUP_SQLITE_SNAPSHOT_BYTES,
     LOOKUP_SQLITE_SNAPSHOT_EVENTS,
+    LOOKUP_SQLITE_SNAPSHOT_LAST_SUCCESS_TIMESTAMP,
     metrics_enabled,
 )
 from shared_lib.sqlite_lookup_snapshot import (
@@ -160,6 +161,11 @@ def refresh_lookup_sqlite_snapshot() -> dict[str, Any]:
             and existing_meta.get("source_hashes") == source_hashes
         ):
             if metrics_enabled():
+                built_at_ms = existing_meta.get("built_at_ms")
+                if isinstance(built_at_ms, (int, float)):
+                    LOOKUP_SQLITE_SNAPSHOT_LAST_SUCCESS_TIMESTAMP.labels(
+                        kind="build"
+                    ).set(float(built_at_ms) / 1000.0)
                 LOOKUP_SQLITE_SNAPSHOT_EVENTS.labels(
                     action="build",
                     outcome="skipped",
@@ -231,6 +237,9 @@ def refresh_lookup_sqlite_snapshot() -> dict[str, Any]:
             LOOKUP_SQLITE_SNAPSHOT_BYTES.labels(kind="encoded").set(
                 float(len(encoded_blob))
             )
+            LOOKUP_SQLITE_SNAPSHOT_LAST_SUCCESS_TIMESTAMP.labels(
+                kind="build"
+            ).set(float(built_at_ms) / 1000.0)
         return {
             "rebuilt": True,
             "version": version,

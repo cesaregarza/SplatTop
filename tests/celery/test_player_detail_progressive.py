@@ -12,6 +12,7 @@ os.environ.setdefault("DB_NAME", "db")
 os.environ.setdefault("RANKINGS_DB_NAME", "db")
 
 from shared_lib.constants import PLAYER_LATEST_REDIS_KEY, PLAYER_PUBSUB_CHANNEL
+from shared_lib.monitoring import render_latest
 
 
 class RedisSpy:
@@ -52,6 +53,10 @@ def _decode_published_phases(redis_spy):
     ]
 
 
+def _metrics_body() -> str:
+    return render_latest().decode("utf-8")
+
+
 def test_fetch_player_data_publishes_snapshot_then_analysis_then_complete(
     monkeypatch,
 ):
@@ -59,6 +64,7 @@ def test_fetch_player_data_publishes_snapshot_then_analysis_then_complete(
     mod = importlib.reload(mod)
     redis_spy = RedisSpy()
     monkeypatch.setattr(mod, "redis_conn", redis_spy, raising=False)
+    monkeypatch.setattr(mod, "metrics_enabled", lambda: True)
     monkeypatch.setattr(
         mod,
         "_fetch_season_data",
@@ -154,6 +160,10 @@ def test_fetch_player_data_publishes_snapshot_then_analysis_then_complete(
         "ex": mod.PLAYER_CACHE_TTL_SECONDS,
         "px": None,
     }
+    metrics_body = _metrics_body()
+    assert "player_detail_pipeline_duration_seconds" in metrics_body
+    assert "player_detail_payload_bytes" in metrics_body
+    assert "player_detail_rows" in metrics_body
 
 
 def test_fetch_player_data_replays_cached_chunks_without_refetching(

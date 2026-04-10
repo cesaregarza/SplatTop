@@ -34,6 +34,7 @@ We welcome contributions for localizations! If you are interested in helping tra
     - [Task Scheduler Pod](#task-scheduler-pod)
     - [Ingress Controller Pod](#ingress-controller-pod)
     - [Cert-Manager Pod (Production Only)](#cert-manager-pod-production-only)
+- [Observability](#observability)
 - [Contributing](#contributing)
 - [Contributing Localizations](LOCALIZING.md)
 - [License](#license)
@@ -195,6 +196,13 @@ The ingress controller pod uses Nginx to manage incoming traffic to the Kubernet
 
 ### Cert-Manager Pod (Production Only)
 The cert-manager pod is responsible for managing SSL/TLS certificates using Let's Encrypt. This pod is only deployed in the production environment to ensure secure communication between users and the SplatTop website and is completely isolated from the rest of the system.
+
+## Observability
+
+- FastAPI and Celery metrics are defined in `src/shared_lib/monitoring/prometheus.py`.
+- Production dashboards and alert rules live in the sibling config repo `../SplatTopConfig`.
+- The hot-path dashboard for lookup freshness, main player detail, and competition player routes is documented in [docs/observability.md](docs/observability.md).
+- After changing metrics or alert semantics, update the matching Grafana/Prometheus assets in `SplatTopConfig` in the same change set.
 
 ## Contributing
 

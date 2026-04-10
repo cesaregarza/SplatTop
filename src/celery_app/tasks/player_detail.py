@@ -14,6 +14,9 @@ from shared_lib.constants import (
 from shared_lib.monitoring import (
     DATA_PULL_DURATION,
     DATA_PULL_ROWS,
+    PLAYER_DETAIL_PAYLOAD_BYTES,
+    PLAYER_DETAIL_PIPELINE_DURATION,
+    PLAYER_DETAIL_ROWS,
     metrics_enabled,
 )
 from shared_lib.queries.player_queries import (
@@ -92,7 +95,12 @@ def publish_player_chunk(
     }
     if cache_key:
         message["key"] = cache_key
-    redis_conn.publish(PLAYER_PUBSUB_CHANNEL, orjson.dumps(message))
+    message_bytes = orjson.dumps(message)
+    if metrics_enabled():
+        PLAYER_DETAIL_PAYLOAD_BYTES.labels(kind=f"{phase}_chunk").observe(
+            len(message_bytes)
+        )
+    redis_conn.publish(PLAYER_PUBSUB_CHANNEL, message_bytes)
 
 
 def publish_cached_player_chunks(
@@ -152,17 +160,40 @@ def fetch_player_data(player_id: str) -> None:
         logger.info("Task already running. Skipping.")
         return
 
+    total_started = perf_counter()
+    total_outcome = "error"
     try:
         cache_key = f"{PLAYER_LATEST_REDIS_KEY}:{player_id}"
         cached_payload_raw = redis_conn.get(cache_key)
         if cached_payload_raw is not None:
+            replay_started = perf_counter()
             logger.info("Data already exists in cache. Skipping fetch.")
             publish_cached_player_chunks(
                 player_id, cached_payload_raw, cache_key
             )
+            if metrics_enabled():
+                PLAYER_DETAIL_PIPELINE_DURATION.labels(
+                    stage="cache_replay",
+                    outcome="success",
+                ).observe(perf_counter() - replay_started)
+            total_outcome = "cache_hit"
         else:
-            season_result = _fetch_season_data(player_id)
-            latest_data = pull_all_latest_data(player_id)
+            snapshot_started = perf_counter()
+            try:
+                season_result = _fetch_season_data(player_id)
+                latest_data = pull_all_latest_data(player_id)
+            except Exception:
+                if metrics_enabled():
+                    PLAYER_DETAIL_PIPELINE_DURATION.labels(
+                        stage="snapshot",
+                        outcome="error",
+                    ).observe(perf_counter() - snapshot_started)
+                raise
+            if metrics_enabled():
+                PLAYER_DETAIL_PIPELINE_DURATION.labels(
+                    stage="snapshot",
+                    outcome="success",
+                ).observe(perf_counter() - snapshot_started)
             merged_payload = merge_player_payload(
                 build_empty_player_payload(),
                 build_snapshot_payload(season_result, latest_data),
@@ -173,6 +204,7 @@ def fetch_player_data(player_id: str) -> None:
                 build_snapshot_payload(season_result, latest_data),
             )
 
+            analysis_started = perf_counter()
             try:
                 player_result = _fetch_player_data(player_id)
                 analysis_payload = build_analysis_payload(player_result)
@@ -180,25 +212,47 @@ def fetch_player_data(player_id: str) -> None:
                 publish_player_chunk(
                     player_id, "analysis", analysis_payload
                 )
+                if metrics_enabled():
+                    PLAYER_DETAIL_PIPELINE_DURATION.labels(
+                        stage="analysis",
+                        outcome="success",
+                    ).observe(perf_counter() - analysis_started)
+                total_outcome = "success"
             except Exception as e:
                 logger.exception(
                     "Error building player analysis payload for player_id=%s",
                     player_id,
                 )
+                if metrics_enabled():
+                    PLAYER_DETAIL_PIPELINE_DURATION.labels(
+                        stage="analysis",
+                        outcome="error",
+                    ).observe(perf_counter() - analysis_started)
+                total_outcome = "partial_error"
                 publish_player_chunk(
                     player_id,
                     "error",
                     {"message": str(e), "stage": "analysis"},
                 )
             finally:
+                cached_payload_raw = orjson.dumps(merged_payload)
+                if metrics_enabled():
+                    PLAYER_DETAIL_PAYLOAD_BYTES.labels(
+                        kind="cache_payload"
+                    ).observe(len(cached_payload_raw))
                 redis_conn.set(
                     cache_key,
-                    orjson.dumps(merged_payload),
+                    cached_payload_raw,
                     ex=PLAYER_CACHE_TTL_SECONDS,
                 )
 
             publish_player_chunk(player_id, "complete", cache_key=cache_key)
     finally:
+        if metrics_enabled():
+            PLAYER_DETAIL_PIPELINE_DURATION.labels(
+                stage="total",
+                outcome=total_outcome,
+            ).observe(perf_counter() - total_started)
         try:
             redis_conn.delete(task_signature)
         except Exception as e:
@@ -230,10 +284,16 @@ def _fetch_player_data(player_id: str) -> list[dict]:
         DATA_PULL_ROWS.labels(task="player_detail.fetch_player_data").set(
             len(result)
         )
+        PLAYER_DETAIL_ROWS.labels(stage="history_raw").observe(len(result))
     for player in result:
         player["timestamp"] = player["timestamp"].isoformat()
 
-    return reduce_player_history_rows(result)
+    reduced = reduce_player_history_rows(result)
+    if metrics_enabled():
+        PLAYER_DETAIL_ROWS.labels(stage="history_reduced").observe(
+            len(reduced)
+        )
+    return reduced
 
 
 def _fetch_season_data(player_id: str) -> list[dict]:
@@ -260,6 +320,7 @@ def _fetch_season_data(player_id: str) -> list[dict]:
         DATA_PULL_ROWS.labels(task="player_detail.fetch_season_data").set(
             len(result)
         )
+        PLAYER_DETAIL_ROWS.labels(stage="season_results").observe(len(result))
 
     return result
 
@@ -467,6 +528,9 @@ def pull_all_latest_data(player_id: str) -> list[dict]:
             task="player_detail.fetch_latest_data"
         ).observe(perf_counter() - start)
         DATA_PULL_ROWS.labels(task="player_detail.fetch_latest_data").set(
+            len(latest_rows)
+        )
+        PLAYER_DETAIL_ROWS.labels(stage="latest_rows").observe(
             len(latest_rows)
         )
 
