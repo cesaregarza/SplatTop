@@ -12,7 +12,7 @@ class TableManager(ABC):
         cadence: int = 600,
         retry_cadence: int = 60,
     ):
-        logger.info(f"Initializing TableManager for {table_name}")
+        logger.info("Initializing TableManager for %s", table_name)
         self.table_name = table_name
         self.redis_key = redis_key
         self.cadence = cadence

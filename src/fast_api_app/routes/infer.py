@@ -378,8 +378,8 @@ async def log_inference_request(
                     )
                     session.add(new_log_entry)
                     await session.commit()
-        except Exception as db_error:
-            logger.error(f"Failed to log inference request: {db_error}")
+        except Exception:
+            logger.exception("Failed to log inference request")
 
 
 @router.post("/api/infer")
@@ -419,7 +419,7 @@ async def infer(inference_request: InferenceRequest, request: Request):
     model_request: dict | None = None
 
     if cached_result:
-        logger.info(f"Cache hit, hash: {abilities_hash}")
+        logger.info("Cache hit, hash: %s", abilities_hash)
         cache_status = "hit"
         try:
             predictions = eval(cached_result)
@@ -434,7 +434,7 @@ async def infer(inference_request: InferenceRequest, request: Request):
                 "weapon_id": inference_request.weapon_id,
             }
     else:
-        logger.info(f"Cache miss, hash: {abilities_hash}")
+        logger.info("Cache miss, hash: %s", abilities_hash)
         model_request = {
             "target": inference_request.abilities,
             "weapon_id": inference_request.weapon_id,
@@ -465,8 +465,8 @@ async def infer(inference_request: InferenceRequest, request: Request):
                     exc_info=True,
                 )
 
-        except Exception as e:
-            logger.error(f"Error sending request to model server: {e}")
+        except Exception:
+            logger.exception("Error sending request to model server")
             if metrics_enabled():
                 SPLATGPT_ERRORS.labels(stage="model_request").inc()
             raise HTTPException(
@@ -529,6 +529,6 @@ async def feedback(feedback_request: FeedbackRequest):
         )
         return {"status": f"{status_message} successfully"}
 
-    except Exception as e:
-        logger.error(f"Error logging feedback: {e}")
+    except Exception:
+        logger.exception("Error logging feedback")
         raise HTTPException(status_code=500, detail="Error logging feedback")

@@ -207,7 +207,7 @@ def process_all_data(df: pd.DataFrame) -> list[tuple[str, pd.DataFrame]]:
     df = df.loc[:, keys_to_keep]
     out = []
     for region in REGIONS:
-        logger.info(f"Processing data for region: {region}")
+        logger.info("Processing data for region: %s", region)
         region_df = df.loc[df["region"] == region]
         region_df = process_region_data(region_df)
         for mode in MODES_SNAKE_CASE.values():
@@ -295,7 +295,7 @@ def pull_data() -> None:
         redis_conn.set(
             redis_key, processed_df.reset_index().to_json(orient="records")
         )
-        logger.info(f"All data for region: {region} saved to Redis")
+        logger.info("All data for region: %s saved to Redis", region)
         if metrics_enabled():
             DATA_PULL_ROWS.labels(
                 task=f"front_page.leaderboard_payload:{region}"

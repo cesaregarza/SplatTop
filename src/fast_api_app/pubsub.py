@@ -28,7 +28,9 @@ async def process_pubsub_message(pubsub: PubSub):
                 if metrics_enabled():
                     PUBSUB_EVENTS.labels(event="decode_error").inc()
                 continue
-            logger.info(f"Received player data for: {data['player_id']}")
+            logger.info(
+                "Received player data for: %s", data["player_id"]
+            )
             if metrics_enabled():
                 PUBSUB_EVENTS.labels(event="message").inc()
             if data.get("type") == "player_chunk":
@@ -78,15 +80,15 @@ async def listen_for_updates():
     while True:
         pubsub = redis_conn.pubsub()
         pubsub.subscribe(PLAYER_PUBSUB_CHANNEL)
-        logger.info(f"Subscribed to channel: {PLAYER_PUBSUB_CHANNEL}")
+        logger.info("Subscribed to channel: %s", PLAYER_PUBSUB_CHANNEL)
         if metrics_enabled():
             PUBSUB_RESTARTS.inc()
             PUBSUB_ACTIVE.set(1)
 
         try:
             await process_pubsub_message(pubsub)
-        except Exception as e:
-            logger.error(f"Error in pubsub listener: {e}")
+        except Exception:
+            logger.exception("Error in pubsub listener")
             if metrics_enabled():
                 PUBSUB_EVENTS.labels(event="listener_error").inc()
         finally:

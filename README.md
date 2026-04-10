@@ -10,13 +10,19 @@ A platform showcasing the Top 500 players in Splatoon 3, with historical ranking
   - An Nginx Ingress controller
   - Cert-Manager for SSL/TLS certificates (production only)
 
-Deployment is handled via Kubernetes (DigitalOcean Kubernetes Service in production), with continuous integration and deployment via GitHub Actions. Local development can be done using Docker & kind or by running components individually.
+Deployment is split across two repositories:
+
+- `SplatTop` builds and publishes application images
+- `SplatTopConfig` owns Helm values, Argo CD applications, and encrypted production secrets
+
+Production runs on DigitalOcean Kubernetes and is applied from `SplatTopConfig` via Argo CD. Local development can be done using Docker & kind or by running components individually.
 
 ## Prerequisites
 
 - Docker & kind (`kubectl`) for Kubernetes-based local development
 - Python 3.10+ & Poetry for backend dependencies and scripts
 - Node.js & npm for frontend development
+- A sibling clone of `../SplatTopConfig` if you need to inspect or update production Helm/Argo state
 - (Optional) Access to a `secrets.yaml` or a local `.env` file containing database credentials and ML storage settings
 
 We welcome contributions for localizations! If you are interested in helping translate SplatTop into other languages, please refer to the [Contributing Localizations](LOCALIZING.md) section.
@@ -26,6 +32,7 @@ We welcome contributions for localizations! If you are interested in helping tra
 - [Installation](#installation)
   - [Local Development](#local-development)
   - [Secrets Configuration](#secrets-configuration)
+- [Infrastructure & Releases](#infrastructure--releases)
 - [Architecture](#architecture)
     - [Frontend Pod](#frontend-pod)
     - [Backend Pod](#backend-pod)
@@ -44,7 +51,7 @@ We welcome contributions for localizations! If you are interested in helping tra
   - [Rate Limiting](#rate-limiting)
   - [Usage Logging & Flush](#usage-logging--flush)
   - [Proxy Headers & Client IP](#proxy-headers--client-ip)
-  - [Deployment/Migration Notes](#deploymentmigration-notes)
+- [Deployment/Migration Notes](#deploymentmigration-notes)
 
 ## Installation
 
@@ -55,6 +62,7 @@ You can run SplatTop locally without Kubernetes by starting each component manua
 1. **Clone the Repository**:
    ```sh
    git clone https://github.com/cesaregarza/SplatTop.git
+   git clone https://github.com/cesaregarza/SplatTopConfig.git ../SplatTopConfig
    cd SplatTop
    ```
 
@@ -127,8 +135,6 @@ Ingress (pre-prod): http://localhost:8080
 
 ### Secrets Configuration
 
-### Secrets Configuration
-
 Sensitive settings (database credentials, ML storage endpoints) should be provided via environment variables in `.env`, or via `secrets.yaml` when deploying on Kubernetes.
 
 1. **Local `.env`**:
@@ -164,19 +170,30 @@ Sensitive settings (database credentials, ML storage endpoints) should be provid
    - Merge the encrypted-file change to `main`, then `.github/workflows/sync_competition_admins_to_config.yml` opens the `SplatTopConfig` PR that copies the encrypted secret and ensures the Helm/Argo wiring exists.
    - The app-repo workflow expects `CONFIG_REPO_TOKEN`. Plaintext admin IDs are not passed through GitHub Actions inputs.
 
+## Infrastructure & Releases
+
+The quick version:
+
+- application code, tests, Dockerfiles, and CI live in this repo
+- production Helm values, Argo apps, and encrypted prod secrets live in `../SplatTopConfig`
+- merging to `SplatTop/main` publishes images and proposes config changes
+- production only changes after `SplatTopConfig` is updated and Argo syncs `splattop-prod`
+
+The detailed guide is in [docs/infrastructure-and-release.md](docs/infrastructure-and-release.md).
+
 ## Architecture
 
 ### Frontend Pod
 The frontend pod hosts the React application on Nginx. It serves the user interface of SplatTop, enabling users to interact with the website and view the Top 500 players and their ranking history. This pod communicates exclusively with the backend pod to fetch data and update the UI based on user actions, and it cannot access the rest of the Kubernetes cluster. While currently written in JavaScript and JSX, a migration to TypeScript and TSX is planned for the near future.
 
 ### Backend Pod
-The backend pod runs a FastAPI application hosted on Gunicorn with Uvicorn workers. It handles API requests from the frontend, processes data, communicates with Redis and the database, and exposes websocket endpoints for real-time updates.
+The backend pod runs a FastAPI application hosted on Gunicorn with Uvicorn workers. It handles API requests from the frontend, communicates with Redis and PostgreSQL, and exposes websocket endpoints for real-time updates. FastAPI no longer owns the heavyweight lookup-table refresh loop in production; it reads a published lookup snapshot built by Celery.
 
 ### Database
-Persistent player and leaderboard data is stored in PostgreSQL. Database connection is configured via environment variables (DB_HOST, DB_PORT, DB_USER, DB_PASSWORD, DB_NAME). For local caching and development, SQLite is used for read-only or non-critical data stores.
+Persistent player and leaderboard data is stored in PostgreSQL. Database connection is configured via environment variables (`DB_HOST`, `DB_PORT`, `DB_USER`, `DB_PASSWORD`, `DB_NAME`). SQLite is still used locally inside the app stack, but the important production lookup path is now a Celery-built, Redis-published, FastAPI-consumed read-only snapshot.
 
 ### Cache/Message Broker/PubSub Pod
-The Redis pod functions as a cache, message broker, and PubSub system. Celery workers use Redis to queue tasks and store results. The backend caches frequently accessed leaderboard snapshots in Redis. Redis PubSub channels are used for real-time player detail updates.
+The Redis pod functions as a cache, message broker, and PubSub system. Celery workers use Redis to queue tasks and store results. The backend caches frequently accessed leaderboard snapshots in Redis. Redis PubSub channels are used for real-time player detail updates, and Redis also carries the compressed lookup SQLite snapshot metadata/blob used by FastAPI search and weapon leaderboard routes.
 
 ### Workers Pod
 The workers pod runs Celery workers that handle asynchronous tasks such as:
@@ -184,12 +201,13 @@ The workers pod runs Celery workers that handle asynchronous tasks such as:
   - Fetching weapon info and aliases
   - Computing analytics (Lorenz curves, Gini coefficients, skill offsets)
   - Populating Redis caches and database tables
+  - Building and publishing lookup SQLite snapshots consumed by FastAPI
 
 ### Inference Service Pod
 The machine learning inference service (SplatGPT) provides loadout recommendations via a REST API on port 9000. It can be run as a separate Docker image (`splatnlp:latest`) and communicates with the backend or external storage (e.g., DigitalOcean Spaces) to load models and data.
 
 ### Task Scheduler Pod
-The task scheduler pod runs Celery Beat, which schedules periodic tasks (e.g., data pulls, analytics updates) for the Celery workers according to `src/celery_app/beat.py` schedules.
+The task scheduler pod runs Celery Beat, which schedules periodic tasks (e.g., data pulls, analytics updates, lookup snapshot refreshes) for the Celery workers according to `src/celery_app/beat.py` schedules.
 
 ### Ingress Controller Pod
 The ingress controller pod uses Nginx to manage incoming traffic to the Kubernetes cluster. It routes requests to the appropriate services based on predefined rules, ensuring that users can access the frontend and backend services. This is not used in the `-dev` environment, as the frontend and backend communicate directly with each other.
