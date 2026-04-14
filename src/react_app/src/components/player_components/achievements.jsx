@@ -17,6 +17,27 @@ const formatBestFinish = (value) => {
   return `#${value}`;
 };
 
+const RegionBadge = ({ region }) => {
+  if (region == null) {
+    return (
+      <span
+        aria-label="Unknown region"
+        className="inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-full border border-gray-800 text-[10px] font-semibold text-gray-500"
+      >
+        --
+      </span>
+    );
+  }
+
+  return (
+    <img
+      src={region ? TakorokaIcon : TentatekIcon}
+      alt={region ? "Takoroka" : "Tentatek"}
+      className="h-6 w-6 shrink-0"
+    />
+  );
+};
+
 const Achievements = ({ data }) => {
   const { t } = useTranslation("player");
   const { t: g } = useTranslation("game");
@@ -109,11 +130,7 @@ const Achievements = ({ data }) => {
                 className="rounded-md border border-gray-800/70 bg-black/10 px-3 py-3"
               >
                 <div className="flex items-center gap-2">
-                  <img
-                    src={season.region ? TakorokaIcon : TentatekIcon}
-                    alt={season.region ? "Takoroka" : "Tentatek"}
-                    className="h-6 w-6 shrink-0"
-                  />
+                  <RegionBadge region={season.region} />
                   <span className="font-medium text-white">
                     {getSeasonName(season.season_number - 1, g)}
                   </span>

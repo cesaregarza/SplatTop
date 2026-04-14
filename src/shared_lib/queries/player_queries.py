@@ -51,6 +51,7 @@ FROM MostRecentRow;
 PLAYER_DATA_QUERY = """
 SELECT
     mode,
+    region,
     season_number,
     timestamp,
     x_power,

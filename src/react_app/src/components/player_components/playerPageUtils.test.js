@@ -86,6 +86,15 @@ describe("playerPageUtils", () => {
 
   it("builds compact career highlights from historical season results", () => {
     const chartData = {
+      player_data: [
+        {
+          mode: "Splat Zones",
+          season_number: 7,
+          region: false,
+          updated: true,
+          timestamp: "2024-10-01T00:00:00.000Z",
+        },
+      ],
       aggregated_data: {
         season_results: [
           { season_number: 8, mode: "Splat Zones", rank: 1, region: true },
@@ -107,6 +116,7 @@ describe("playerPageUtils", () => {
         notableSeasons: [
           expect.objectContaining({
             season_number: 8,
+            region: false,
             finishes: [
               expect.objectContaining({ mode: "Splat Zones", rank: 1 }),
               expect.objectContaining({ mode: "Tower Control", rank: 21 }),
@@ -131,18 +141,23 @@ describe("playerPageUtils", () => {
         {
           mode: "Rainmaker",
           season_number: 4,
+          region: false,
+          updated: true,
           timestamp: "2024-09-01T00:00:00.000Z",
           x_power: 2500,
         },
         {
           mode: "Rainmaker",
           season_number: 4,
+          region: false,
           timestamp: "2024-09-10T00:00:00.000Z",
           x_power: 2600,
         },
         {
           mode: "Rainmaker",
           season_number: 5,
+          region: true,
+          updated: true,
           timestamp: "2024-12-05T00:00:00.000Z",
           x_power: 2700,
         },
@@ -163,6 +178,7 @@ describe("playerPageUtils", () => {
       expect.objectContaining({
         season_number: 6,
         raw_season_number: 5,
+        region: true,
         finishRank: 4,
         peakXp: 2730,
         sparklineValues: [2700],
@@ -171,6 +187,7 @@ describe("playerPageUtils", () => {
       expect.objectContaining({
         season_number: 5,
         raw_season_number: 4,
+        region: false,
         finishRank: 8,
         peakXp: 2620,
         sparklineValues: [2500, 2600],
@@ -251,7 +268,7 @@ describe("playerPageUtils", () => {
       );
 
       expect(archiveSections.visibleRows.map((row) => row.season_number)).toEqual([
-        6, 10, 9, 8,
+        10, 9, 8, 6,
       ]);
       expect(archiveSections.hiddenRows.map((row) => row.season_number)).toEqual([
         7,
@@ -345,5 +362,48 @@ describe("playerPageUtils", () => {
     ];
 
     expect(countDiamondSeasons(seasonResults)).toBe(1);
+  });
+
+  it("prefers in-season region history when season results are missing", () => {
+    const chartData = {
+      player_data: [
+        {
+          mode: "Splat Zones",
+          season_number: 12,
+          region: false,
+          timestamp: "2025-09-02T02:21:23.000Z",
+          updated: false,
+          x_power: 2750.9,
+        },
+        {
+          mode: "Splat Zones",
+          season_number: 12,
+          region: true,
+          timestamp: "2025-11-17T02:20:41.000Z",
+          updated: true,
+          x_power: 2932.6,
+        },
+      ],
+      aggregated_data: {
+        season_results: [],
+        latest_data: [],
+        aggregate_season_data: [
+          {
+            season_number: 12,
+            mode: "Splat Zones",
+            peak_x_power: 2932.6,
+          },
+        ],
+      },
+    };
+
+    expect(getSeasonArchiveRows(chartData, "Splat Zones")).toEqual([
+      expect.objectContaining({
+        season_number: 13,
+        raw_season_number: 12,
+        region: true,
+        peakXp: 2932.6,
+      }),
+    ]);
   });
 });
