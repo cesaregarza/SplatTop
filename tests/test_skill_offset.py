@@ -1,3 +1,6 @@
+import importlib
+
+import numpy as np
 import orjson
 
 from shared_lib.constants import SKILL_OFFSET_REDIS_KEY
@@ -54,3 +57,46 @@ def test_skill_offset_rejects_unknown_slices(client, fake_redis, monkeypatch):
     response = client.get("/api/skill-offset?mode=Unknown")
     assert response.status_code == 404
     assert response.json() == {"detail": "Skill offset slice not found."}
+
+
+def test_align_sorted_xp_scaled_to_surface_resamples_percentiles(monkeypatch):
+    monkeypatch.setenv("DB_HOST", "localhost")
+    monkeypatch.setenv("DB_PORT", "5432")
+    monkeypatch.setenv("DB_USER", "user")
+    monkeypatch.setenv("DB_PASSWORD", "pass")
+    monkeypatch.setenv("DB_NAME", "db")
+    monkeypatch.setenv("RANKINGS_DB_NAME", "db")
+
+    skill_offset_mod = importlib.import_module(
+        "celery_app.tasks.analytics.skill_offset"
+    )
+
+    input_values = np.linspace(0, 1, 5)
+    aligned = skill_offset_mod.align_sorted_xp_scaled_to_surface(
+        skill_offset_mod.pd.Series(input_values), 11
+    )
+
+    assert len(aligned) == 11
+    assert np.isclose(aligned.iloc[0], 0.0)
+    assert np.isclose(aligned.iloc[-1], 1.0)
+    assert np.all(np.diff(aligned.to_numpy()) >= 0)
+
+
+def test_align_sorted_xp_scaled_to_surface_keeps_canonical_size(monkeypatch):
+    monkeypatch.setenv("DB_HOST", "localhost")
+    monkeypatch.setenv("DB_PORT", "5432")
+    monkeypatch.setenv("DB_USER", "user")
+    monkeypatch.setenv("DB_PASSWORD", "pass")
+    monkeypatch.setenv("DB_NAME", "db")
+    monkeypatch.setenv("RANKINGS_DB_NAME", "db")
+
+    skill_offset_mod = importlib.import_module(
+        "celery_app.tasks.analytics.skill_offset"
+    )
+
+    input_values = np.array([0.1, 0.3, 0.6, 0.9])
+    aligned = skill_offset_mod.align_sorted_xp_scaled_to_surface(
+        skill_offset_mod.pd.Series(input_values), len(input_values)
+    )
+
+    np.testing.assert_allclose(aligned.to_numpy(), input_values)

@@ -19,6 +19,27 @@ NUM_BINS = 150
 ALL_SLICE_KEY = "all"
 
 
+def align_sorted_xp_scaled_to_surface(
+    sorted_xp_scaled: pd.Series, target_size: int
+) -> pd.Series:
+    values = sorted_xp_scaled.to_numpy(dtype=float, copy=False)
+    current_size = values.shape[0]
+
+    if current_size == 0:
+        raise ValueError("Cannot align an empty skill offset slice.")
+
+    if current_size == target_size:
+        return pd.Series(values)
+
+    if current_size == 1:
+        return pd.Series(np.repeat(values[0], target_size))
+
+    source_percentiles = (np.arange(current_size) + 0.5) / current_size
+    target_percentiles = (np.arange(target_size) + 0.5) / target_size
+    aligned_values = np.interp(target_percentiles, source_percentiles, values)
+    return pd.Series(aligned_values)
+
+
 def map_indices_to_data(df: pd.DataFrame) -> pd.DataFrame:
     agg_data = (
         df.groupby("weapon_name")
@@ -81,15 +102,12 @@ def map_indices_to_data(df: pd.DataFrame) -> pd.DataFrame:
 
 
 def compute_probability_map(sorted_xp_scaled: pd.Series) -> pd.DataFrame:
-    if len(sorted_xp_scaled) < 4000:
-        padding_length = 4000 - len(sorted_xp_scaled)
-        front_padding = [np.nan] * (padding_length // 2)
-        back_padding = [np.nan] * (padding_length - len(front_padding))
-        sorted_xp_scaled = pd.Series(
-            front_padding + sorted_xp_scaled.tolist() + back_padding
-        )
+    probability_surface = load_probabilities()
+    sorted_xp_scaled = align_sorted_xp_scaled_to_surface(
+        sorted_xp_scaled, probability_surface.shape[0]
+    )
 
-    prob_df = pd.DataFrame(load_probabilities())
+    prob_df = pd.DataFrame(probability_surface)
     prob_df.columns = [int(x) * 2 + 1 for x in range(prob_df.shape[1])]
     prob_df["y"] = sorted_xp_scaled.values
     prob_df["y_bin"] = pd.cut(prob_df["y"], bins=NUM_BINS)
