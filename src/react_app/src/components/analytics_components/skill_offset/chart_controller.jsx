@@ -1,8 +1,24 @@
 import React from "react";
 import { useTranslation } from "react-i18next";
+import { modes } from "../../constants";
 
-function SkillOffsetChartController({ logarithmic, toggleLogarithmic }) {
+const ALL_SLICE_KEY = "all";
+const regions = ["Tentatek", "Takoroka"];
+
+function SkillOffsetChartController({
+  logarithmic,
+  toggleLogarithmic,
+  selectedMode,
+  setSelectedMode,
+  selectedRegion,
+  setSelectedRegion,
+  sampleSize,
+}) {
   const { t } = useTranslation("analytics");
+  const sampleSizeLabel = t("skill_offset.controller.sample_size").replace(
+    "%COUNT%",
+    sampleSize
+  );
 
   return (
     <div className="pb-24">
@@ -51,6 +67,43 @@ function SkillOffsetChartController({ logarithmic, toggleLogarithmic }) {
               </span>
             </div>
           </label>
+          <div className="grid w-full max-w-3xl grid-cols-1 gap-4 px-4 pt-6 md:grid-cols-2">
+            <label className="flex flex-col gap-2 text-left text-sm font-medium">
+              <span>{t("skill_offset.controller.mode_slice")}</span>
+              <select
+                className="rounded-md border border-gray-600 bg-gray-800 px-3 py-2 text-white"
+                value={selectedMode}
+                onChange={(event) => setSelectedMode(event.target.value)}
+              >
+                <option value={ALL_SLICE_KEY}>
+                  {t("skill_offset.controller.all_modes")}
+                </option>
+                {modes.map((mode) => (
+                  <option key={mode} value={mode}>
+                    {mode}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <label className="flex flex-col gap-2 text-left text-sm font-medium">
+              <span>{t("skill_offset.controller.region_slice")}</span>
+              <select
+                className="rounded-md border border-gray-600 bg-gray-800 px-3 py-2 text-white"
+                value={selectedRegion}
+                onChange={(event) => setSelectedRegion(event.target.value)}
+              >
+                <option value={ALL_SLICE_KEY}>
+                  {t("skill_offset.controller.all_regions")}
+                </option>
+                {regions.map((region) => (
+                  <option key={region} value={region}>
+                    {region}
+                  </option>
+                ))}
+              </select>
+            </label>
+          </div>
+          <div className="pt-4 text-sm font-medium">{sampleSizeLabel}</div>
         </div>
       </div>
     </div>

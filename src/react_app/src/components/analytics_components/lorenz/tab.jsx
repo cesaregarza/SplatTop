@@ -3,7 +3,7 @@ import Loading from "../../misc_components/loading";
 import { getBaseApiUrl } from "../../utils";
 import { useTranslation } from "react-i18next";
 import LorenzGraph from "./graph";
-import { fetchJson } from "../../utils/fetchJson";
+import { fetchJson } from "../../../http";
 
 const LorenzTab = () => {
   const { t } = useTranslation("analytics");
@@ -22,10 +22,11 @@ const LorenzTab = () => {
       const translationEndpoint = `${apiUrl}/api/game-translation`;
 
       try {
-        const responseData = await fetchJson(endpoint);
-        setData(responseData);
-
-        const translationsData = await fetchJson(translationEndpoint);
+        const [lorenzData, translationsData] = await Promise.all([
+          fetchJson(endpoint),
+          fetchJson(translationEndpoint),
+        ]);
+        setData(lorenzData);
         setWeaponTranslations(translationsData);
       } catch (error) {
         setError(error);

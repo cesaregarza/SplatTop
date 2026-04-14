@@ -11,11 +11,12 @@ from celery_app.tasks.analytics.utils import (
     pull_all_latest_data,
 )
 from shared_lib.analytics import load_probabilities
-from shared_lib.constants import SKILL_OFFSET_REDIS_KEY
+from shared_lib.constants import MODES, REGIONS, SKILL_OFFSET_REDIS_KEY
 
 logger = logging.getLogger(__name__)
 
 NUM_BINS = 150
+ALL_SLICE_KEY = "all"
 
 
 def map_indices_to_data(df: pd.DataFrame) -> pd.DataFrame:
@@ -133,25 +134,54 @@ def create_interpolator(df_melted: pd.DataFrame) -> RegularGridInterpolator:
     return RegularGridInterpolator((y_values, k_values), data, method="linear")
 
 
+def subcompute_skill_offset(input_df: pd.DataFrame, label: str) -> pd.Series:
+    diff = input_df["mode_logprob"].sub(input_df[label + "_logprob"])
+    return (
+        input_df[label]
+        .sub(input_df["mode_bin_center"])
+        .gt(0)
+        .map({True: 1, False: -1})
+        .mul(diff)
+    )
+
+
+def build_skill_offset_slice(df: pd.DataFrame) -> list[dict]:
+    if df.empty:
+        return []
+
+    df = map_indices_to_data(df)
+    df["skill_offset"] = subcompute_skill_offset(df, "median")
+    return df.to_dict(orient="records")
+
+
+def build_skill_offset_payload(df: pd.DataFrame) -> dict[str, dict[str, list]]:
+    payload = {
+        ALL_SLICE_KEY: {
+            ALL_SLICE_KEY: build_skill_offset_slice(df),
+        }
+    }
+
+    for region in REGIONS:
+        payload[ALL_SLICE_KEY][region] = build_skill_offset_slice(
+            df[df["region"] == region]
+        )
+
+    for mode in MODES:
+        mode_df = df[df["mode"] == mode]
+        payload[mode] = {
+            ALL_SLICE_KEY: build_skill_offset_slice(mode_df),
+        }
+        for region in REGIONS:
+            payload[mode][region] = build_skill_offset_slice(
+                mode_df[mode_df["region"] == region]
+            )
+
+    return payload
+
+
 def compute_skill_offset() -> None:
     df = pull_all_latest_data()
     df = append_weapon_data(df)
-    df = map_indices_to_data(df)
+    payload = build_skill_offset_payload(df)
 
-    def subcompute_skill_offset(
-        input_df: pd.DataFrame, label: str
-    ) -> pd.Series:
-        diff = input_df["mode_logprob"].sub(input_df[label + "_logprob"])
-        return (
-            input_df[label]
-            .sub(input_df["mode_bin_center"])
-            .gt(0)
-            .map({True: 1, False: -1})
-            .mul(diff)
-        )
-
-    df["skill_offset"] = subcompute_skill_offset(df, "median")
-
-    redis_conn.set(
-        SKILL_OFFSET_REDIS_KEY, orjson.dumps(df.to_dict(orient="records"))
-    )
+    redis_conn.set(SKILL_OFFSET_REDIS_KEY, orjson.dumps(payload))

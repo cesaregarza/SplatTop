@@ -1,12 +1,22 @@
-import React, { useState } from "react";
+import React, { useMemo, useState } from "react";
 import HighchartsReact from "highcharts-react-official";
 import Highcharts from "highcharts";
 import { useTranslation } from "react-i18next";
 
-const SkillOffsetGraph = ({ data, weaponTranslations, logarithmic }) => {
+const SkillOffsetGraph = ({
+  data,
+  weaponTranslations,
+  logarithmic,
+  sampleSize,
+}) => {
   const { t } = useTranslation("analytics");
   const [showTooltip, setShowTooltip] = useState(false);
   const imageSize = 32;
+  const xAxisTitle = useMemo(
+    () =>
+      t("skill_offset.xaxis.title").replace("%COUNT%", sampleSize),
+    [sampleSize, t]
+  );
   const minSkillOffset = data.reduce(
     (acc, item) => Math.min(acc, item.skill_offset),
     0
@@ -71,7 +81,7 @@ const SkillOffsetGraph = ({ data, weaponTranslations, logarithmic }) => {
     xAxis: {
       type: logarithmic ? "logarithmic" : "linear",
       title: {
-        text: t("skill_offset.xaxis.title"),
+        text: xAxisTitle,
         style: {
           color: "#ffffff",
           fontSize: "16px",

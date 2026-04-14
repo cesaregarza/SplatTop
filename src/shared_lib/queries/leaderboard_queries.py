@@ -134,6 +134,53 @@ ORDER BY
     x_power DESC;
 """
 
+ARCHIVED_LEADERBOARD_SQLITE_QUERY = """
+WITH latest_aliases AS (
+    SELECT
+        a.player_id,
+        a.alias
+    FROM
+        aliases a
+    WHERE
+        (a.player_id, a.last_seen) IN (
+            SELECT
+                player_id,
+                MAX(last_seen) AS last_seen
+            FROM
+                aliases
+            GROUP BY
+                player_id
+        )
+)
+SELECT
+    s.player_id,
+    COALESCE(a.alias, s.player_id) AS splashtag,
+    s.rank,
+    s.x_power,
+    s.weapon_id
+FROM
+    season_results s
+LEFT JOIN
+    latest_aliases a ON s.player_id = a.player_id
+WHERE
+    s.mode = :mode
+    AND (s.region = :region OR :region IS NULL)
+    AND s.season_number = :season_number
+ORDER BY
+    s.rank ASC;
+"""
+
+ARCHIVED_LEADERBOARD_SEASONS_SQLITE_QUERY = """
+SELECT DISTINCT
+    season_number - 1 AS season_number
+FROM
+    season_results
+WHERE
+    season_number > 1
+ORDER BY
+    season_number DESC;
+"""
+
 ALL_PEAKS_SQLITE_QUERY = """
 WITH player_rankings AS (
     SELECT 

@@ -51,6 +51,14 @@ const Navbar = () => {
           <ul className="flex flex-col md:flex-row items-center md:space-x-6 py-4 md:py-0">
             <li>
               <Link
+                to="/legacy"
+                className="block py-2 px-4 text-white hover:bg-purple rounded-md transition duration-300"
+              >
+                {t("navbar.legacy")}
+              </Link>
+            </li>
+            <li>
+              <Link
                 to="/faq"
                 className="block py-2 px-4 text-white hover:bg-purple rounded-md transition duration-300"
               >

@@ -4,7 +4,45 @@ import { getBaseApiUrl } from "../../utils";
 import { useTranslation } from "react-i18next";
 import SkillOffsetGraph from "./graph";
 import SkillOffsetChartController from "./chart_controller";
-import { fetchJson } from "../../utils/fetchJson";
+import { fetchJson } from "../../../http";
+
+const ALL_SLICE_KEY = "all";
+
+const buildSkillOffsetEndpoint = (apiUrl, selectedMode, selectedRegion) => {
+  const params = new URLSearchParams();
+
+  if (selectedMode !== ALL_SLICE_KEY) {
+    params.set("mode", selectedMode);
+  }
+
+  if (selectedRegion !== ALL_SLICE_KEY) {
+    params.set("region", selectedRegion);
+  }
+
+  const queryString = params.toString();
+  return queryString
+    ? `${apiUrl}/api/skill-offset?${queryString}`
+    : `${apiUrl}/api/skill-offset`;
+};
+
+const getSkillOffsetSampleSize = (selectedMode, selectedRegion) => {
+  if (
+    selectedMode === ALL_SLICE_KEY &&
+    selectedRegion === ALL_SLICE_KEY
+  ) {
+    return 4000;
+  }
+
+  if (selectedMode === ALL_SLICE_KEY) {
+    return 2000;
+  }
+
+  if (selectedRegion === ALL_SLICE_KEY) {
+    return 1000;
+  }
+
+  return 500;
+};
 
 const SkillOffsetTab = () => {
   const { t } = useTranslation("analytics");
@@ -14,30 +52,57 @@ const SkillOffsetTab = () => {
   const [error, setError] = useState(null);
   const [weaponTranslations, setWeaponTranslations] = useState(null);
   const [logarithmic, setLogarithmic] = useState(false);
+  const [selectedMode, setSelectedMode] = useState(ALL_SLICE_KEY);
+  const [selectedRegion, setSelectedRegion] = useState(ALL_SLICE_KEY);
+  const sampleSize = getSkillOffsetSampleSize(
+    selectedMode,
+    selectedRegion
+  );
 
   useEffect(() => {
+    document.title = t("document_title");
+  }, [t]);
+
+  useEffect(() => {
+    let ignore = false;
+
     const fetchData = async () => {
       setIsLoading(true);
-      document.title = t("document_title");
+      setError(null);
       const apiUrl = getBaseApiUrl();
-      const endpoint = `${apiUrl}/api/skill-offset`;
+      const endpoint = buildSkillOffsetEndpoint(
+        apiUrl,
+        selectedMode,
+        selectedRegion
+      );
       const translationEndpoint = `${apiUrl}/api/game-translation`;
 
       try {
-        const responseData = await fetchJson(endpoint);
-        setData(responseData);
-
-        const translationsData = await fetchJson(translationEndpoint);
-        setWeaponTranslations(translationsData);
+        const [skillOffsetData, translationsData] = await Promise.all([
+          fetchJson(endpoint),
+          fetchJson(translationEndpoint),
+        ]);
+        if (!ignore) {
+          setData(skillOffsetData);
+          setWeaponTranslations(translationsData);
+        }
       } catch (error) {
-        setError(error);
+        if (!ignore) {
+          setError(error);
+        }
       } finally {
-        setIsLoading(false);
+        if (!ignore) {
+          setIsLoading(false);
+        }
       }
     };
 
     fetchData();
-  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
+    return () => {
+      ignore = true;
+    };
+  }, [selectedMode, selectedRegion]);
 
   const toggleLogarithmic = () => {
     setLogarithmic((prevLogarithmic) => !prevLogarithmic);
@@ -60,10 +125,16 @@ const SkillOffsetTab = () => {
                   data={data}
                   weaponTranslations={weaponTranslations[p("data_lang_key")]}
                   logarithmic={logarithmic}
+                  sampleSize={sampleSize}
                 />
                 <SkillOffsetChartController
                   logarithmic={logarithmic}
                   toggleLogarithmic={toggleLogarithmic}
+                  selectedMode={selectedMode}
+                  setSelectedMode={setSelectedMode}
+                  selectedRegion={selectedRegion}
+                  setSelectedRegion={setSelectedRegion}
+                  sampleSize={sampleSize}
                 />
               </>
             ) : (
