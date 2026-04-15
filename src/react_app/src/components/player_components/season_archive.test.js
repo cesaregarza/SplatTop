@@ -52,42 +52,49 @@ describe("SeasonArchive", () => {
             {
               mode: "Rainmaker",
               season_number: 4,
+              region: false,
               timestamp: "2025-11-01T00:00:00.000Z",
               x_power: 2550,
             },
             {
               mode: "Rainmaker",
               season_number: 5,
+              region: false,
               timestamp: "2026-02-01T00:00:00.000Z",
               x_power: 2600,
             },
             {
               mode: "Rainmaker",
               season_number: 5,
+              region: false,
               timestamp: "2026-02-15T00:00:00.000Z",
               x_power: 2700,
             },
             {
               mode: "Rainmaker",
               season_number: 6,
+              region: true,
               timestamp: "2026-04-10T00:00:00.000Z",
               x_power: 2750,
             },
             {
               mode: "Rainmaker",
               season_number: 7,
+              region: true,
               timestamp: "2026-07-10T00:00:00.000Z",
               x_power: 2810,
             },
             {
               mode: "Rainmaker",
               season_number: 8,
+              region: false,
               timestamp: "2026-10-10T00:00:00.000Z",
               x_power: 2860,
             },
             {
               mode: "Rainmaker",
               season_number: 9,
+              region: true,
               timestamp: "2026-03-01T00:00:00.000Z",
               x_power: 2730,
             },
@@ -178,5 +185,32 @@ describe("SeasonArchive", () => {
 
     fireEvent.click(screen.getByText("Season 5"));
     expect(onSeasonChange).toHaveBeenCalledWith(6);
+  });
+
+  it("shows unknown instead of Tentatek when a season has no region data", () => {
+    render(
+      <SeasonArchive
+        data={{
+          player_data: [
+            {
+              mode: "Rainmaker",
+              season_number: 5,
+              timestamp: "2026-02-15T00:00:00.000Z",
+              x_power: 2700,
+            },
+          ],
+          aggregated_data: {
+            season_results: [],
+            aggregate_season_data: [],
+            latest_data: [],
+          },
+        }}
+        mode="Rainmaker"
+        activeSeason={6}
+      />
+    );
+
+    expect(screen.getByLabelText("Unknown region")).toBeInTheDocument();
+    expect(screen.queryByAltText("Tentatek")).not.toBeInTheDocument();
   });
 });

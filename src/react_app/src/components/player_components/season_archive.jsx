@@ -5,13 +5,26 @@ import TentatekIcon from "../../assets/icons/tentatek.png";
 import { calculateSeasonNow, getSeasonName } from "../utils/season_utils";
 import { getSeasonArchiveSections } from "./playerPageUtils";
 
-const RegionBadge = ({ region }) => (
-  <img
-    src={region ? TakorokaIcon : TentatekIcon}
-    alt={region ? "Takoroka" : "Tentatek"}
-    className="h-6 w-6 shrink-0"
-  />
-);
+const RegionBadge = ({ region }) => {
+  if (region == null) {
+    return (
+      <span
+        aria-label="Unknown region"
+        className="inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-full border border-gray-800 text-[10px] font-semibold text-gray-500"
+      >
+        --
+      </span>
+    );
+  }
+
+  return (
+    <img
+      src={region ? TakorokaIcon : TentatekIcon}
+      alt={region ? "Takoroka" : "Tentatek"}
+      className="h-6 w-6 shrink-0"
+    />
+  );
+};
 
 const Sparkline = ({ values, active }) => {
   if (!values || values.length < 2) {

@@ -1,7 +1,7 @@
 import React, { createContext, useContext, useState, useEffect } from "react";
 import { getBaseApiUrl } from "../utils";
 import { setCache, getCache, deleteCache } from "./cache_utils";
-import { fetchJson } from "./fetchJson";
+import { fetchJson } from "../../http";
 
 const WeaponAndTranslationContext = createContext();
 

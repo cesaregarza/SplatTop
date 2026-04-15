@@ -42,6 +42,15 @@ describe("Achievements", () => {
     render(
       <Achievements
         data={{
+          player_data: [
+            {
+              mode: "Splat Zones",
+              season_number: 7,
+              region: false,
+              updated: true,
+              timestamp: "2024-10-01T00:00:00.000Z",
+            },
+          ],
           aggregated_data: {
             season_results: [
               {
@@ -107,5 +116,27 @@ describe("Achievements", () => {
     expect(screen.getByText("Best Mode")).toBeInTheDocument();
     expect(screen.getByText("Splat Zones")).toBeInTheDocument();
     expect(screen.getByText("SZ #1 · TC #21")).toBeInTheDocument();
+    expect(screen.getAllByAltText("Tentatek")).toHaveLength(2);
+  });
+
+  it("shows unknown instead of Tentatek when no region exists for a notable season", () => {
+    render(
+      <Achievements
+        data={{
+          aggregated_data: {
+            season_results: [
+              {
+                season_number: 8,
+                mode: "Splat Zones",
+                rank: 1,
+              },
+            ],
+          },
+        }}
+      />
+    );
+
+    expect(screen.getByLabelText("Unknown region")).toBeInTheDocument();
+    expect(screen.queryByAltText("Tentatek")).not.toBeInTheDocument();
   });
 });

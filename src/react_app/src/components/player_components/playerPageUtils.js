@@ -19,6 +19,26 @@ const getTimestampValue = (value) => {
   return Number.isFinite(timestamp) ? timestamp : 0;
 };
 
+const getPreferredRegion = (rows = []) => {
+  const regionRows = rows.filter((row) => typeof row?.region === "boolean");
+
+  if (regionRows.length === 0) {
+    return null;
+  }
+
+  const [preferredRow] = [...regionRows].sort((left, right) => {
+    const updatedDiff =
+      Number(Boolean(right?.updated)) - Number(Boolean(left?.updated));
+    if (updatedDiff !== 0) {
+      return updatedDiff;
+    }
+
+    return getTimestampValue(right?.timestamp) - getTimestampValue(left?.timestamp);
+  });
+
+  return preferredRow?.region ?? null;
+};
+
 const getDisplaySeasonNumber = (rawSeasonNumber) =>
   isFiniteNumber(rawSeasonNumber) ? rawSeasonNumber + 1 : null;
 
@@ -306,8 +326,42 @@ const getPlayerSummary = (
   };
 };
 
-const getHistoricalSeasonResults = (chartData = {}) =>
-  chartData.aggregated_data?.season_results || [];
+const getHistoryRegionsByDisplaySeason = (chartData = {}) => {
+  const rowsByDisplaySeason = new Map();
+
+  (chartData.player_data || []).forEach((row) => {
+    const displaySeasonNumber = getDisplaySeasonNumber(row?.season_number);
+    if (
+      !isFiniteNumber(displaySeasonNumber) ||
+      typeof row?.region !== "boolean"
+    ) {
+      return;
+    }
+
+    const seasonRows = rowsByDisplaySeason.get(displaySeasonNumber) || [];
+    seasonRows.push(row);
+    rowsByDisplaySeason.set(displaySeasonNumber, seasonRows);
+  });
+
+  const regionsByDisplaySeason = new Map();
+  rowsByDisplaySeason.forEach((rows, displaySeasonNumber) => {
+    const region = getPreferredRegion(rows);
+    if (typeof region === "boolean") {
+      regionsByDisplaySeason.set(displaySeasonNumber, region);
+    }
+  });
+
+  return regionsByDisplaySeason;
+};
+
+const getHistoricalSeasonResults = (chartData = {}) => {
+  const historyRegions = getHistoryRegionsByDisplaySeason(chartData);
+
+  return (chartData.aggregated_data?.season_results || []).map((row) => ({
+    ...row,
+    region: historyRegions.get(row.season_number) ?? row.region ?? null,
+  }));
+};
 
 const getBestMode = (seasonResults = []) => {
   const modeStats = {};
@@ -480,6 +534,7 @@ const getSeasonArchiveRows = (chartData = {}, mode) => {
   const aggregatedData = chartData.aggregated_data || {};
   const combinedResults = getCombinedSeasonResults(aggregatedData);
   const displaySeasons = getAvailableDisplaySeasons(chartData);
+  const historyRegions = getHistoryRegionsByDisplaySeason(chartData);
 
   return displaySeasons.map((displaySeasonNumber) => {
     const rawSeasonNumber = getRawSeasonNumber(displaySeasonNumber);
@@ -505,7 +560,11 @@ const getSeasonArchiveRows = (chartData = {}, mode) => {
     return {
       season_number: displaySeasonNumber,
       raw_season_number: rawSeasonNumber,
-      region: regionResult?.region ?? modeResult?.region ?? null,
+      region:
+        historyRegions.get(displaySeasonNumber) ??
+        regionResult?.region ??
+        modeResult?.region ??
+        null,
       finishRank: isFiniteNumber(modeResult?.rank) ? modeResult.rank : null,
       peakXp,
       sparklineValues: sparklineRows

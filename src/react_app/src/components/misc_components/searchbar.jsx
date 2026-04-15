@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from "react";
 import { getBaseApiUrl } from "../utils";
 import { useTranslation } from "react-i18next";
-import { fetchJson } from "../utils/fetchJson";
+import { fetchJson } from "../../http";
 
 const apiUrl = getBaseApiUrl();
 const endpoint = `${apiUrl}/api/search`;
@@ -24,8 +24,8 @@ const SearchBar = () => {
         setIsShortQuery(false);
         const encodedQuery = encodeURIComponent(searchQuery);
         try {
-          const data = await fetchJson(`${endpoint}/${encodedQuery}`);
-          setSearchResults(data);
+          const results = await fetchJson(`${endpoint}/${encodedQuery}`);
+          setSearchResults(results);
         } catch (error) {
           console.error("Error searching:", error);
         }

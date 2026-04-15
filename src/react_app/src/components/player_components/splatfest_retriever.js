@@ -1,4 +1,4 @@
-import { fetchJson } from "../utils/fetchJson";
+import { fetchJson } from "../../http";
 
 export const fetchFestivalDates = async () => {
   try {

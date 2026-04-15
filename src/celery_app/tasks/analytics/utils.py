@@ -26,13 +26,20 @@ def pull_all_latest_data() -> pd.DataFrame:
     for mode in MODES:
         for region in REGIONS:
             player_df = fetch_leaderboard_data(mode, region == "Takoroka")
+            player_df = player_df.copy()
+            player_df["mode"] = mode
+            player_df["region"] = region
+
             xp_min = player_df["x_power"].min()
             xp_max = player_df["x_power"].max()
-            player_df["xp_scaled"] = (
-                player_df["x_power"].sub(xp_min).div(xp_max - xp_min)
-            )
+            if player_df.empty or xp_max == xp_min:
+                player_df["xp_scaled"] = 0.0
+            else:
+                player_df["xp_scaled"] = (
+                    player_df["x_power"].sub(xp_min).div(xp_max - xp_min)
+                )
             out.append(player_df)
-    return pd.concat(out)
+    return pd.concat(out, ignore_index=True)
 
 
 def append_weapon_data(df: pd.DataFrame) -> pd.DataFrame:
