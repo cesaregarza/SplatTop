@@ -17,7 +17,7 @@
   "column_career_title": "Carrera",
   "column_peak_xpower_title": "Peak X Power",
   "column_percent_games_played_title": "% Games Played",
-  "column_season_number_title": "Season",
+  "column_season_number_title": "Temporada",
   "select_columns": "Seleccionar columnas",
   "modes": "Modos",
   "region": "Región",
@@ -43,6 +43,6 @@
   "highlights.top10": "Top 10",
   "highlights.top500": "Top 500",
   "column_total_x_power_title": "Fuerza X Total",
-  "no_data": "No data available",
-  "errors.503": "Service Unavailable, please try again later."
+  "no_data": "No hay datos disponibles",
+  "errors.503": "Servicio no disponible. Inténtalo de nuevo más tarde."
 }
