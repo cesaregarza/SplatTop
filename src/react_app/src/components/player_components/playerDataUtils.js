@@ -6,6 +6,13 @@ const aggregatedKeys = [
   "latest_data",
 ];
 
+const createPlayerDetailStreamState = () => ({
+  chartData: null,
+  analysisReady: false,
+  analysisLoading: false,
+  analysisError: null,
+});
+
 const createEmptyPlayerDetailData = () => ({
   player_data: [],
   aggregated_data: aggregatedKeys.reduce(
@@ -59,9 +66,72 @@ const isLegacyPlayerDetailPayload = (payload) =>
       (Array.isArray(payload.player_data) || payload.aggregated_data)
   );
 
+const reducePlayerDetailStreamState = (currentState, payload) => {
+  const nextState = {
+    ...createPlayerDetailStreamState(),
+    ...(currentState || {}),
+  };
+  const currentChartData =
+    nextState.chartData || createEmptyPlayerDetailData();
+
+  if (isPlayerChunkEnvelope(payload)) {
+    const phase = payload.phase;
+    const chunkPayload = payload.payload || {};
+
+    if (phase === "snapshot") {
+      return {
+        chartData: mergePlayerDetailPayload(currentChartData, chunkPayload),
+        analysisReady: false,
+        analysisLoading: true,
+        analysisError: null,
+      };
+    }
+
+    if (phase === "analysis") {
+      return {
+        chartData: mergePlayerDetailPayload(currentChartData, chunkPayload),
+        analysisReady: true,
+        analysisLoading: false,
+        analysisError: null,
+      };
+    }
+
+    if (phase === "error") {
+      return {
+        ...nextState,
+        analysisLoading: false,
+        analysisError:
+          chunkPayload.message || "Unable to load player analysis data.",
+      };
+    }
+
+    if (phase === "complete") {
+      return {
+        ...nextState,
+        analysisLoading: false,
+      };
+    }
+
+    return nextState;
+  }
+
+  if (isLegacyPlayerDetailPayload(payload)) {
+    return {
+      chartData: mergePlayerDetailPayload(currentChartData, payload),
+      analysisReady: true,
+      analysisLoading: false,
+      analysisError: null,
+    };
+  }
+
+  return nextState;
+};
+
 export {
+  createPlayerDetailStreamState,
   createEmptyPlayerDetailData,
   isLegacyPlayerDetailPayload,
   isPlayerChunkEnvelope,
   mergePlayerDetailPayload,
+  reducePlayerDetailStreamState,
 };

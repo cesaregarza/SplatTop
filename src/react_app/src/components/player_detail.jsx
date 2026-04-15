@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef, Suspense } from "react";
-import { useLocation } from "react-router-dom";
+import { useParams } from "react-router-dom";
 import Loading from "./misc_components/loading";
 import { modes } from "./constants";
 import { getBaseApiUrl, getBaseWebsocketUrl } from "./utils";
@@ -10,6 +10,10 @@ import {
   WeaponAndTranslationProvider,
   useWeaponAndTranslation,
 } from "./utils/weaponAndTranslation";
+import {
+  createPlayerDetailStreamState,
+  reducePlayerDetailStreamState,
+} from "./player_components/playerDataUtils";
 
 const ChartController = React.lazy(() =>
   import("./player_components/chart_controller")
@@ -24,10 +28,11 @@ const Achievements = React.lazy(() =>
 
 const PlayerDetailContent = () => {
   const { t } = useTranslation("player");
-  const location = useLocation();
-  const player_id = location.pathname.split("/")[2];
+  const { player_id } = useParams();
   const [data, setData] = useState(null);
-  const [chartData, setChartData] = useState(null);
+  const [streamState, setStreamState] = useState(
+    createPlayerDetailStreamState
+  );
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState(null);
   const socketRef = useRef(null);
@@ -42,6 +47,9 @@ const PlayerDetailContent = () => {
   useEffect(() => {
     const fetchData = async () => {
       setIsLoading(true);
+      setError(null);
+      setData(null);
+      setStreamState(createPlayerDetailStreamState());
       document.title = t("document_title_loading");
       const apiUrl = getBaseApiUrl();
       const endpoint = `${apiUrl}/api/players/${player_id}`;
@@ -64,6 +72,13 @@ const PlayerDetailContent = () => {
         }
 
         const newSocket = new WebSocket(websocketEndpoint);
+        newSocket.binaryType = "blob";
+
+        const applySocketPayload = (payload) => {
+          setStreamState((currentState) =>
+            reducePlayerDetailStreamState(currentState, payload)
+          );
+        };
 
         newSocket.onmessage = (event) => {
           if (event.data instanceof Blob) {
@@ -73,12 +88,12 @@ const PlayerDetailContent = () => {
                 to: "string",
               });
               const newData = JSON.parse(decompressedData);
-              setChartData(newData);
+              applySocketPayload(newData);
             };
             reader.readAsArrayBuffer(event.data);
           } else {
             const newData = JSON.parse(event.data);
-            setChartData(newData);
+            applySocketPayload(newData);
           }
         };
 
@@ -107,6 +122,11 @@ const PlayerDetailContent = () => {
       }
     };
   }, [player_id, t]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const chartData = streamState.chartData;
+  const analysisReady = streamState.analysisReady;
+  const analysisLoading = streamState.analysisLoading;
+  const analysisError = streamState.analysisError;
 
   if (isLoading || isWeaponDataLoading) {
     return (
@@ -149,6 +169,9 @@ const PlayerDetailContent = () => {
                 modes={modes}
                 weaponTranslations={weaponTranslations[t("data_lang_key")]}
                 weaponReferenceData={weaponReferenceData}
+                analysisReady={analysisReady}
+                analysisLoading={analysisLoading}
+                analysisError={analysisError}
               />
             ) : (
               <Loading text={t("load_chart")} />
