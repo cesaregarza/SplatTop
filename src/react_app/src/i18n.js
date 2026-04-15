@@ -9,7 +9,7 @@ i18n
   .use(Backend)
   .use(initReactI18next)
   .init({
-    supportedLngs: ["USen","JPja","USes","EUen","CNzh"],
+    supportedLngs: ["USen","USes","CNzh","EUen","JPja"],
     backend: {
       loadPath: "/locales/{{lng}}/{{ns}}.json",
     },
