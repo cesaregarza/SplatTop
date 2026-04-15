@@ -7,7 +7,7 @@ jest.mock("./components/top500", () => () => <div>Top 500</div>);
 jest.mock("./components/static_pages/faq", () => () => <div>FAQ</div>);
 jest.mock("./components/static_pages/about", () => () => <div>About</div>);
 jest.mock("./components/static_pages/legacy_leaderboards", () => () => (
-  <h1>Legacy leaderboards</h1>
+  <h1>Season Archive</h1>
 ));
 jest.mock("./components/player_detail", () => () => <div>Player detail</div>);
 jest.mock("./components/analytics", () => () => <div>Analytics</div>);
@@ -37,10 +37,10 @@ test("renders without crashing", () => {
   expect(container).toBeTruthy();
 });
 
-test("renders the legacy leaderboards route", async () => {
+test("renders the season archive route", async () => {
   window.history.pushState({}, "", "/legacy");
   render(<App />);
   expect(
-    await screen.findByRole("heading", { name: /legacy leaderboards/i })
+    await screen.findByRole("heading", { name: /season archive/i })
   ).toBeInTheDocument();
 });

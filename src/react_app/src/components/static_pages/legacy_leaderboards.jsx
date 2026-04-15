@@ -1,8 +1,9 @@
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useState } from "react";
 import PlayerTable from "../top500_components/player_table";
 import Pagination from "../top500_components/pagination";
 import RegionSelector from "../top500_components/selectors/region_selector";
 import ModeSelector from "../top500_components/selectors/mode_selector";
+import SeasonSelector from "../leaderboards_components/season_selector";
 import { useTranslation } from "react-i18next";
 import { buildEndpointWithQueryParams, getBaseApiUrl } from "../utils";
 import { getCache, setCache } from "../utils/cache_utils";
@@ -76,6 +77,11 @@ const LegacyLeaderboards = () => {
   const [isLoading, setIsLoading] = useState(true);
   const itemsPerPage = 100;
 
+  const formatSeasonLabel = useCallback(
+    (season) => `Season ${season} · ${getSeasonName(season, gameT)}`,
+    [gameT]
+  );
+
   const endpoint = useMemo(() => {
     const params = {
       mode: selectedMode,
@@ -124,21 +130,26 @@ const LegacyLeaderboards = () => {
   }, [endpoint]);
 
   useEffect(() => {
+    if (data?.season_number == null) {
+      return;
+    }
+
     if (
-      data?.season_number != null &&
-      data.season_number !== selectedSeason
+      selectedSeason == null ||
+      (data.available_seasons?.length > 0 &&
+        !data.available_seasons.includes(selectedSeason))
     ) {
       setSelectedSeason(data.season_number);
     }
-  }, [data?.season_number, selectedSeason]);
+  }, [data?.available_seasons, data?.season_number, selectedSeason]);
 
   useEffect(() => {
     const titleSeason = data?.season_number ?? selectedSeason;
     document.title =
       titleSeason != null
-        ? `splat.top - ${getSeasonName(titleSeason, gameT)} Archive`
-        : "splat.top - Legacy Leaderboards";
-  }, [data?.season_number, gameT, selectedSeason]);
+        ? `splat.top - ${formatSeasonLabel(titleSeason)} Archive`
+        : "splat.top - Season Archive";
+  }, [data?.season_number, formatSeasonLabel, selectedSeason]);
 
   useEffect(() => {
     setCache("legacy.searchQuery", searchQuery, 60);
@@ -165,8 +176,12 @@ const LegacyLeaderboards = () => {
     [players, searchQuery]
   );
 
-  const displayedSeason = data?.season_number ?? selectedSeason;
+  const displayedSeason = selectedSeason ?? data?.season_number;
   const availableSeasons = data?.available_seasons ?? [];
+  const seasonSelectorOptions =
+    availableSeasons.length > 0 ? availableSeasons : null;
+  const seasonSelectorDisabled =
+    !isLoading && availableSeasons.length === 0;
   const indexOfLastItem = currentPage * itemsPerPage;
   const indexOfFirstItem = indexOfLastItem - itemsPerPage;
   const currentItems = filteredPlayers.slice(indexOfFirstItem, indexOfLastItem);
@@ -199,7 +214,7 @@ const LegacyLeaderboards = () => {
   return (
     <div className="container mx-auto px-4 py-8 bg-gray-900 text-white min-h-screen sm:px-2 lg:px-8">
       <h1 className="text-3xl font-bold mb-4 text-center sm:text-2xl">
-        Legacy leaderboards
+        Season Archive
       </h1>
       <p className="mx-auto mb-6 max-w-3xl text-center text-gray-300">
         Final Top 500 standings from completed seasons.
@@ -223,25 +238,22 @@ const LegacyLeaderboards = () => {
             {t("column_season_number_title")}
           </h2>
           <div className="flex justify-center">
-            <select
-              value={displayedSeason ?? ""}
-              onChange={(event) => updateSeason(parseInt(event.target.value, 10))}
-              className="w-full rounded-md border border-gray-700 bg-gray-800 px-4 py-3 text-white focus:outline-hidden focus:ring-2 focus:ring-purple"
-              disabled={availableSeasons.length === 0}
-            >
-              {availableSeasons.map((season) => (
-                <option key={season} value={season}>
-                  {getSeasonName(season, gameT)}
-                </option>
-              ))}
-            </select>
+            <SeasonSelector
+              selectedSeason={displayedSeason}
+              setSelectedSeason={updateSeason}
+              availableSeasons={seasonSelectorOptions}
+              allowClear={false}
+              disabled={seasonSelectorDisabled}
+              emptyLabel={isLoading ? t("loading") : t("no_data")}
+              className="w-full"
+            />
           </div>
         </div>
       </div>
 
       {displayedSeason != null && (
         <p className="mb-4 text-center text-sm text-gray-400">
-          {getSeasonName(displayedSeason, gameT)}
+          {formatSeasonLabel(displayedSeason)}
         </p>
       )}
 

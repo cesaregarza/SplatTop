@@ -38,9 +38,9 @@ celery.conf.beat_schedule = {
         "task": "tasks.fetch_weapon_leaderboard",
         "schedule": crontab(minute="5-59/10"),
     },
-    "fetch-season-results-every-hour": {
+    "fetch-season-results-daily": {
         "task": "tasks.fetch_season_results",
-        "schedule": crontab(minute=30, hour="*"),
+        "schedule": crontab(minute=30, hour=0),
     },
     "refresh-lookup-sqlite-every-ten-minutes": {
         "task": "tasks.refresh_lookup_sqlite_snapshot",
