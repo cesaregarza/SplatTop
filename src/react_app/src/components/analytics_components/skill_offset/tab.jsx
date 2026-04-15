@@ -134,7 +134,6 @@ const SkillOffsetTab = () => {
                   setSelectedMode={setSelectedMode}
                   selectedRegion={selectedRegion}
                   setSelectedRegion={setSelectedRegion}
-                  sampleSize={sampleSize}
                 />
               </>
             ) : (

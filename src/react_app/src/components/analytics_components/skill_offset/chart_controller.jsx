@@ -12,13 +12,8 @@ function SkillOffsetChartController({
   setSelectedMode,
   selectedRegion,
   setSelectedRegion,
-  sampleSize,
 }) {
   const { t } = useTranslation("analytics");
-  const sampleSizeLabel = t("skill_offset.controller.sample_size").replace(
-    "%COUNT%",
-    sampleSize
-  );
 
   return (
     <div className="pb-24">
@@ -103,7 +98,6 @@ function SkillOffsetChartController({
               </select>
             </label>
           </div>
-          <div className="pt-4 text-sm font-medium">{sampleSizeLabel}</div>
         </div>
       </div>
     </div>
