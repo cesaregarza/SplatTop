@@ -117,8 +117,8 @@
     "highlights.top10": "Top 10",
     "highlights.top500": "Top 500",
     "column_total_x_power_title": "Fuerza X Total",
-    "no_data": "No data available",
-    "errors.503": "Service Unavailable, please try again later."
+    "no_data": "No hay datos disponibles",
+    "errors.503": "Servicio no disponible. Inténtalo de nuevo más tarde."
   },
   "weapon_leaderboard": {
     "weapon_select_main": "Weapon Select",
