@@ -1,7 +1,12 @@
 import orjson
 from fastapi import APIRouter, HTTPException, Query
 
-from fast_api_app.connections import redis_conn, sqlite_cursor
+from fast_api_app.connections import redis_conn
+from fast_api_app.sqlite_lookup_store import (
+    lookup_fetchall,
+    lookup_fetchall_with_columns,
+    lookup_scalar,
+)
 from shared_lib.queries.leaderboard_queries import (
     ARCHIVED_LEADERBOARD_SEASONS_SQLITE_QUERY,
     ARCHIVED_LEADERBOARD_SQLITE_QUERY,
@@ -22,10 +27,9 @@ def _players_to_columnar(players: list[dict]) -> dict[str, list]:
 
 
 def _get_available_archive_seasons() -> list[int]:
-    results = sqlite_cursor.execute(ARCHIVED_LEADERBOARD_SEASONS_SQLITE_QUERY)
     return [
         row[0]
-        for row in results.fetchall()
+        for row in lookup_fetchall(ARCHIVED_LEADERBOARD_SEASONS_SQLITE_QUERY)
         if row[0] is not None and row[0] >= 1
     ]
 
@@ -56,7 +60,8 @@ async def archived_leaderboard(
         "Splat Zones", description="Game mode for the leaderboard"
     ),
     region: str = Query("Tentatek", description="Region for the leaderboard"),
-    season: int | None = Query(
+    season: int
+    | None = Query(
         None,
         ge=1,
         description="Completed season number for the archived leaderboard",
@@ -73,7 +78,7 @@ async def archived_leaderboard(
         season if season in available_seasons else available_seasons[0]
     )
     region_bool = region.lower() == "takoroka"
-    results = sqlite_cursor.execute(
+    columns, rows = lookup_fetchall_with_columns(
         ARCHIVED_LEADERBOARD_SQLITE_QUERY,
         {
             "mode": mode,
@@ -81,8 +86,12 @@ async def archived_leaderboard(
             "season_number": selected_season + 1,
         },
     )
-    rows = results.fetchall()
-    columns = [desc[0] for desc in sqlite_cursor.description]
+
+    if not rows and not lookup_scalar("SELECT COUNT(*) FROM season_results"):
+        raise HTTPException(
+            status_code=503,
+            detail="Data is not available yet, please wait.",
+        )
 
     players = []
     for row in rows:

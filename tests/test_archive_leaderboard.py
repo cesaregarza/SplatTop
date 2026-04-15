@@ -1,68 +1,34 @@
-import sqlite3
-
-
-def _build_archive_db():
-    conn = sqlite3.connect(":memory:", check_same_thread=False)
-    cursor = conn.cursor()
-    cursor.execute(
-        """
-        CREATE TABLE aliases (
-            alias TEXT,
-            player_id TEXT,
-            last_seen DATETIME
-        )
-        """
-    )
-    cursor.execute(
-        """
-        CREATE TABLE season_results (
-            player_id TEXT,
-            season_number INTEGER,
-            mode TEXT,
-            region BOOLEAN,
-            weapon_id INTEGER,
-            x_power REAL,
-            rank INTEGER
-        )
-        """
-    )
-    conn.commit()
-    return conn, cursor
-
-
 def test_archive_leaderboard_returns_final_season_results(client, monkeypatch):
     import fast_api_app.routes.front_page as front_page_mod
 
-    conn, cursor = _build_archive_db()
-    cursor.executemany(
-        "INSERT INTO aliases (alias, player_id, last_seen) VALUES (?, ?, ?)",
-        [
-            ("older-tag", "p1", "2024-01-01T00:00:00"),
-            ("fresh-tag", "p1", "2024-02-01T00:00:00"),
-            ("player-two", "p2", "2024-02-03T00:00:00"),
-        ],
-    )
-    cursor.executemany(
-        """
-        INSERT INTO season_results (
-            player_id,
-            season_number,
-            mode,
-            region,
-            weapon_id,
-            x_power,
-            rank
-        ) VALUES (?, ?, ?, ?, ?, ?, ?)
-        """,
-        [
-            ("p1", 2, "Splat Zones", 0, 1010, 2500.1, 1),
-            ("p2", 2, "Splat Zones", 0, 2020, 2490.2, 2),
-            ("p3", 3, "Splat Zones", 0, 3030, 2600.3, 1),
-        ],
-    )
-    conn.commit()
+    archive_rows = [
+        (2,),
+        (1,),
+    ]
+    archive_columns = [
+        "player_id",
+        "splashtag",
+        "rank",
+        "x_power",
+        "weapon_id",
+    ]
+    archive_result_rows = [
+        ("p1", "fresh-tag", 1, 2500.1, 1010),
+        ("p2", "player-two", 2, 2490.2, 2020),
+    ]
 
-    monkeypatch.setattr(front_page_mod, "sqlite_cursor", cursor, raising=False)
+    monkeypatch.setattr(
+        front_page_mod,
+        "lookup_fetchall",
+        lambda query, params=(): archive_rows,
+        raising=False,
+    )
+    monkeypatch.setattr(
+        front_page_mod,
+        "lookup_fetchall_with_columns",
+        lambda query, params=(): (archive_columns, archive_result_rows),
+        raising=False,
+    )
     monkeypatch.setattr(
         front_page_mod,
         "get_weapon_image",
@@ -87,12 +53,11 @@ def test_archive_leaderboard_returns_final_season_results(client, monkeypatch):
     ]
 
 
-def test_archive_leaderboard_returns_503_when_no_archive_data(client, monkeypatch):
-    import fast_api_app.routes.front_page as front_page_mod
-
-    conn, cursor = _build_archive_db()
-    monkeypatch.setattr(front_page_mod, "sqlite_cursor", cursor, raising=False)
-
+def test_archive_leaderboard_returns_503_when_no_archive_data(
+    client, monkeypatch
+):
     response = client.get("/api/leaderboard/archive")
     assert response.status_code == 503
-    assert response.json()["detail"] == "Data is not available yet, please wait."
+    assert (
+        response.json()["detail"] == "Data is not available yet, please wait."
+    )
