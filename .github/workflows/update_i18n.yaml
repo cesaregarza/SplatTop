@@ -7,15 +7,19 @@ on:
     paths:
       - "i18n/**"
 
+permissions:
+  contents: write
+
 jobs:
   i18n:
     runs-on: ubuntu-latest
     environment: SplatTop
     steps:
       - name: Checkout
-        uses: actions/checkout@v3
+        uses: actions/checkout@v5
         with:
-          token: ${{ secrets.CI_SPLATTOP_TOKEN }}
+          token: ${{ github.token }}
+          ref: ${{ github.ref_name }}
           fetch-depth: 0
 
       - name: Check if push is from GitHub Actions
@@ -58,10 +62,10 @@ jobs:
 
       - name: Create commit
         run: |
-          git add *
+          git add i18n src/react_app/public/locales src/react_app/src/components/supported_languages.js src/react_app/src/i18n.js
           if git diff-index --quiet HEAD; then
             echo "No changes to commit"
           else
             git commit -m "AUTO-I18N: Update i18n files"
-            git push origin HEAD
+            git push origin HEAD:${GITHUB_REF_NAME}
           fi
