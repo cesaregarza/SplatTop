@@ -35,6 +35,11 @@ jobs:
           git config --global user.name "GitHub Actions"
           git config --global user.email "actions@github.com"
 
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
       - name: Install Poetry
         run: |
           curl -sSL https://install.python-poetry.org | python3 -
