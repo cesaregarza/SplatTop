@@ -47,7 +47,7 @@ jobs:
 
       - name: Install script dependencies
         run: |
-          poetry install --with scripts
+          poetry install --with scripts --no-root
 
       - name: Set script permissions
         run: |
