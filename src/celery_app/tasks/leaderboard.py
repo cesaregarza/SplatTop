@@ -20,19 +20,12 @@ from shared_lib.queries.leaderboard_queries import (
     SEASON_RESULTS_QUERY,
     WEAPON_LEADERBOARD_QUERY,
 )
-from shared_lib.queries.player_queries import CURRENT_SEASON_QUERY
+from shared_lib.queries.player_queries import fetch_current_season
 from shared_lib.utils import get_all_alt_kits
 
 logger = logging.getLogger(__name__)
 
 idx_columns = ["player_id", "season_number", "mode", "region"]
-
-
-def _fetch_current_season() -> int | None:
-    query = text(CURRENT_SEASON_QUERY)
-    with Session() as session:
-        season_number = session.execute(query).scalar_one_or_none()
-    return int(season_number) if season_number is not None else None
 
 
 def _empty_weapon_leaderboard() -> pd.DataFrame:
@@ -82,7 +75,8 @@ def fetch_live_weapon_leaderboard_data() -> pd.DataFrame:
     logger.info("Fetching live weapon leaderboard data")
     query = text(LIVE_WEAPON_LEADERBOARD_QUERY)
     start = perf_counter()
-    current_season = _fetch_current_season()
+    with Session() as session:
+        current_season = fetch_current_season(session)
     if current_season is None:
         return _empty_weapon_leaderboard()
     with Session() as session:

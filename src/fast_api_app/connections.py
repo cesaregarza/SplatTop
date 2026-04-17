@@ -34,6 +34,7 @@ from shared_lib.monitoring import (
 
 # Setup logger
 logger = logging.getLogger(__name__)
+# Version 2 streams player detail state as snapshot, analysis, then complete.
 PLAYER_CHUNK_VERSION = 2
 PLAYER_AGGREGATED_KEYS = (
     "weapon_counts",
@@ -147,7 +148,7 @@ class ConnectionManager:
         cls, payload: dict | None
     ) -> dict:
         merged_payload = cls._build_empty_player_payload()
-        if not payload:
+        if payload is None:
             return merged_payload
         if "player_data" in payload and payload["player_data"] is not None:
             merged_payload["player_data"] = payload["player_data"]
@@ -159,27 +160,27 @@ class ConnectionManager:
 
     @classmethod
     def _build_cached_snapshot_payload(cls, payload: dict) -> dict:
+        aggregated_payload = payload.get("aggregated_data") or {}
         return {
             "aggregated_data": {
-                "season_results": payload["aggregated_data"][
-                    "season_results"
-                ],
-                "latest_data": payload["aggregated_data"]["latest_data"],
+                "season_results": aggregated_payload.get("season_results", []),
+                "latest_data": aggregated_payload.get("latest_data", []),
             }
         }
 
     @classmethod
     def _build_cached_analysis_payload(cls, payload: dict) -> dict:
+        aggregated_payload = payload.get("aggregated_data") or {}
         return {
-            "player_data": payload["player_data"],
+            "player_data": payload.get("player_data", []),
             "aggregated_data": {
-                "aggregate_season_data": payload["aggregated_data"][
-                    "aggregate_season_data"
-                ],
-                "weapon_counts": payload["aggregated_data"]["weapon_counts"],
-                "weapon_winrate": payload["aggregated_data"][
-                    "weapon_winrate"
-                ],
+                "aggregate_season_data": aggregated_payload.get(
+                    "aggregate_season_data", []
+                ),
+                "weapon_counts": aggregated_payload.get("weapon_counts", []),
+                "weapon_winrate": aggregated_payload.get(
+                    "weapon_winrate", []
+                ),
             },
         }
 

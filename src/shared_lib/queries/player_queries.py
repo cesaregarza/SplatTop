@@ -1,7 +1,16 @@
+from sqlalchemy import text
+
 CURRENT_SEASON_QUERY = """
 SELECT MAX(season_number) AS season_number
 FROM xscraper.players;
 """
+
+
+def fetch_current_season(session) -> int | None:
+    season_number = session.execute(
+        text(CURRENT_SEASON_QUERY)
+    ).scalar_one_or_none()
+    return int(season_number) if season_number is not None else None
 
 PLAYER_LATEST_QUERY = """
 SELECT *

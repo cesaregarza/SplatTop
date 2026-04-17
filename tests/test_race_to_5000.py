@@ -133,3 +133,51 @@ def test_race_to_5000_route_returns_cached_payload(client, fake_redis, monkeypat
 
     assert response.status_code == 200
     assert response.json()["current_season"] == 10
+
+
+def test_fetch_race_to_5000_stores_empty_payload_when_current_season_missing(
+    fake_redis, monkeypatch
+):
+    mod = importlib.import_module("celery_app.tasks.front_page")
+    mod = importlib.reload(mod)
+
+    duration_calls = []
+    row_calls = []
+
+    class _MetricSpy:
+        def labels(self, **kwargs):
+            self._labels = kwargs
+            return self
+
+        def observe(self, value):
+            duration_calls.append(value)
+
+        def set(self, value):
+            row_calls.append(value)
+
+    monkeypatch.setattr(mod, "redis_conn", fake_redis, raising=False)
+    monkeypatch.setattr(mod, "fetch_current_season", lambda session: None)
+    monkeypatch.setattr(mod, "metrics_enabled", lambda: True)
+    monkeypatch.setattr(mod, "DATA_PULL_DURATION", _MetricSpy(), raising=False)
+    monkeypatch.setattr(mod, "DATA_PULL_ROWS", _MetricSpy(), raising=False)
+    monkeypatch.setattr(
+        mod,
+        "fetch_race_to_5000_rows",
+        lambda *args, **kwargs: (_ for _ in ()).throw(
+            AssertionError("should not fetch rows")
+        ),
+    )
+
+    mod.fetch_race_to_5000()
+
+    payload = orjson.loads(fake_redis.get(RACE_TO_5000_REDIS_KEY))
+    assert payload == {
+        "current_season": None,
+        "current_threshold": 4000,
+        "historical_threshold": 5000,
+        "current_runs": [],
+        "historical_runs": [],
+        "updated_at": None,
+    }
+    assert len(duration_calls) == 1
+    assert row_calls == [0, 0]
