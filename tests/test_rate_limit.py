@@ -63,3 +63,34 @@ def test_usage_middleware_enqueues_minimal_event(
     assert evt["status"] == 200
     # Known token id from test_token fixture
     assert evt["token_id"] == "00000000-0000-4000-8000-000000000001"
+
+
+def test_usage_middleware_logs_request_timing_in_dev(client, caplog):
+    with caplog.at_level("INFO", logger="fast_api_app.middleware"):
+        res = client.get("/api/ping")
+
+    assert res.status_code == 401
+    assert any(
+        record.message.startswith("API request complete")
+        and "path=/api/ping" in record.message
+        and "status=401" in record.message
+        and "latency_ms=" in record.message
+        for record in caplog.records
+    )
+
+
+def test_usage_middleware_can_disable_dev_request_logs(
+    client_factory, fake_redis, caplog
+):
+    with client_factory(
+        env={"FASTAPI_DEV_REQUEST_LOGS": "0"},
+        redis=fake_redis,
+    ) as client:
+        with caplog.at_level("INFO", logger="fast_api_app.middleware"):
+            res = client.get("/api/ping")
+
+    assert res.status_code == 401
+    assert not any(
+        record.message.startswith("API request complete")
+        for record in caplog.records
+    )

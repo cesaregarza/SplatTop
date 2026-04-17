@@ -1,5 +1,6 @@
 import os
 import time
+import logging
 from typing import Optional
 
 import orjson
@@ -11,10 +12,27 @@ from starlette.middleware.base import (
 from starlette.responses import JSONResponse, Response
 
 from fast_api_app.auth import _get_header_token
+from fast_api_app.comp_auth import is_development_like_environment
 from fast_api_app.connections import redis_conn
 from fast_api_app.utils import get_client_ip
 from shared_lib.constants import API_USAGE_QUEUE_KEY
 from shared_lib.monitoring import RATE_LIMIT_EVENTS, metrics_enabled
+
+logger = logging.getLogger(__name__)
+
+
+def _resolve_route_path(request: Request) -> str:
+    route = request.scope.get("route")
+    if route and getattr(route, "path", None):
+        return route.path
+    return (request.url.path or "").split("?")[0]
+
+
+def _dev_request_logging_enabled() -> bool:
+    if not is_development_like_environment():
+        return False
+    raw = os.getenv("FASTAPI_DEV_REQUEST_LOGS", "1").strip().lower()
+    return raw not in {"0", "false", "no", "off"}
 
 
 class APITokenUsageMiddleware(BaseHTTPMiddleware):
@@ -24,8 +42,8 @@ class APITokenUsageMiddleware(BaseHTTPMiddleware):
     async def dispatch(
         self, request: Request, call_next: RequestResponseEndpoint
     ) -> Response:
-        start = time.time()
-        response: Response
+        start = time.perf_counter()
+        response: Response | None = None
         try:
             response = await call_next(request)
         finally:
@@ -35,20 +53,33 @@ class APITokenUsageMiddleware(BaseHTTPMiddleware):
                 if request.url.path.startswith(
                     "/api/"
                 ) and not request.url.path.startswith("/api/admin"):
+                    path = _resolve_route_path(request)
+                    status_code = int(
+                        getattr(response, "status_code", 500) or 500
+                    )
+                    latency_ms = int((time.perf_counter() - start) * 1000)
                     token_id: Optional[str] = getattr(
                         request.state, "token_id", None
                     )
                     event = {
                         "ts_ms": int(time.time() * 1000),
                         "token_id": token_id,
-                        "path": str(request.url.path),
+                        "path": path,
                         "method": request.method,
                         "ip": get_client_ip(request),
-                        "status": int(getattr(response, "status_code", 0) or 0),
-                        "latency_ms": int((time.time() - start) * 1000),
+                        "status": status_code,
+                        "latency_ms": latency_ms,
                         "ua": request.headers.get("user-agent"),
                     }
                     redis_conn.rpush(API_USAGE_QUEUE_KEY, orjson.dumps(event))
+                    if _dev_request_logging_enabled():
+                        logger.info(
+                            "API request complete method=%s path=%s status=%s latency_ms=%s",
+                            request.method,
+                            path,
+                            status_code,
+                            latency_ms,
+                        )
             except Exception:
                 pass
         return response

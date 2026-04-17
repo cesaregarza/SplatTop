@@ -11,19 +11,10 @@ from shared_lib.queries.leaderboard_queries import (
     ARCHIVED_LEADERBOARD_SEASONS_SQLITE_QUERY,
     ARCHIVED_LEADERBOARD_SQLITE_QUERY,
 )
+from shared_lib.payload_utils import players_to_columnar
 from shared_lib.utils import get_weapon_image
 
 router = APIRouter()
-
-
-def _players_to_columnar(players: list[dict]) -> dict[str, list]:
-    out: dict[str, list] = {}
-    for player in players:
-        for key, value in player.items():
-            if key not in out:
-                out[key] = []
-            out[key].append(value)
-    return out
 
 
 def _get_available_archive_seasons() -> list[int]:
@@ -50,8 +41,10 @@ async def leaderboard(
             detail="Data is not available yet, please wait.",
         )
     else:
-        players: list[dict] = orjson.loads(players)
-        return {"players": _players_to_columnar(players)}
+        payload = orjson.loads(players)
+        if isinstance(payload, dict):
+            return payload
+        return {"players": _players_to_columnar(payload)}
 
 
 @router.get("/api/leaderboard/archive", summary="Get archived leaderboard")

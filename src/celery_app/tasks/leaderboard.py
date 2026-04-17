@@ -20,11 +20,25 @@ from shared_lib.queries.leaderboard_queries import (
     SEASON_RESULTS_QUERY,
     WEAPON_LEADERBOARD_QUERY,
 )
+from shared_lib.queries.player_queries import fetch_current_season
 from shared_lib.utils import get_all_alt_kits
 
 logger = logging.getLogger(__name__)
 
 idx_columns = ["player_id", "season_number", "mode", "region"]
+
+
+def _empty_weapon_leaderboard() -> pd.DataFrame:
+    return pd.DataFrame(
+        columns=idx_columns
+        + [
+            "weapon_id",
+            "max_x_power",
+            "games_played",
+            "total_games_played",
+            "percent_games_played",
+        ]
+    ).set_index(idx_columns)
 
 
 def fetch_past_weapon_leaderboard_data() -> pd.DataFrame:
@@ -62,10 +76,18 @@ def fetch_live_weapon_leaderboard_data() -> pd.DataFrame:
     query = text(LIVE_WEAPON_LEADERBOARD_QUERY)
     start = perf_counter()
     with Session() as session:
-        result = session.execute(query).fetchall()
-        weapon_leaderboard = pd.DataFrame(
-            [{**row._asdict()} for row in result]
-        ).set_index(idx_columns)
+        current_season = fetch_current_season(session)
+    if current_season is None:
+        return _empty_weapon_leaderboard()
+    with Session() as session:
+        result = session.execute(
+            query, {"season_number": current_season}
+        ).fetchall()
+        rows = [{**row._asdict()} for row in result]
+        if not rows:
+            weapon_leaderboard = _empty_weapon_leaderboard()
+        else:
+            weapon_leaderboard = pd.DataFrame(rows).set_index(idx_columns)
 
     weapon_leaderboard["weapon_id"] = (
         weapon_leaderboard["weapon_id"]
