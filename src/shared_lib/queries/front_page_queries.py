@@ -49,31 +49,31 @@ ORDER BY f.rank ASC;
 """
 
 RACE_TO_5000_CURRENT_QUERY = """
-WITH current_season AS (
-    SELECT MAX(season_number) AS season_number
-    FROM xscraper.players
-),
-ranked_points AS (
-    SELECT
-        p.*,
-        ROW_NUMBER() OVER (
-            PARTITION BY p.player_id, p.season_number, p.mode, p.region
-            ORDER BY p.timestamp DESC
-        ) AS row_num
+WITH latest_runs AS (
+    SELECT DISTINCT ON (p.player_id, p.season_number, p.mode, p.region)
+        p.player_id,
+        p.season_number,
+        p.mode,
+        p.region,
+        p.x_power AS current_x_power
     FROM xscraper.players p
-    JOIN current_season cs
-        ON p.season_number = cs.season_number
-    WHERE p.updated
+    WHERE p.season_number = :season_number
+        AND p.updated IS TRUE
+    ORDER BY
+        p.player_id,
+        p.season_number,
+        p.mode,
+        p.region,
+        p.timestamp DESC
 ),
 qualifying_runs AS (
     SELECT
-        rp.player_id,
-        rp.season_number,
-        rp.mode,
-        rp.region
-    FROM ranked_points rp
-    WHERE rp.row_num = 1
-        AND rp.x_power >= :threshold
+        lr.player_id,
+        lr.season_number,
+        lr.mode,
+        lr.region
+    FROM latest_runs lr
+    WHERE lr.current_x_power >= :threshold
 )
 SELECT
     p.player_id,
@@ -90,7 +90,8 @@ JOIN qualifying_runs q
     AND p.season_number = q.season_number
     AND p.mode = q.mode
     AND p.region = q.region
-WHERE p.updated
+WHERE p.season_number = :season_number
+    AND p.updated IS TRUE
 ORDER BY
     p.season_number,
     p.mode,
@@ -100,11 +101,7 @@ ORDER BY
 """
 
 RACE_TO_5000_HISTORICAL_QUERY = """
-WITH current_season AS (
-    SELECT MAX(season_number) AS season_number
-    FROM xscraper.players
-),
-qualifying_runs AS (
+WITH qualifying_runs AS (
     SELECT
         p.player_id,
         p.season_number,
@@ -112,9 +109,8 @@ qualifying_runs AS (
         p.region,
         MAX(p.x_power) AS peak_x_power
     FROM xscraper.players p
-    JOIN current_season cs
-        ON p.season_number < cs.season_number
-    WHERE p.updated
+    WHERE p.updated IS TRUE
+        AND p.season_number < :season_number
     GROUP BY
         p.player_id,
         p.season_number,
@@ -137,7 +133,8 @@ JOIN qualifying_runs q
     AND p.season_number = q.season_number
     AND p.mode = q.mode
     AND p.region = q.region
-WHERE p.updated
+WHERE p.updated IS TRUE
+    AND p.season_number < :season_number
 ORDER BY
     p.season_number,
     p.mode,

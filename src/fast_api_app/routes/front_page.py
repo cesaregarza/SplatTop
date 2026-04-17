@@ -50,8 +50,10 @@ async def leaderboard(
             detail="Data is not available yet, please wait.",
         )
     else:
-        players: list[dict] = orjson.loads(players)
-        return {"players": _players_to_columnar(players)}
+        payload = orjson.loads(players)
+        if isinstance(payload, dict):
+            return payload
+        return {"players": _players_to_columnar(payload)}
 
 
 @router.get("/api/leaderboard/archive", summary="Get archived leaderboard")

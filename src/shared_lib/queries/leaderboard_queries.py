@@ -15,8 +15,8 @@ SELECT
 FROM
     xscraper.players
 WHERE
-    season_number = (SELECT MAX(season_number) FROM xscraper.players)
-    AND updated
+    season_number = :season_number
+    AND updated IS TRUE
 GROUP BY
     player_id,
     season_number,

@@ -5,6 +5,7 @@ import zlib
 from time import perf_counter
 
 import httpx
+import orjson
 import redis
 from celery import Celery
 from fastapi import WebSocket
@@ -18,7 +19,7 @@ from sqlalchemy.ext.asyncio import (
 from sqlalchemy.orm import scoped_session, sessionmaker
 
 from fast_api_app.utils import get_client_ip
-from shared_lib.constants import REDIS_HOST, REDIS_PORT
+from shared_lib.constants import PLAYER_LATEST_REDIS_KEY, REDIS_HOST, REDIS_PORT
 from shared_lib.db import create_ranking_uri, create_uri
 from shared_lib.monitoring import (
     SPLATGPT_ERRORS,
@@ -33,6 +34,14 @@ from shared_lib.monitoring import (
 
 # Setup logger
 logger = logging.getLogger(__name__)
+PLAYER_CHUNK_VERSION = 2
+PLAYER_AGGREGATED_KEYS = (
+    "weapon_counts",
+    "weapon_winrate",
+    "season_results",
+    "aggregate_season_data",
+    "latest_data",
+)
 
 # Create both synchronous and asynchronous engines
 sync_engine = create_engine(create_uri())
@@ -103,8 +112,139 @@ class ConnectionManager:
             connection_id,
             progressive,
         )
+        cache_key = f"{PLAYER_LATEST_REDIS_KEY}:{player_id}"
+        cached_payload_raw = redis_conn.get(cache_key)
+        if cached_payload_raw is not None:
+            try:
+                await self.send_cached_player_payload(
+                    websocket,
+                    player_id,
+                    cached_payload_raw,
+                    cache_key,
+                    progressive=progressive,
+                )
+                logger.info("Cached player data sent directly")
+                return
+            except Exception:
+                logger.exception(
+                    "Failed to send cached player data directly for %s",
+                    player_id,
+                )
         celery.send_task("tasks.fetch_player_data", args=[player_id])
         logger.info("Task sent to Celery")
+
+    @staticmethod
+    def _build_empty_player_payload() -> dict:
+        return {
+            "player_data": [],
+            "aggregated_data": {
+                key: [] for key in PLAYER_AGGREGATED_KEYS
+            },
+        }
+
+    @classmethod
+    def _merge_player_payload(
+        cls, payload: dict | None
+    ) -> dict:
+        merged_payload = cls._build_empty_player_payload()
+        if not payload:
+            return merged_payload
+        if "player_data" in payload and payload["player_data"] is not None:
+            merged_payload["player_data"] = payload["player_data"]
+        aggregated_payload = payload.get("aggregated_data") or {}
+        for key in PLAYER_AGGREGATED_KEYS:
+            if key in aggregated_payload and aggregated_payload[key] is not None:
+                merged_payload["aggregated_data"][key] = aggregated_payload[key]
+        return merged_payload
+
+    @classmethod
+    def _build_cached_snapshot_payload(cls, payload: dict) -> dict:
+        return {
+            "aggregated_data": {
+                "season_results": payload["aggregated_data"][
+                    "season_results"
+                ],
+                "latest_data": payload["aggregated_data"]["latest_data"],
+            }
+        }
+
+    @classmethod
+    def _build_cached_analysis_payload(cls, payload: dict) -> dict:
+        return {
+            "player_data": payload["player_data"],
+            "aggregated_data": {
+                "aggregate_season_data": payload["aggregated_data"][
+                    "aggregate_season_data"
+                ],
+                "weapon_counts": payload["aggregated_data"]["weapon_counts"],
+                "weapon_winrate": payload["aggregated_data"][
+                    "weapon_winrate"
+                ],
+            },
+        }
+
+    @staticmethod
+    async def _send_compressed_message(
+        websocket: WebSocket, message: str | bytes
+    ) -> None:
+        message_bytes = (
+            message.encode() if isinstance(message, str) else message
+        )
+        await websocket.send_bytes(zlib.compress(message_bytes))
+
+    async def send_cached_player_payload(
+        self,
+        websocket: WebSocket,
+        player_id: str,
+        cached_payload_raw: str | bytes,
+        cache_key: str,
+        *,
+        progressive: bool,
+    ) -> None:
+        cached_payload_bytes = (
+            cached_payload_raw.encode()
+            if isinstance(cached_payload_raw, str)
+            else cached_payload_raw
+        )
+        if progressive:
+            cached_payload = self._merge_player_payload(
+                orjson.loads(cached_payload_bytes)
+            )
+            messages = [
+                {
+                    "player_id": player_id,
+                    "type": "player_chunk",
+                    "version": PLAYER_CHUNK_VERSION,
+                    "phase": "snapshot",
+                    "payload": self._build_cached_snapshot_payload(
+                        cached_payload
+                    ),
+                },
+                {
+                    "player_id": player_id,
+                    "type": "player_chunk",
+                    "version": PLAYER_CHUNK_VERSION,
+                    "phase": "analysis",
+                    "payload": self._build_cached_analysis_payload(
+                        cached_payload
+                    ),
+                },
+                {
+                    "player_id": player_id,
+                    "type": "player_chunk",
+                    "version": PLAYER_CHUNK_VERSION,
+                    "phase": "complete",
+                    "payload": {},
+                    "key": cache_key,
+                },
+            ]
+            for message in messages:
+                await self._send_compressed_message(
+                    websocket, orjson.dumps(message)
+                )
+            return
+
+        await self._send_compressed_message(websocket, cached_payload_bytes)
 
     def disconnect(self, player_id: str, connection_id: str):
         if (

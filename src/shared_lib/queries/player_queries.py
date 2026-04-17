@@ -1,3 +1,8 @@
+CURRENT_SEASON_QUERY = """
+SELECT MAX(season_number) AS season_number
+FROM xscraper.players;
+"""
+
 PLAYER_LATEST_QUERY = """
 SELECT *
 FROM xscraper.player_latest

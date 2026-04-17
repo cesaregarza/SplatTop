@@ -24,6 +24,7 @@ from shared_lib.queries.front_page_queries import (
     RACE_TO_5000_CURRENT_QUERY,
     RACE_TO_5000_HISTORICAL_QUERY,
 )
+from shared_lib.queries.player_queries import CURRENT_SEASON_QUERY
 from shared_lib.utils import get_badge_image, get_banner_image, get_weapon_image
 
 logger = logging.getLogger(__name__)
@@ -35,6 +36,25 @@ RACE_RUN_INDEX = ["player_id", "season_number", "mode", "region"]
 
 def _format_region_label(region_value: bool) -> str:
     return "Takoroka" if bool(region_value) else "Tentatek"
+
+
+def _players_to_columnar(players: list[dict]) -> dict[str, list]:
+    out: dict[str, list] = {}
+    for player in players:
+        for key, value in player.items():
+            out.setdefault(key, []).append(value)
+    return out
+
+
+def _serialize_leaderboard_payload(players: list[dict]) -> bytes:
+    return orjson.dumps({"players": _players_to_columnar(players)})
+
+
+def _fetch_current_season() -> int | None:
+    query = text(CURRENT_SEASON_QUERY)
+    with Session() as session:
+        season_number = session.execute(query).scalar_one_or_none()
+    return int(season_number) if season_number is not None else None
 
 
 def _serialize_race_run(group: pd.DataFrame) -> dict:
@@ -73,6 +93,8 @@ def _serialize_race_run(group: pd.DataFrame) -> dict:
 def build_race_to_5000_payload(
     current_runs_df: pd.DataFrame,
     historical_runs_df: pd.DataFrame,
+    *,
+    current_season: int | None = None,
 ) -> dict:
     def serialize_runs(frame: pd.DataFrame) -> list[dict]:
         if frame.empty:
@@ -94,14 +116,18 @@ def build_race_to_5000_payload(
         if run["current_x_power"] >= RACE_CURRENT_THRESHOLD
     ]
     historical_runs = serialize_runs(historical_runs_df)
-    current_season = (
+    detected_current_season = (
         int(current_runs_df["season_number"].max())
         if not current_runs_df.empty
         else None
     )
 
     return {
-        "current_season": current_season,
+        "current_season": (
+            detected_current_season
+            if detected_current_season is not None
+            else current_season
+        ),
         "current_threshold": RACE_CURRENT_THRESHOLD,
         "historical_threshold": RACE_HISTORICAL_THRESHOLD,
         "current_runs": current_runs,
@@ -114,10 +140,15 @@ def build_race_to_5000_payload(
     }
 
 
-def fetch_race_to_5000_rows(query_text: str, threshold: int) -> pd.DataFrame:
+def fetch_race_to_5000_rows(
+    query_text: str, threshold: int, season_number: int
+) -> pd.DataFrame:
     query = text(query_text)
     with Session() as session:
-        result = session.execute(query, {"threshold": threshold}).fetchall()
+        result = session.execute(
+            query,
+            {"threshold": threshold, "season_number": season_number},
+        ).fetchall()
 
     rows = [{**row._asdict()} for row in result]
     if not rows:
@@ -182,7 +213,7 @@ def fetch_and_store_leaderboard_data(mode: str, region_bool: bool) -> list:
     redis_key = (
         f"leaderboard_data:{mode}:{'Takoroka' if region_bool else 'Tentatek'}"
     )
-    redis_conn.set(redis_key, orjson.dumps(players))
+    redis_conn.set(redis_key, _serialize_leaderboard_payload(players))
     logger.info(
         "Leaderboard data for mode: %s, region: %s saved to Redis",
         mode,
@@ -292,8 +323,11 @@ def pull_data() -> None:
 
     for region, processed_df in process_all_data(pd.concat(dfs)):
         redis_key = f"leaderboard_data:All Modes:{region}"
+        records_json = processed_df.reset_index().to_json(orient="records")
+        all_modes_players = orjson.loads(records_json.encode())
         redis_conn.set(
-            redis_key, processed_df.reset_index().to_json(orient="records")
+            redis_key,
+            _serialize_leaderboard_payload(all_modes_players),
         )
         logger.info("All data for region: %s saved to Redis", region)
         if metrics_enabled():
@@ -309,13 +343,39 @@ def pull_data() -> None:
 def fetch_race_to_5000() -> None:
     logger.info("Fetching race-to-5000 data")
     start = perf_counter()
+    current_season = _fetch_current_season()
+    if current_season is None:
+        payload = build_race_to_5000_payload(
+            pd.DataFrame(),
+            pd.DataFrame(),
+        )
+        redis_conn.set(RACE_TO_5000_REDIS_KEY, orjson.dumps(payload))
+        if metrics_enabled():
+            DATA_PULL_DURATION.labels(task="front_page.race_to_5000").observe(
+                perf_counter() - start
+            )
+            DATA_PULL_ROWS.labels(task="front_page.race_to_5000.current").set(
+                0
+            )
+            DATA_PULL_ROWS.labels(
+                task="front_page.race_to_5000.historical"
+            ).set(0)
+        return
     current_runs_df = fetch_race_to_5000_rows(
-        RACE_TO_5000_CURRENT_QUERY, RACE_CURRENT_THRESHOLD
+        RACE_TO_5000_CURRENT_QUERY,
+        RACE_CURRENT_THRESHOLD,
+        current_season,
     )
     historical_runs_df = fetch_race_to_5000_rows(
-        RACE_TO_5000_HISTORICAL_QUERY, RACE_HISTORICAL_THRESHOLD
+        RACE_TO_5000_HISTORICAL_QUERY,
+        RACE_HISTORICAL_THRESHOLD,
+        current_season,
     )
-    payload = build_race_to_5000_payload(current_runs_df, historical_runs_df)
+    payload = build_race_to_5000_payload(
+        current_runs_df,
+        historical_runs_df,
+        current_season=current_season,
+    )
     redis_conn.set(RACE_TO_5000_REDIS_KEY, orjson.dumps(payload))
     if metrics_enabled():
         DATA_PULL_DURATION.labels(task="front_page.race_to_5000").observe(
