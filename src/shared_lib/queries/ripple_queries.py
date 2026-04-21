@@ -13,7 +13,7 @@ logger = logging.getLogger(__name__)
 _SCHEMA_RE = re.compile(r"^[A-Za-z_][A-Za-z0-9_]*$")
 
 
-def _schema() -> str:
+def schema_name() -> str:
     """Return a validated schema name from env.
 
     Uses env RANKINGS_DB_SCHEMA, defaults to 'comp_rankings'. Falls back to
@@ -29,6 +29,10 @@ def _schema() -> str:
         candidate,
     )
     return "comp_rankings"
+
+
+def _schema() -> str:
+    return schema_name()
 
 
 async def fetch_ripple_page(
@@ -50,7 +54,7 @@ async def fetch_ripple_page(
     - Never references the 'rank' identifier from player_rankings.
     """
 
-    schema = _schema()
+    schema = schema_name()
     schema_sql = f'"{schema}"'  # safe quoting, schema name validated upstream
 
     # Compute once in Python (no risk of int overflow here; Python ints are unbounded).
@@ -209,7 +213,7 @@ async def fetch_ripple_danger(
     oldest_in_window_ms, next_expiry_ms, ms_left, calculated_at_ms, build_version.
     """
 
-    schema = _schema()
+    schema = schema_name()
     schema_sql = f'"{schema}"'
 
     ctes = f"""

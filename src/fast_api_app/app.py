@@ -25,6 +25,7 @@ from fast_api_app.middleware import (
 from fast_api_app.pubsub import start_pubsub_listener
 from fast_api_app.sqlite_lookup_store import prime_lookup_sqlite_snapshot
 from fast_api_app.routes import (
+    analytics_router,
     admin_tokens_router,
     comp_auth_router,
     front_page_router,
@@ -121,6 +122,7 @@ app.add_middleware(
 )
 
 # Register routers
+app.include_router(analytics_router)
 app.include_router(front_page_router)
 app.include_router(jwks_router)
 app.include_router(player_detail_router)
