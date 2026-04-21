@@ -17,6 +17,7 @@ def test_openapi_contains_canonical_kebab_case_paths(client):
     assert "/api/ripple/public/metadata" in paths
     assert "/api/ripple/public/leaderboard/percentiles" in paths
     assert "/api/ripple/leaderboard/docs" in paths
+    assert "/api/analytics/team/{team_id}/matches" in paths
 
 
 def test_openapi_excludes_legacy_underscore_paths(client):
