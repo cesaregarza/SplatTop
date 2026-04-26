@@ -38,10 +38,13 @@ jobs:
         with:
           broker-url: https://credentials.garz.ai
           audience: https://credentials.garz.ai/v1
-          bundle: digitalocean-spaces-assets
-          export-env: "true"
+          bundle: digitalocean-spaces-write
 
       - name: Run update_assets.py
         env:
           PYTHONPATH: ${{ github.workspace }}/scripts
+          DO_SPACES_KEY: ${{ fromJson(steps.broker.outputs.secrets-json).DIGITALOCEAN_SPACES_KEY }}
+          DO_SPACES_SECRET: ${{ fromJson(steps.broker.outputs.secrets-json).DIGITALOCEAN_SPACES_SECRET }}
+          DO_SPACES_REGION: ${{ vars.DO_SPACES_REGION }}
+          DO_SPACES_ENDPOINT: ${{ vars.DO_SPACES_ENDPOINT }}
         run: uv run --frozen --no-default-groups --group scripts python scripts/update_assets.py
