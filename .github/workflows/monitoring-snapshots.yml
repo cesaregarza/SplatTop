@@ -39,7 +39,7 @@ jobs:
         with:
           broker-url: https://credentials.garz.ai
           audience: https://credentials.garz.ai/v1
-          bundle: digitalocean-k8s-deploy
+          capability: digitalocean-k8s-deploy
 
       - name: Install doctl
         uses: digitalocean/action-doctl@v2

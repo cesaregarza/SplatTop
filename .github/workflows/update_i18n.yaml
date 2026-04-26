@@ -59,7 +59,7 @@ jobs:
         with:
           broker-url: https://credentials.garz.ai
           audience: https://credentials.garz.ai/v1
-          bundle: digitalocean-spaces-write
+          capability: digitalocean-spaces-write
 
       - name: Run i18n script
         env:

@@ -27,7 +27,7 @@ jobs:
         with:
           broker-url: https://credentials.garz.ai
           audience: https://credentials.garz.ai/v1
-          bundle: config-repo-write
+          capability: config-repo-write
 
       - name: Set up Python
         uses: actions/setup-python@v5

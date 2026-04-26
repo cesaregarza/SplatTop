@@ -160,7 +160,7 @@ jobs:
         with:
           broker-url: https://credentials.garz.ai
           audience: https://credentials.garz.ai/v1
-          bundle: digitalocean-k8s-deploy
+          capability: digitalocean-k8s-deploy
 
       - name: Log in to DigitalOcean Container Registry
         if: github.ref == 'refs/heads/main'
@@ -294,7 +294,7 @@ jobs:
         with:
           broker-url: https://credentials.garz.ai
           audience: https://credentials.garz.ai/v1
-          bundle: digitalocean-k8s-deploy
+          capability: digitalocean-k8s-deploy
 
       - name: Install doctl
         if: github.event_name != 'pull_request'
@@ -493,7 +493,7 @@ jobs:
         with:
           broker-url: https://credentials.garz.ai
           audience: https://credentials.garz.ai/v1
-          bundle: config-repo-write
+          capability: config-repo-write
 
       - name: Download component metadata
         uses: actions/download-artifact@v4
