@@ -3,6 +3,10 @@ name: Update Assets
 on:
   workflow_dispatch: {}
 
+permissions:
+  contents: read
+  id-token: write
+
 concurrency:
   group: update-assets
   cancel-in-progress: false
@@ -28,11 +32,16 @@ jobs:
       - name: Install script dependencies
         run: uv sync --frozen --no-default-groups --group scripts --no-install-project
 
+      - name: Fetch Spaces credentials
+        id: broker
+        uses: cesaregarza/.github/actions/fetch-broker-credentials@main
+        with:
+          broker-url: https://credentials.garz.ai
+          audience: https://credentials.garz.ai/v1
+          bundle: digitalocean-spaces-assets
+          export-env: "true"
+
       - name: Run update_assets.py
         env:
-          DO_SPACES_KEY: ${{ secrets.DO_SPACES_KEY }}
-          DO_SPACES_SECRET: ${{ secrets.DO_SPACES_SECRET }}
-          DO_SPACES_REGION: ${{ secrets.DO_SPACES_REGION }}
-          DO_SPACES_ENDPOINT: ${{ secrets.DO_SPACES_ENDPOINT }}
           PYTHONPATH: ${{ github.workspace }}/scripts
         run: uv run --frozen --no-default-groups --group scripts python scripts/update_assets.py

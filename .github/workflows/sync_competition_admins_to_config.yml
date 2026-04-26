@@ -11,6 +11,7 @@ on:
 
 permissions:
   contents: read
+  id-token: write
 
 jobs:
   sync-config:
@@ -20,15 +21,13 @@ jobs:
       - name: Checkout app repo
         uses: actions/checkout@v5
 
-      - name: Require config repo token
-        env:
-          CONFIG_REPO_TOKEN: ${{ secrets.CONFIG_REPO_TOKEN }}
-        run: |
-          set -euo pipefail
-          if [ -z "${CONFIG_REPO_TOKEN}" ]; then
-            echo "::error::Missing CONFIG_REPO_TOKEN secret. This workflow needs it to checkout, push to, and open PRs against cesaregarza/SplatTopConfig."
-            exit 1
-          fi
+      - name: Fetch config repo token
+        id: broker
+        uses: cesaregarza/.github/actions/fetch-broker-credentials@main
+        with:
+          broker-url: https://credentials.garz.ai
+          audience: https://credentials.garz.ai/v1
+          bundle: config-repo-write
 
       - name: Set up Python
         uses: actions/setup-python@v5
@@ -42,7 +41,7 @@ jobs:
         uses: actions/checkout@v5
         with:
           repository: cesaregarza/SplatTopConfig
-          token: ${{ secrets.CONFIG_REPO_TOKEN }}
+          token: ${{ fromJson(steps.broker.outputs.secrets-json).CONFIG_REPO_TOKEN }}
           path: config-repo
 
       - name: Sync config repo files
@@ -88,7 +87,7 @@ jobs:
       - name: Open config repo PR
         if: steps.detect.outputs.changed == 'true'
         env:
-          GH_TOKEN: ${{ secrets.CONFIG_REPO_TOKEN }}
+          GH_TOKEN: ${{ fromJson(steps.broker.outputs.secrets-json).CONFIG_REPO_TOKEN }}
           BRANCH: bot/competition-admins-${{ github.run_id }}
         run: |
           set -euo pipefail

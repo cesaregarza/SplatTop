@@ -16,6 +16,10 @@ on:
         default: splattop-prod-grafana-storage,prometheus-data-splattop-prod-prometheus-0
         required: true
 
+permissions:
+  contents: read
+  id-token: write
+
 jobs:
   create-snapshots:
     runs-on: ubuntu-latest
@@ -29,16 +33,26 @@ jobs:
         with:
           python-version: "3.11"
 
+      - name: Fetch DigitalOcean credentials
+        id: broker
+        uses: cesaregarza/.github/actions/fetch-broker-credentials@main
+        with:
+          broker-url: https://credentials.garz.ai
+          audience: https://credentials.garz.ai/v1
+          bundle: digitalocean-k8s-deploy
+
       - name: Install doctl
         uses: digitalocean/action-doctl@v2
         with:
-          token: ${{ secrets.DIGITALOCEAN_ACCESS_TOKEN }}
+          token: ${{ fromJson(steps.broker.outputs.secrets-json).DIGITALOCEAN_ACCESS_TOKEN }}
 
       - name: Save prod kubeconfig
         shell: bash
+        env:
+          CLUSTER_ID: ${{ fromJson(steps.broker.outputs.secrets-json).DIGITALOCEAN_CLUSTER_ID }}
         run: |
           set -euo pipefail
-          doctl kubernetes cluster kubeconfig save ${{ secrets.DIGITALOCEAN_CLUSTER_ID }} --expiry-seconds 600
+          doctl kubernetes cluster kubeconfig save "${CLUSTER_ID}" --expiry-seconds 600
 
       - name: Set up kubectl
         uses: azure/setup-kubectl@v4
