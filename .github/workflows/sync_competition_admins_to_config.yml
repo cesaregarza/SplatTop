@@ -26,7 +26,7 @@ jobs:
         run: |
           set -euo pipefail
           if [ -z "${CONFIG_REPO_TOKEN}" ]; then
-            echo "::error::Missing CONFIG_REPO_TOKEN secret. This workflow needs it to checkout, push to, and open PRs against cesaregarza/SplatTopConfig."
+            echo "::error::Missing CONFIG_REPO_TOKEN secret. This workflow needs it to checkout, push to, and open PRs against cesaregarza/GarzAICluster."
             exit 1
           fi
 
@@ -41,7 +41,7 @@ jobs:
       - name: Checkout config repo
         uses: actions/checkout@v5
         with:
-          repository: cesaregarza/SplatTopConfig
+          repository: cesaregarza/GarzAICluster
           token: ${{ secrets.CONFIG_REPO_TOKEN }}
           path: config-repo
 

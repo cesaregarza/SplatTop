@@ -1,7 +1,7 @@
 # Observability
 
 This repo owns the metrics emitted by FastAPI and Celery. Grafana dashboards and
-Prometheus alert rules live in the sibling config repo, `../SplatTopConfig`.
+Prometheus alert rules live in the sibling config repo, `../GarzAICluster`.
 
 ## Ownership Split
 
@@ -9,7 +9,7 @@ Prometheus alert rules live in the sibling config repo, `../SplatTopConfig`.
   - metric definitions: `src/shared_lib/monitoring/prometheus.py`
   - FastAPI request middleware: `src/fast_api_app/metrics.py`
   - route/task instrumentation on hot paths
-- Config repo (`SplatTopConfig`)
+- Config repo (`GarzAICluster`)
   - dashboards: `helm/splattop/files/grafana/dashboards/`
   - alert rules: `helm/splattop/templates/monitoring-prometheus-rules-configmap.yaml`
   - production dashboard mounting: `helm/splattop/values-prod.yaml`
@@ -56,4 +56,4 @@ These are the first metrics to check when the site feels slow.
 
 - Do not add high-cardinality labels like `player_id`, Discord ID, raw search query, or tournament ID.
 - Prefer route templates, section names, outcomes, and cache statuses as labels.
-- If you add a metric here, add or update the matching Grafana/Prometheus wiring in `SplatTopConfig` in the same PR set.
+- If you add a metric here, add or update the matching Grafana/Prometheus wiring in `GarzAICluster` in the same PR set.

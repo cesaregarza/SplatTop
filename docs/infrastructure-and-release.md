@@ -3,7 +3,7 @@
 SplatTop production is split across two repositories:
 
 - `SplatTop` (this repo): application code, Dockerfiles, tests, and GitHub Actions that build/publish images
-- `SplatTopConfig`: Helm chart values, Argo CD Applications, encrypted secrets, and the desired production state
+- `GarzAICluster`: Helm chart values, Argo CD Applications, encrypted secrets, and the desired production state
 
 This document is the practical map of how those pieces fit together.
 
@@ -19,9 +19,9 @@ Owns:
 - local kind manifests under `k8s/`
 - helper scripts for secret sync and release automation
 
-Does **not** own the live production manifests. A merge to `main` here publishes images and proposes config updates, but production still reads desired state from `SplatTopConfig`.
+Does **not** own the live production manifests. A merge to `main` here publishes images and proposes config updates, but production still reads desired state from `GarzAICluster`.
 
-### `SplatTopConfig`
+### `GarzAICluster`
 
 Owns:
 
@@ -31,7 +31,7 @@ Owns:
 - component tag metadata (`automation/component-tags.json`)
 - the production image tags consumed by Argo/Helm
 
-Production tracks `SplatTopConfig/main`, not `SplatTop/main`.
+Production tracks `GarzAICluster/main`, not `SplatTop/main`.
 
 ## Production Topology
 
@@ -99,7 +99,7 @@ flowchart LR
     AppCI[GitHub Actions build workflow]
     Registry[DigitalOcean Container Registry]
     Release[GitHub release tag]
-    ConfigRepo[SplatTopConfig main]
+    ConfigRepo[GarzAICluster main]
     Argo[Argo CD<br/>splattop-prod]
     Prod[Production Kubernetes]
 
@@ -122,16 +122,16 @@ flowchart LR
    - `registry.digitalocean.com/sendouq/celery:vX.Y.Z`
    - `registry.digitalocean.com/sendouq/react:vX.Y.Z`
 4. The workflow creates or updates the GitHub release tag and emits `component-tags.json`.
-5. The workflow opens a PR against `SplatTopConfig` to bump the affected Helm image tags and refresh `automation/component-tags.json`.
-6. After `SplatTopConfig/main` is updated, Argo can sync `splattop-prod` to roll the new version.
+5. The workflow opens a PR against `GarzAICluster` to bump the affected Helm image tags and refresh `automation/component-tags.json`.
+6. After `GarzAICluster/main` is updated, Argo can sync `splattop-prod` to roll the new version.
 
 ### Secret sync flow
 
 Competition auth secrets follow a different path:
 
 1. Update `secrets/competition-admins/comp-auth-secrets.enc.yaml` in `SplatTop`.
-2. `.github/workflows/sync_competition_admins_to_config.yml` copies that state into `SplatTopConfig`.
-3. The workflow opens a PR in `SplatTopConfig`.
+2. `.github/workflows/sync_competition_admins_to_config.yml` copies that state into `GarzAICluster`.
+3. The workflow opens a PR in `GarzAICluster`.
 4. After that PR merges, Argo sync applies the new secret wiring.
 
 ## What Changed In The Lookup Snapshot Refactor
@@ -171,7 +171,7 @@ Operational consequence:
 
 - confirm the app workflow on `SplatTop` finished successfully
 - confirm the expected release tag exists on GitHub
-- confirm `SplatTopConfig/main` points the correct components at that tag
+- confirm `GarzAICluster/main` points the correct components at that tag
 
 ### After syncing production
 
@@ -193,13 +193,13 @@ Operational consequence:
 
 ## Local Development Notes
 
-The local kind path still lives in this repo under `k8s/`, but production Helm/Argo manifests are in `SplatTopConfig`.
+The local kind path still lives in this repo under `k8s/`, but production Helm/Argo manifests are in `GarzAICluster`.
 
 For local work:
 
 - use `.env` for manual service startup
 - use `k8s/secrets.dev.enc.yaml` for kind/Helm-based local development
-- keep a local clone of `../SplatTopConfig` available if you need to diff or test production Helm values
+- keep a local clone of `../GarzAICluster` available if you need to diff or test production Helm values
 
 ## When To Update This Doc
 
