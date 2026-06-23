@@ -73,7 +73,7 @@ metadata:
 spec:
   project: splattop
   source:
-    repoURL: https://github.com/cesaregarza/SplatTopConfig
+    repoURL: https://github.com/cesaregarza/GarzAICluster
     targetRevision: main
     path: secrets/splattop-prod-comp-auth
   destination:
@@ -558,7 +558,7 @@ def _build_parser() -> argparse.ArgumentParser:
 
     sync_config = subparsers.add_parser(
         "sync-config",
-        help="Patch SplatTopConfig using the encrypted source secret.",
+        help="Patch GarzAICluster using the encrypted source secret.",
     )
     sync_config.add_argument(
         "--source-secret-file",
@@ -568,7 +568,7 @@ def _build_parser() -> argparse.ArgumentParser:
     sync_config.add_argument(
         "--config-repo-dir",
         required=True,
-        help="Checked-out SplatTopConfig repository path.",
+        help="Checked-out GarzAICluster repository path.",
     )
 
     merge_local = subparsers.add_parser(

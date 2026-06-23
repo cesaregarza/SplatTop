@@ -261,7 +261,7 @@ jobs:
       - name: Checkout config repository
         uses: actions/checkout@v5
         with:
-          repository: cesaregarza/SplatTopConfig
+          repository: cesaregarza/GarzAICluster
           path: config-repo
           token: ${{ secrets.CONFIG_REPO_TOKEN }}
 
@@ -484,7 +484,7 @@ jobs:
       - name: Checkout config repository
         uses: actions/checkout@v5
         with:
-          repository: cesaregarza/SplatTopConfig
+          repository: cesaregarza/GarzAICluster
           token: ${{ secrets.CONFIG_REPO_TOKEN }}
           path: config-repo
           ref: main

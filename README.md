@@ -13,16 +13,16 @@ A platform showcasing the Top 500 players in Splatoon 3, with historical ranking
 Deployment is split across two repositories:
 
 - `SplatTop` builds and publishes application images
-- `SplatTopConfig` owns Helm values, Argo CD applications, and encrypted production secrets
+- `GarzAICluster` owns Helm values, Argo CD applications, and encrypted production secrets
 
-Production runs on DigitalOcean Kubernetes and is applied from `SplatTopConfig` via Argo CD. Local development can be done using Docker & kind or by running components individually.
+Production runs on DigitalOcean Kubernetes and is applied from `GarzAICluster` via Argo CD. Local development can be done using Docker & kind or by running components individually.
 
 ## Prerequisites
 
 - Docker & kind (`kubectl`) for Kubernetes-based local development
 - Python 3.10+ & Poetry for backend dependencies and scripts
 - Node.js & npm for frontend development
-- A sibling clone of `../SplatTopConfig` if you need to inspect or update production Helm/Argo state
+- A sibling clone of `../GarzAICluster` if you need to inspect or update production Helm/Argo state
 - (Optional) Access to a `secrets.yaml` or a local `.env` file containing database credentials and ML storage settings
 
 We welcome contributions for localizations! If you are interested in helping translate SplatTop into other languages, please refer to the [Contributing Localizations](LOCALIZING.md) section.
@@ -62,7 +62,7 @@ You can run SplatTop locally without Kubernetes by starting each component manua
 1. **Clone the Repository**:
    ```sh
    git clone https://github.com/cesaregarza/SplatTop.git
-   git clone https://github.com/cesaregarza/SplatTopConfig.git ../SplatTopConfig
+   git clone https://github.com/cesaregarza/GarzAICluster.git ../GarzAICluster
    cd SplatTop
    ```
 
@@ -167,7 +167,7 @@ Sensitive settings (database credentials, ML storage endpoints) should be provid
      - `COMP_AUTH_SESSION_SECRET`
    - Update the admin allowlist locally with `uv run python scripts/competition_admins.py write-source-secret --entries 'discord_id|note;discord_id|note'`. Existing OAuth/session values in the encrypted secret are preserved.
    - To seed or refresh the OAuth/session values from the local encrypted dev secret, run `uv run python scripts/competition_admins.py merge-local-secrets --redirect-uri 'https://comp.splat.top/api/comp-auth/discord/callback' --generate-session-secret`.
-   - Merge the encrypted-file change to `main`, then `.github/workflows/sync_competition_admins_to_config.yml` opens the `SplatTopConfig` PR that copies the encrypted secret and ensures the Helm/Argo wiring exists.
+   - Merge the encrypted-file change to `main`, then `.github/workflows/sync_competition_admins_to_config.yml` opens the `GarzAICluster` PR that copies the encrypted secret and ensures the Helm/Argo wiring exists.
    - The app-repo workflow expects `CONFIG_REPO_TOKEN`. Plaintext admin IDs are not passed through GitHub Actions inputs.
 
 ## Infrastructure & Releases
@@ -175,9 +175,9 @@ Sensitive settings (database credentials, ML storage endpoints) should be provid
 The quick version:
 
 - application code, tests, Dockerfiles, and CI live in this repo
-- production Helm values, Argo apps, and encrypted prod secrets live in `../SplatTopConfig`
+- production Helm values, Argo apps, and encrypted prod secrets live in `../GarzAICluster`
 - merging to `SplatTop/main` publishes images and proposes config changes
-- production only changes after `SplatTopConfig` is updated and Argo syncs `splattop-prod`
+- production only changes after `GarzAICluster` is updated and Argo syncs `splattop-prod`
 
 The detailed guide is in [docs/infrastructure-and-release.md](docs/infrastructure-and-release.md).
 
@@ -218,9 +218,9 @@ The cert-manager pod is responsible for managing SSL/TLS certificates using Let'
 ## Observability
 
 - FastAPI and Celery metrics are defined in `src/shared_lib/monitoring/prometheus.py`.
-- Production dashboards and alert rules live in the sibling config repo `../SplatTopConfig`.
+- Production dashboards and alert rules live in the sibling config repo `../GarzAICluster`.
 - The hot-path dashboard for lookup freshness, main player detail, and competition player routes is documented in [docs/observability.md](docs/observability.md).
-- After changing metrics or alert semantics, update the matching Grafana/Prometheus assets in `SplatTopConfig` in the same change set.
+- After changing metrics or alert semantics, update the matching Grafana/Prometheus assets in `GarzAICluster` in the same change set.
 
 ## Contributing
 
