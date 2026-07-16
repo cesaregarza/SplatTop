@@ -35,9 +35,7 @@ async def process_pubsub_message(pubsub: PubSub):
                 PUBSUB_EVENTS.labels(event="message").inc()
             if data.get("type") == "player_chunk":
                 if metrics_enabled():
-                    PUBSUB_BYTES_BROADCAST.labels(
-                        player_id=data.get("player_id", "unknown")
-                    ).inc(len(raw_message))
+                    PUBSUB_BYTES_BROADCAST.inc(len(raw_message))
                 await connection_manager.broadcast_player_data(
                     raw_message,
                     data["player_id"],
@@ -50,9 +48,7 @@ async def process_pubsub_message(pubsub: PubSub):
                             PUBSUB_EVENTS.labels(event="cache_miss").inc()
                         continue
                     if metrics_enabled():
-                        PUBSUB_BYTES_BROADCAST.labels(
-                            player_id=data.get("player_id", "unknown")
-                        ).inc(len(player_data))
+                        PUBSUB_BYTES_BROADCAST.inc(len(player_data))
                     await connection_manager.broadcast_player_data(
                         player_data,
                         data["player_id"],
@@ -66,9 +62,7 @@ async def process_pubsub_message(pubsub: PubSub):
                     PUBSUB_EVENTS.labels(event="cache_miss").inc()
                 continue
             if metrics_enabled():
-                PUBSUB_BYTES_BROADCAST.labels(
-                    player_id=data.get("player_id", "unknown")
-                ).inc(len(player_data))
+                PUBSUB_BYTES_BROADCAST.inc(len(player_data))
             await connection_manager.broadcast_player_data(
                 player_data, data["player_id"]
             )
