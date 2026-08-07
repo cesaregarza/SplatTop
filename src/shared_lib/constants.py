@@ -26,7 +26,9 @@ REGIONS = [
 
 
 def _redis_port_from_env() -> int:
-    """Resolve Redis's port without mistaking a Kubernetes service URL for it."""
+    """Resolve Redis's port without mistaking a Kubernetes service URL
+    for a numeric port.
+    """
     explicit_port = os.getenv("SPLATTOP_REDIS_PORT")
     if explicit_port:
         return _parse_redis_port(explicit_port)
