@@ -1,6 +1,8 @@
 import {
   countDiamondSeasons,
+  getAvailableDisplaySeasons,
   getCareerHighlights,
+  getCombinedSeasonResults,
   getDefaultPlayerMode,
   getDefaultSeasonResultTab,
   getDefaultSelectedDisplaySeason,
@@ -20,13 +22,84 @@ describe("playerPageUtils", () => {
   it("defaults season results to the newest available season", () => {
     const aggregatedData = {
       season_results: [
-        { season_number: 8, mode: "Splat Zones" },
-        { season_number: 10, mode: "Rainmaker" },
+        { season_number: 7, mode: "Splat Zones" },
+        { season_number: 9, mode: "Rainmaker" },
       ],
       latest_data: [],
     };
 
     expect(getDefaultSeasonResultTab(aggregatedData)).toBe(10);
+  });
+
+  it("normalizes Fresh 2026 results and live data to display seasons", () => {
+    const historicalResult = {
+      season_number: 14,
+      mode: "Splat Zones",
+      rank: 55,
+      x_power: 2850,
+    };
+    const chartData = {
+      player_data: [
+        {
+          season_number: 14,
+          mode: "Splat Zones",
+          timestamp: "2026-03-01T03:20:22.000Z",
+          x_power: 2800,
+        },
+        {
+          season_number: 14,
+          mode: "Splat Zones",
+          timestamp: "2026-05-31T22:14:00.000Z",
+          x_power: 2850,
+        },
+      ],
+      aggregated_data: {
+        season_results: [historicalResult],
+        latest_data: [
+          {
+            season_number: 15,
+            mode: "Splat Zones",
+            rank: 1,
+            x_power: 4056.3,
+          },
+        ],
+        aggregate_season_data: [
+          {
+            season_number: 14,
+            mode: "Splat Zones",
+            peak_x_power: 3123.1,
+          },
+        ],
+      },
+    };
+
+    const combinedResults = getCombinedSeasonResults(chartData.aggregated_data);
+
+    expect(combinedResults).toEqual([
+      expect.objectContaining({ season_number: 15, rank: 55 }),
+      expect.objectContaining({ season_number: 16, rank: 1 }),
+    ]);
+    expect(getAvailableDisplaySeasons(chartData)).toEqual([16, 15]);
+    expect(getModeAnalysisSummary(chartData, "Splat Zones", 15)).toEqual(
+      expect.objectContaining({ rank: 55, peakXp: 3123.1 })
+    );
+    expect(getSeasonArchiveRows(chartData, "Splat Zones")).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          season_number: 15,
+          raw_season_number: 14,
+          finishRank: 55,
+          peakXp: 3123.1,
+        }),
+      ])
+    );
+    expect(combinedResults[0]).not.toBe(historicalResult);
+    expect(historicalResult).toEqual({
+      season_number: 14,
+      mode: "Splat Zones",
+      rank: 55,
+      x_power: 2850,
+    });
   });
 
   it("defaults the selected display season to the newest season for the selected mode", () => {
@@ -97,11 +170,11 @@ describe("playerPageUtils", () => {
       ],
       aggregated_data: {
         season_results: [
-          { season_number: 8, mode: "Splat Zones", rank: 1, region: true },
-          { season_number: 8, mode: "Tower Control", rank: 21, region: true },
-          { season_number: 7, mode: "Rainmaker", rank: 430, region: false },
-          { season_number: 6, mode: "Clam Blitz", rank: 12, region: false },
-          { season_number: 6, mode: "Splat Zones", rank: 700, region: false },
+          { season_number: 7, mode: "Splat Zones", rank: 1, region: true },
+          { season_number: 7, mode: "Tower Control", rank: 21, region: true },
+          { season_number: 6, mode: "Rainmaker", rank: 430, region: false },
+          { season_number: 5, mode: "Clam Blitz", rank: 12, region: false },
+          { season_number: 5, mode: "Splat Zones", rank: 700, region: false },
         ],
       },
     };
@@ -164,7 +237,7 @@ describe("playerPageUtils", () => {
       ],
       aggregated_data: {
         season_results: [
-          { season_number: 5, mode: "Rainmaker", rank: 8, region: true },
+          { season_number: 4, mode: "Rainmaker", rank: 8, region: true },
         ],
         latest_data: [{ season_number: 5, mode: "Rainmaker", rank: 4, region: false }],
         aggregate_season_data: [

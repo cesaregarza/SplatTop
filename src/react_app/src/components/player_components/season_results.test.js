@@ -1,5 +1,5 @@
 import React from "react";
-import { render, screen } from "@testing-library/react";
+import { fireEvent, render, screen } from "@testing-library/react";
 import SeasonResults from "./season_results";
 
 jest.mock("chroma-js", () => ({
@@ -62,11 +62,11 @@ describe("SeasonResults", () => {
             aggregate_season_data: [],
             latest_data: [],
             season_results: [
-              { season_number: 6, mode: "Rainmaker", rank: 1, x_power: 3000 },
-              { season_number: 5, mode: "Rainmaker", rank: 2, x_power: 2900 },
-              { season_number: 4, mode: "Rainmaker", rank: 3, x_power: 2800 },
-              { season_number: 3, mode: "Rainmaker", rank: 4, x_power: 2700 },
-              { season_number: 2, mode: "Rainmaker", rank: 5, x_power: 2600 },
+              { season_number: 5, mode: "Rainmaker", rank: 1, x_power: 3000 },
+              { season_number: 4, mode: "Rainmaker", rank: 2, x_power: 2900 },
+              { season_number: 3, mode: "Rainmaker", rank: 3, x_power: 2800 },
+              { season_number: 2, mode: "Rainmaker", rank: 4, x_power: 2700 },
+              { season_number: 1, mode: "Rainmaker", rank: 5, x_power: 2600 },
             ],
           },
         }}
@@ -103,7 +103,7 @@ describe("SeasonResults", () => {
             aggregate_season_data: [],
             latest_data: [],
             season_results: [
-              { season_number: 6, mode: "Rainmaker", rank: 1, x_power: 3000 },
+              { season_number: 5, mode: "Rainmaker", rank: 1, x_power: 3000 },
             ],
           },
         }}
@@ -116,5 +116,65 @@ describe("SeasonResults", () => {
     expect(onSeasonChange).not.toHaveBeenCalled();
     expect(screen.getByRole("button", { name: /Season 6/i })).toBeInTheDocument();
     expect(screen.getAllByText("--").length).toBeGreaterThan(0);
+  });
+
+  it("loads finalized Fresh 2026 rows when switching from Sizzle", () => {
+    render(
+      <SeasonResults
+        data={{
+          player_data: [
+            {
+              season_number: 14,
+              mode: "Splat Zones",
+              timestamp: "2026-05-31T22:14:00.000Z",
+              x_power: 2850,
+            },
+          ],
+          aggregated_data: {
+            weapon_counts: [
+              {
+                season_number: 14,
+                mode: "Splat Zones",
+                weapon_id: 1101,
+                count: 20,
+              },
+            ],
+            aggregate_season_data: [
+              {
+                season_number: 14,
+                mode: "Splat Zones",
+                peak_x_power: 3123.1,
+              },
+            ],
+            latest_data: [
+              {
+                season_number: 15,
+                mode: "Splat Zones",
+                rank: 1,
+                x_power: 4056.3,
+              },
+            ],
+            season_results: [
+              {
+                season_number: 14,
+                mode: "Splat Zones",
+                rank: 55,
+                x_power: 2850,
+                weapon_id: 1101,
+              },
+            ],
+          },
+        }}
+        weaponReferenceData={null}
+      />
+    );
+
+    expect(screen.getByText("4056.3")).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: /Season 14/i }));
+
+    expect(screen.getByText("55")).toBeInTheDocument();
+    expect(screen.getByText("2850.0")).toBeInTheDocument();
+    expect(screen.getByText("3123.1")).toBeInTheDocument();
   });
 });
