@@ -44,6 +44,7 @@ def _empty_weapon_leaderboard() -> pd.DataFrame:
 def _aggregate_weapon_rows(
     rows: list[dict], alt_kits: dict[str, str]
 ) -> pd.DataFrame:
+    """Normalize weapon kits and calculate per-player usage shares."""
     if not rows:
         return _empty_weapon_leaderboard()
 
@@ -84,6 +85,7 @@ def _completed_seasons_to_derive(
     archived_seasons: set[int],
     current_season: int,
 ) -> list[int]:
+    """Return archive gaps plus the latest completed handoff season."""
     seasons = set(_archive_gap_seasons(archived_seasons, current_season))
     previous_season = current_season - 1
     if previous_season >= FIRST_WEAPON_LEADERBOARD_SEASON:
@@ -96,6 +98,7 @@ def _completed_seasons_to_derive(
 def _archive_gap_seasons(
     archived_seasons: set[int], current_season: int
 ) -> list[int]:
+    """Return supported completed seasons absent from the archive."""
     return sorted(
         set(range(FIRST_WEAPON_LEADERBOARD_SEASON, current_season))
         - archived_seasons
@@ -105,6 +108,7 @@ def _archive_gap_seasons(
 def _combine_weapon_leaderboards(
     weapon_leaderboards: list[pd.DataFrame],
 ) -> pd.DataFrame:
+    """Merge archive-first frames and remove exact key collisions."""
     populated = [frame for frame in weapon_leaderboards if not frame.empty]
     if not populated:
         return _empty_weapon_leaderboard()
@@ -229,7 +233,7 @@ def fetch_completed_weapon_leaderboard_fallback_data(
     return weapon_leaderboard
 
 
-def fetch_weapon_leaderboard() -> pd.DataFrame:
+def fetch_weapon_leaderboard() -> None:
     logger.info("Fetching weapon data")
     start = perf_counter()
     past_weapon_leaderboard = fetch_past_weapon_leaderboard_data()

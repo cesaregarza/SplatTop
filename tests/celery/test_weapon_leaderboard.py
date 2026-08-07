@@ -76,6 +76,16 @@ def test_latest_completed_season_is_derived_during_archive_handoff():
     ) == [14]
 
 
+def test_no_completed_season_exists_below_supported_floor():
+    assert (
+        leaderboard_mod._completed_seasons_to_derive(
+            archived_seasons=set(),
+            current_season=leaderboard_mod.FIRST_WEAPON_LEADERBOARD_SEASON,
+        )
+        == []
+    )
+
+
 def test_combine_weapon_leaderboards_keeps_archive_on_collision():
     archive = _frame(
         [
