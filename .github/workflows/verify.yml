@@ -124,6 +124,7 @@ jobs:
           uv run --frozen pytest -p no:cacheprovider
           tests/test_app_startup.py
           tests/test_player_websocket.py
+          tests/celery/test_weapon_leaderboard.py
 
   frontend:
     name: Frontend lock, audit, tests, and build
