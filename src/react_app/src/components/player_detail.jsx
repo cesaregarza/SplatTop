@@ -3,7 +3,6 @@ import { useParams } from "react-router";
 import Loading from "./misc_components/loading";
 import { modes } from "./constants";
 import { getBaseApiUrl, getBaseWebsocketUrl } from "./utils";
-import { inflate } from "pako";
 import { useTranslation } from "react-i18next";
 import { fetchJson } from "../http";
 import {
@@ -14,6 +13,9 @@ import {
   createPlayerDetailStreamState,
   reducePlayerDetailStreamState,
 } from "./player_components/playerDataUtils";
+import {
+  decodeCompressedPlayerPayload,
+} from "./player_components/playerPayloadCodec";
 
 const ChartController = React.lazy(() =>
   import("./player_components/chart_controller")
@@ -84,10 +86,7 @@ const PlayerDetailContent = () => {
           if (event.data instanceof Blob) {
             const reader = new FileReader();
             reader.onload = () => {
-              const decompressedData = inflate(reader.result, {
-                to: "string",
-              });
-              const newData = JSON.parse(decompressedData);
+              const newData = decodeCompressedPlayerPayload(reader.result);
               applySocketPayload(newData);
             };
             reader.readAsArrayBuffer(event.data);
