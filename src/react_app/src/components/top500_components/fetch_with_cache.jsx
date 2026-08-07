@@ -16,6 +16,9 @@ const useFetchWithCache = (endpoint, cacheAge = 10, cacheOffset = 6) => {
   };
 
   useEffect(() => {
+    let isCancelled = false;
+    let retryTimeoutId = null;
+
     const deleteHttpCacheKeys = () => {
       Object.keys(localStorage).forEach((key) => {
         if (key.startsWith("http")) {
@@ -25,6 +28,17 @@ const useFetchWithCache = (endpoint, cacheAge = 10, cacheOffset = 6) => {
     };
 
     const fetchData = async (retryCount = 0) => {
+      if (isCancelled) {
+        return;
+      }
+
+      if (!endpoint) {
+        setData(null);
+        setError(null);
+        setIsLoading(false);
+        return;
+      }
+
       setIsLoading(true);
       deleteHttpCacheKeys();
       const endpointsCache = getCache("endpoints") || {};
@@ -38,9 +52,11 @@ const useFetchWithCache = (endpoint, cacheAge = 10, cacheOffset = 6) => {
           const minutesElapsedSinceCache = (now - cacheTimestamp) / 60000;
 
           if (minutesElapsedSinceCache < cacheAge) {
-            setData(parsedData.data);
-            setError(null);
-            setIsLoading(false);
+            if (!isCancelled) {
+              setData(parsedData.data);
+              setError(null);
+              setIsLoading(false);
+            }
             return;
           } else {
             delete endpointsCache[endpoint];
@@ -58,8 +74,10 @@ const useFetchWithCache = (endpoint, cacheAge = 10, cacheOffset = 6) => {
 
       try {
         const responseData = await fetchJson(endpoint);
-        setData(responseData);
-        setError(null);
+        if (!isCancelled) {
+          setData(responseData);
+          setError(null);
+        }
 
         const compressedData = LZString.compressToUTF16(
           JSON.stringify({ data: responseData, timestamp: Date.now() })
@@ -84,16 +102,32 @@ const useFetchWithCache = (endpoint, cacheAge = 10, cacheOffset = 6) => {
         }
       } catch (fetchError) {
         console.error("Error fetching data:", fetchError);
-        setError(fetchError);
+        if (!isCancelled) {
+          setError(fetchError);
+        }
 
         const backoffTime = Math.min(2 ** retryCount * 1000, MAX_BACKOFF_TIME);
-        setTimeout(() => fetchData(retryCount + 1), backoffTime);
+        if (!isCancelled) {
+          retryTimeoutId = setTimeout(
+            () => fetchData(retryCount + 1),
+            backoffTime
+          );
+        }
       } finally {
-        setIsLoading(false);
+        if (!isCancelled) {
+          setIsLoading(false);
+        }
       }
     };
 
     fetchData();
+
+    return () => {
+      isCancelled = true;
+      if (retryTimeoutId) {
+        clearTimeout(retryTimeoutId);
+      }
+    };
   }, [endpoint, cacheAge, cacheOffset]);
 
   return { data, error, isLoading, clearLocalCache };

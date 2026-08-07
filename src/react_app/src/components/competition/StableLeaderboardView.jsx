@@ -1,5 +1,5 @@
 import React, { memo, useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate } from "react-router";
 import "./StableLeaderboardView.css";
 import useCrackleEffect from "../../hooks/useCrackleEffect";
 import useMediaQuery from "../../hooks/useMediaQuery";

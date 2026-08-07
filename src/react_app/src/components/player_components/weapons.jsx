@@ -1,13 +1,11 @@
 import React, { useEffect, useState } from "react";
 import HighchartsReact from "highcharts-react-official";
 import Highcharts from "highcharts";
-import drilldown from "highcharts/modules/drilldown";
+import "highcharts/modules/drilldown";
 import { computeDrilldown } from "./weapon_helper_functions";
 import { useTranslation } from "react-i18next";
 import { modeKeyMap } from "../constants";
 import "./xchart.css";
-
-drilldown(Highcharts);
 
 const WeaponsChart = (props) => {
   const { t } = useTranslation("player");

@@ -1,0 +1,221 @@
+name: Verify application dependencies
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - main
+    paths:
+      - ".github/workflows/verify.yml"
+      - ".dockerignore"
+      - ".python-version"
+      - ".version"
+      - "Makefile"
+      - "dockerfiles/**"
+      - "k8s/**"
+      - "pyproject.toml"
+      - "src/**"
+      - "tests/**"
+      - "uv.lock"
+  pull_request:
+    branches:
+      - main
+    paths:
+      - ".github/workflows/verify.yml"
+      - ".dockerignore"
+      - ".python-version"
+      - ".version"
+      - "Makefile"
+      - "dockerfiles/**"
+      - "k8s/**"
+      - "pyproject.toml"
+      - "src/**"
+      - "tests/**"
+      - "uv.lock"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: verify-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  NODE_VERSION: "24.15.0"
+  NPM_VERSION: "12.0.2"
+  UV_VERSION: "0.12.2"
+
+jobs:
+  backend:
+    name: Backend lock and smoke tests (Python ${{ matrix.python-version }})
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version:
+          - "3.12"
+          - "3.13"
+    env:
+      UV_HTTP_TIMEOUT: "120"
+      UV_PYTHON: ${{ matrix.python-version }}
+    services:
+      redis:
+        image: redis:8.8.0-alpine@sha256:9d317178eceac8454a2284a9e6df2466b93c745529947f0cd42a0fa9609d7005
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: ${{ matrix.python-version }}
+
+      - name: Set up uv
+        uses: astral-sh/setup-uv@v8
+        with:
+          version: ${{ env.UV_VERSION }}
+          enable-cache: true
+
+      - name: Verify lockfile
+        run: uv lock --check
+
+      - name: Install frozen backend environment
+        run: uv sync --frozen --all-groups
+
+      - name: Verify installed Python packages
+        run: uv pip check --python .venv/bin/python
+
+      - name: Verify Redis server and Celery client compatibility
+        env:
+          REDIS_URL: redis://127.0.0.1:6379/0
+        run: |
+          uv run --frozen python - <<'PY'
+          import os
+
+          import redis
+          from celery import Celery
+
+          redis_url = os.environ["REDIS_URL"]
+          client = redis.Redis.from_url(redis_url, decode_responses=True)
+          assert client.ping()
+          client.set("splattop:ci:compatibility", "ok", ex=30)
+          assert client.get("splattop:ci:compatibility") == "ok"
+
+          celery = Celery("compatibility", broker=redis_url, backend=redis_url)
+          connection = celery.connection_for_write()
+          try:
+              connection.ensure_connection(max_retries=0)
+          finally:
+              connection.release()
+          PY
+
+      - name: Run startup and native WebSocket smoke tests
+        run: >-
+          uv run --frozen pytest -p no:cacheprovider
+          tests/test_app_startup.py
+          tests/test_player_websocket.py
+
+  frontend:
+    name: Frontend lock, audit, tests, and build
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    defaults:
+      run:
+        working-directory: src/react_app
+    env:
+      CI: "true"
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v7
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+          cache-dependency-path: src/react_app/package-lock.json
+
+      - name: Pin npm
+        run: npm install --global "npm@${NPM_VERSION}"
+
+      - name: Verify npm version
+        run: test "$(npm --version)" = "${NPM_VERSION}"
+
+      - name: Install frozen frontend environment
+        run: npm ci
+        env:
+          NPM_CONFIG_STRICT_ALLOW_SCRIPTS: "true"
+
+      - name: Audit frontend dependencies
+        run: npm audit --audit-level=high
+
+      - name: Run frontend tests
+        run: npm run test:ci
+
+      - name: Build frontend
+        run: npm run build
+
+  docker:
+    name: Build ${{ matrix.component }} image
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - component: FastAPI
+            image: fast-api
+            dockerfile: dockerfiles/dockerfile.fast-api
+          - component: Celery
+            image: celery
+            dockerfile: dockerfiles/dockerfile.celery
+          - component: React
+            image: react
+            dockerfile: dockerfiles/dockerfile.react
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v4
+
+      - name: Prepare component build arguments
+        id: build_args
+        env:
+          COMPONENT: ${{ matrix.component }}
+        run: |
+          if [ "${COMPONENT}" = "React" ]; then
+            version="$(tr -d '[:space:]' < .version)"
+            if [ -z "${version}" ]; then
+              echo ".version must contain a release version" >&2
+              exit 1
+            fi
+            echo "value=REACT_APP_VERSION=${version}" >> "${GITHUB_OUTPUT}"
+          else
+            echo "value=" >> "${GITHUB_OUTPUT}"
+          fi
+
+      - name: Build image without publishing
+        uses: docker/build-push-action@v7
+        with:
+          context: .
+          file: ${{ matrix.dockerfile }}
+          build-args: ${{ steps.build_args.outputs.value }}
+          push: false
+          provenance: false
+          sbom: false
+          tags: splattop-ci/${{ matrix.image }}:${{ github.sha }}

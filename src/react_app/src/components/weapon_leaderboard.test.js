@@ -11,6 +11,7 @@ jest.mock("./utils", () => ({
 }));
 
 jest.mock("./utils/cache_utils", () => ({
+  deleteCache: jest.fn(),
   getCache: jest.fn(() => null),
   setCache: jest.fn(),
 }));

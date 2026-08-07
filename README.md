@@ -20,8 +20,8 @@ Production runs on DigitalOcean Kubernetes and is applied from `GarzAICluster` v
 ## Prerequisites
 
 - Docker & kind (`kubectl`) for Kubernetes-based local development
-- Python 3.10+ & Poetry for backend dependencies and scripts
-- Node.js & npm for frontend development
+- Python 3.12 or 3.13 and uv for backend dependencies and scripts
+- Node.js 24 and npm 12 for frontend development
 - A sibling clone of `../GarzAICluster` if you need to inspect or update production Helm/Argo state
 - (Optional) Access to a `secrets.yaml` or a local `.env` file containing database credentials and ML storage settings
 
@@ -78,26 +78,26 @@ You can run SplatTop locally without Kubernetes by starting each component manua
 
 3. **Install Dependencies**:
    ```sh
-   poetry install    # Backend and scripts
-   cd src/react_app && npm install   # Frontend dependencies
+   uv sync --frozen                  # Backend, development, and scripts
+   cd src/react_app && npm ci        # Frontend dependencies
    ```
 
 4. **Start Redis**:
    ```sh
-   docker run -d --name redis -p 6379:6379 redis:6
+   docker run -d --name redis -p 6379:6379 redis:8.8.0-alpine
    ```
 
 5. **Start Celery Services**:
    ```sh
    # Worker
-   poetry run celery -A src.celery_app.app:celery worker --loglevel=info
+   uv run celery -A celery_app.app:celery worker --loglevel=info
    # Scheduler (Beat)
-   poetry run celery -A src.celery_app.beat:celery beat --loglevel=info
+   uv run celery -A celery_app.beat:celery beat --loglevel=info
    ```
 
 6. **Run Backend**:
    ```sh
-   poetry run uvicorn fast_api_app.app:app --reload --host 0.0.0.0 --port 5000 --app-dir src
+   uv run uvicorn fast_api_app.app:app --reload --host 0.0.0.0 --port 5000
    ```
 
 7. **Run Frontend**:

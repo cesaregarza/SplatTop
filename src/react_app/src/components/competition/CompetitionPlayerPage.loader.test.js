@@ -3,7 +3,7 @@ import { act, render, screen } from "@testing-library/react";
 import {
   RouterProvider,
   createMemoryRouter,
-} from "react-router-dom";
+} from "react-router";
 
 import { CompetitionAuthProvider } from "./CompetitionAuth";
 import CompetitionPlayerPage, {
@@ -16,6 +16,8 @@ import {
 } from "./competitionAuthApi";
 
 jest.mock("../../hooks/useCrackleEffect", () => jest.fn());
+
+const PlayerHydrateFallback = () => <div>Loading player profile…</div>;
 
 const deferred = () => {
   let resolve;
@@ -152,6 +154,7 @@ describe("CompetitionPlayerPage loader", () => {
         {
           path: "/u/:playerId",
           loader: primeCompetitionPlayerRoute,
+          HydrateFallback: PlayerHydrateFallback,
           element: <CompetitionPlayerPage top500Href="/" />,
         },
       ],
@@ -192,6 +195,7 @@ describe("CompetitionPlayerPage loader", () => {
         {
           path: "/u/:playerId",
           loader: primeCompetitionPlayerRoute,
+          HydrateFallback: PlayerHydrateFallback,
           element: <CompetitionPlayerPage top500Href="/" />,
         },
       ],
@@ -280,6 +284,7 @@ describe("CompetitionPlayerPage loader", () => {
         {
           path: "/u/:playerId",
           loader: primeCompetitionPlayerRoute,
+          HydrateFallback: PlayerHydrateFallback,
           element: <CompetitionPlayerPage top500Href="/" />,
         },
       ],
@@ -351,6 +356,7 @@ describe("CompetitionPlayerPage loader", () => {
         {
           path: "/u/:playerId",
           loader: primeCompetitionPlayerRoute,
+          HydrateFallback: PlayerHydrateFallback,
           element: <CompetitionPlayerPage top500Href="/" />,
         },
       ],
@@ -449,6 +455,7 @@ describe("CompetitionPlayerPage loader", () => {
         {
           path: "/u/:playerId",
           loader: primeCompetitionPlayerRoute,
+          HydrateFallback: PlayerHydrateFallback,
           element: <CompetitionPlayerPage top500Href="/" />,
         },
       ],

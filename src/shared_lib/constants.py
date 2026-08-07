@@ -1,3 +1,10 @@
+import os
+
+from dotenv import load_dotenv
+
+load_dotenv()
+
+
 BASE_CDN_URL = "https://splat-top.nyc3.cdn.digitaloceanspaces.com/splat-top/"
 MODES = [
     "Splat Zones",
@@ -15,8 +22,8 @@ REGIONS = [
     "Tentatek",
     "Takoroka",
 ]
-REDIS_PORT = 6379
-REDIS_HOST = "redis"
+REDIS_PORT = int(os.getenv("REDIS_PORT", "6379"))
+REDIS_HOST = os.getenv("REDIS_HOST", "redis")
 REDIS_URI = f"redis://{REDIS_HOST}:{REDIS_PORT}"
 PLAYER_PUBSUB_CHANNEL = "player_data_channel"
 PLAYER_LATEST_REDIS_KEY = "player_latest_data_v2"

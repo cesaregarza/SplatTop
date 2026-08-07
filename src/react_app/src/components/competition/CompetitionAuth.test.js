@@ -1,6 +1,6 @@
 import React from "react";
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
-import { MemoryRouter } from "react-router-dom";
+import { MemoryRouter } from "react-router";
 import { CompetitionAuthProvider } from "./CompetitionAuth";
 import CompetitionLayout from "./CompetitionLayout";
 
