@@ -1,9 +1,9 @@
 import React, { useState, useEffect, useRef, Suspense } from "react";
-import { useParams } from "react-router-dom";
+import { useParams } from "react-router";
 import Loading from "./misc_components/loading";
 import { modes } from "./constants";
 import { getBaseApiUrl, getBaseWebsocketUrl } from "./utils";
-import pako from "pako";
+import { inflate } from "pako";
 import { useTranslation } from "react-i18next";
 import { fetchJson } from "../http";
 import {
@@ -84,7 +84,7 @@ const PlayerDetailContent = () => {
           if (event.data instanceof Blob) {
             const reader = new FileReader();
             reader.onload = () => {
-              const decompressedData = pako.inflate(reader.result, {
+              const decompressedData = inflate(reader.result, {
                 to: "string",
               });
               const newData = JSON.parse(decompressedData);

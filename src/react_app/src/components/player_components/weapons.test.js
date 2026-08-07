@@ -2,26 +2,33 @@ import React from "react";
 import { render, screen, within } from "@testing-library/react";
 import WeaponsChart from "./weapons";
 
-jest.mock("react-i18next", () => ({
-  useTranslation: (ns) => ({
-    t: (key) =>
-      ({
-        player: {
-          "weaponchart.title": "%MODE% Weapon Usage",
-          "weaponchart.subtitle": "All weapon data is approximate",
-          "weaponchart.other": "Other",
-          "weaponchart.inner.title": "Total Weapon Usage",
-          "weaponchart.outer.title": "Detailed Weapon Usage",
-          "weaponchart.point.format":
-            "<span>{point.name}</span>: <b>{point.y:.2f}%</b>",
-          no_data: "No data available",
-        },
-        game: {
-          rm: "Rainmaker",
-        },
-      })[ns]?.[key] || key,
-  }),
-}));
+jest.mock("react-i18next", () => {
+  const translations = {
+    player: {
+      "weaponchart.title": "%MODE% Weapon Usage",
+      "weaponchart.subtitle": "All weapon data is approximate",
+      "weaponchart.other": "Other",
+      "weaponchart.inner.title": "Total Weapon Usage",
+      "weaponchart.outer.title": "Detailed Weapon Usage",
+      "weaponchart.point.format":
+        "<span>{point.name}</span>: <b>{point.y:.2f}%</b>",
+      no_data: "No data available",
+    },
+    game: {
+      rm: "Rainmaker",
+    },
+  };
+  const translators = Object.fromEntries(
+    Object.keys(translations).map((namespace) => [
+      namespace,
+      (key) => translations[namespace]?.[key] || key,
+    ])
+  );
+
+  return {
+    useTranslation: (namespace) => ({ t: translators[namespace] }),
+  };
+});
 
 jest.mock("highcharts-react-official", () => () => (
   <div data-testid="highcharts-react" />

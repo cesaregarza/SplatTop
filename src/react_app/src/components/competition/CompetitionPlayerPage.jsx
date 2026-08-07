@@ -12,7 +12,7 @@ import {
   useNavigation,
   useParams,
   useRevalidator,
-} from "react-router-dom";
+} from "react-router";
 import useCrackleEffect from "../../hooks/useCrackleEffect";
 import {
   CRACKLE_PURPLE,

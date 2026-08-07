@@ -169,8 +169,19 @@ async def list_routes():
     return HTMLResponse(content=html)
 
 
-# Run the app using Uvicorn programmatically
-if __name__ == "__main__":
+def run_dev():
+    """Run the local development server exposed by the project script."""
     import uvicorn
 
-    uvicorn.run(app, host="0.0.0.0", port=5000, log_level="info")
+    uvicorn.run(
+        "fast_api_app.app:app",
+        host="0.0.0.0",
+        port=5000,
+        log_level="info",
+        reload=True,
+    )
+
+
+# Run the app using Uvicorn programmatically
+if __name__ == "__main__":
+    run_dev()

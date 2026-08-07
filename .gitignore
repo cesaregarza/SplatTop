@@ -153,7 +153,6 @@ input_files
 !tests/input_files/*.json
 !helm/splattop/files/grafana/dashboards/*.json
 !src/react_app/public/.well-known/jwks.json
-.python-version
 *.sh
 
 # splatnet3_scraper files
