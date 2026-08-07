@@ -1,4 +1,5 @@
 import os
+from urllib.parse import urlparse
 
 from dotenv import load_dotenv
 
@@ -22,8 +23,40 @@ REGIONS = [
     "Tentatek",
     "Takoroka",
 ]
-REDIS_PORT = int(os.getenv("REDIS_PORT", "6379"))
-REDIS_HOST = os.getenv("REDIS_HOST", "redis")
+
+
+def _redis_port_from_env() -> int:
+    """Resolve Redis's port without mistaking a Kubernetes service URL for it."""
+    explicit_port = os.getenv("SPLATTOP_REDIS_PORT")
+    if explicit_port:
+        return _parse_redis_port(explicit_port)
+
+    legacy_port = os.getenv("REDIS_PORT")
+    if legacy_port:
+        try:
+            return int(legacy_port)
+        except ValueError:
+            pass
+
+    return _parse_redis_port(
+        os.getenv("REDIS_SERVICE_PORT") or legacy_port or "6379"
+    )
+
+
+def _parse_redis_port(raw_port: str) -> int:
+    try:
+        return int(raw_port)
+    except ValueError:
+        parsed_port = urlparse(raw_port).port
+        if parsed_port is None:
+            raise ValueError(f"Invalid Redis port: {raw_port!r}") from None
+        return parsed_port
+
+
+REDIS_PORT = _redis_port_from_env()
+REDIS_HOST = (
+    os.getenv("SPLATTOP_REDIS_HOST") or os.getenv("REDIS_HOST") or "redis"
+)
 REDIS_URI = f"redis://{REDIS_HOST}:{REDIS_PORT}"
 PLAYER_PUBSUB_CHANNEL = "player_data_channel"
 PLAYER_LATEST_REDIS_KEY = "player_latest_data_v2"
