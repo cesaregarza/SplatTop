@@ -6,6 +6,9 @@ const aggregatedKeys = [
   "latest_data",
 ];
 
+const buildPlayerDetailWebsocketUrl = (baseUrl, playerId) =>
+  `${baseUrl}/ws/player/${playerId}?progressive=1&version=2`;
+
 const createPlayerDetailStreamState = () => ({
   chartData: null,
   analysisReady: false,
@@ -128,6 +131,7 @@ const reducePlayerDetailStreamState = (currentState, payload) => {
 };
 
 export {
+  buildPlayerDetailWebsocketUrl,
   createPlayerDetailStreamState,
   createEmptyPlayerDetailData,
   isLegacyPlayerDetailPayload,

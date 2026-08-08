@@ -10,6 +10,7 @@ import {
   useWeaponAndTranslation,
 } from "./utils/weaponAndTranslation";
 import {
+  buildPlayerDetailWebsocketUrl,
   createPlayerDetailStreamState,
   reducePlayerDetailStreamState,
 } from "./player_components/playerDataUtils";
@@ -56,7 +57,10 @@ const PlayerDetailContent = () => {
       const apiUrl = getBaseApiUrl();
       const endpoint = `${apiUrl}/api/players/${player_id}`;
       const baseWebsocketUrl = getBaseWebsocketUrl();
-      const websocketEndpoint = `${baseWebsocketUrl}/ws/player/${player_id}`;
+      const websocketEndpoint = buildPlayerDetailWebsocketUrl(
+        baseWebsocketUrl,
+        player_id
+      );
 
       try {
         const playerData = await fetchJson(endpoint);
