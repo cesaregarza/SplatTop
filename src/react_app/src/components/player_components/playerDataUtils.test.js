@@ -1,4 +1,5 @@
 import {
+  buildPlayerDetailWebsocketUrl,
   createPlayerDetailStreamState,
   createEmptyPlayerDetailData,
   isLegacyPlayerDetailPayload,
@@ -8,6 +9,14 @@ import {
 } from "./playerDataUtils";
 
 describe("playerDataUtils", () => {
+  it("opts player detail sockets into the progressive version 2 protocol", () => {
+    expect(
+      buildPlayerDetailWebsocketUrl("wss://api.splat.top", "player-123")
+    ).toBe(
+      "wss://api.splat.top/ws/player/player-123?progressive=1&version=2"
+    );
+  });
+
   it("creates an empty canonical player-detail payload", () => {
     expect(createEmptyPlayerDetailData()).toEqual({
       player_data: [],
