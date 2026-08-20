@@ -122,6 +122,7 @@ jobs:
       - name: Run startup and native WebSocket smoke tests
         run: >-
           uv run --frozen pytest -p no:cacheprovider
+          tests/routes/test_sendou_proxy.py
           tests/test_app_startup.py
           tests/test_player_websocket.py
           tests/celery/test_weapon_leaderboard.py
