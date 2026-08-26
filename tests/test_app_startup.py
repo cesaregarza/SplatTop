@@ -4,6 +4,18 @@ import sys
 from fastapi.testclient import TestClient
 
 
+def test_api_index_lists_included_routes(client):
+    response = client.get("/api")
+
+    assert response.status_code == 200
+    assert '<a href="/api/weapon-info">' in response.text
+    assert '<a href="/api/ripple/public/metadata">' in response.text
+    assert '<a href="/api/players/{player_id}">' not in response.text
+    assert '<a href="/api/search/{query}">' not in response.text
+    assert '<a href="/metrics">' not in response.text
+    assert 'href=""' not in response.text
+
+
 def _reload_app_modules():
     for module_name in [
         "fast_api_app.sqlite_lookup_store",
