@@ -157,6 +157,7 @@ async def list_routes():
         "/api/search/",
     ]
     exclude_exact = ["/api", "/metrics"]
+    # FastAPI stores included routers behind route contexts, so flatten them.
     for route_context in iter_route_contexts(app.routes):
         path = route_context.path
         if (
