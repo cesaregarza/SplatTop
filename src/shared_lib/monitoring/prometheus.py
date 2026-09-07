@@ -2,7 +2,9 @@
 
 from __future__ import annotations
 
+import json
 import logging
+import math
 from typing import Iterable, Iterator
 
 from prometheus_client import (
@@ -22,6 +24,7 @@ from shared_lib.monitoring.constants import (
     CELERY_TASK_FAILURE_HASH,
     CELERY_TASK_INFLIGHT_SET,
     CELERY_TASK_LAST_RUN_HASH,
+    CELERY_TASK_MEMORY_HASH,
 )
 
 logger = logging.getLogger(__name__)
@@ -307,13 +310,18 @@ class _CeleryMetricsCollector:
             durations = redis_conn.hgetall(CELERY_TASK_DURATION_HASH) or {}
             failures = redis_conn.hgetall(CELERY_TASK_FAILURE_HASH) or {}
             last_run = redis_conn.hgetall(CELERY_TASK_LAST_RUN_HASH) or {}
+            memory = redis_conn.hgetall(CELERY_TASK_MEMORY_HASH) or {}
             inflight = redis_conn.scard(CELERY_TASK_INFLIGHT_SET) or 0
         except Exception as exc:  # pragma: no cover - runtime safety
             logger.debug("Failed to read celery metrics from Redis: %s", exc)
             return
 
         task_names = _merge_keys(
-            counts.keys(), durations.keys(), failures.keys(), last_run.keys()
+            counts.keys(),
+            durations.keys(),
+            failures.keys(),
+            last_run.keys(),
+            memory.keys(),
         )
 
         total_metric = CounterMetricFamily(
@@ -341,6 +349,27 @@ class _CeleryMetricsCollector:
             "Unix timestamp of the most recent task completion.",
             labels=["task"],
         )
+        rss_before_metric = GaugeMetricFamily(
+            "celery_task_rss_before_bytes",
+            "RSS immediately before the latest completed task with this name.",
+            labels=["task"],
+        )
+        rss_after_metric = GaugeMetricFamily(
+            "celery_task_rss_after_bytes",
+            "RSS immediately after the latest completed task with this name.",
+            labels=["task"],
+        )
+        rss_delta_metric = GaugeMetricFamily(
+            "celery_task_rss_delta_bytes",
+            "RSS change across the latest completed task; may be negative.",
+            labels=["task"],
+        )
+        process_hwm_metric = GaugeMetricFamily(
+            "celery_task_process_rss_high_water_bytes",
+            "Process lifetime RSS high-water mark observed at latest task "
+            "completion; not a task peak.",
+            labels=["task"],
+        )
 
         for name in task_names:
             count = _to_float(counts.get(name))
@@ -354,6 +383,18 @@ class _CeleryMetricsCollector:
             avg = duration / count if count > 0 else 0.0
             runtime_avg_metric.add_metric([name], max(avg, 0.0))
             last_run_metric.add_metric([name], last_ts)
+
+            memory_sample = _parse_memory_sample(memory.get(name))
+            if memory_sample is not None:
+                for metric, field in (
+                    (rss_before_metric, "rss_before_bytes"),
+                    (rss_after_metric, "rss_after_bytes"),
+                    (rss_delta_metric, "rss_delta_bytes"),
+                    (process_hwm_metric, "process_rss_hwm_bytes"),
+                ):
+                    value = memory_sample.get(field)
+                    if value is not None:
+                        metric.add_metric([name], value)
 
         inflight_metric = GaugeMetricFamily(
             "celery_tasks_in_progress",
@@ -385,6 +426,10 @@ class _CeleryMetricsCollector:
         yield runtime_sum_metric
         yield runtime_avg_metric
         yield last_run_metric
+        yield rss_before_metric
+        yield rss_after_metric
+        yield rss_delta_metric
+        yield process_hwm_metric
         yield inflight_metric
         if usage_metric is not None:
             yield usage_metric
@@ -404,6 +449,40 @@ def _to_float(value: object, default: float = 0.0) -> float:
         return float(value)
     except (TypeError, ValueError):  # pragma: no cover - defensive fallback
         return default
+
+
+def _parse_memory_sample(value: object) -> dict[str, float] | None:
+    if isinstance(value, (bytes, bytearray)):
+        try:
+            value = value.decode("utf-8")
+        except UnicodeDecodeError:
+            return None
+    if not isinstance(value, str):
+        return None
+    try:
+        decoded = json.loads(value)
+    except (TypeError, ValueError):
+        return None
+    if not isinstance(decoded, dict):
+        return None
+
+    sample: dict[str, float] = {}
+    for field in (
+        "rss_before_bytes",
+        "rss_after_bytes",
+        "rss_delta_bytes",
+        "process_rss_hwm_bytes",
+    ):
+        raw = decoded.get(field)
+        if raw is None:
+            continue
+        try:
+            parsed = float(raw)
+        except (TypeError, ValueError):
+            continue
+        if math.isfinite(parsed):
+            sample[field] = parsed
+    return sample or None
 
 
 _collector_registered = False

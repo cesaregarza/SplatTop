@@ -35,6 +35,25 @@ These are the first metrics to check when the site feels slow.
   - `fastapi_request_duration_seconds{path="/api/search/{query}"}`
   - `fastapi_search_duration_seconds`
   - `fastapi_search_requests_total`
+- Celery worker memory
+  - `celery_task_rss_before_bytes{task=...}`
+  - `celery_task_rss_after_bytes{task=...}`
+  - `celery_task_rss_delta_bytes{task=...}`
+  - `celery_task_process_rss_high_water_bytes{task=...}`
+
+Celery memory samples are the latest completed sample for each task name. RSS is
+the worker process's resident set size read immediately before and after the
+task, so the delta may be negative and is not unique allocation. The high-water
+metric is the worker process lifetime `VmHWM` observed at completion; it is not
+the task's peak RSS. Values are best effort: missing or malformed `/proc` and
+Redis data are omitted, and task IDs are never exported as labels.
+
+To compare the latest completed tasks in Prometheus, use
+`sort_desc(celery_task_rss_after_bytes / 1024 / 1024)` for process RSS in MiB,
+and `sort_desc(celery_task_rss_delta_bytes / 1024 / 1024)` for the change across
+each task. Check `time() - celery_task_last_finished_timestamp_seconds` for
+sample age. These are individual completion samples, not averages or total
+worker memory: successive samples can come from different child processes.
 
 ## Dashboard Intent
 
@@ -57,3 +76,11 @@ These are the first metrics to check when the site feels slow.
 - Do not add high-cardinality labels like `player_id`, Discord ID, raw search query, or tournament ID.
 - Prefer route templates, section names, outcomes, and cache statuses as labels.
 - If you add a metric here, add or update the matching Grafana/Prometheus wiring in `GarzAICluster` in the same PR set.
+
+For memory pressure, use the before/after delta to identify tasks associated
+with growth and use the process high-water metric as historical context for
+worker lifetime pressure. Prefer conservative child recycling when current
+post-task RSS remains elevated across tasks; HWM remains elevated after a peak
+and should not by itself trigger recycling. Tune recycling in the
+deployment/config repository after observing sustained behavior rather than
+changing live worker thresholds from this instrumentation change.
