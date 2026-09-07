@@ -4,7 +4,6 @@ import sqlite3
 from pathlib import Path
 from typing import Iterable, Mapping
 
-
 LOOKUP_SNAPSHOT_SCHEMA_VERSION = 1
 
 
@@ -24,35 +23,26 @@ def create_lookup_snapshot_database(
 
 def _initialize_lookup_tables(connection: sqlite3.Connection) -> None:
     cursor = connection.cursor()
-    cursor.execute(
-        """
+    cursor.execute("""
         CREATE TABLE IF NOT EXISTS aliases (
             alias TEXT,
             player_id TEXT,
             last_seen DATETIME
         );
-        """
-    )
-    cursor.execute(
-        """
+        """)
+    cursor.execute("""
         CREATE INDEX IF NOT EXISTS idx_aliases_alias
         ON aliases (alias);
-        """
-    )
-    cursor.execute(
-        """
+        """)
+    cursor.execute("""
         CREATE INDEX IF NOT EXISTS idx_aliases_player_id
         ON aliases (player_id);
-        """
-    )
-    cursor.execute(
-        """
+        """)
+    cursor.execute("""
         CREATE INDEX IF NOT EXISTS idx_aliases_last_seen
         ON aliases (last_seen);
-        """
-    )
-    cursor.execute(
-        """
+        """)
+    cursor.execute("""
         CREATE TABLE IF NOT EXISTS weapon_leaderboard_peak (
             player_id TEXT,
             season_number INTEGER,
@@ -64,40 +54,28 @@ def _initialize_lookup_tables(connection: sqlite3.Connection) -> None:
             percent_games_played REAL,
             PRIMARY KEY (player_id, season_number, mode, region, weapon_id)
         );
-        """
-    )
-    cursor.execute(
-        """
+        """)
+    cursor.execute("""
         CREATE INDEX IF NOT EXISTS idx_weapon_leaderboard_peak_player_id
         ON weapon_leaderboard_peak (player_id);
-        """
-    )
-    cursor.execute(
-        """
+        """)
+    cursor.execute("""
         CREATE INDEX IF NOT EXISTS idx_weapon_leaderboard_peak_season_number
         ON weapon_leaderboard_peak (season_number);
-        """
-    )
-    cursor.execute(
-        """
+        """)
+    cursor.execute("""
         CREATE INDEX IF NOT EXISTS idx_weapon_leaderboard_peak_mode
         ON weapon_leaderboard_peak (mode);
-        """
-    )
-    cursor.execute(
-        """
+        """)
+    cursor.execute("""
         CREATE INDEX IF NOT EXISTS idx_weapon_leaderboard_peak_region
         ON weapon_leaderboard_peak (region);
-        """
-    )
-    cursor.execute(
-        """
+        """)
+    cursor.execute("""
         CREATE INDEX IF NOT EXISTS idx_weapon_leaderboard_peak_weapon_id
         ON weapon_leaderboard_peak (weapon_id);
-        """
-    )
-    cursor.execute(
-        """
+        """)
+    cursor.execute("""
         CREATE TABLE IF NOT EXISTS season_results (
             player_id TEXT,
             season_number INTEGER,
@@ -108,38 +86,27 @@ def _initialize_lookup_tables(connection: sqlite3.Connection) -> None:
             rank INTEGER,
             PRIMARY KEY (player_id, season_number, mode, region)
         );
-        """
-    )
-    cursor.execute(
-        """
+        """)
+    cursor.execute("""
         CREATE INDEX IF NOT EXISTS idx_season_results_player_id
         ON season_results (player_id);
-        """
-    )
-    cursor.execute(
-        """
+        """)
+    cursor.execute("""
         CREATE INDEX IF NOT EXISTS idx_season_results_season_number
         ON season_results (season_number);
-        """
-    )
-    cursor.execute(
-        """
+        """)
+    cursor.execute("""
         CREATE INDEX IF NOT EXISTS idx_season_results_mode
         ON season_results (mode);
-        """
-    )
-    cursor.execute(
-        """
+        """)
+    cursor.execute("""
         CREATE INDEX IF NOT EXISTS idx_season_results_region
         ON season_results (region);
-        """
-    )
-    cursor.execute(
-        """
+        """)
+    cursor.execute("""
         CREATE INDEX IF NOT EXISTS idx_season_results_weapon_id
         ON season_results (weapon_id);
-        """
-    )
+        """)
     connection.commit()
 
 
@@ -150,15 +117,15 @@ def populate_lookup_snapshot_database(
     weapon_rows: Iterable[Mapping[str, object]],
     season_rows: Iterable[Mapping[str, object]],
 ) -> dict[str, int]:
-    alias_rows = [
+    alias_rows = (
         (
             row.get("splashtag"),
             row.get("player_id"),
             row.get("last_seen"),
         )
         for row in aliases
-    ]
-    weapon_values = [
+    )
+    weapon_values = (
         (
             row.get("player_id"),
             row.get("season_number"),
@@ -170,8 +137,8 @@ def populate_lookup_snapshot_database(
             row.get("percent_games_played"),
         )
         for row in weapon_rows
-    ]
-    season_values = [
+    )
+    season_values = (
         (
             row.get("player_id"),
             row.get("season_number"),
@@ -182,19 +149,20 @@ def populate_lookup_snapshot_database(
             row.get("rank"),
         )
         for row in season_rows
-    ]
+    )
 
+    row_counts: dict[str, int] = {}
     with connection:
         connection.execute("DELETE FROM aliases;")
-        connection.executemany(
+        row_counts["aliases"] = connection.executemany(
             """
             INSERT INTO aliases (alias, player_id, last_seen)
             VALUES (?, ?, ?);
             """,
             alias_rows,
-        )
+        ).rowcount
         connection.execute("DELETE FROM weapon_leaderboard_peak;")
-        connection.executemany(
+        row_counts["weapon_leaderboard_peak"] = connection.executemany(
             """
             INSERT INTO weapon_leaderboard_peak (
                 player_id,
@@ -209,9 +177,9 @@ def populate_lookup_snapshot_database(
             VALUES (?, ?, ?, ?, ?, ?, ?, ?);
             """,
             weapon_values,
-        )
+        ).rowcount
         connection.execute("DELETE FROM season_results;")
-        connection.executemany(
+        row_counts["season_results"] = connection.executemany(
             """
             INSERT INTO season_results (
                 player_id,
@@ -225,13 +193,9 @@ def populate_lookup_snapshot_database(
             VALUES (?, ?, ?, ?, ?, ?, ?);
             """,
             season_values,
-        )
+        ).rowcount
 
-    return {
-        "aliases": len(alias_rows),
-        "weapon_leaderboard_peak": len(weapon_values),
-        "season_results": len(season_values),
-    }
+    return row_counts
 
 
 def create_empty_lookup_snapshot(db_path: str | Path) -> None:
