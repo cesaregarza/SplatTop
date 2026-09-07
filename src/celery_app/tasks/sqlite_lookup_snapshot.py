@@ -45,7 +45,7 @@ redis_conn = redis.Redis(
     host=REDIS_HOST,
     port=REDIS_PORT,
     db=0,
-    decode_responses=True,
+    decode_responses=False,
 )
 
 
@@ -57,13 +57,9 @@ def _coerce_bytes(value: str | bytes | None) -> bytes:
     return value.encode("utf-8")
 
 
-def _load_json_value(key: str) -> tuple[Any, bytes]:
-    raw = redis_conn.get(key)
-    if raw is None:
-        raise RuntimeError(f"Missing Redis payload for {key}")
-    raw_bytes = _coerce_bytes(raw)
+def _load_json_value(key: str, raw_bytes: bytes) -> Any:
     try:
-        return orjson.loads(raw_bytes), raw_bytes
+        return orjson.loads(raw_bytes)
     except orjson.JSONDecodeError as exc:
         raise RuntimeError(f"Invalid JSON payload for {key}") from exc
 
@@ -83,21 +79,25 @@ def _load_existing_meta() -> dict[str, Any] | None:
     return payload if isinstance(payload, dict) else None
 
 
-def _find_missing_source_keys() -> list[str]:
+def _load_source_values() -> tuple[dict[str, bytes], list[str]]:
+    source_values: dict[str, bytes] = {}
     missing_keys: list[str] = []
     for key in (
         ALIASES_REDIS_KEY,
         WEAPON_LEADERBOARD_PEAK_REDIS_KEY,
         SEASON_RESULTS_REDIS_KEY,
     ):
-        if redis_conn.get(key) is None:
+        raw = redis_conn.get(key)
+        if raw is None:
             missing_keys.append(key)
-    return missing_keys
+        else:
+            source_values[key] = _coerce_bytes(raw)
+    return source_values, missing_keys
 
 
 def refresh_lookup_sqlite_snapshot() -> dict[str, Any]:
     started = perf_counter()
-    token = uuid.uuid4().hex
+    token = uuid.uuid4().hex.encode("ascii")
     if not redis_conn.set(
         LOOKUP_SQLITE_SNAPSHOT_LOCK_KEY,
         token,
@@ -115,7 +115,7 @@ def refresh_lookup_sqlite_snapshot() -> dict[str, Any]:
         return {"rebuilt": False, "reason": "lock_missed"}
 
     try:
-        missing_keys = _find_missing_source_keys()
+        source_values, missing_keys = _load_source_values()
         if missing_keys:
             if metrics_enabled():
                 LOOKUP_SQLITE_SNAPSHOT_EVENTS.labels(
@@ -135,23 +135,15 @@ def refresh_lookup_sqlite_snapshot() -> dict[str, Any]:
                 "missing_keys": missing_keys,
             }
 
-        aliases, aliases_raw = _load_json_value(ALIASES_REDIS_KEY)
-        weapon_rows, weapon_raw = _load_json_value(
-            WEAPON_LEADERBOARD_PEAK_REDIS_KEY
-        )
-        season_rows, season_raw = _load_json_value(SEASON_RESULTS_REDIS_KEY)
-
-        if not isinstance(aliases, list):
-            raise RuntimeError("Alias payload is not a list")
-        if not isinstance(weapon_rows, list):
-            raise RuntimeError("Weapon leaderboard payload is not a list")
-        if not isinstance(season_rows, list):
-            raise RuntimeError("Season results payload is not a list")
-
+        # Hash the exact bytes that will be built, before allocating decoded rows.
         source_hashes = {
-            "aliases": _source_hash(aliases_raw),
-            "weapon_leaderboard_peak": _source_hash(weapon_raw),
-            "season_results": _source_hash(season_raw),
+            "aliases": _source_hash(source_values[ALIASES_REDIS_KEY]),
+            "weapon_leaderboard_peak": _source_hash(
+                source_values[WEAPON_LEADERBOARD_PEAK_REDIS_KEY]
+            ),
+            "season_results": _source_hash(
+                source_values[SEASON_RESULTS_REDIS_KEY]
+            ),
         }
 
         existing_meta = _load_existing_meta() or {}
@@ -179,6 +171,24 @@ def refresh_lookup_sqlite_snapshot() -> dict[str, Any]:
                 "version": existing_meta.get("version"),
             }
 
+        aliases = _load_json_value(
+            ALIASES_REDIS_KEY, source_values.pop(ALIASES_REDIS_KEY)
+        )
+        weapon_rows = _load_json_value(
+            WEAPON_LEADERBOARD_PEAK_REDIS_KEY,
+            source_values.pop(WEAPON_LEADERBOARD_PEAK_REDIS_KEY),
+        )
+        season_rows = _load_json_value(
+            SEASON_RESULTS_REDIS_KEY,
+            source_values.pop(SEASON_RESULTS_REDIS_KEY),
+        )
+        if not isinstance(aliases, list):
+            raise RuntimeError("Alias payload is not a list")
+        if not isinstance(weapon_rows, list):
+            raise RuntimeError("Weapon leaderboard payload is not a list")
+        if not isinstance(season_rows, list):
+            raise RuntimeError("Season results payload is not a list")
+
         with tempfile.TemporaryDirectory(
             prefix="splattop-lookup-sqlite-"
         ) as temp_dir:
@@ -194,10 +204,16 @@ def refresh_lookup_sqlite_snapshot() -> dict[str, Any]:
             finally:
                 connection.close()
 
+            # Do not keep all decoded rows alive while loading/compressing SQLite.
+            del aliases, weapon_rows, season_rows
             db_bytes = db_path.read_bytes()
 
+        sqlite_size = len(db_bytes)
         compressed = zlib.compress(db_bytes, level=6)
+        del db_bytes
+        compressed_size = len(compressed)
         encoded_blob = base64.b64encode(compressed).decode("ascii")
+        del compressed
         built_at_ms = int(time.time() * 1000)
         version = f"{built_at_ms}-{uuid.uuid4().hex[:8]}"
         meta = {
@@ -209,8 +225,8 @@ def refresh_lookup_sqlite_snapshot() -> dict[str, Any]:
             "row_counts": row_counts,
             "source_hashes": source_hashes,
             "bytes": {
-                "sqlite": len(db_bytes),
-                "compressed": len(compressed),
+                "sqlite": sqlite_size,
+                "compressed": compressed_size,
                 "encoded": len(encoded_blob),
             },
         }
@@ -229,10 +245,10 @@ def refresh_lookup_sqlite_snapshot() -> dict[str, Any]:
                 outcome="published"
             ).observe(perf_counter() - started)
             LOOKUP_SQLITE_SNAPSHOT_BYTES.labels(kind="sqlite").set(
-                float(len(db_bytes))
+                float(sqlite_size)
             )
             LOOKUP_SQLITE_SNAPSHOT_BYTES.labels(kind="compressed").set(
-                float(len(compressed))
+                float(compressed_size)
             )
             LOOKUP_SQLITE_SNAPSHOT_BYTES.labels(kind="encoded").set(
                 float(len(encoded_blob))
@@ -259,7 +275,10 @@ def refresh_lookup_sqlite_snapshot() -> dict[str, Any]:
         raise
     finally:
         try:
-            if redis_conn.get(LOOKUP_SQLITE_SNAPSHOT_LOCK_KEY) == token:
+            if (
+                _coerce_bytes(redis_conn.get(LOOKUP_SQLITE_SNAPSHOT_LOCK_KEY))
+                == token
+            ):
                 redis_conn.delete(LOOKUP_SQLITE_SNAPSHOT_LOCK_KEY)
         except Exception:
             logger.debug("Failed to release lookup SQLite snapshot lock")

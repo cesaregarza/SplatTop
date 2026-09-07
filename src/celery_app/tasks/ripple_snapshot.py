@@ -22,8 +22,8 @@ from shared_lib.constants import (
     RIPPLE_DANGER_LATEST_KEY,
     RIPPLE_PLAYER_INDEX_LATEST_KEY,
     RIPPLE_PLAYER_INDEX_META_KEY,
-    RIPPLE_PLAYER_INDEX_PLAYER_PREFIX,
     RIPPLE_PLAYER_INDEX_PLAYER_HISTORY_PREFIX,
+    RIPPLE_PLAYER_INDEX_PLAYER_PREFIX,
     RIPPLE_PLAYER_INDEX_PLAYER_RESULTS_PREFIX,
     RIPPLE_PLAYER_INDEX_PLAYER_SUMMARY_PREFIX,
     RIPPLE_PLAYER_OWNER_DISCORD_HASH_KEY,
@@ -37,6 +37,7 @@ from shared_lib.constants import (
     RIPPLE_STABLE_STATE_KEY,
 )
 from shared_lib.queries import ripple_queries
+from shared_lib.queries.player_match_loo import build_player_match_loo_query
 
 logger = logging.getLogger(__name__)
 
@@ -124,15 +125,13 @@ async def _fetch_player_owner_discord_ids(
 
     schema = ripple_queries._schema()
     schema_sql = f'"{schema}"'
-    query = text(
-        f"""
+    query = text(f"""
         SELECT
             player_id::text AS player_id,
             NULLIF(BTRIM(discord_id::text), '') AS discord_id
         FROM {schema_sql}.players
         WHERE player_id::text = ANY(:player_ids)
-        """
-    )
+        """)
 
     owner_ids: Dict[str, str] = {}
     for batch in _batched(player_ids, size=PLAYER_HISTORY_CHUNK_SIZE):
@@ -168,7 +167,7 @@ async def _fetch_player_owner_discord_ids(
 
 
 def _grade_threshold_percentiles(
-    stable_rows: List[Mapping[str, Any]]
+    stable_rows: List[Mapping[str, Any]],
 ) -> Tuple[List[Dict[str, Any]], int]:
     scores = sorted(
         float(row["stable_score"])
@@ -194,13 +193,17 @@ def _grade_threshold_percentiles(
         results.append(
             {
                 "label": label,
-                "raw_floor": None
-                if not math.isfinite(raw_floor)
-                else round(raw_floor, 4),
+                "raw_floor": (
+                    None
+                    if not math.isfinite(raw_floor)
+                    else round(raw_floor, 4)
+                ),
                 "raw_ceiling": round(raw_ceiling, 4),
-                "display_floor": None
-                if not math.isfinite(raw_floor)
-                else round(raw_floor * SCORE_MULTIPLIER + DISPLAY_OFFSET, 2),
+                "display_floor": (
+                    None
+                    if not math.isfinite(raw_floor)
+                    else round(raw_floor * SCORE_MULTIPLIER + DISPLAY_OFFSET, 2)
+                ),
                 "display_ceiling": round(
                     raw_ceiling * SCORE_MULTIPLIER + DISPLAY_OFFSET, 2
                 ),
@@ -303,9 +306,11 @@ def _build_player_history_section(payload: Mapping[str, Any]) -> Dict[str, Any]:
         "history_generated_at_ms": payload.get("history_generated_at_ms"),
         "history_record_count": payload.get("history_record_count", 0),
         "history_max_records": payload.get("history_max_records"),
-        "tournament_history_ranked": payload.get("tournament_history_ranked")
-        if isinstance(payload.get("tournament_history_ranked"), list)
-        else [],
+        "tournament_history_ranked": (
+            payload.get("tournament_history_ranked")
+            if isinstance(payload.get("tournament_history_ranked"), list)
+            else []
+        ),
     }
 
 
@@ -315,9 +320,11 @@ def _build_player_results_section(payload: Mapping[str, Any]) -> Dict[str, Any]:
         "match_loo_generated_at_ms": payload.get("match_loo_generated_at_ms"),
         "match_loo_record_count": payload.get("match_loo_record_count", 0),
         "match_loo_max_records": payload.get("match_loo_max_records"),
-        "match_loo_impacts": payload.get("match_loo_impacts")
-        if isinstance(payload.get("match_loo_impacts"), list)
-        else [],
+        "match_loo_impacts": (
+            payload.get("match_loo_impacts")
+            if isinstance(payload.get("match_loo_impacts"), list)
+            else []
+        ),
     }
 
 
@@ -347,12 +354,16 @@ def _match_loo_match_id_rank_value(row: Mapping[str, Any]) -> int:
 
 def _match_loo_abs_rank_key(row: Mapping[str, Any]) -> tuple[float, float, int]:
     return (
-        _to_float(row.get("exact_abs_delta"))
-        if _to_float(row.get("exact_abs_delta")) is not None
-        else float("-inf"),
-        _to_float(row.get("exact_score_delta"))
-        if _to_float(row.get("exact_score_delta")) is not None
-        else float("-inf"),
+        (
+            _to_float(row.get("exact_abs_delta"))
+            if _to_float(row.get("exact_abs_delta")) is not None
+            else float("-inf")
+        ),
+        (
+            _to_float(row.get("exact_score_delta"))
+            if _to_float(row.get("exact_score_delta")) is not None
+            else float("-inf")
+        ),
         _match_loo_match_id_rank_value(row),
     )
 
@@ -380,12 +391,16 @@ def _select_player_match_loo_rows(
     harmful_rows = sorted(
         harmful_rows,
         key=lambda row: (
-            _to_float(row.get("exact_score_delta"))
-            if _to_float(row.get("exact_score_delta")) is not None
-            else float("-inf"),
-            _to_float(row.get("exact_abs_delta"))
-            if _to_float(row.get("exact_abs_delta")) is not None
-            else float("-inf"),
+            (
+                _to_float(row.get("exact_score_delta"))
+                if _to_float(row.get("exact_score_delta")) is not None
+                else float("-inf")
+            ),
+            (
+                _to_float(row.get("exact_abs_delta"))
+                if _to_float(row.get("exact_abs_delta")) is not None
+                else float("-inf")
+            ),
             _match_loo_match_id_rank_value(row),
         ),
         reverse=True,
@@ -394,9 +409,11 @@ def _select_player_match_loo_rows(
     helpful_rows = sorted(
         helpful_rows,
         key=lambda row: (
-            _to_float(row.get("exact_score_delta"))
-            if _to_float(row.get("exact_score_delta")) is not None
-            else float("inf"),
+            (
+                _to_float(row.get("exact_score_delta"))
+                if _to_float(row.get("exact_score_delta")) is not None
+                else float("inf")
+            ),
             -(
                 _to_float(row.get("exact_abs_delta"))
                 if _to_float(row.get("exact_abs_delta")) is not None
@@ -496,20 +513,16 @@ async def _previous_calculated_at_ms(
     schema_sql = f'"{schema}"'
 
     if current_ts is not None:
-        query = text(
-            f"""
+        query = text(f"""
             SELECT MAX(calculated_at_ms)::bigint AS ts
             FROM {schema_sql}.player_rankings
             WHERE calculated_at_ms < :current_ts
-            """
-        )
+            """)
         params = {"current_ts": int(current_ts)}
     else:
-        query = text(
-            f"""
+        query = text(f"""
             SELECT NULLIF((SELECT MAX(calculated_at_ms) FROM {schema_sql}.player_rankings), NULL)::bigint AS ts
-            """
-        )
+            """)
         params: Dict[str, Any] = {}
 
     result = await session.execute(query, params)
@@ -527,13 +540,11 @@ async def _latest_calculated_at_at_or_before(
     schema = ripple_queries._schema()
     schema_sql = f'"{schema}"'
 
-    query = text(
-        f"""
+    query = text(f"""
         SELECT MAX(calculated_at_ms)::bigint AS ts
         FROM {schema_sql}.player_rankings
         WHERE calculated_at_ms <= :cutoff
-        """
-    )
+        """)
     result = await session.execute(query, {"cutoff": int(cutoff_ms)})
     value = result.scalar()
     return None if value is None else int(value)
@@ -599,12 +610,16 @@ async def _load_baseline_snapshot_from_db(
                 "display_score": _display_score(score),
                 "tournament_count": _to_int(row.get("tournament_count")),
                 "window_tournament_count": _to_int(row.get("window_count")),
-                "last_active_ms": latest_event_ms
-                if latest_event_ms is not None
-                else _to_int(row.get("last_active_ms")),
-                "last_tournament_ms": latest_event_ms
-                if latest_event_ms is not None
-                else _to_int(row.get("last_active_ms")),
+                "last_active_ms": (
+                    latest_event_ms
+                    if latest_event_ms is not None
+                    else _to_int(row.get("last_active_ms"))
+                ),
+                "last_tournament_ms": (
+                    latest_event_ms
+                    if latest_event_ms is not None
+                    else _to_int(row.get("last_active_ms"))
+                ),
                 "stable_rank": _to_int(row.get("rank")),
             }
         )
@@ -753,8 +768,7 @@ async def _fetch_player_events(
     # when a tournament is missing from the event-time MV. We still compute
     # latest_event_ms from available event times, but total tournaments are
     # counted across all appearances.
-    query = text(
-        f"""
+    query = text(f"""
         SELECT pat.player_id::text AS player_id,
                MAX(tet.event_ms)::bigint AS latest_event_ms,
                COUNT(DISTINCT pat.tournament_id)::int AS tournament_count
@@ -763,8 +777,7 @@ async def _fetch_player_events(
           ON tet.tournament_id = pat.tournament_id
         WHERE pat.player_id::text = ANY(:player_ids)
         GROUP BY pat.player_id
-        """
-    )
+        """)
 
     result = await session.execute(query, {"player_ids": player_ids})
     out: Dict[str, Dict[str, Any]] = {}
@@ -786,16 +799,11 @@ async def _fetch_player_ranked_history(
     if not player_ids:
         return {}
 
-    max_rows = (
-        None
-        if max_per_player is None
-        else max(1, int(max_per_player))
-    )
+    max_rows = None if max_per_player is None else max(1, int(max_per_player))
     schema = ripple_queries._schema()
     schema_sql = f'"{schema}"'
 
-    query = text(
-        f"""
+    query = text(f"""
         WITH player_matches AS (
             SELECT DISTINCT pat.player_id::text AS player_id,
                             pat.tournament_id,
@@ -895,8 +903,7 @@ async def _fetch_player_ranked_history(
         FROM ranked_rows
         WHERE :max_per_player IS NULL OR row_num <= :max_per_player
         ORDER BY player_id, row_num
-        """
-    ).bindparams(bindparam("max_per_player", type_=BigInteger))
+        """).bindparams(bindparam("max_per_player", type_=BigInteger))
 
     history_by_player: Dict[str, List[Dict[str, Any]]] = {}
 
@@ -996,207 +1003,8 @@ async def _fetch_player_match_loo_impacts(
     schema = ripple_queries._schema()
     schema_sql = f'"{schema}"'
 
-    query = text(
-        f"""
-        WITH player_match_team AS (
-            SELECT
-                pat.player_id::text AS player_id,
-                pat.match_id,
-                pat.tournament_id,
-                MAX(pat.team_id)::bigint AS player_team_id
-            FROM {schema_sql}.player_appearance_teams pat
-            WHERE pat.player_id::text = ANY(:player_ids)
-            GROUP BY pat.player_id::text, pat.match_id, pat.tournament_id
-        ),
-        base_ids AS (
-            SELECT
-                impacts.player_id::text AS player_id,
-                impacts.match_id,
-                impacts.tournament_id,
-                tournaments.name::text AS tournament_name,
-                CASE
-                    WHEN matches.last_game_finished_at_ms IS NULL THEN
-                        CASE
-                            WHEN tournaments.start_time_ms IS NULL THEN NULL
-                            WHEN tournaments.start_time_ms < 1000000000000
-                                THEN tournaments.start_time_ms * 1000
-                            ELSE tournaments.start_time_ms
-                        END
-                    WHEN matches.last_game_finished_at_ms < 1000000000000
-                        THEN matches.last_game_finished_at_ms * 1000
-                    ELSE matches.last_game_finished_at_ms
-                END::bigint AS event_ms,
-                impacts.player_rank,
-                impacts.player_score,
-                impacts.is_win,
-                impacts.exact_score_delta,
-                impacts.exact_abs_delta,
-                COALESCE(
-                    player_match_team.player_team_id,
-                    CASE
-                        WHEN impacts.is_win IS TRUE THEN matches.winner_team_id
-                        WHEN impacts.is_win IS FALSE THEN matches.loser_team_id
-                        ELSE NULL
-                    END
-                )::bigint AS player_team_id,
-                matches.team1_id,
-                matches.team1_score,
-                matches.team2_id,
-                matches.team2_score
-            FROM {schema_sql}.player_match_loo_impacts impacts
-            LEFT JOIN {schema_sql}.tournaments tournaments
-              ON tournaments.tournament_id = impacts.tournament_id
-            LEFT JOIN {schema_sql}.matches matches
-              ON matches.match_id = impacts.match_id
-             AND matches.tournament_id = impacts.tournament_id
-            LEFT JOIN player_match_team
-              ON player_match_team.player_id = impacts.player_id::text
-             AND player_match_team.match_id = impacts.match_id
-             AND player_match_team.tournament_id = impacts.tournament_id
-            WHERE impacts.player_id::text = ANY(:player_ids)
-              AND impacts.calculated_at_ms = :calculated_at_ms
-              AND (
-                CAST(:match_any_build_version AS BOOLEAN) IS TRUE
-                OR (
-                    CAST(:build_version AS TEXT) IS NULL
-                    AND impacts.build_version IS NULL
-                )
-                OR impacts.build_version = CAST(:build_version AS TEXT)
-              )
-        ),
-        base AS (
-            SELECT
-                base_ids.player_id,
-                base_ids.match_id,
-                base_ids.tournament_id,
-                base_ids.tournament_name,
-                base_ids.event_ms,
-                base_ids.player_rank,
-                base_ids.player_score,
-                base_ids.is_win,
-                base_ids.exact_score_delta,
-                base_ids.exact_abs_delta,
-                base_ids.player_team_id,
-                CASE
-                    WHEN base_ids.player_team_id = base_ids.team1_id
-                        THEN base_ids.team2_id
-                    WHEN base_ids.player_team_id = base_ids.team2_id
-                        THEN base_ids.team1_id
-                    ELSE NULL
-                END::bigint AS opponent_team_id,
-                CASE
-                    WHEN base_ids.player_team_id = base_ids.team1_id
-                        THEN base_ids.team1_score
-                    WHEN base_ids.player_team_id = base_ids.team2_id
-                        THEN base_ids.team2_score
-                    ELSE NULL
-                END::int AS player_team_score,
-                CASE
-                    WHEN base_ids.player_team_id = base_ids.team1_id
-                        THEN base_ids.team2_score
-                    WHEN base_ids.player_team_id = base_ids.team2_id
-                        THEN base_ids.team1_score
-                    ELSE NULL
-                END::int AS opponent_team_score
-            FROM base_ids
-        ),
-        roster_keys AS (
-            SELECT DISTINCT
-                base.tournament_id,
-                base.match_id,
-                base.player_team_id AS team_id
-            FROM base
-            WHERE base.player_team_id IS NOT NULL
-            UNION
-            SELECT DISTINCT
-                base.tournament_id,
-                base.match_id,
-                base.opponent_team_id AS team_id
-            FROM base
-            WHERE base.opponent_team_id IS NOT NULL
-        ),
-        team_rosters AS (
-            SELECT
-                roster_keys.tournament_id,
-                roster_keys.match_id,
-                roster_keys.team_id,
-                COALESCE(
-                    ARRAY_AGG(
-                        DISTINCT COALESCE(
-                            NULLIF(BTRIM(players.display_name::text), ''),
-                            pat.player_id::text
-                        )
-                        ORDER BY COALESCE(
-                            NULLIF(BTRIM(players.display_name::text), ''),
-                            pat.player_id::text
-                        )
-                    ) FILTER (WHERE pat.player_id IS NOT NULL),
-                    ARRAY[]::text[]
-                ) AS player_names
-            FROM roster_keys
-            LEFT JOIN {schema_sql}.player_appearance_teams pat
-              ON pat.tournament_id = roster_keys.tournament_id
-             AND pat.match_id = roster_keys.match_id
-             AND pat.team_id = roster_keys.team_id
-            LEFT JOIN {schema_sql}.players players
-              ON players.player_id = pat.player_id
-            GROUP BY
-                roster_keys.tournament_id,
-                roster_keys.match_id,
-                roster_keys.team_id
-        ),
-        enriched AS (
-            SELECT
-                base.*,
-                player_team.name::text AS player_team_name,
-                opponent_team.name::text AS opponent_team_name,
-                player_roster.player_names AS player_team_players,
-                opponent_roster.player_names AS opponent_team_players
-            FROM base
-            LEFT JOIN {schema_sql}.tournament_teams player_team
-              ON player_team.tournament_id = base.tournament_id
-             AND player_team.team_id = base.player_team_id
-            LEFT JOIN {schema_sql}.tournament_teams opponent_team
-              ON opponent_team.tournament_id = base.tournament_id
-             AND opponent_team.team_id = base.opponent_team_id
-            LEFT JOIN team_rosters player_roster
-              ON player_roster.tournament_id = base.tournament_id
-             AND player_roster.match_id = base.match_id
-             AND player_roster.team_id = base.player_team_id
-            LEFT JOIN team_rosters opponent_roster
-              ON opponent_roster.tournament_id = base.tournament_id
-             AND opponent_roster.match_id = base.match_id
-             AND opponent_roster.team_id = base.opponent_team_id
-        )
-        SELECT
-            player_id,
-            match_id,
-            tournament_id,
-            tournament_name,
-            event_ms,
-            player_rank,
-            player_score,
-            is_win,
-            exact_score_delta,
-            exact_abs_delta,
-            player_team_id,
-            player_team_name,
-            opponent_team_id,
-            opponent_team_name,
-            player_team_score,
-            opponent_team_score,
-            player_team_players,
-            opponent_team_players
-        FROM enriched
-        ORDER BY
-            player_id,
-            exact_abs_delta DESC NULLS LAST,
-            exact_score_delta DESC NULLS LAST,
-            match_id DESC NULLS LAST
-        """
-    )
-    latest_snapshot_query = text(
-        f"""
+    query = build_player_match_loo_query(schema)
+    latest_snapshot_query = text(f"""
         SELECT DISTINCT ON (impacts.player_id::text)
             impacts.player_id::text AS player_id,
             impacts.calculated_at_ms::bigint AS calculated_at_ms,
@@ -1207,8 +1015,7 @@ async def _fetch_player_match_loo_impacts(
             impacts.player_id::text,
             impacts.calculated_at_ms DESC NULLS LAST,
             impacts.build_version DESC NULLS LAST
-        """
-    )
+        """)
 
     impacts_by_player: Dict[str, List[Dict[str, Any]]] = {}
 
@@ -1222,6 +1029,7 @@ async def _fetch_player_match_loo_impacts(
                     "calculated_at_ms": int(calculated_at_ms),
                     "build_version": build_version,
                     "match_any_build_version": build_version is None,
+                    "max_per_player": max_rows,
                 },
             )
             rows.extend(result.mappings().all())
@@ -1246,9 +1054,7 @@ async def _fetch_player_match_loo_impacts(
                     {"player_ids": missing_player_ids},
                 )
                 fallback_snapshots = snapshot_result.mappings().all()
-                fallback_groups: Dict[
-                    tuple[int, str | None], List[str]
-                ] = {}
+                fallback_groups: Dict[tuple[int, str | None], List[str]] = {}
                 for snapshot_row in fallback_snapshots:
                     fallback_player_id = str(
                         snapshot_row.get("player_id") or ""
@@ -1281,6 +1087,7 @@ async def _fetch_player_match_loo_impacts(
                             "calculated_at_ms": fallback_calculated_at_ms,
                             "build_version": fallback_build_version,
                             "match_any_build_version": False,
+                            "max_per_player": max_rows,
                         },
                     )
                     rows.extend(fallback_result.mappings().all())
@@ -1378,8 +1185,7 @@ async def _first_scores_after_events(
     player_ids = list(player_events.keys())
     event_ms = [int(player_events[player_id]) for player_id in player_ids]
 
-    query = text(
-        f"""
+    query = text(f"""
         WITH params AS (
             SELECT player_id, event_ms
             FROM UNNEST(CAST(:player_ids AS text[]), CAST(:event_ms AS bigint[]))
@@ -1394,8 +1200,7 @@ async def _first_scores_after_events(
          AND pr.calculated_at_ms >= p.event_ms
          AND (:cutoff_ms IS NULL OR pr.calculated_at_ms <= :cutoff_ms)
         ORDER BY pr.player_id, pr.calculated_at_ms
-        """
-    ).bindparams(bindparam("cutoff_ms", type_=BigInteger))
+        """).bindparams(bindparam("cutoff_ms", type_=BigInteger))
 
     result = await session.execute(
         query,
@@ -1473,9 +1278,9 @@ async def _bootstrap_state(
                 "tournament_count": tournament_count,
                 "window_tournament_count": _to_int(row.get("window_count")),
                 "last_active_ms": last_ms,
-                "last_tournament_ms": latest_event_ms
-                if latest_event_ms is not None
-                else last_ms,
+                "last_tournament_ms": (
+                    latest_event_ms if latest_event_ms is not None else last_ms
+                ),
             }
         )
 
@@ -1648,26 +1453,28 @@ def _build_player_index_payload(
             "danger_days_left": _to_float(danger_row.get("days_left")),
             "last_active_ms": last_active_ms,
             "last_tournament_ms": last_tournament_ms,
-            "rank_delta": _to_int(delta_entry.get("rank_delta"))
-            if has_baseline
-            else None,
-            "display_score_delta": _to_float(
-                delta_entry.get("display_score_delta")
-            )
-            if has_baseline
-            else None,
-            "delta_is_new": bool(delta_entry.get("is_new"))
-            if has_baseline
-            else False,
+            "rank_delta": (
+                _to_int(delta_entry.get("rank_delta")) if has_baseline else None
+            ),
+            "display_score_delta": (
+                _to_float(delta_entry.get("display_score_delta"))
+                if has_baseline
+                else None
+            ),
+            "delta_is_new": (
+                bool(delta_entry.get("is_new")) if has_baseline else False
+            ),
             "delta_has_baseline": has_baseline,
-            "previous_rank": _to_int(delta_entry.get("previous_rank"))
-            if has_baseline
-            else None,
-            "previous_display_score": _to_float(
-                delta_entry.get("previous_display_score")
-            )
-            if has_baseline
-            else None,
+            "previous_rank": (
+                _to_int(delta_entry.get("previous_rank"))
+                if has_baseline
+                else None
+            ),
+            "previous_display_score": (
+                _to_float(delta_entry.get("previous_display_score"))
+                if has_baseline
+                else None
+            ),
             "history_generated_at_ms": generated_at_ms,
             "history_record_count": len(history_rows),
             "history_max_records": MAX_PLAYER_HISTORY_ENTRIES,
@@ -1765,11 +1572,9 @@ async def _refresh_snapshots_async_once() -> Dict[str, Any]:
             )
             calc_ts_int = _to_int(calc_ts)
             events = await _fetch_player_events(session, player_ids)
-            player_owner_discord_ids = (
-                await _fetch_player_owner_discord_ids(
-                    session,
-                    all_player_ids,
-                )
+            player_owner_discord_ids = await _fetch_player_owner_discord_ids(
+                session,
+                all_player_ids,
             )
             tournament_history_by_player = await _fetch_player_ranked_history(
                 session,
