@@ -71,8 +71,7 @@ SPLATGPT_ERRORS = Counter(
 
 WEBSOCKET_CONNECTIONS = Gauge(
     "fastapi_websocket_connections",
-    "Active websocket connections grouped by player id.",
-    labelnames=["player_id"],
+    "Total active websocket connections.",
 )
 WEBSOCKET_EVENTS = Counter(
     "fastapi_websocket_events_total",
@@ -82,12 +81,10 @@ WEBSOCKET_EVENTS = Counter(
 WEBSOCKET_BROADCAST_DURATION = Histogram(
     "fastapi_websocket_broadcast_duration_seconds",
     "Duration of websocket broadcast operations.",
-    labelnames=["player_id"],
 )
 WEBSOCKET_BYTES_SENT = Counter(
     "fastapi_websocket_bytes_total",
     "Total bytes of websocket payloads sent.",
-    labelnames=["player_id"],
 )
 
 TABLE_REFRESH_DURATION = Histogram(
@@ -122,7 +119,6 @@ PUBSUB_ACTIVE = Gauge(
 PUBSUB_BYTES_BROADCAST = Counter(
     "fastapi_pubsub_bytes_total",
     "Bytes broadcast to websocket subscribers via pubsub.",
-    labelnames=["player_id"],
 )
 
 RATE_LIMIT_EVENTS = Counter(
