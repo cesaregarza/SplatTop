@@ -159,12 +159,11 @@ const CompetitionFaq = ({ percentiles }) => {
       ),
     },
     {
-      question: "When does the leaderboard refresh?",
+      question: "Is the leaderboard still being updated?",
       answer: (
         <p>
-          Rankings are recomputed daily from finalized sendou.ink data at 00:30 UTC
-          (7:30&nbsp;PM Eastern during standard time, 8:30&nbsp;PM Eastern during daylight time).
-          Your entry updates the next time you play a new eligible tournament.
+          No. The competitive leaderboard has been discontinued. The standings
+          shown are historical, and new tournament results are no longer imported.
         </p>
       ),
     },
