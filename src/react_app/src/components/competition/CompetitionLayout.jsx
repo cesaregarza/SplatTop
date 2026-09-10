@@ -184,7 +184,7 @@ const CompetitionLayout = ({
             Competitive Rankings
           </h1>
           <p className="mt-2 max-w-3xl text-slate-300">
-            Refreshed once daily at 00:30 UTC. Standings only move when new tournaments are recorded.
+            Historical standings from the last published leaderboard update.
           </p>
         </div>
       </header>
@@ -216,7 +216,7 @@ const CompetitionLayout = ({
               )}
               {stale && (
                 <span className="inline-flex items-center rounded-full bg-amber-500/15 px-3 py-1 text-xs font-medium text-amber-300 ring-1 ring-amber-300/20">
-                  Stale — queued for refresh
+                  Archived snapshot
                 </span>
               )}
             </div>

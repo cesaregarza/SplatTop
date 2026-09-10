@@ -217,6 +217,15 @@ const CompetitionRoutes = () => {
 
 const CompetitionApp = () => (
   <Router>
+    <aside
+      aria-label="Leaderboard discontinued"
+      className="border-b border-amber-300/30 bg-amber-100 px-4 py-3 text-center text-sm leading-relaxed text-amber-950 sm:px-6"
+    >
+      <strong className="font-semibold">
+        This leaderboard has been discontinued.
+      </strong>{" "}
+      Rankings are no longer being updated.
+    </aside>
     <CompetitionRoutes />
   </Router>
 );
