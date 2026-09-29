@@ -301,7 +301,7 @@ jobs:
         if: github.event_name != 'pull_request'
         run: doctl kubernetes cluster kubeconfig save ${{ secrets.DIGITALOCEAN_CLUSTER_ID }}
 
-      - name: Helm dry run (cluster)
+      - name: Validate rendered manifests against cluster
         if: github.event_name != 'pull_request'
         env:
           VERSION: ${{ needs.build.outputs.next_version }}
@@ -320,9 +320,6 @@ jobs:
           set -euo pipefail
           HELM_ARGS=(
             --namespace default
-            --reuse-values
-            --atomic
-            --timeout 15m
             -f "${VALUES_FILE}"
           )
           if [ "${FASTAPI_CHANGED}" = "true" ]; then
@@ -335,7 +332,12 @@ jobs:
           if [ "${REACT_CHANGED}" = "true" ]; then
             HELM_ARGS+=(--set-string react.image.tag=${TAG})
           fi
-          helm upgrade --install splattop-prod "${CHART_DIR}" "${HELM_ARGS[@]}" --dry-run --debug
+          # Argo owns these resources; Helm release adoption is not a deployment check.
+          # Hook Jobs use Argo lifecycle handling, not apply to an existing Job.
+          rendered_manifest="$(mktemp)"
+          trap 'rm -f "$rendered_manifest"' EXIT
+          helm template splattop-prod "${CHART_DIR}" "${HELM_ARGS[@]}" --no-hooks > "$rendered_manifest"
+          kubectl apply --namespace default --dry-run=server -f "$rendered_manifest" -o name
 
       - name: Helm template (pull request)
         if: github.event_name == 'pull_request'
