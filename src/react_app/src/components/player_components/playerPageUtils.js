@@ -45,16 +45,21 @@ const getDisplaySeasonNumber = (rawSeasonNumber) =>
 const getRawSeasonNumber = (displaySeasonNumber) =>
   isFiniteNumber(displaySeasonNumber) ? displaySeasonNumber - 1 : null;
 
+const toDisplaySeasonRow = (item) => ({
+  ...item,
+  season_number: getDisplaySeasonNumber(item.season_number),
+});
+
+const getHistoricalSeasonRows = (seasonResults = []) =>
+  seasonResults.map(toDisplaySeasonRow);
+
 const getLatestSeasonRows = (latestData = []) =>
   latestData
     .filter(
       (item, index, collection) =>
         index === collection.findIndex((candidate) => candidate.mode === item.mode)
     )
-    .map((item) => ({
-      ...item,
-      season_number: getDisplaySeasonNumber(item.season_number),
-    }));
+    .map(toDisplaySeasonRow);
 
 const sortAliasesByLastSeen = (aliases = []) =>
   [...aliases].sort(
@@ -84,7 +89,10 @@ const getCombinedSeasonResults = (aggregatedData = {}) => {
     ? aggregatedData.latest_data
     : [];
 
-  return [...activeData, ...getLatestSeasonRows(latestData)];
+  return [
+    ...getHistoricalSeasonRows(activeData),
+    ...getLatestSeasonRows(latestData),
+  ];
 };
 
 const getAvailableSeasonResultTabs = (aggregatedData = {}) =>
@@ -357,7 +365,9 @@ const getHistoryRegionsByDisplaySeason = (chartData = {}) => {
 const getHistoricalSeasonResults = (chartData = {}) => {
   const historyRegions = getHistoryRegionsByDisplaySeason(chartData);
 
-  return (chartData.aggregated_data?.season_results || []).map((row) => ({
+  return getHistoricalSeasonRows(
+    chartData.aggregated_data?.season_results || []
+  ).map((row) => ({
     ...row,
     region: historyRegions.get(row.season_number) ?? row.region ?? null,
   }));

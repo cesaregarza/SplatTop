@@ -102,37 +102,37 @@ describe("SeasonArchive", () => {
           aggregated_data: {
             season_results: [
               {
-                season_number: 10,
+                season_number: 9,
                 region: true,
                 mode: "Rainmaker",
                 rank: 4,
               },
               {
-                season_number: 9,
+                season_number: 8,
                 region: false,
                 mode: "Rainmaker",
                 rank: 12,
               },
               {
-                season_number: 8,
+                season_number: 7,
                 region: false,
                 mode: "Rainmaker",
                 rank: 18,
               },
               {
-                season_number: 7,
+                season_number: 6,
                 region: true,
                 mode: "Rainmaker",
                 rank: 31,
               },
               {
-                season_number: 6,
+                season_number: 5,
                 region: true,
                 mode: "Rainmaker",
                 rank: 48,
               },
               {
-                season_number: 5,
+                season_number: 4,
                 region: false,
                 mode: "Splat Zones",
                 rank: 12,

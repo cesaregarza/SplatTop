@@ -1,4 +1,4 @@
-import { render, screen } from "@testing-library/react";
+import { act, render, screen } from "@testing-library/react";
 import App from "./App";
 
 jest.mock("./components/navbar", () => () => <div>Navbar</div>);
@@ -32,15 +32,20 @@ beforeEach(() => {
   window.history.pushState({}, "", "/");
 });
 
-test("renders without crashing", () => {
-  const { container } = render(<App />);
+test("renders without crashing", async () => {
+  let container;
+  await act(async () => {
+    ({ container } = render(<App />));
+  });
   expect(container).toBeTruthy();
 });
 
 test("renders the season archive route", async () => {
   window.history.pushState({}, "", "/legacy");
-  render(<App />);
+  await act(async () => {
+    render(<App />);
+  });
   expect(
-    await screen.findByRole("heading", { name: /season archive/i })
+    screen.getByRole("heading", { name: /season archive/i })
   ).toBeInTheDocument();
 });

@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from "react";
 import HighchartsReact from "highcharts-react-official";
 import Highcharts from "highcharts/highstock";
-import HighchartsMore from "highcharts/highcharts-more";
+import "highcharts/highcharts-more";
 import { getPercentageInSeason, getSeasonName } from "../utils/season_utils";
 import {
   filterAndProcessData,
@@ -16,8 +16,6 @@ import { useTranslation } from "react-i18next";
 import { modeKeyMap } from "../constants";
 import { getRawSeasonNumber } from "./playerPageUtils";
 import "./xchart.css";
-
-HighchartsMore(Highcharts);
 
 const formatMetricValue = (value, digits = 0, prefix = "") => {
   if (typeof value !== "number" || !Number.isFinite(value)) {

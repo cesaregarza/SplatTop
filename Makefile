@@ -1,6 +1,7 @@
 KIND_CONTEXT ?= kind-kind
 KIND_CLUSTER_NAME ?= $(if $(filter kind-%,$(KIND_CONTEXT)),$(patsubst kind-%,%,$(KIND_CONTEXT)),$(KIND_CONTEXT))
 DEV_PORTS ?= 3000 4000 5000 8001 8080 9090
+REACT_APP_VERSION ?= $(strip $(file <.version))
 LOCAL_NAMESPACE ?= splattop-local
 PORT_FORWARD_NAMESPACE ?= $(LOCAL_NAMESPACE)
 FASTAPI_SELECTOR ?= app=fast-api-app
@@ -88,7 +89,7 @@ build:
 		-t celery-worker:latest \
 		-f dockerfiles/dockerfile.celery .
 	docker build \
-		--build-arg REACT_APP_VERSION="1.0.0" \
+		--build-arg REACT_APP_VERSION="$(REACT_APP_VERSION)" \
 		-t react-app:latest \
 		-f dockerfiles/dockerfile.react .
 	kind load docker-image fast-api-app:latest
@@ -105,7 +106,10 @@ build-no-cache:
 	@$(MAKE) prune-docker-dangling-images
 	docker build --no-cache -t fast-api-app:latest -f dockerfiles/dockerfile.fast-api .
 	docker build --no-cache -t celery-worker:latest -f dockerfiles/dockerfile.celery .
-	docker build --no-cache -t react-app:latest -f dockerfiles/dockerfile.react .
+	docker build --no-cache \
+		--build-arg REACT_APP_VERSION="$(REACT_APP_VERSION)" \
+		-t react-app:latest \
+		-f dockerfiles/dockerfile.react .
 	kind load docker-image fast-api-app:latest
 	kind load docker-image celery-worker:latest
 	kind load docker-image react-app:latest
@@ -278,12 +282,12 @@ start-react-app-dev:
 
 .PHONY: format
 format:
-	black src/ tests/
-	isort src/ tests/
+	uv run --frozen black src/ tests/
+	uv run --frozen isort src/ tests/
 
 .PHONY: update-i18n
 update-i18n:
-	python scripts/i18n.py
+	uv run --frozen --no-default-groups --group scripts python scripts/i18n.py
 
 .PHONY: load-splatgpt
 load-splatgpt:
@@ -291,7 +295,7 @@ load-splatgpt:
 
 .PHONY: test
 test:
-	uv run pytest
+	uv run --frozen pytest
 
 .PHONY: kill-ports
 kill-ports:

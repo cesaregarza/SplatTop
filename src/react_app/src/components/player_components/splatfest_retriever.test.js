@@ -3,6 +3,7 @@ import { fetchFestivalDates } from "./splatfest_retriever";
 const makeJsonResponse = (data, status = 200) => ({
   ok: status >= 200 && status < 300,
   status,
+  text: jest.fn().mockResolvedValue(JSON.stringify(data)),
   json: jest.fn().mockResolvedValue(data),
 });
 

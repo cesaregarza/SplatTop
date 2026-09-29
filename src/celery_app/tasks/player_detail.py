@@ -1,7 +1,9 @@
 import logging
 import math
+from collections.abc import Mapping
 from datetime import datetime, timezone
 from time import perf_counter
+from typing import Any, TypeVar
 
 import orjson
 from sqlalchemy import text
@@ -26,6 +28,8 @@ from shared_lib.queries.player_queries import (
 )
 
 logger = logging.getLogger(__name__)
+
+HistoryRow = TypeVar("HistoryRow", bound=Mapping[str, Any])
 
 PLAYER_CHUNK_VERSION = 2
 PLAYER_FETCH_LOCK_TTL_SECONDS = 300
@@ -272,11 +276,12 @@ def _fetch_player_data(player_id: str) -> list[dict]:
     base_query = text(PLAYER_DATA_QUERY)
     start = perf_counter()
     with Session() as session:
-        result = session.execute(
-            base_query, {"player_id": player_id}
-        ).fetchall()
+        result = (
+            session.execute(base_query, {"player_id": player_id})
+            .mappings()
+            .all()
+        )
 
-    result = [{**row._asdict()} for row in result]
     if metrics_enabled():
         DATA_PULL_DURATION.labels(
             task="player_detail.fetch_player_data"
@@ -285,15 +290,19 @@ def _fetch_player_data(player_id: str) -> list[dict]:
             len(result)
         )
         PLAYER_DETAIL_ROWS.labels(stage="history_raw").observe(len(result))
-    for player in result:
-        player["timestamp"] = player["timestamp"].isoformat()
 
     reduced = reduce_player_history_rows(result)
+    serialized = []
+    for row in reduced:
+        serialized_row = dict(row)
+        serialized_row["timestamp"] = serialized_row["timestamp"].isoformat()
+        serialized.append(serialized_row)
+
     if metrics_enabled():
         PLAYER_DETAIL_ROWS.labels(stage="history_reduced").observe(
-            len(reduced)
+            len(serialized)
         )
-    return reduced
+    return serialized
 
 
 def _fetch_season_data(player_id: str) -> list[dict]:
@@ -422,13 +431,15 @@ def _is_finite_number(value) -> bool:
     return isinstance(value, (int, float)) and math.isfinite(value)
 
 
-def _get_observed_day_key(timestamp: str | None) -> str | None:
-    if not isinstance(timestamp, str):
-        return None
-
-    try:
-        parsed = datetime.fromisoformat(timestamp)
-    except ValueError:
+def _get_observed_day_key(timestamp: str | datetime | None) -> str | None:
+    if isinstance(timestamp, datetime):
+        parsed = timestamp
+    elif isinstance(timestamp, str):
+        try:
+            parsed = datetime.fromisoformat(timestamp)
+        except ValueError:
+            return None
+    else:
         return None
 
     if parsed.tzinfo is None:
@@ -439,7 +450,9 @@ def _get_observed_day_key(timestamp: str | None) -> str | None:
     return parsed.date().isoformat()
 
 
-def reduce_player_history_rows(player_data: list[dict]) -> list[dict]:
+def reduce_player_history_rows(
+    player_data: list[HistoryRow],
+) -> list[HistoryRow]:
     """Keeps only chart-relevant history rows to shrink websocket payloads.
 
     The player page needs:
@@ -451,16 +464,20 @@ def reduce_player_history_rows(player_data: list[dict]) -> list[dict]:
     if not player_data:
         return []
 
-    previous_x_power_by_partition: dict[tuple[str | None, int | None], float] = {}
-    keep_keys: set[str] = set()
-    last_row_key_by_partition: dict[tuple[str | None, int | None], str] = {}
+    previous_x_power_by_partition: dict[
+        tuple[str | None, int | None], float
+    ] = {}
+    keep_keys: set[str | datetime] = set()
+    last_row_key_by_partition: dict[
+        tuple[str | None, int | None], str | datetime
+    ] = {}
     last_row_key_by_observed_day: dict[
-        tuple[str | None, int | None, str], str
+        tuple[str | None, int | None, str], str | datetime
     ] = {}
 
     for row in player_data:
         row_key = row.get("timestamp")
-        if not isinstance(row_key, str):
+        if not isinstance(row_key, (str, datetime)):
             continue
 
         partition_key = (row.get("mode"), row.get("season_number"))
@@ -494,7 +511,7 @@ def reduce_player_history_rows(player_data: list[dict]) -> list[dict]:
     reduced_rows = [
         row
         for row in player_data
-        if isinstance(row.get("timestamp"), str)
+        if isinstance(row.get("timestamp"), (str, datetime))
         and row["timestamp"] in keep_keys
     ]
 

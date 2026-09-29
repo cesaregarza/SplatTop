@@ -1,6 +1,7 @@
 import importlib
 import os
 from collections import namedtuple
+from datetime import datetime, timezone
 
 import orjson
 
@@ -462,6 +463,84 @@ def test_reduce_player_history_rows_keeps_changes_updates_and_endpoints():
         "2024-12-05T00:00:00+00:00",
         "2024-12-06T00:00:00+00:00",
         "2024-12-07T00:00:00+00:00",
+    ]
+
+
+def test_fetch_player_history_serializes_only_reduced_rows(monkeypatch):
+    mod = importlib.import_module("celery_app.tasks.player_detail")
+    mod = importlib.reload(mod)
+    captured = {}
+
+    class DiscardedTimestamp(datetime):
+        def isoformat(self, *args, **kwargs):
+            raise AssertionError("discarded rows must not be serialized")
+
+    rows = [
+        {
+            "mode": "Rainmaker",
+            "region": False,
+            "season_number": 5,
+            "timestamp": datetime(2024, 12, 1, 0, tzinfo=timezone.utc),
+            "x_power": 2700.0,
+            "weapon_id": 10,
+            "rank": 30,
+            "updated": False,
+        },
+        {
+            "mode": "Rainmaker",
+            "region": False,
+            "season_number": 5,
+            "timestamp": DiscardedTimestamp(
+                2024, 12, 1, 1, tzinfo=timezone.utc
+            ),
+            "x_power": 2700.0,
+            "weapon_id": 10,
+            "rank": 30,
+            "updated": False,
+        },
+        {
+            "mode": "Rainmaker",
+            "region": False,
+            "season_number": 5,
+            "timestamp": datetime(2024, 12, 1, 2, tzinfo=timezone.utc),
+            "x_power": 2700.0,
+            "weapon_id": 10,
+            "rank": 30,
+            "updated": False,
+        },
+    ]
+
+    class FakeResult:
+        def mappings(self):
+            captured["used_mappings"] = True
+            return self
+
+        def all(self):
+            return rows
+
+    class FakeSession:
+        def __enter__(self):
+            return self
+
+        def __exit__(self, exc_type, exc, tb):
+            return False
+
+        def execute(self, query, params):
+            captured["params"] = params
+            return FakeResult()
+
+    monkeypatch.setattr(mod, "Session", FakeSession)
+    monkeypatch.setattr(mod, "metrics_enabled", lambda: False)
+
+    result = mod._fetch_player_data("player-optimized")
+
+    assert captured == {
+        "used_mappings": True,
+        "params": {"player_id": "player-optimized"},
+    }
+    assert [row["timestamp"] for row in result] == [
+        "2024-12-01T00:00:00+00:00",
+        "2024-12-01T02:00:00+00:00",
     ]
 
 

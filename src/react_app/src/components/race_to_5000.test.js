@@ -1,6 +1,6 @@
 import React from "react";
 import { render, screen } from "@testing-library/react";
-import { MemoryRouter } from "react-router-dom";
+import { MemoryRouter } from "react-router";
 import RaceTo5000 from "./race_to_5000";
 import useFetchWithCache from "./top500_components/fetch_with_cache";
 

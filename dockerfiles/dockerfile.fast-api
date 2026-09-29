@@ -1,9 +1,12 @@
 ###############################
 #         Base Image          #
 ###############################
-ARG BASE_IMAGE=python:3.11-slim
+ARG BASE_IMAGE=python:3.12.13-slim@sha256:646fb0bca3dd3ea1bcc6feb72c17ed16eed6e10cffc732fcc1478bd3e7f02d7b
+ARG UV_VERSION=0.12.2
 
 FROM $BASE_IMAGE AS base
+
+ARG UV_VERSION
 
 WORKDIR /app
 
@@ -15,39 +18,40 @@ RUN apt-get update && apt-get install -y \
     make \
     && rm -rf /var/lib/apt/lists/*
 
-# Install uv
-RUN pip install --no-cache-dir uv
+# Pin uv so the lockfile is interpreted consistently across builds.
+RUN pip install --no-cache-dir "uv==${UV_VERSION}"
+
+ENV PATH="/app/.venv/bin:${PATH}"
 
 ###############################
 #    Install  Dependencies    #
 ###############################
 FROM base AS dependencies
 
-# Copy project metadata files
-COPY pyproject.toml ./
+# Copy the complete dependency definition before application code for caching.
+COPY pyproject.toml uv.lock README.md ./
 
-# Install runtime dependencies into system Python environment
-RUN uv pip install --system -r pyproject.toml
+# Install only runtime dependencies from the committed lockfile.
+RUN uv sync \
+    --frozen \
+    --no-default-groups \
+    --no-install-project \
+    --compile-bytecode
 
 ###############################
 #        Build Image          #
 ###############################
 FROM dependencies AS build
 
-ARG BUILD_VERSION
-
-COPY README.md /app/
-COPY pyproject.toml /app/
 COPY src/fast_api_app /app/src/fast_api_app
 COPY src/celery_app /app/src/celery_app
 COPY src/shared_lib /app/src/shared_lib
 
-# Set version, build, and install the package
-RUN uv version ${BUILD_VERSION} && \
-    uv build && \
-    uv pip install --system dist/*.whl
+# Build and install the application without re-resolving dependencies.
+RUN uv build && \
+    uv pip install --python /app/.venv/bin/python --no-deps dist/*.whl
 
 CMD ["gunicorn", "fast_api_app.app:app", \
-     "-k", "uvicorn.workers.UvicornWorker", \
+     "-k", "uvicorn_worker.UvicornWorker", \
      "--bind", "0.0.0.0:8000", \
      "--bind", "0.0.0.0:8001"]

@@ -1,0 +1,41 @@
+from shared_lib.constants import _redis_port_from_env
+
+
+def test_explicit_redis_port_override_wins(monkeypatch):
+    monkeypatch.setenv("SPLATTOP_REDIS_PORT", "6381")
+    monkeypatch.setenv("REDIS_SERVICE_PORT", "6379")
+    monkeypatch.setenv("REDIS_PORT", "6380")
+
+    assert _redis_port_from_env() == 6381
+
+
+def test_redis_port_uses_kubernetes_service_port(monkeypatch):
+    monkeypatch.delenv("SPLATTOP_REDIS_PORT", raising=False)
+    monkeypatch.setenv("REDIS_SERVICE_PORT", "6379")
+    monkeypatch.setenv("REDIS_PORT", "tcp://10.245.248.113:6379")
+
+    assert _redis_port_from_env() == 6379
+
+
+def test_redis_port_accepts_kubernetes_service_url_fallback(monkeypatch):
+    monkeypatch.delenv("SPLATTOP_REDIS_PORT", raising=False)
+    monkeypatch.delenv("REDIS_SERVICE_PORT", raising=False)
+    monkeypatch.setenv("REDIS_PORT", "tcp://10.245.248.113:6380")
+
+    assert _redis_port_from_env() == 6380
+
+
+def test_numeric_legacy_port_overrides_kubernetes_service_port(monkeypatch):
+    monkeypatch.delenv("SPLATTOP_REDIS_PORT", raising=False)
+    monkeypatch.setenv("REDIS_SERVICE_PORT", "6379")
+    monkeypatch.setenv("REDIS_PORT", "6380")
+
+    assert _redis_port_from_env() == 6380
+
+
+def test_redis_port_defaults_when_environment_is_unset(monkeypatch):
+    monkeypatch.delenv("SPLATTOP_REDIS_PORT", raising=False)
+    monkeypatch.delenv("REDIS_SERVICE_PORT", raising=False)
+    monkeypatch.delenv("REDIS_PORT", raising=False)
+
+    assert _redis_port_from_env() == 6379

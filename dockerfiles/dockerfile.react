@@ -1,9 +1,11 @@
 ###############################
 #         Base Image          #
 ###############################
-FROM node:20 as base
+FROM node:24.15.0@sha256:f22d6a1f082c02f292e86929b5b0442ac2e5eaf438a5dea9b1566601c3e05940 AS base
 
 WORKDIR /app
+
+RUN npm install --global npm@12.0.2
 
 ###############################
 #    Install Dependencies     #
@@ -24,19 +26,16 @@ ENV REACT_APP_VERSION=$REACT_APP_VERSION
 
 COPY src/react_app/src ./src
 COPY src/react_app/public ./public
-COPY src/react_app/postcss.config.js ./
-# Use the conventional Tailwind config filename for v4
+COPY src/react_app/index.html ./
 COPY src/react_app/tailwind.config.js ./
-
-# Patch CRA's PostCSS plugins to use Tailwind v4's plugin
-RUN sed -i "s/'tailwindcss'/'@tailwindcss\\/postcss'/" node_modules/react-scripts/config/webpack.config.js
+COPY src/react_app/vite.config.mjs ./
 
 RUN npm run build
 
 ###############################
 #        Final Image          #
 ###############################
-FROM nginx:stable-alpine
+FROM nginx:1.30.4-alpine@sha256:97d490c12ba55b4946b01546d1c3ed324e8d41ab1c9fcb2a616aa470620e5b46
 
 COPY --from=build /app/build /usr/share/nginx/html
 

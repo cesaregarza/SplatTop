@@ -54,37 +54,37 @@ describe("Achievements", () => {
           aggregated_data: {
             season_results: [
               {
-                season_number: 8,
+                season_number: 7,
                 region: true,
                 mode: "Splat Zones",
                 rank: 1,
               },
               {
-                season_number: 8,
+                season_number: 7,
                 region: true,
                 mode: "Tower Control",
                 rank: 21,
               },
               {
-                season_number: 7,
+                season_number: 6,
                 region: false,
                 mode: "Splat Zones",
                 rank: 5,
               },
               {
-                season_number: 7,
+                season_number: 6,
                 region: false,
                 mode: "Tower Control",
                 rank: 7,
               },
               {
-                season_number: 7,
+                season_number: 6,
                 region: false,
                 mode: "Rainmaker",
                 rank: 8,
               },
               {
-                season_number: 7,
+                season_number: 6,
                 region: false,
                 mode: "Clam Blitz",
                 rank: 9,
@@ -126,7 +126,7 @@ describe("Achievements", () => {
           aggregated_data: {
             season_results: [
               {
-                season_number: 8,
+                season_number: 7,
                 mode: "Splat Zones",
                 rank: 1,
               },

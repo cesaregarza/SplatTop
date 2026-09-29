@@ -1,10 +1,9 @@
 /**
  * Tailwind CSS configuration (v4-compatible) for the React app.
- * Using the conventional filename so CRA/PostCSS auto-detects it
- * without relying on the @config directive.
+ * Loaded explicitly from index.css so Vite and Tailwind scan the same sources.
  */
 module.exports = {
-  content: ['./src/**/*.{js,jsx,ts,tsx}', './public/index.html'],
+  content: ['./src/**/*.{js,jsx,ts,tsx}', './index.html'],
   darkMode: 'class',
   theme: {
     extend: {
@@ -17,4 +16,3 @@ module.exports = {
   },
   plugins: [],
 };
-

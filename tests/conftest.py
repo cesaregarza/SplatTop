@@ -40,6 +40,18 @@ class _FakePipeline:
         self._ops.append(("hset", key, field, value, mapping))
         return self
 
+    def hdel(self, key, *fields):
+        self._ops.append(("hdel", key, fields))
+        return self
+
+    def hincrby(self, key, field, amount=1):
+        self._ops.append(("hincrby", key, field, amount))
+        return self
+
+    def hincrbyfloat(self, key, field, amount=1.0):
+        self._ops.append(("hincrbyfloat", key, field, amount))
+        return self
+
     def sadd(self, key, member):
         self._ops.append(("sadd", key, member))
         return self
@@ -421,11 +433,11 @@ def app(fake_redis, monkeypatch, tmp_path):
     import fast_api_app.comp_auth as comp_auth_mod
     import fast_api_app.connections as conn_mod
     import fast_api_app.middleware as mw_mod
-    import fast_api_app.sqlite_lookup_store as lookup_store_mod
-    import fast_api_app.routes.analytics as analytics_mod
     import fast_api_app.routes.admin_tokens as admin_mod
+    import fast_api_app.routes.analytics as analytics_mod
     import fast_api_app.routes.ripple_public as ripple_public_mod
     import fast_api_app.routes.search as search_mod
+    import fast_api_app.sqlite_lookup_store as lookup_store_mod
 
     # Patch Redis in all modules that captured it at import time
     monkeypatch.setattr(app_mod, "redis_conn", fake_redis, raising=False)
@@ -627,9 +639,9 @@ def override_admin(client):
     """Override admin auth dependency for the duration of a test."""
     import fast_api_app.routes.admin_tokens as admin_mod
 
-    client.app.dependency_overrides[
-        admin_mod.require_admin_token
-    ] = lambda: True
+    client.app.dependency_overrides[admin_mod.require_admin_token] = (
+        lambda: True
+    )
     try:
         yield
     finally:

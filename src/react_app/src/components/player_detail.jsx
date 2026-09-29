@@ -1,9 +1,8 @@
 import React, { useState, useEffect, useRef, Suspense } from "react";
-import { useParams } from "react-router-dom";
+import { useParams } from "react-router";
 import Loading from "./misc_components/loading";
 import { modes } from "./constants";
 import { getBaseApiUrl, getBaseWebsocketUrl } from "./utils";
-import pako from "pako";
 import { useTranslation } from "react-i18next";
 import { fetchJson } from "../http";
 import {
@@ -11,9 +10,13 @@ import {
   useWeaponAndTranslation,
 } from "./utils/weaponAndTranslation";
 import {
+  buildPlayerDetailWebsocketUrl,
   createPlayerDetailStreamState,
   reducePlayerDetailStreamState,
 } from "./player_components/playerDataUtils";
+import {
+  decodeCompressedPlayerPayload,
+} from "./player_components/playerPayloadCodec";
 
 const ChartController = React.lazy(() =>
   import("./player_components/chart_controller")
@@ -54,7 +57,10 @@ const PlayerDetailContent = () => {
       const apiUrl = getBaseApiUrl();
       const endpoint = `${apiUrl}/api/players/${player_id}`;
       const baseWebsocketUrl = getBaseWebsocketUrl();
-      const websocketEndpoint = `${baseWebsocketUrl}/ws/player/${player_id}`;
+      const websocketEndpoint = buildPlayerDetailWebsocketUrl(
+        baseWebsocketUrl,
+        player_id
+      );
 
       try {
         const playerData = await fetchJson(endpoint);
@@ -84,10 +90,7 @@ const PlayerDetailContent = () => {
           if (event.data instanceof Blob) {
             const reader = new FileReader();
             reader.onload = () => {
-              const decompressedData = pako.inflate(reader.result, {
-                to: "string",
-              });
-              const newData = JSON.parse(decompressedData);
+              const newData = decodeCompressedPlayerPayload(reader.result);
               applySocketPayload(newData);
             };
             reader.readAsArrayBuffer(event.data);

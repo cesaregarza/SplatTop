@@ -2,7 +2,7 @@ import React, { Suspense, useEffect, useState } from "react";
 import "./App.css";
 import Navbar from "./components/navbar";
 import Footer from "./components/footer";
-import { BrowserRouter as Router, Route, Routes } from "react-router-dom";
+import { BrowserRouter as Router, Route, Routes } from "react-router";
 import CompetitionApp from "./components/competition/CompetitionApp";
 
 const Top500 = React.lazy(() => import("./components/top500"));
@@ -91,11 +91,11 @@ const MainSiteApp = () => (
       <Navbar />
       <Suspense fallback={<div>Loading...</div>}>
         <Routes>
-          <Route exact path="/" element={<Top500 />} />
-          <Route exact path="/top500" element={<Top500 />} />
-          <Route exact path="/legacy" element={<LegacyLeaderboards />} />
-          <Route exact path="/faq" element={<FAQ />} />
-          <Route exact path="/about" element={<About />} />
+          <Route path="/" element={<Top500 />} />
+          <Route path="/top500" element={<Top500 />} />
+          <Route path="/legacy" element={<LegacyLeaderboards />} />
+          <Route path="/faq" element={<FAQ />} />
+          <Route path="/about" element={<About />} />
           <Route path="/player/:player_id" element={<PlayerDetail />} />
           <Route path="/analytics" element={<Analytics />} />
           <Route path="/top_weapons" element={<TopWeapons />} />

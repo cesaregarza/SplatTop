@@ -1,0 +1,90 @@
+name: Celery resource checks
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - main
+    paths:
+      - ".github/workflows/celery-resource-checks.yml"
+      - "pyproject.toml"
+      - "uv.lock"
+      - "src/celery_app/**"
+      - "src/shared_lib/**"
+      - "tests/celery/test_player_match_loo_postgres.py"
+      - "tests/celery/test_ripple_snapshot_core.py"
+      - "tests/celery/test_task_memory_metrics.py"
+  pull_request:
+    branches:
+      - main
+    paths:
+      - ".github/workflows/celery-resource-checks.yml"
+      - "pyproject.toml"
+      - "uv.lock"
+      - "src/celery_app/**"
+      - "src/shared_lib/**"
+      - "tests/celery/test_player_match_loo_postgres.py"
+      - "tests/celery/test_ripple_snapshot_core.py"
+      - "tests/celery/test_task_memory_metrics.py"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: celery-resource-checks-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  UV_VERSION: "0.12.2"
+  OMP_NUM_THREADS: "1"
+  OPENBLAS_NUM_THREADS: "1"
+  MKL_NUM_THREADS: "1"
+  NUMEXPR_NUM_THREADS: "1"
+
+jobs:
+  postgres-parity:
+    name: PostgreSQL parity (Python 3.12)
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      SPLAT_TEST_POSTGRES_DSN: postgresql+psycopg2://test:test@127.0.0.1:5432/celery_test
+    services:
+      postgres:
+        image: postgres:14.24-alpine@sha256:727876d274666da0b92a445390ba093c84b8e9f8343e1c53cd4e9a7ab2d85310
+        env:
+          POSTGRES_DB: celery_test
+          POSTGRES_USER: test
+          POSTGRES_PASSWORD: test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U test -d celery_test"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 20
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+
+      - name: Set up uv
+        uses: astral-sh/setup-uv@v9.0.0
+        with:
+          version: ${{ env.UV_VERSION }}
+          enable-cache: true
+
+      - name: Install frozen backend environment
+        run: uv sync --frozen --all-groups
+
+      - name: Run PostgreSQL parity and Celery resource tests
+        run: >-
+          uv run --frozen pytest -p no:cacheprovider
+          tests/celery/test_player_match_loo_postgres.py
+          tests/celery/test_ripple_snapshot_core.py
+          tests/celery/test_task_memory_metrics.py

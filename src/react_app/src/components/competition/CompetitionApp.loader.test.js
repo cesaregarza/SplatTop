@@ -1,9 +1,10 @@
 import React from "react";
-import { fireEvent, render, screen } from "@testing-library/react";
-import {
-  RouterProvider,
-  createMemoryRouter,
-} from "react-router-dom";
+import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import CompetitionApp from "./CompetitionApp";
+import { loadCompetitionSnapshot } from "./competitionSnapshotApi";
+import useCompetitionSnapshot from "../../hooks/useCompetitionSnapshot";
+
+jest.mock("../../hooks/useCompetitionSnapshot");
 
 jest.mock("../utils", () => ({
   getBaseApiUrl: jest.fn(() => ""),
@@ -37,18 +38,19 @@ jest.mock("./CompetitionErrorBoundary", () => ({
   default: ({ children }) => children,
 }));
 
-jest.mock("./CompetitionPlayerPage", () => ({
-  __esModule: true,
-  default: () => <div>player</div>,
-  loadCompetitionPlayer: jest.fn(),
+jest.mock("./CompetitionAuth", () => ({
+  useCompetitionAuth: () => ({
+    available: false,
+    authenticated: false,
+    isAdmin: false,
+    discordId: null,
+    error: null,
+    loading: false,
+    logout: jest.fn(),
+    logoutPending: false,
+  }),
 }));
 
-import {
-  CompetitionFaqPage,
-  CompetitionLeaderboardPage,
-  CompetitionRouteShell,
-  loadCompetitionSnapshot,
-} from "./CompetitionApp";
 import { getBaseApiUrl } from "../utils";
 
 const makeJsonResponse = (data, status = 200) => ({
@@ -92,24 +94,29 @@ const makePercentilesPayload = (overrides = {}) => ({
   ...overrides,
 });
 
-const makeSnapshotRouter = (entry) => createMemoryRouter(
-  [
-    {
-      loader: loadCompetitionSnapshot,
-      element: <CompetitionRouteShell />,
-      children: [
-        { path: "/", element: <CompetitionLeaderboardPage /> },
-        { path: "/faq", element: <CompetitionFaqPage /> },
-      ],
-    },
-  ],
-  { initialEntries: [entry] }
-);
+const makeSnapshot = (overrides = {}) => ({
+  loading: false,
+  error: null,
+  disabled: false,
+  stable: makeStablePayload(),
+  danger: makeDangerPayload(),
+  meta: { build_version: "v1" },
+  percentiles: makePercentilesPayload(),
+  refresh: jest.fn(),
+  ...overrides,
+});
+
+const renderCompetitionApp = (entry, snapshot) => {
+  window.history.pushState({}, "", entry);
+  useCompetitionSnapshot.mockReturnValue(snapshot);
+  return render(<CompetitionApp />);
+};
 
 describe("CompetitionApp snapshot loader", () => {
   beforeEach(() => {
     jest.clearAllMocks();
     getBaseApiUrl.mockReturnValue("");
+    window.history.pushState({}, "", "/");
   });
 
   afterEach(() => {
@@ -138,95 +145,39 @@ describe("CompetitionApp snapshot loader", () => {
     });
   });
 
-  it("renders leaderboard rows from loader data and refreshes via revalidation", async () => {
-    global.fetch = jest.fn()
-      .mockResolvedValueOnce(makeJsonResponse(makeStablePayload()))
-      .mockResolvedValueOnce(makeJsonResponse(makeDangerPayload()))
-      .mockResolvedValueOnce(makeJsonResponse({ build_version: "v1" }))
-      .mockResolvedValueOnce(makeJsonResponse(makePercentilesPayload()))
-      .mockResolvedValueOnce(
-        makeJsonResponse(
-          makeStablePayload({
-            data: [
-              {
-                player_id: "p1",
-                display_name: "Player One",
-                stable_rank: 1,
-                display_score: 235.11,
-                score: 3.4044,
-                last_tournament_ms: 1_700_000_000_000,
-                window_tournament_count: 13,
-              },
-              {
-                player_id: "p2",
-                display_name: "Player Two",
-                stable_rank: 2,
-                display_score: 229.0,
-                score: 3.16,
-                last_tournament_ms: 1_700_000_000_000,
-                window_tournament_count: 12,
-              },
-            ],
-          })
-        )
-      )
-      .mockResolvedValueOnce(makeJsonResponse(makeDangerPayload({
-        data: [
-          {
-            player_id: "p1",
-            days_left: 5,
-            window_tournament_count: 13,
-          },
-          {
-            player_id: "p2",
-            days_left: 11,
-            window_tournament_count: 12,
-          },
-        ],
-      })))
-      .mockResolvedValueOnce(makeJsonResponse({ build_version: "v2" }))
-      .mockResolvedValueOnce(makeJsonResponse(makePercentilesPayload()));
-
-    const router = makeSnapshotRouter("/");
-    render(<RouterProvider router={router} />);
+  it("renders leaderboard rows and refreshes the current snapshot", async () => {
+    const refresh = jest.fn().mockResolvedValue(undefined);
+    renderCompetitionApp("/", makeSnapshot({ refresh }));
 
     await screen.findByText("rows:1");
 
     fireEvent.click(screen.getByRole("button", { name: /refresh snapshot/i }));
 
-    await screen.findByText("rows:2");
-    expect(global.fetch).toHaveBeenCalledTimes(8);
+    await waitFor(() => expect(refresh).toHaveBeenCalledTimes(1));
   });
 
   it("renders faq content from loader data", async () => {
-    global.fetch = jest.fn()
-      .mockResolvedValueOnce(makeJsonResponse(makeStablePayload()))
-      .mockResolvedValueOnce(makeJsonResponse(makeDangerPayload()))
-      .mockResolvedValueOnce(makeJsonResponse({ build_version: "v1" }))
-      .mockResolvedValueOnce(
-        makeJsonResponse(
-          makePercentilesPayload({
-            score_population: { count: 512 },
-          })
-        )
-      );
-
-    const router = makeSnapshotRouter("/faq");
-    render(<RouterProvider router={router} />);
+    renderCompetitionApp(
+      "/faq",
+      makeSnapshot({
+        percentiles: makePercentilesPayload({
+          score_population: { count: 512 },
+        }),
+      })
+    );
 
     await screen.findByText("faq-count:512");
   });
 
   it("renders the leaderboard error state without throwing a route error", async () => {
-    global.fetch = jest.fn().mockResolvedValue(
-      makeJsonResponse(
-        { detail: "Snapshot fetch failed" },
-        500
-      )
+    renderCompetitionApp(
+      "/",
+      makeSnapshot({
+        error: "Snapshot fetch failed",
+        stable: null,
+        danger: null,
+      })
     );
-
-    const router = makeSnapshotRouter("/");
-    render(<RouterProvider router={router} />);
 
     await screen.findByText(/^Snapshot fetch failed$/);
     expect(screen.getByText("rows:0")).toBeInTheDocument();

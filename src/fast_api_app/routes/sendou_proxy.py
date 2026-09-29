@@ -24,7 +24,7 @@ REQUEST_TIMEOUT = 10.0
 
 # Route keys for different sendou.ink endpoints
 ROUTE_KEY_TOURNAMENT_MATCH = (
-    "features/tournament-bracket/routes/to.$id.matches.$mid"
+    "features/tournament-match/routes/to.$id.matches.$mid"
 )
 ROUTE_KEY_TOURNAMENT_TEAM = "features/tournament/routes/to.$id.teams.$tid"
 ROUTE_KEY_TOURNAMENT = "features/tournament/routes/to.$id"
@@ -56,8 +56,7 @@ def _decode_and_extract(
     route_data = decoder.get_route_data(route_key)
 
     if route_data is None:
-        # Return the full decoded data if route key not found
-        return decoder.decode()
+        raise ValueError(f"Route data not found: {route_key}")
 
     return route_data
 

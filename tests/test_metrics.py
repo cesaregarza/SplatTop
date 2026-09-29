@@ -14,6 +14,7 @@ from shared_lib.monitoring.constants import (
     CELERY_TASK_FAILURE_HASH,
     CELERY_TASK_INFLIGHT_SET,
     CELERY_TASK_LAST_RUN_HASH,
+    CELERY_TASK_MEMORY_HASH,
 )
 
 
@@ -40,6 +41,18 @@ def test_metrics_endpoint_includes_celery_state(client, fake_redis):
     fake_redis.hincrbyfloat(CELERY_TASK_DURATION_HASH, task_name, 12.5)
     fake_redis.hincrby(CELERY_TASK_FAILURE_HASH, task_name, 1)
     fake_redis.hset(CELERY_TASK_LAST_RUN_HASH, task_name, str(time.time()))
+    fake_redis.hset(
+        CELERY_TASK_MEMORY_HASH,
+        task_name,
+        orjson.dumps(
+            {
+                "rss_before_bytes": 10_000,
+                "rss_after_bytes": 9_000,
+                "rss_delta_bytes": -1_000,
+                "process_rss_hwm_bytes": 12_000,
+            }
+        ).decode(),
+    )
     fake_redis.sadd(CELERY_TASK_INFLIGHT_SET, "foo-id")
 
     metrics_resp = client.get("/metrics")
@@ -48,6 +61,13 @@ def test_metrics_endpoint_includes_celery_state(client, fake_redis):
 
     assert f'celery_task_executions_total{{task="{task_name}"}} 3.0' in body
     assert f'celery_task_failures_total{{task="{task_name}"}} 1.0' in body
+    assert f'celery_task_rss_before_bytes{{task="{task_name}"}} 10000.0' in body
+    assert f'celery_task_rss_after_bytes{{task="{task_name}"}} 9000.0' in body
+    assert f'celery_task_rss_delta_bytes{{task="{task_name}"}} -1000.0' in body
+    assert (
+        f'celery_task_process_rss_high_water_bytes{{task="{task_name}"}} 12000.0'
+        in body
+    )
     assert "celery_tasks_in_progress" in body
 
 

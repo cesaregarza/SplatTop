@@ -5,7 +5,7 @@ import WeaponLeaderboardTable from "./weapon_leaderboard_table";
 
 const mockNavigate = jest.fn();
 
-jest.mock("react-router-dom", () => ({
+jest.mock("react-router", () => ({
   useNavigate: () => mockNavigate,
 }));
 

@@ -52,7 +52,31 @@ def map_indices_to_data(df: pd.DataFrame) -> pd.DataFrame:
         .reset_index()
     )
     df_melted = compute_probability_map(df["xp_scaled"].sort_values())
-    interpolator = create_interpolator(df_melted)
+    interpolator = None
+    distributions: dict[int, pd.DataFrame] = {}
+    bin_template = df_melted.drop_duplicates(subset=["bin_center"])[
+        ["bin_center", "lower", "upper"]
+    ]
+
+    def distribution_for_count(count: int) -> pd.DataFrame:
+        """Get one count's distribution, preserving melted row order."""
+        nonlocal interpolator
+
+        if count in distributions:
+            return distributions[count]
+
+        subset = df_melted.loc[df_melted["k"].eq(count)]
+        if subset.empty:
+            if interpolator is None:
+                interpolator = create_interpolator(df_melted)
+            centers = bin_template["bin_center"].to_numpy()
+            log_probs = interpolator((centers, np.full(centers.shape, count)))
+            subset = bin_template.assign(log_prob=log_probs)
+        else:
+            subset = subset[["bin_center", "log_prob", "lower", "upper"]]
+
+        distributions[count] = subset
+        return subset
 
     results = []
     for _, row in agg_data.iterrows():
@@ -61,19 +85,7 @@ def map_indices_to_data(df: pd.DataFrame) -> pd.DataFrame:
         median = row["xp_scaled"]["median"]
         count = row["xp_scaled"]["count"]
 
-        subset = df_melted.query("k == @count")
-        if subset.empty:
-            log_probs = interpolator(
-                (df_melted["bin_center"], [count] * df_melted.shape[0]),
-            )
-            subset = pd.DataFrame(
-                {
-                    "bin_center": df_melted["bin_center"],
-                    "log_prob": log_probs,
-                    "lower": df_melted["lower"],
-                    "upper": df_melted["upper"],
-                }
-            )
+        subset = distribution_for_count(count)
 
         # Find the mode and its log probability
         mode_row = subset.loc[subset["log_prob"].idxmax()]
@@ -107,7 +119,9 @@ def compute_probability_map(sorted_xp_scaled: pd.Series) -> pd.DataFrame:
         sorted_xp_scaled, probability_surface.shape[0]
     )
 
-    prob_df = pd.DataFrame(probability_surface)
+    # Keep the mmap-backed surface as the frame's read-only data.  The frame
+    # only receives new columns below; no operation mutates its source values.
+    prob_df = pd.DataFrame(probability_surface, copy=False)
     prob_df.columns = [int(x) * 2 + 1 for x in range(prob_df.shape[1])]
     prob_df["y"] = sorted_xp_scaled.values
     prob_df["y_bin"] = pd.cut(prob_df["y"], bins=NUM_BINS)
