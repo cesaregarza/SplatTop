@@ -125,6 +125,9 @@ jobs:
           tests/routes/test_sendou_proxy.py
           tests/test_app_startup.py
           tests/test_player_websocket.py
+          tests/test_http_metrics.py
+          tests/test_metrics.py
+          tests/test_websocket_metrics.py
           tests/celery/test_weapon_leaderboard.py
 
   frontend:

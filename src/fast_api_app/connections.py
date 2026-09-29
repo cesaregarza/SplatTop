@@ -104,8 +104,11 @@ class ConnectionManager:
         }
         if metrics_enabled():
             WEBSOCKET_EVENTS.labels(event="connected").inc()
-            WEBSOCKET_CONNECTIONS.labels(player_id=player_id).set(
-                len(self.active_connections[player_id])
+            WEBSOCKET_CONNECTIONS.set(
+                sum(
+                    len(connections)
+                    for connections in self.active_connections.values()
+                )
             )
         logger.info(
             "Client connected and added to room: %s with connection id: %s (progressive=%s)",
@@ -255,16 +258,13 @@ class ConnectionManager:
             del self.active_connections[player_id][connection_id]
             if not self.active_connections[player_id]:
                 del self.active_connections[player_id]
-                if metrics_enabled():
-                    try:
-                        WEBSOCKET_CONNECTIONS.remove(player_id)
-                    except KeyError:
-                        pass
-            elif metrics_enabled():
-                WEBSOCKET_CONNECTIONS.labels(player_id=player_id).set(
-                    len(self.active_connections[player_id])
-                )
             if metrics_enabled():
+                WEBSOCKET_CONNECTIONS.set(
+                    sum(
+                        len(connections)
+                        for connections in self.active_connections.values()
+                    )
+                )
                 WEBSOCKET_EVENTS.labels(event="disconnected").inc()
             logger.info(
                 "Client disconnected, id: %s, connection id: %s",
@@ -335,12 +335,8 @@ class ConnectionManager:
             if metrics_enabled():
                 duration = perf_counter() - start
                 WEBSOCKET_EVENTS.labels(event="broadcast").inc(recipients)
-                WEBSOCKET_BROADCAST_DURATION.labels(
-                    player_id=player_id
-                ).observe(duration)
-                WEBSOCKET_BYTES_SENT.labels(player_id=player_id).inc(
-                    len(compressed_message) * recipients
-                )
+                WEBSOCKET_BROADCAST_DURATION.observe(duration)
+                WEBSOCKET_BYTES_SENT.inc(len(compressed_message) * recipients)
             logger.info("Compressed data sent")
         else:
             logger.info("Player %s not connected", player_id)

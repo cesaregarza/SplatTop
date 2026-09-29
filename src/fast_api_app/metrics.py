@@ -2,14 +2,18 @@
 
 from __future__ import annotations
 
+from collections.abc import Sequence
 from time import perf_counter
 
 from fastapi import FastAPI, Request
 from fastapi.responses import Response
+from fastapi.routing import iter_route_contexts
 from starlette.middleware.base import (
     BaseHTTPMiddleware,
     RequestResponseEndpoint,
 )
+from starlette.routing import BaseRoute, Host, Match, Mount
+from starlette.types import Scope
 
 from shared_lib.monitoring import (
     INFLIGHT_REQUESTS,
@@ -19,6 +23,20 @@ from shared_lib.monitoring import (
     ensure_collectors_registered,
     metrics_enabled,
     render_latest,
+)
+
+_HTTP_METHODS = frozenset(
+    {
+        "GET",
+        "HEAD",
+        "POST",
+        "PUT",
+        "DELETE",
+        "CONNECT",
+        "OPTIONS",
+        "TRACE",
+        "PATCH",
+    }
 )
 
 
@@ -59,7 +77,7 @@ class PrometheusMiddleware(BaseHTTPMiddleware):
         if not metrics_enabled() or request.url.path == "/metrics":
             return await call_next(request)
 
-        method = request.method
+        method = request.method if request.method in _HTTP_METHODS else "OTHER"
         path = _resolve_route_path(request)
 
         start = perf_counter()
@@ -77,8 +95,31 @@ class PrometheusMiddleware(BaseHTTPMiddleware):
 
 
 def _resolve_route_path(request: Request) -> str:
-    route = request.scope.get("route")
-    if route and getattr(route, "path", None):
-        return route.path
-    raw_path = request.url.path
-    return raw_path.split("?")[0]
+    # Middleware runs before routing, so scope["route"] is not set yet. Match
+    # registered templates without executing the endpoint or labeling raw URLs.
+    return _match_route_path(request.scope, request.app.routes) or "unmatched"
+
+
+def _match_route_path(scope: Scope, routes: Sequence[BaseRoute]) -> str | None:
+    partial_path = None
+    # FastAPI includes routers lazily. Its public contexts retain include_router
+    # prefixes and match semantics that are absent on the original route object.
+    for route in iter_route_contexts(routes):
+        match, child_scope = route.matches(scope)
+        if match == Match.NONE:
+            continue
+        if isinstance(route.original_route, (Mount, Host)):
+            prefix = route.path or ""
+            if not route.routes:
+                return prefix + "/{path:path}"
+            child_path = _match_route_path(
+                {**scope, **child_scope}, route.routes
+            )
+            return prefix + child_path if child_path is not None else None
+        if match == Match.FULL:
+            return route.path
+        # Keep the first method mismatch for 405s, but let a later full match
+        # win just as the application router does.
+        if partial_path is None:
+            partial_path = route.path
+    return partial_path

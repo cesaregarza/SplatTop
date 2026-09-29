@@ -84,3 +84,32 @@ post-task RSS remains elevated across tasks; HWM remains elevated after a peak
 and should not by itself trigger recycling. Tune recycling in the
 deployment/config repository after observing sustained behavior rather than
 changing live worker thresholds from this instrumentation change.
+
+## HTTP and WebSocket cardinality
+
+HTTP request counts, latency histograms, and in-flight gauges use the registered
+route template as `path`, including router and mount prefixes. For example,
+all `/api/search/{query}` requests share a label regardless of the search text.
+The middleware resolves the template before dispatch so in-flight counts are
+visible while an endpoint runs. It never uses the raw request path as a label.
+Unmatched requests and slash redirects use `path="unmatched"`; opaque ASGI mounts
+use their registered prefix followed by `/{path:path}`. Nonstandard HTTP methods
+share `method="OTHER"`. Method mismatches keep the matching route template.
+
+WebSocket connection counts, broadcast latency, and byte counters aggregate
+across players. Player IDs remain part of application routing and are excluded
+from all Prometheus labels. Existing metric names and aggregate dashboard
+queries remain valid.
+
+Roll out the application image before judging scrape recovery. Existing workers
+retain their old in-memory series until replaced; changing a dashboard or raising
+the scrape limit does not remove those series. Keep the production sample limit
+at 15,000. After deployment, verify both FastAPI targets are `up`, the scrape
+sample counts stay below that limit, and new player IDs, searches, and missing
+URLs do not continually add series. Roll back via the prior immutable image pin
+if application acceptance fails; that also reintroduces the old cardinality bug.
+
+Regression coverage lives in `tests/test_http_metrics.py` and
+`tests/test_websocket_metrics.py` and runs in the backend CI smoke suite. The HTTP
+suite uses an isolated app/registry so it requires no database, Redis, or
+production background tasks.
