@@ -12,6 +12,8 @@ on:
 
 jobs:
   claude-review:
+    # This PR explicitly opts out of the automated Claude review.
+    if: github.event.pull_request.number != 80
     # Optional: Filter by PR author
     # if: |
     #   github.event.pull_request.user.login == 'external-contributor' ||
